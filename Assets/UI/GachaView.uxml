@@ -1,0 +1,6 @@
+<engine:UXML xmlns:engine="UnityEngine.UIElements"> 
+<engine:VisualElement class="gacha-view"> 
+<engine:Button name="btn_open_pack" text="btn_open_pack"/> 
+<engine:ScrollView name="results_area" mode="Vertical"/> 
+</engine:VisualElement> 
+</engine:UXML>

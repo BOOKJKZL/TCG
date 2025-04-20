@@ -915,10 +915,10 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: 8f58fd06-f06b-4b91-af5e-14b170c89d19
+  cloudProjectId: bb0a14f0-ed17-4861-a308-431876143865
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: Empty
+  projectName: Empty (1)
   organizationId: jiejingleek
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0

@@ -1,0 +1,8 @@
+﻿<engine:UXML xmlns:engine="UnityEngine.UIElements"> 
+	<engine:VisualElement class="main-menu"> 
+		<engine:Button name="btn_open_gacha" text="Open Pack"/> 
+		<engine:Button name="btn_open_collection" text="Collection"/> 
+		<engine:Button name="btn_language_cn" text="中文"/> 
+		<engine:Button name="btn_language_en" text="English"/> 
+	</engine:VisualElement> 
+</engine:UXML>

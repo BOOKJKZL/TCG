@@ -1,0 +1,7 @@
+<engine:UXML xmlns:engine="UnityEngine.UIElements"> 
+	<engine:VisualElement class="card-item"> 
+		<engine:VisualElement name="card_art" class="card-art"/> 
+		<engine:Label name="card_name" class="card-name"/> 
+		<engine:Label name="card_rarity" class="card-rarity"/> 
+	</engine:VisualElement> 
+</engine:UXML>

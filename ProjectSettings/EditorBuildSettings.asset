@@ -8,6 +8,17 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Scenes/MainMenuScene.unity
+    guid: e4650502f63aa524caec910f21a5604b
+  - enabled: 1
+    path: Assets/Scenes/GachaScene.unity
+    guid: 7e533c0cc16f092499847de214c55e8e
+  - enabled: 1
+    path: Assets/Scenes/CollectionScene.unity
+    guid: 528496cfd84f9b8418df4393a2e7709c
   m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: b9c556a7b917b444e83c5b94eb50b598, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.localization.settings: {fileID: 11400000, guid: 881d1742646bc6748954064cf1783d8d, type: 2}
   m_UseUCBPForAssetBundles: 0

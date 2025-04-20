@@ -1,0 +1,6 @@
+<engine:UXML xmlns:engine="UnityEngine.UIElements"> 
+<engine:VisualElement class="collection-view"> 
+<engine:ListView name="collection_list"/> 
+<engine:VisualElement name="details_panel"/> 
+</engine:VisualElement> 
+</engine:UXML>
