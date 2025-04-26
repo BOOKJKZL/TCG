@@ -15,23 +15,19 @@ public class GameBootloader : MonoBehaviour
         if (Inventory.Instance == null)
             Instantiate(inventoryPrefab);
 
-        // ✅ 初始化 Unity Services
         await UnityServices.InitializeAsync();
 
-        // ✅ 匿名登录
         if (!AuthenticationService.Instance.IsSignedIn)
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
 
         Debug.Log("Unity Services Initialized and Signed In");
 
-        // ✅ 安全加载 Cloud Save
         CloudSaveServiceWrapper.LoadInventory((cards, gold) =>
         {
             Inventory.Instance.Data.Cards = cards;
             Inventory.Instance.Data.Gold = gold;
         });
 
-        // ✅ 加载本地备份（可选）
         InventoryData local = LocalSaveService.Load();
         Inventory.Instance.Data = local;
     }
