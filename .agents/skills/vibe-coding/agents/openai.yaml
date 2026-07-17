@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vibe Coding"
+  short_description: "规划、实现并风险分级验证安全高质量的仓库代码修改流程"
+  default_prompt: "Use $vibe-coding to inspect, plan, implement, and verify this repository change."
