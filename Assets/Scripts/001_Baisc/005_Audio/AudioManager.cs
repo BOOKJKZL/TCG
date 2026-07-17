@@ -1,10 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using Gacha.Presentation;
 using UnityEngine;
 
 public enum AudioType { music, sfx, effect }
 
-public class AudioManager : MonoBehaviour
+public class AudioManager : MonoBehaviour, IAudioFeedbackSink
 {
     public List<AudioSource> musicSources;
     public List<AudioSource> sfxSources;
@@ -20,14 +21,35 @@ public class AudioManager : MonoBehaviour
 
     void Awake()
     {
-       LoadAudioClipsFromConfig();
+        musicSources ??= new List<AudioSource>();
+        sfxSources ??= new List<AudioSource>();
+        effectsSources ??= new List<AudioSource>();
+
+        LoadAudioClipsFromConfig();
+        EnsureFeedbackSource();
+        EnsureRuntimeFeedbackClips();
+    }
+
+    private void OnEnable()
+    {
+        UIFeedbackService.RegisterAudioSink(this);
+    }
+
+    private void OnDisable()
+    {
+        UIFeedbackService.UnregisterAudioSink(this);
     }
 
     private void LoadAudioClipsFromConfig()
     {
+        if (audioConfig == null || audioConfig.audioEntries == null)
+        {
+            return;
+        }
+
         foreach (var entry in audioConfig.audioEntries)
         {
-            if (!audioClips.ContainsKey(entry.key))
+            if (entry != null && !string.IsNullOrWhiteSpace(entry.key) && entry.clip != null && !audioClips.ContainsKey(entry.key))
             {
                 audioClips.Add(entry.key, entry.clip);
             }
@@ -36,13 +58,14 @@ public class AudioManager : MonoBehaviour
 
     public AudioClip GetAudioClip(string key)
     {
-        return audioClips[key];
+        audioClips.TryGetValue(key, out AudioClip clip);
+        return clip;
     }
 
     // Method to add audio clips to the dictionary
     public void AddAudioClip(string name, AudioClip clip)
     {
-        if (!audioClips.ContainsKey(name))
+        if (!string.IsNullOrWhiteSpace(name) && clip != null && !audioClips.ContainsKey(name))
         {
             audioClips.Add(name, clip);
         }
@@ -50,6 +73,11 @@ public class AudioManager : MonoBehaviour
 
     public void AddAudioClip(AudioClip clip)
     {
+        if (clip == null)
+        {
+            return;
+        }
+
         string name = clip.name;
 
         if (!audioClips.ContainsKey(name))
@@ -88,14 +116,26 @@ public class AudioManager : MonoBehaviour
     // Method to play effects on a specific source
     public void PlayEffect(string name, int sourceIndex)
     {
-        if (audioClips.ContainsKey(name) && sourceIndex >= 0 && sourceIndex < effectsSources.Count)
+        if (audioClips.TryGetValue(name, out AudioClip clip) && TryGetSource(effectsSources, sourceIndex, out AudioSource source))
         {
-            effectsSources[sourceIndex].PlayOneShot(audioClips[name]);
+            source.PlayOneShot(clip);
         }
         else
         {
             Debug.LogWarning("Effect clip '" + name + "' not found or invalid source index.");
         }
+    }
+
+    public bool TryPlay(string cueKey)
+    {
+        if (!audioClips.TryGetValue(cueKey, out AudioClip clip) ||
+            !TryGetSource(effectsSources, 0, out AudioSource source))
+        {
+            return false;
+        }
+
+        source.PlayOneShot(clip);
+        return true;
     }
 
     // Method to play music on a specific source
@@ -249,5 +289,72 @@ public class AudioManager : MonoBehaviour
         SetMusicVolume(musicVolume);
         SetSFXVolume(sfxVolume);
         SetEffectsVolume(effectsVolume);
+    }
+
+    private static bool TryGetSource(List<AudioSource> sources, int requestedIndex, out AudioSource source)
+    {
+        source = null;
+        if (sources == null || sources.Count == 0)
+        {
+            return false;
+        }
+
+        int index = requestedIndex >= 0 && requestedIndex < sources.Count ? requestedIndex : 0;
+        source = sources[index];
+        return source != null;
+    }
+
+    private void EnsureFeedbackSource()
+    {
+        if (effectsSources.Count > 0 && effectsSources[0] != null)
+        {
+            return;
+        }
+
+        GameObject sourceObject = new GameObject("Runtime UI Effects");
+        sourceObject.transform.SetParent(transform, false);
+        AudioSource source = sourceObject.AddComponent<AudioSource>();
+        source.playOnAwake = false;
+        source.loop = false;
+        source.volume = effectsVolume * masterVolume;
+        effectsSources.RemoveAll(item => item == null);
+        effectsSources.Insert(0, source);
+    }
+
+    private void EnsureRuntimeFeedbackClips()
+    {
+        AudioClip click = GetAudioClip(FeedbackCueKeys.ButtonClick);
+        if (click == null)
+        {
+            click = CreateProceduralClick("Runtime UI Click", 950f, 0.035f);
+            AddAudioClip(FeedbackCueKeys.ButtonClick, click);
+        }
+
+        AddAudioClip(FeedbackCueKeys.Confirm, click);
+        AddAudioClip("setting_click", click);
+        AddAudioClip("pause_click", click);
+
+        if (GetAudioClip(FeedbackCueKeys.Back) == null)
+        {
+            AddAudioClip(FeedbackCueKeys.Back, CreateProceduralClick("Runtime UI Back", 650f, 0.045f));
+        }
+    }
+
+    private static AudioClip CreateProceduralClick(string clipName, float frequency, float duration)
+    {
+        const int sampleRate = 44100;
+        int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float progress = (float)i / sampleCount;
+            float envelope = (1f - progress) * (1f - progress);
+            samples[i] = Mathf.Sin(2f * Mathf.PI * frequency * i / sampleRate) * envelope * 0.18f;
+        }
+
+        AudioClip clip = AudioClip.Create(clipName, sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
     }
 }

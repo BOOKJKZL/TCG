@@ -19,6 +19,11 @@ public class SettingData : ScriptableObject
     [Header("Language")]
     public Language langMode = Language.en;
 
+    [Header("Accessibility")]
+    public bool reduceMotion = false;
+    public bool hapticsEnabled = true;
+    [Range(0.5f, 2f)] public float uiAnimationSpeed = 1f;
+
     [Header("User")]
     public string username = "Player";
 }

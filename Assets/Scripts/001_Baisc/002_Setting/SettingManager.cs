@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using Gacha.Presentation;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -44,6 +45,7 @@ public class SettingManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
 
             settingData = SaveFileHelper.ReadFileFirstTime(settingData);
+            ConfigureFeedbackSettings();
         }
         else
         {
@@ -63,6 +65,7 @@ public class SettingManager : MonoBehaviour
 
     public void GetStartData()
     {
+        ConfigureFeedbackSettings();
         GetFPS();
 
         GetMusicVolume();
@@ -220,6 +223,24 @@ public class SettingManager : MonoBehaviour
         settingData.username = usernameInput.text;
     }
 
+    public void SetReduceMotion(bool enabled)
+    {
+        settingData.reduceMotion = enabled;
+        ConfigureFeedbackSettings();
+    }
+
+    public void SetHapticsEnabled(bool enabled)
+    {
+        settingData.hapticsEnabled = enabled;
+        ConfigureFeedbackSettings();
+    }
+
+    public void SetUIAnimationSpeed(float speed)
+    {
+        settingData.uiAnimationSpeed = Mathf.Clamp(speed, 0.5f, 2f);
+        ConfigureFeedbackSettings();
+    }
+
     public void OnResetClick()
     {
         settingData = Instantiate(resetSettingData);
@@ -250,5 +271,18 @@ public class SettingManager : MonoBehaviour
         fade.StartFadeOut(() => {
             settingPage.SetActive(false);
         }); 
+    }
+
+    private void ConfigureFeedbackSettings()
+    {
+        if (settingData == null)
+        {
+            return;
+        }
+
+        UIFeedbackService.Configure(
+            settingData.reduceMotion,
+            settingData.hapticsEnabled,
+            settingData.uiAnimationSpeed);
     }
 }
