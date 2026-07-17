@@ -2795,7 +2795,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbe0b8a4434fdfb4991451c82c4e329d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardDatabasePrefab: {fileID: 933876136740401243, guid: 327065008272273469c7ffd883a73eea, type: 3}
   inventoryPrefab: {fileID: 6009702277066173141, guid: 5d431537577ad93488706821f9ea626b, type: 3}
 --- !u!1 &2063803597
 GameObject:
