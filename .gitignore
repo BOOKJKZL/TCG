@@ -11,6 +11,12 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 
+# Private card imports and generated content. These files may contain licensed
+# artwork and must never be committed to the public source repository.
+/LocalContent/
+/TestResults*.xml
+/content-adapter-tests*.log
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/

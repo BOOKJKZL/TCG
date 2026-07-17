@@ -1,0 +1,175 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEditor;
+using UnityEngine;
+
+public sealed class PrivateContentImporterWindow : EditorWindow
+{
+    private const string HistoricalSetIds = "base1,neo1,ex1,swsh1,sv01";
+    private string _setIds = HistoricalSetIds;
+    private string _language = "en";
+    private string _imageQuality = "low";
+    private string _imageExtension = "jpg";
+    private int _maximumCardsPerSet;
+    private int _maxConcurrency = 4;
+    private bool _refreshExisting;
+    private bool _isRunning;
+    private string _status = "Ready";
+    private float _progress;
+    private CancellationTokenSource _cancellation;
+
+    [MenuItem("Tools/Gacha/Private Content Importer")]
+    public static void ShowWindow()
+    {
+        GetWindow<PrivateContentImporterWindow>("Private Content Importer");
+    }
+
+    [MenuItem("Tools/Gacha/Import Historical Sample Sets")]
+    public static async void ImportHistoricalSamplesFromMenu()
+    {
+        try
+        {
+            ContentImportSummary summary = await RunHistoricalImportAsync();
+            Debug.Log(FormatSummary(summary));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    // Entry point for repeatable batch imports from CI or PowerShell.
+    public static void ImportHistoricalSamplesFromCommandLine()
+    {
+        try
+        {
+            ContentImportSummary summary = RunHistoricalImportAsync().GetAwaiter().GetResult();
+            Debug.Log(FormatSummary(summary));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
+    private void OnGUI()
+    {
+        EditorGUILayout.LabelField("TCGdex private importer", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(
+            "Output is written to LocalContent and ignored by Git. API keys and copyrighted artwork must never be placed in Assets.",
+            MessageType.Info);
+
+        using (new EditorGUI.DisabledScope(_isRunning))
+        {
+            _setIds = EditorGUILayout.TextField("Set IDs", _setIds);
+            _language = EditorGUILayout.TextField("Language", _language);
+            _imageQuality = EditorGUILayout.Popup("Image quality", _imageQuality == "high" ? 1 : 0,
+                new[] { "low", "high" }) == 1 ? "high" : "low";
+            _imageExtension = EditorGUILayout.Popup("Image format", ExtensionIndex(_imageExtension),
+                new[] { "jpg", "png", "webp" }) switch
+            {
+                1 => "png",
+                2 => "webp",
+                _ => "jpg"
+            };
+            _maximumCardsPerSet = EditorGUILayout.IntField("Card limit (0 = all)", _maximumCardsPerSet);
+            _maxConcurrency = EditorGUILayout.IntSlider("Concurrent downloads", _maxConcurrency, 1, 8);
+            _refreshExisting = EditorGUILayout.Toggle("Refresh existing files", _refreshExisting);
+
+            if (GUILayout.Button("Import"))
+                _ = StartImportAsync();
+        }
+
+        if (_isRunning && GUILayout.Button("Cancel"))
+            _cancellation?.Cancel();
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField(_status);
+        EditorGUI.ProgressBar(EditorGUILayout.GetControlRect(), _progress, $"{_progress:P0}");
+    }
+
+    private async Task StartImportAsync()
+    {
+        _isRunning = true;
+        _cancellation = new CancellationTokenSource();
+        try
+        {
+            var progress = new Progress<ContentImportProgress>(value =>
+            {
+                _status = $"{value.SetId}: {value.Stage} {value.Completed}/{value.Total}";
+                _progress = value.Ratio;
+                Repaint();
+            });
+            using var service = new TcgdexImportService();
+            ContentImportSummary summary = await service.ImportSetsAsync(
+                SplitSetIds(_setIds), CreateOptions(_language, _imageQuality, _imageExtension,
+                    _maxConcurrency, _maximumCardsPerSet, _refreshExisting), progress,
+                _cancellation.Token);
+            _status = FormatSummary(summary);
+            _progress = 1f;
+        }
+        catch (OperationCanceledException)
+        {
+            _status = "Import cancelled. Completed files remain reusable.";
+        }
+        catch (Exception exception)
+        {
+            _status = exception.Message;
+            Debug.LogException(exception);
+        }
+        finally
+        {
+            _isRunning = false;
+            _cancellation.Dispose();
+            _cancellation = null;
+            Repaint();
+        }
+    }
+
+    private static async Task<ContentImportSummary> RunHistoricalImportAsync()
+    {
+        using var service = new TcgdexImportService();
+        return await service.ImportSetsAsync(
+                SplitSetIds(HistoricalSetIds), CreateOptions("en", "low", "jpg", 4, 0, false))
+            .ConfigureAwait(false);
+    }
+
+    private static ContentImportOptions CreateOptions(
+        string language, string quality, string extension, int concurrency,
+        int maximumCards, bool refresh)
+    {
+        return new ContentImportOptions
+        {
+            Language = language.Trim().ToLowerInvariant(),
+            OutputRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "LocalContent", "Imports")),
+            ImageQuality = quality,
+            ImageExtension = extension,
+            MaxConcurrency = concurrency,
+            MaximumCardsPerSet = Mathf.Max(0, maximumCards),
+            RefreshExistingFiles = refresh
+        };
+    }
+
+    private static string[] SplitSetIds(string value)
+    {
+        return value.Split(new[] { ',', ';', '\n', '\r', ' ' },
+            StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    private static int ExtensionIndex(string extension)
+    {
+        return extension == "png" ? 1 : extension == "webp" ? 2 : 0;
+    }
+
+    private static string FormatSummary(ContentImportSummary summary)
+    {
+        double megabytes = summary.ImageBytes / 1024d / 1024d;
+        return $"Imported {summary.SetCount} sets, {summary.CardCount} cards, " +
+               $"{megabytes:F1} MB images, {summary.ErrorCount} errors.";
+    }
+}
