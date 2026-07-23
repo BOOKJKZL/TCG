@@ -8,6 +8,13 @@ using UnityEngine;
 
 namespace Gacha.Presentation
 {
+    public interface ICardTextureCache
+    {
+        Task<CardTextureLoadResult> LoadAsync(
+            PrintingDefinition printing,
+            CancellationToken cancellationToken = default);
+    }
+
     public sealed class CardTextureLoadResult
     {
         private CardTextureLoadResult(
@@ -28,7 +35,7 @@ namespace Gacha.Presentation
         public bool FromCache { get; }
         public bool Succeeded => Status == ContentImageLoadStatus.Succeeded && Texture != null;
 
-        internal static CardTextureLoadResult Success(Texture2D texture, bool fromCache)
+        public static CardTextureLoadResult Success(Texture2D texture, bool fromCache)
         {
             return new CardTextureLoadResult(
                 ContentImageLoadStatus.Succeeded,
@@ -37,13 +44,13 @@ namespace Gacha.Presentation
                 fromCache);
         }
 
-        internal static CardTextureLoadResult Failure(ContentImageLoadStatus status, string errorMessage)
+        public static CardTextureLoadResult Failure(ContentImageLoadStatus status, string errorMessage)
         {
             return new CardTextureLoadResult(status, null, errorMessage, false);
         }
     }
 
-    public sealed class CardTextureCache : IDisposable
+    public sealed class CardTextureCache : ICardTextureCache, IDisposable
     {
         private sealed class CacheEntry
         {
