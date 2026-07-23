@@ -160,18 +160,36 @@ namespace Gacha.Domain
 
     public static class SimulatedProductRuleFactory
     {
-        public static ProductDrawRules CreateUniform(UniversalCatalog catalog, string productId, int cardsPerPack = 5)
+        public static ProductDrawRules CreateUniform(
+            UniversalCatalog catalog,
+            string productId,
+            int cardsPerPack = 5,
+            string languageId = null)
         {
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
             if (!catalog.Products.TryGetValue(productId, out ProductDefinition product))
                 throw new ArgumentException($"Unknown product '{productId}'.", nameof(productId));
-            if (product.EligiblePrintingIds.Count == 0)
-                throw new ArgumentException($"Product '{productId}' has no eligible printings.", nameof(productId));
+            string[] eligiblePrintingIds = product.EligiblePrintingIds
+                .Where(printingId => string.IsNullOrWhiteSpace(languageId) ||
+                                     string.Equals(
+                                         catalog.Printings[printingId].Identity.LanguageId,
+                                         languageId,
+                                         StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (eligiblePrintingIds.Length == 0)
+            {
+                string languageSuffix = string.IsNullOrWhiteSpace(languageId)
+                    ? string.Empty
+                    : $" for language '{languageId}'";
+                throw new ArgumentException(
+                    $"Product '{productId}' has no eligible printings{languageSuffix}.",
+                    nameof(productId));
+            }
 
             string poolId = productId + ":pool:uniform";
             string slotId = productId + ":slot:main";
             WeightedPool pool = new WeightedPool(poolId,
-                product.EligiblePrintingIds.Select(printingId => new WeightedPoolEntry(printingId, 1d)));
+                eligiblePrintingIds.Select(printingId => new WeightedPoolEntry(printingId, 1d)));
             SlotRule slot = new SlotRule(slotId, poolId, cardsPerPack, 0, true);
             return new ProductDrawRules(productId, new[] { pool }, new[] { slot });
         }

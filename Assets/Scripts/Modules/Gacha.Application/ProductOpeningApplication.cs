@@ -46,12 +46,14 @@ namespace Gacha.Application
     public sealed class UniformSimulationRuleProvider : IProductRuleProvider
     {
         private readonly int cardsPerPack;
+        private readonly string languageId;
 
-        public UniformSimulationRuleProvider(int cardsPerPack = 5)
+        public UniformSimulationRuleProvider(int cardsPerPack = 5, string languageId = null)
         {
             if (cardsPerPack < 1 || cardsPerPack > 20)
                 throw new ArgumentOutOfRangeException(nameof(cardsPerPack));
             this.cardsPerPack = cardsPerPack;
+            this.languageId = string.IsNullOrWhiteSpace(languageId) ? null : languageId.Trim();
         }
 
         public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId)
@@ -59,7 +61,8 @@ namespace Gacha.Application
             ProductDrawRules rules = SimulatedProductRuleFactory.CreateUniform(
                 catalog,
                 productId,
-                cardsPerPack);
+                cardsPerPack,
+                languageId);
             return new ProductRuleProfile(
                 "uniform-simulation-v1",
                 rules,

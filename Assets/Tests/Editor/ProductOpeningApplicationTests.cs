@@ -62,6 +62,23 @@ public class ProductOpeningApplicationTests
     }
 
     [Test]
+    public void UniformProfile_FiltersPrintingsByContentLanguage()
+    {
+        Fixture fixture = CreateFixture();
+
+        ProductRuleProfile profile = new UniformSimulationRuleProvider(3, "en")
+            .GetProfile(fixture.Catalog, fixture.Product.Id);
+
+        string[] printingIds = profile.Rules.Pools.Values
+            .SelectMany(pool => pool.Entries)
+            .Select(entry => entry.PrintingId)
+            .ToArray();
+        Assert.That(printingIds, Does.Not.Contain(fixture.Japanese.Id));
+        Assert.That(printingIds.All(id =>
+            fixture.Catalog.Printings[id].Identity.LanguageId == "en"), Is.True);
+    }
+
+    [Test]
     public void PlayerInventoryStore_RollsBackWhenLocalSaveFails()
     {
         var gameObject = new GameObject("Inventory Test");
@@ -89,7 +106,9 @@ public class ProductOpeningApplicationTests
     {
         var names = new Dictionary<string, string> { ["en"] = "Name" };
         var language = new LanguageDefinition("en", names);
-        var game = new GameDefinition("game", names, new[] { language.Id });
+        var japaneseNames = new Dictionary<string, string> { ["ja"] = "Name JA" };
+        var japaneseLanguage = new LanguageDefinition("ja", japaneseNames);
+        var game = new GameDefinition("game", names, new[] { language.Id, japaneseLanguage.Id });
         var set = new SetDefinition("set", game.Id, names);
         var commonRarity = new RarityDefinition("common", game.Id, names, 0);
         var rareRarity = new RarityDefinition("rare", game.Id, names, 1);
@@ -108,23 +127,29 @@ public class ProductOpeningApplicationTests
             new PrintingIdentity(game.Id, set.Id, "2", language.Id, variant.Id),
             rareRarity.Id,
             names);
+        var japanese = new PrintingDefinition(
+            "common-printing-ja",
+            commonItem.Id,
+            new PrintingIdentity(game.Id, set.Id, "1", japaneseLanguage.Id, variant.Id),
+            commonRarity.Id,
+            japaneseNames);
         var product = new ProductDefinition(
             "product",
             game.Id,
             set.Id,
             names,
             "booster",
-            new[] { common.Id, rare.Id });
+            new[] { common.Id, rare.Id, japanese.Id });
         var catalog = new UniversalCatalog(
-            new[] { language },
+            new[] { language, japaneseLanguage },
             new[] { game },
             new[] { set },
             new[] { commonItem, rareItem },
             new[] { commonRarity, rareRarity },
             new[] { variant },
-            new[] { common, rare },
+            new[] { common, rare, japanese },
             new[] { product });
-        return new Fixture(catalog, product, common, rare);
+        return new Fixture(catalog, product, common, rare, japanese);
     }
 
     private sealed class Fixture
@@ -133,18 +158,21 @@ public class ProductOpeningApplicationTests
             UniversalCatalog catalog,
             ProductDefinition product,
             PrintingDefinition common,
-            PrintingDefinition rare)
+            PrintingDefinition rare,
+            PrintingDefinition japanese)
         {
             Catalog = catalog;
             Product = product;
             Common = common;
             Rare = rare;
+            Japanese = japanese;
         }
 
         public UniversalCatalog Catalog { get; }
         public ProductDefinition Product { get; }
         public PrintingDefinition Common { get; }
         public PrintingDefinition Rare { get; }
+        public PrintingDefinition Japanese { get; }
     }
 
     private sealed class FixedRandom : IGachaRandomSource
