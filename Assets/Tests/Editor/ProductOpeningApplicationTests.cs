@@ -95,6 +95,7 @@ public class ProductOpeningApplicationTests
                 service.Open(fixture.Product.Id, new FixedRandom()));
             Assert.That(inventory.Data.Cards, Is.Empty);
             Assert.That(inventory.Data.PacksOpened, Is.Empty);
+            Assert.That(inventory.Data.UnseenPrintings, Is.Empty);
         }
         finally
         {

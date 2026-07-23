@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 [System.Serializable]
@@ -7,12 +8,14 @@ public class InventoryData
 {
     public Dictionary<string, int> Cards = new Dictionary<string, int>();
     public Dictionary<string, int> PacksOpened = new Dictionary<string, int>();
+    public HashSet<string> UnseenPrintings = new HashSet<string>(StringComparer.Ordinal);
     public int Gold = 0;
     public long LastModifiedUtcTicks;
 
     public bool HasProgress => Gold != 0 ||
                                (Cards != null && Cards.Count != 0) ||
-                               (PacksOpened != null && PacksOpened.Count != 0);
+                               (PacksOpened != null && PacksOpened.Count != 0) ||
+                               (UnseenPrintings != null && UnseenPrintings.Count != 0);
 
     public void Touch()
     {
@@ -39,6 +42,15 @@ public class InventoryData
                 snapshot.PacksOpened.Add(new InventoryEntry(pair.Key, pair.Value));
         }
 
+        if (UnseenPrintings != null)
+        {
+            foreach (string printingId in UnseenPrintings)
+            {
+                if (!string.IsNullOrWhiteSpace(printingId))
+                    snapshot.UnseenPrintings.Add(printingId);
+            }
+        }
+
         return snapshot;
     }
 
@@ -52,6 +64,17 @@ public class InventoryData
         data.LastModifiedUtcTicks = snapshot.LastModifiedUtcTicks;
         CopyEntries(snapshot.Cards, data.Cards);
         CopyEntries(snapshot.PacksOpened, data.PacksOpened);
+        if (snapshot.Version >= 3 && snapshot.UnseenPrintings != null)
+        {
+            foreach (string printingId in snapshot.UnseenPrintings)
+            {
+                if (!string.IsNullOrWhiteSpace(printingId) &&
+                    data.Cards.TryGetValue(printingId, out int count) && count > 0)
+                {
+                    data.UnseenPrintings.Add(printingId);
+                }
+            }
+        }
         return data;
     }
 
@@ -86,9 +109,10 @@ public sealed class InventoryEntry
 [System.Serializable]
 public sealed class InventorySnapshot
 {
-    public int Version = 2;
+    public int Version = 3;
     public List<InventoryEntry> Cards = new List<InventoryEntry>();
     public List<InventoryEntry> PacksOpened = new List<InventoryEntry>();
+    public List<string> UnseenPrintings = new List<string>();
     public int Gold;
     public long LastModifiedUtcTicks;
 }
@@ -125,7 +149,13 @@ public class Inventory : MonoBehaviour
             Data.Cards = new Dictionary<string, int>();
         if (!Data.Cards.ContainsKey(printingId))
             Data.Cards[printingId] = 0;
+        bool isFirstCopy = Data.Cards[printingId] == 0;
         Data.Cards[printingId] += amount;
+        if (isFirstCopy)
+        {
+            Data.UnseenPrintings ??= new HashSet<string>(StringComparer.Ordinal);
+            Data.UnseenPrintings.Add(printingId);
+        }
         Data.Touch();
     }
 
@@ -147,11 +177,29 @@ public class Inventory : MonoBehaviour
     public int GetPrintingCount(string printingId) =>
         Data.Cards != null && Data.Cards.ContainsKey(printingId) ? Data.Cards[printingId] : 0;
 
+    public bool IsPrintingUnseen(string printingId) =>
+        Data.UnseenPrintings != null && Data.UnseenPrintings.Contains(printingId);
+
+    public bool MarkPrintingSeen(string printingId)
+    {
+        if (string.IsNullOrWhiteSpace(printingId))
+            throw new ArgumentException("Printing id cannot be empty.", nameof(printingId));
+        if (Data.UnseenPrintings == null || !Data.UnseenPrintings.Remove(printingId))
+            return false;
+        Data.Touch();
+        return true;
+    }
+
     public void ReplaceData(InventoryData data)
     {
         Data = data ?? new InventoryData();
         Data.Cards = Data.Cards ?? new Dictionary<string, int>();
         Data.PacksOpened = Data.PacksOpened ?? new Dictionary<string, int>();
+        Data.UnseenPrintings = Data.UnseenPrintings == null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : new HashSet<string>(Data.UnseenPrintings.Where(id =>
+                !string.IsNullOrWhiteSpace(id) &&
+                Data.Cards.TryGetValue(id, out int count) && count > 0), StringComparer.Ordinal);
     }
 
 }
