@@ -140,6 +140,7 @@ namespace Gacha.Presentation
         private void SetState(AsyncCardImageState state, bool preserveStatus = false)
         {
             State = state;
+            retry.text = Localized("Retry", "重试");
             Element.EnableInClassList("is-loading", state == AsyncCardImageState.Loading);
             Element.EnableInClassList("is-ready", state == AsyncCardImageState.Ready);
             Element.EnableInClassList("is-failed", state == AsyncCardImageState.Failed);

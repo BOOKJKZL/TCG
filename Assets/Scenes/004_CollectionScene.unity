@@ -1446,6 +1446,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1812078359}
   - component: {fileID: 1812078358}
+  - component: {fileID: 1812078360}
   m_Layer: 0
   m_Name: Global
   m_TagString: Untagged
@@ -1465,8 +1466,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da73fea70f0371342abb8000048a3f00, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  uiDocument: {fileID: 0}
-  cardItemTemplate: {fileID: 0}
+  uiDocument: {fileID: 1812078360}
+  viewAsset: {fileID: 9197481963319205126, guid: bde30a45eddbe0a4a8fdbad85c005d24, type: 3}
+  textureCacheCapacity: 32
 --- !u!4 &1812078359
 Transform:
   m_ObjectHideFlags: 0
@@ -1482,6 +1484,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1812078360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1812078357}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_PanelSettings: {fileID: 0}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: bde30a45eddbe0a4a8fdbad85c005d24, type: 3}
+  m_SortingOrder: 20
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

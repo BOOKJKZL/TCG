@@ -1,6 +1,40 @@
-<engine:UXML xmlns:engine="UnityEngine.UIElements"> 
-<engine:VisualElement class="collection-view"> 
-<engine:ListView name="collection_list"/> 
-<engine:VisualElement name="details_panel"/> 
-</engine:VisualElement> 
-</engine:UXML>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Styles.uss" />
+    <ui:VisualElement name="collection-browser" class="collection-browser">
+        <ui:VisualElement class="collection-browser__shell">
+            <ui:VisualElement class="collection-browser__header">
+                <ui:VisualElement class="collection-browser__heading">
+                    <ui:Label name="collection-title" class="collection-browser__title" />
+                    <ui:Label name="collection-subtitle" class="collection-browser__subtitle" />
+                </ui:VisualElement>
+                <ui:Button name="menu-button" class="browser-button" />
+            </ui:VisualElement>
+            <ui:Label name="browser-status" class="collection-browser__status" />
+
+            <ui:VisualElement name="set-page" class="browser-page">
+                <ui:ListView name="set-list" class="browser-list" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="card-page" class="browser-page" style="display: none;">
+                <ui:VisualElement class="card-page__header">
+                    <ui:Button name="back-to-sets-button" class="browser-button browser-button--quiet" />
+                    <ui:VisualElement class="card-page__heading">
+                        <ui:Label name="card-page-title" class="card-page__title" />
+                        <ui:Label name="card-count" class="card-page__count" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:ListView name="card-list" class="browser-list" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="details-panel" class="details-panel" style="display: none;">
+                <ui:VisualElement class="details-panel__scrim" />
+                <ui:VisualElement class="details-panel__card">
+                    <ui:VisualElement name="detail-art-slot" class="details-panel__art" />
+                    <ui:Label name="detail-name" class="details-panel__name" />
+                    <ui:Label name="detail-metadata" class="details-panel__metadata" />
+                    <ui:Button name="details-close-button" class="browser-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
