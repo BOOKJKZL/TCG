@@ -109,6 +109,12 @@ public class Inventory : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     public void AddPrinting(string printingId, int amount = 1)
     {
         if (string.IsNullOrWhiteSpace(printingId))
@@ -137,6 +143,9 @@ public class Inventory : MonoBehaviour
 
     public int GetProductsOpened(string productId) =>
         Data.PacksOpened != null && Data.PacksOpened.ContainsKey(productId) ? Data.PacksOpened[productId] : 0;
+
+    public int GetPrintingCount(string printingId) =>
+        Data.Cards != null && Data.Cards.ContainsKey(printingId) ? Data.Cards[printingId] : 0;
 
     public void ReplaceData(InventoryData data)
     {
