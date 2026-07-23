@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器和新抽卡引擎均有自动化测试；当前项目 EditMode 测试为 25/25 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源和新抽卡引擎均有自动化测试；当前项目 EditMode 测试为 29/29 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -251,12 +251,12 @@ Content Language  卡名、卡图、系列和产品
 - `GameApplicationBootstrap` 使用 PlayerPrefs 恢复语言，并把 UI Language 应用到 Unity Localization。
 - 设置场景会运行时安装独立双语言面板；按钮使用统一按下动画和确认音效，切换时遵守减少动态效果设置。
 - `Card_UI` 中英文 String Table 已加入语言设置文本；缺少内容语言时会显示当前回退结果。
-- EditMode 25/25 与设置场景 PlayMode 1/1 通过。
+- EditMode 29/29 与设置场景 PlayMode 1/1 通过。
 - 已知限制：当前 TMP 字体资源不能保证覆盖完整中文字形，且主菜单、开包和收藏文本尚未全部迁入 String Table；阶段 3 因此仍保留收尾任务。
 
 ### 阶段 4：接入私人导入内容
 
-状态：Catalog 读取与转换基础已完成（2026-07-17）；图片异步加载、缓存和浏览 UI 待继续。
+状态：Catalog 读取与转换基础已完成（2026-07-17）；安全异步图片源已完成（2026-07-23），纹理缓存和浏览 UI 待继续。
 
 目标：让运行时使用已经导入的五个历史系列。
 
@@ -285,6 +285,7 @@ Content Language  卡名、卡图、系列和产品
 - `PrivateManifestCatalogAdapter` 会聚合多语言名称、系列、卡牌、稀有度、变体、印刷版本和模拟卡包产品。
 - 普通、反向闪、闪卡与第一版等标记会展开成独立 `PrintingIdentity`，收藏可以分别计数。
 - 本机集成验证：5 个 manifest、796 张来源卡、12 种稀有度、1278 个印刷版本、0 个导入警告，所有图片路径存在。
+- `PrivateContentImageSource` 只允许读取安装目录内的相对路径，异步返回图片字节并验证 manifest SHA-256；缺图、越界路径和损坏文件会返回可区分状态。
 - 已知限制：TCGdex variant 布尔值不能完整表达所有真实印刷组合；当前展开结果是可用的模拟模型，后续可由更精确的数据覆盖。
 
 ### 阶段 5：本地游戏闭环

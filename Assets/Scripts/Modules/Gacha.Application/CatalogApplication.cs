@@ -103,19 +103,26 @@ namespace Gacha.Application
     public static class ApplicationServices
     {
         public static bool IsConfigured => Catalog != null && Languages != null;
+        public static bool HasContentImages => Images != null;
         public static CatalogSession Catalog { get; private set; }
         public static LanguageSelectionService Languages { get; private set; }
+        public static IContentImageSource Images { get; private set; }
 
-        public static void Configure(CatalogSession catalog, LanguageSelectionService languages)
+        public static void Configure(
+            CatalogSession catalog,
+            LanguageSelectionService languages,
+            IContentImageSource images = null)
         {
             Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             Languages = languages ?? throw new ArgumentNullException(nameof(languages));
+            Images = images;
         }
 
         public static void Reset()
         {
             Catalog = null;
             Languages = null;
+            Images = null;
         }
     }
 }

@@ -35,7 +35,8 @@ public static class GameApplicationBootstrap
         var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh" });
         string contentRoot = ResolveContentRoot();
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(contentRoot));
-        ApplicationServices.Configure(catalog, languages);
+        var images = new PrivateContentImageSource(contentRoot);
+        ApplicationServices.Configure(catalog, languages, images);
         languages.UiLanguageChanged += ApplyUiLocale;
         configured = true;
 
