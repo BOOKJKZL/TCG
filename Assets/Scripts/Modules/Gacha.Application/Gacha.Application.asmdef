@@ -1,9 +1,8 @@
 {
-    "name": "Gacha.Infrastructure",
-    "rootNamespace": "Gacha.Infrastructure",
+    "name": "Gacha.Application",
+    "rootNamespace": "Gacha.Application",
     "references": [
-        "Gacha.Domain",
-        "Gacha.Application"
+        "Gacha.Domain"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -13,5 +12,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

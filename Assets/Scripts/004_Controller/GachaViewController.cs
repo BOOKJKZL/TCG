@@ -1,15 +1,13 @@
 using System;
-using System.IO;
 using System.Linq;
+using Gacha.Application;
 using Gacha.Domain;
-using Gacha.Infrastructure.Content;
 using Gacha.Presentation;
 using UnityEngine;
 
 public class GachaViewController : MonoBehaviour
 {
     [Header("Installed content")]
-    [SerializeField] private string contentRootOverride;
     [SerializeField] private string productId;
 
     [Header("Temporary simulated product")]
@@ -32,17 +30,20 @@ public class GachaViewController : MonoBehaviour
     {
         try
         {
-            string contentRoot = ResolveContentRoot();
-            var documents = new PrivateContentManifestReader().LoadDirectory(contentRoot);
-            PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter().Build(documents);
-            catalog = import.Catalog;
+            GameApplicationBootstrap.EnsureConfigured();
+            CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
+            if (!load.Succeeded)
+                throw new InvalidOperationException(load.ErrorMessage);
+
+            catalog = load.Catalog;
+            ApplicationServices.Languages.RefreshContentLanguage(catalog);
 
             ProductDefinition product = string.IsNullOrWhiteSpace(productId)
                 ? catalog.Products.Values.OrderBy(value => value.Id, StringComparer.Ordinal).First()
                 : catalog.Products[productId];
             productId = product.Id;
             rules = SimulatedProductRuleFactory.CreateUniform(catalog, product.Id, cardsPerPack);
-            Debug.Log($"Gacha content ready: {import.SourceSetCount} sets, {import.SourceCardCount} collectibles, {import.PrintingCount} printings.");
+            Debug.Log($"Gacha content ready: {load.SourceSetCount} sets, {load.SourceItemCount} collectibles, {load.PrintingCount} printings.");
             return true;
         }
         catch (Exception exception)
@@ -86,16 +87,4 @@ public class GachaViewController : MonoBehaviour
         GameManager.Instance.loadManager.LoadScene(1);
     }
 
-    private string ResolveContentRoot()
-    {
-        if (!string.IsNullOrWhiteSpace(contentRootOverride))
-            return Path.GetFullPath(contentRootOverride);
-
-#if UNITY_EDITOR
-        string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-        return Path.Combine(projectRoot, "LocalContent", "Imports");
-#else
-        return Path.Combine(Application.persistentDataPath, "Content");
-#endif
-    }
 }
