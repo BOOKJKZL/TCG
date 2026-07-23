@@ -34,3 +34,31 @@
 - 论文明确指出 Energy、Uncommon、Rare/Holo 的精确工厂序列仍未知，因此当前实现只在每个已验证卡槽池内等权抽取。
 - 1/3 Holo 是 153 包样本的平均值，不实现固定每三包必出，也不实现整盒 36 包的确定位置。
 - Shadowless、First Edition 与其他语言需要独立 Profile 和独立证据，不能复用本 Profile 的 `HistoricallyVerified` 标记。
+
+## Neo Genesis First Edition（英文）
+
+规则 Profile：`pokemon-neo1-first-edition-psa-v1`
+
+实现范围：
+
+- 7 张 Common，其中包含该系列标记为 Common 的基础能量。
+- 3 张 Uncommon。
+- 1 张 Rare；Holo Rare 平均约三包一张。
+- 同一个卡槽池内不产生重复 Printing。
+- 只使用英文、带 `first-edition` Trait 的印刷版本。
+
+来源：
+
+1. PSA Set Registry 的 Neo Genesis First Edition 档案：<https://www.psacard.com/articles/articleview/9409/public/locales>
+   - 记载英文 Neo Genesis First Edition 于 2000 年 12 月 16 日发行。
+   - 每包 11 张：7 Common、3 Uncommon、1 Rare。
+   - Holographic 卡约每三包出现一张。
+   - 每盒 36 包，第一版包装带有 Edition 1 标记。
+
+可信度说明：
+
+- 本 Profile 验证的是第一版卡包的卡槽数量和 Holo 平均比例，不代表 Unlimited 版本，也不复刻工厂印刷表、整盒固定位置或 Wrapper 对内容的影响。
+- 来源没有把 7 张 Common 进一步描述成“固定能量槽”；因此实现从包含基础能量的完整 Common 池抽取，不声称每包必定有能量。
+- Holo 的 1/3 是近似平均比例，不实现固定每三包必出。
+- 来源没有公布各张 Rare 的精确个体概率；当前用类别权重维持 Holo 总概率为 1/3，类别内部等权。
+- 本机 TCGdex 导入资料为每张卡提供第一版 Trait，但图片不单独表现实体卡的 Edition 1 印章；收藏身份仍按 Printing Variant 分开计数。

@@ -23,7 +23,8 @@ namespace Gacha.Application
                 id,
                 rules,
                 trust,
-                string.IsNullOrWhiteSpace(sourceReference) ? Array.Empty<string>() : new[] { sourceReference })
+                string.IsNullOrWhiteSpace(sourceReference) ? Array.Empty<string>() : new[] { sourceReference },
+                null)
         {
         }
 
@@ -32,6 +33,16 @@ namespace Gacha.Application
             ProductDrawRules rules,
             ProductRuleTrust trust,
             IEnumerable<string> sourceReferences)
+            : this(id, rules, trust, sourceReferences, null)
+        {
+        }
+
+        public ProductRuleProfile(
+            string id,
+            ProductDrawRules rules,
+            ProductRuleTrust trust,
+            IEnumerable<string> sourceReferences,
+            IReadOnlyDictionary<string, string> localizedDescriptions)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("A rule profile needs an id.", nameof(id));
@@ -44,14 +55,52 @@ namespace Gacha.Application
                 .Select(reference => reference.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray());
+            LocalizedDescriptions = CopyDescriptions(localizedDescriptions, Id);
         }
 
         public string Id { get; }
         public ProductDrawRules Rules { get; }
         public ProductRuleTrust Trust { get; }
         public IReadOnlyList<string> SourceReferences { get; }
+        public IReadOnlyDictionary<string, string> LocalizedDescriptions { get; }
         public string SourceReference => SourceReferences.FirstOrDefault();
         public bool IsHistoricallyVerified => Trust == ProductRuleTrust.HistoricallyVerified;
+
+        public string GetDescription(string languageId, string fallbackLanguageId = "en")
+        {
+            if (!string.IsNullOrWhiteSpace(languageId) &&
+                LocalizedDescriptions.TryGetValue(languageId, out string localized))
+            {
+                return localized;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackLanguageId) &&
+                LocalizedDescriptions.TryGetValue(fallbackLanguageId, out string fallback))
+            {
+                return fallback;
+            }
+
+            return LocalizedDescriptions.Values.First();
+        }
+
+        private static IReadOnlyDictionary<string, string> CopyDescriptions(
+            IReadOnlyDictionary<string, string> source,
+            string fallback)
+        {
+            var copy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (source != null)
+            {
+                foreach (KeyValuePair<string, string> entry in source)
+                {
+                    if (!string.IsNullOrWhiteSpace(entry.Key) && !string.IsNullOrWhiteSpace(entry.Value))
+                        copy[entry.Key.Trim()] = entry.Value.Trim();
+                }
+            }
+
+            if (copy.Count == 0)
+                copy["en"] = fallback;
+            return new ReadOnlyDictionary<string, string>(copy);
+        }
     }
 
     public interface IProductRuleProvider
@@ -86,7 +135,12 @@ namespace Gacha.Application
                 "uniform-simulation-v1",
                 rules,
                 ProductRuleTrust.Simulated,
-                "generated:uniform-simulation-v1");
+                new[] { "generated:uniform-simulation-v1" },
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["en"] = $"Uniform simulation · {cardsPerPack} cards · equal odds per installed printing",
+                    ["zh"] = $"均匀模拟 · {cardsPerPack} 张 · 每个已安装印刷版本等概率"
+                });
         }
     }
 

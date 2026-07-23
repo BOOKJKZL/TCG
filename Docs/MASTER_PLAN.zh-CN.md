@@ -2,7 +2,7 @@
 
 最后更新：2026-07-23
 
-本次修改原因：复盘发现技术底座推进速度明显快于玩家可玩闭环，且“运行时 Catalog 未完成”等状态已经过期。因此修正阶段完成度，将固定线性顺序改为以双层语言、内容浏览和单卡包闭环为主的纵向切片，并把 Android 验证提前到关键里程碑之间。
+本次修改原因：第二份 Neo Genesis First Edition 历史规则已完成，继续堆叠卡包的边际价值低于收藏体验。因此保持双层语言与纵向切片策略，并把当前关键路径从规则调查切换到阶段 5B 的库存、搜索与筛选。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎和产品开启服务均有自动化测试；当前项目 EditMode 测试为 44/44 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎和产品开启服务均有自动化测试；当前项目 EditMode 测试为 45/45 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -82,18 +82,19 @@ AccessibilitySettings
 - 已建立可替换的 `IProductRuleProvider`、规则可信度标记、卡位平均概率摘要和原子库存提交；落盘失败会回滚本次开包。
 - 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存。
 - 英文 Base Set Unlimited 已接入第一份 `HistoricallyVerified` 配列：5 Common、2 Basic Energy、3 Uncommon、1 Rare，Holo 平均约三包一张；Machamp 和 First Edition 已按来源排除。
+- 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
 - 抽卡、收藏与设置场景 PlayMode 测试为 3/3 通过。
 
 尚未完成：
 
-- Neo、EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
+- EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
 - 其余菜单和游戏场景的 Localization 覆盖，以及可完整显示中文的 CJK 字体资源。
 - 完整开包、收藏库存持久化、搜索筛选和内容管理 UI。
 - R2 上传与手机远程下载闭环。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 78%，本地通用模拟器 MVP 约完成 70%，完整计划约完成 45%。
+按验收条件而不是代码数量估算，当前技术底座约完成 80%，本地通用模拟器 MVP 约完成 72%，完整计划约完成 46%。
 
 ## 四、阶段计划
 
@@ -179,7 +180,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 2：通用抽卡规则
 
-状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited 成为第一份附来源的历史规则（2026-07-23），其余年代待逐包验证。
+状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited 与 Neo Genesis First Edition 已成为两份附来源的历史规则（2026-07-23），其余年代待逐包验证。
 
 目标：让抽卡引擎适用于不同游戏、产品和年代。
 
@@ -220,8 +221,11 @@ Game + Set + CardNumber + Language + Variant
 - 模拟卡池只包含当前 Content Language 的印刷版本，不会把不同语言卡面混入同一包。
 - `PokemonHistoricalRuleProvider` 为英文 Base Set Unlimited 提供 11 卡槽经验规则；规则来源、Machamp 例外和不能推断的工厂序列记录在 `RULE_SOURCES.zh-CN.md`。
 - Base Set Profile 只选择非 First Edition Printing；Rare 池排除 Starter Deck 专属 Machamp，Holo/非 Holo 总权重维持样本记录的约 1:3 比例。
+- Neo Genesis Profile 只选择 First Edition Printing，按来源使用 7 Common、3 Uncommon、1 Rare，并以类别权重维持 Holo 总概率约 1:3。
+- `ProductRuleProfile` 可携带中英规则说明；开包界面会直接显示版本、槽位和已验证平均比例，不需要通过宝可梦专用 UI 判断 Profile。
+- Neo 来源只说明 7 张 Common，未说明独立能量槽，因此当前 Common 池包含基础能量但不保证每包能量；Unlimited 与精确印刷序列继续保持未验证。
 - 已知限制：引擎具备 `GuaranteeRule`，但均匀模拟配置没有历史保底、变体或真实配列；不能把“引擎支持保底”描述成“当前运行时卡包已配置保底”。
-- 下一切片：从 Neo Genesis、Ruby & Sapphire、Sword & Shield 或 Scarlet & Violet 中选择资料最清楚的系列，建立第二份独立历史 Profile；不得从 Base Set 规则机械推断。
+- 下一切片：转入阶段 5B，把库存数量、新卡状态、搜索和筛选接入收藏界面；EX、Sword & Shield 与 Scarlet & Violet 保持模拟标记，等本地 MVP 可用性完成后再逐套调查。
 
 ### 阶段 3：双层语言系统
 
@@ -343,8 +347,8 @@ Content Language  卡名、卡图、系列和产品
 - 未经史料验证的规则必须在界面标记为“模拟规则”。
 - 所有等待、成功、失败和缺图路径都有视觉与声音反馈。
 - 完成记录（2026-07-23）：五个已安装产品可选择；界面明确显示模拟规则和按稀有度汇总的平均概率；撕包、逐张翻卡、结果总结、卡图加载、声音、震动、新卡标记和本地保存均已接通。
-- 自动化验收：全量 EditMode 44/44、PlayMode 3/3；开包流程验证 Base Set 的 11 张卡全部提交库存、逐张翻开并进入结果页。
-- 已完成第一份 Base Set Unlimited 历史 Profile；未完成部分是为其余四个年代逐包补齐独立来源与规则。
+- 自动化验收：全量 EditMode 45/45、PlayMode 3/3；开包流程会先完整验证 Base Set，再切换到 Neo Genesis 并确认 11 张结果全部为第一版 Printing。
+- 已完成 Base Set Unlimited 与 Neo Genesis First Edition 两份历史 Profile；当前五个本机系列中两套为历史规则，三套继续明确标记为模拟。
 
 #### 阶段 5B：收藏体验
 
@@ -482,8 +486,8 @@ Content Language  卡名、卡图、系列和产品
 
 以 2026-07-23 的当前完成度重新估算剩余工作：
 
-- 第一个可玩的纵向切片：约 12–20 小时。
-- 完成本地通用模拟器 MVP：约 17–28 小时。
+- 第一个可玩的纵向切片：已完成。
+- 完成本地通用模拟器 MVP：约 14–23 小时。
 - 远程内容和宝可梦适配仍沿用原估算，待本地 MVP 验收后再校准。
 
 Token 仅能估算累计工作量，平台没有固定可见的单任务总上限：
@@ -500,9 +504,9 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 ```text
 阶段 3：双层语言 + Application Catalog 边界（核心完成）
 → 阶段 4：卡图异步加载 + 系列/卡牌浏览（完成）
-→ 阶段 5A：单卡包可玩闭环（模拟规则完成，Base Set 历史规则完成）
-→ 当前：阶段 2 继续，为第二个历史年代接入独立来源与真实配列规则
-→ 阶段 5B/5C：收藏、设置、性能与 PlayMode 测试
+→ 阶段 5A：单卡包可玩闭环（模拟规则、Base Set 与 Neo Genesis 历史规则完成）
+→ 当前：阶段 5B，把收藏资料浏览升级为库存、新卡、搜索与筛选体验
+→ 阶段 5C：设置、性能与 PlayMode 测试
 → Android 本地内容冒烟测试
 → 阶段 6：内容安装管理
 → 阶段 7：Addressables + 私人 R2

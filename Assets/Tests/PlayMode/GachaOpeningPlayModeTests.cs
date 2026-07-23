@@ -85,6 +85,26 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
                 Assert.That(cues, Does.Contain(FeedbackCue.CollectionNew));
+
+                int neoIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .Single(pair => pair.product.SetId.EndsWith(":neo1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(neoIndex);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "SelectedRuleProfileId"),
+                    Is.EqualTo("pokemon-neo1-first-edition-psa-v1"));
+                string ruleNotice = document.rootVisualElement.Q<Label>("rule-notice").text;
+                Assert.That(ruleNotice.Contains("First Edition") || ruleNotice.Contains("第一版"), Is.True);
+
+                Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
+                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                deadline = Time.realtimeSinceStartup + 3f;
+                while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That((int)GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(11));
+                Assert.That(store.LastCommittedIds.Count, Is.EqualTo(11));
+                Assert.That(store.LastCommittedIds.All(id => id.Contains("first-edition")), Is.True);
             }
             finally
             {
@@ -108,6 +128,7 @@ namespace Gacha.Tests.PlayMode
             private readonly Dictionary<string, int> cards = new Dictionary<string, int>();
             public int ProductsOpened { get; private set; }
             public int TotalCards => cards.Values.Sum();
+            public IReadOnlyList<string> LastCommittedIds { get; private set; } = Array.Empty<string>();
 
             public int GetProductsOpened(string productId)
             {
@@ -117,6 +138,7 @@ namespace Gacha.Tests.PlayMode
             public ProductInventoryCommit Commit(ProductDrawResult result)
             {
                 var awards = new List<InventoryAward>();
+                LastCommittedIds = result.Printings.Select(printing => printing.PrintingId).ToArray();
                 foreach (DrawnPrinting printing in result.Printings)
                 {
                     int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;

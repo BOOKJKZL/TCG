@@ -97,6 +97,7 @@ public sealed class GachaViewController : MonoBehaviour
     public int ProductCount => products.Count;
     public string SelectedProductId => selectedProduct?.Id;
     public ProductRuleTrust SelectedRuleTrust => selectedProfile?.Trust ?? ProductRuleTrust.Simulated;
+    public string SelectedRuleProfileId => selectedProfile?.Id;
     public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
@@ -490,7 +491,7 @@ public sealed class GachaViewController : MonoBehaviour
             : Localized("SIMULATION", "模拟规则");
         ruleBadge.EnableInClassList("is-verified", selectedProfile.IsHistoricallyVerified);
         ruleNotice.text = selectedProfile.IsHistoricallyVerified
-            ? Localized("Historical collation source is attached to this profile.", "此规则配置附有历史配列来源。")
+            ? selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId)
             : Localized(
                 "Equal odds per installed printing. This is not historical pack collation.",
                 "每个已安装印刷版本等概率；这不代表历史真实卡包配列。");

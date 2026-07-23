@@ -22,6 +22,7 @@ public class PokemonHistoricalRuleProviderTests
         Assert.That(profile, Is.Not.Null);
         Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.HistoricallyVerified));
         Assert.That(profile.SourceReferences, Has.Count.EqualTo(2));
+        Assert.That(profile.GetDescription("zh"), Does.Contain("无限版"));
         Assert.That(profile.Rules.Slots.Sum(slot => slot.DrawCount), Is.EqualTo(11));
         Assert.That(profile.Rules.Slots.Select(slot => slot.DrawCount),
             Is.EquivalentTo(new[] { 5, 2, 3, 1 }));
@@ -46,22 +47,73 @@ public class PokemonHistoricalRuleProviderTests
     }
 
     [Test]
+    public void NeoGenesisFirstEdition_BuildsSourcedElevenCardProfile()
+    {
+        UniversalCatalog catalog = LoadInstalledCatalog();
+        ProductDefinition product = catalog.Products.Values.Single(value =>
+            value.SetId == PokemonHistoricalRuleProvider.NeoGenesisSetId);
+
+        ProductRuleProfile profile = new PokemonHistoricalRuleProvider()
+            .GetProfile(catalog, product.Id, "en");
+
+        Assert.That(profile, Is.Not.Null);
+        Assert.That(profile.Id, Is.EqualTo(PokemonHistoricalRuleProvider.NeoGenesisProfileId));
+        Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.HistoricallyVerified));
+        Assert.That(profile.SourceReferences, Is.EquivalentTo(new[]
+        {
+            PokemonHistoricalRuleProvider.NeoGenesisSourceUrl
+        }));
+        Assert.That(profile.GetDescription("en"), Does.Contain("First Edition"));
+        Assert.That(profile.GetDescription("zh"), Does.Contain("第一版"));
+        Assert.That(profile.Rules.Slots.Sum(slot => slot.DrawCount), Is.EqualTo(11));
+        Assert.That(profile.Rules.Slots.Select(slot => slot.DrawCount),
+            Is.EquivalentTo(new[] { 7, 3, 1 }));
+        Assert.That(profile.Rules.Pools.Values.Select(pool => pool.Entries.Count),
+            Is.EquivalentTo(new[] { 41, 35, 35 }));
+
+        WeightedPool rarePool = profile.Rules.Pools.Values.Single(pool =>
+            pool.Id.EndsWith(":pool:rare", StringComparison.Ordinal));
+        WeightedPoolEntry[] holoEntries = rarePool.Entries.Where(entry =>
+            HasTrait(catalog, entry.PrintingId, "holo")).ToArray();
+        WeightedPoolEntry[] normalEntries = rarePool.Entries.Where(entry =>
+            HasTrait(catalog, entry.PrintingId, "normal")).ToArray();
+        Assert.That(holoEntries, Has.Length.EqualTo(19));
+        Assert.That(normalEntries, Has.Length.EqualTo(16));
+        Assert.That(rarePool.Entries.All(entry =>
+            HasTrait(catalog, entry.PrintingId, "first-edition")), Is.True);
+        double holoWeight = holoEntries.Sum(entry => entry.Weight);
+        double totalWeight = rarePool.Entries.Sum(entry => entry.Weight);
+        Assert.That(holoWeight / totalWeight, Is.EqualTo(1d / 3d).Within(0.000001d));
+
+        ProductDrawResult draw = new GachaEngine().Draw(
+            catalog,
+            profile.Rules,
+            0,
+            new SystemGachaRandomSource(2000));
+        Assert.That(draw.Printings, Has.Count.EqualTo(11));
+        Assert.That(draw.Printings.Select(entry => entry.PrintingId).Distinct().Count(), Is.EqualTo(11));
+        Assert.That(draw.Printings.All(entry =>
+            HasTrait(catalog, entry.PrintingId, "first-edition")), Is.True);
+    }
+
+    [Test]
     public void Provider_FallsBackForOtherSetsAndLanguages()
     {
         UniversalCatalog catalog = LoadInstalledCatalog();
         var historical = new PokemonHistoricalRuleProvider();
         ProductDefinition baseProduct = catalog.Products.Values.Single(value =>
             value.SetId == PokemonHistoricalRuleProvider.BaseSetId);
-        ProductDefinition modernProduct = catalog.Products.Values.First(value =>
-            value.SetId != PokemonHistoricalRuleProvider.BaseSetId);
+        ProductDefinition unsupportedProduct = catalog.Products.Values.First(value =>
+            value.SetId != PokemonHistoricalRuleProvider.BaseSetId &&
+            value.SetId != PokemonHistoricalRuleProvider.NeoGenesisSetId);
 
         Assert.That(historical.GetProfile(catalog, baseProduct.Id, "zh-CN"), Is.Null);
-        Assert.That(historical.GetProfile(catalog, modernProduct.Id, "en"), Is.Null);
+        Assert.That(historical.GetProfile(catalog, unsupportedProduct.Id, "en"), Is.Null);
 
         var fallback = new FallbackProductRuleProvider(
             historical,
             new UniformSimulationRuleProvider(5));
-        ProductRuleProfile simulated = fallback.GetProfile(catalog, modernProduct.Id, "en");
+        ProductRuleProfile simulated = fallback.GetProfile(catalog, unsupportedProduct.Id, "en");
         Assert.That(simulated.Trust, Is.EqualTo(ProductRuleTrust.Simulated));
         Assert.That(simulated.Rules.Slots.Sum(slot => slot.DrawCount), Is.EqualTo(5));
     }
