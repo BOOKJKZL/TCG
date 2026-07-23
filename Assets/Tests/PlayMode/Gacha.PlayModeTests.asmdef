@@ -3,6 +3,7 @@
     "rootNamespace": "Gacha.Tests.PlayMode",
     "references": [
         "Gacha.Application",
+        "Gacha.Domain",
         "Gacha.Presentation",
         "Unity.Localization",
         "Unity.ResourceManager",

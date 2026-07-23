@@ -1,6 +1,345 @@
 .main-menu { flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 
-.gacha-view { flex-direction: column; padding: 16px; }
+.gacha-opening {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    padding: 36px;
+    color: rgb(240, 247, 255);
+    background-color: rgba(4, 9, 20, 0.94);
+}
+
+.gacha-opening__shell {
+    flex-grow: 1;
+    width: 100%;
+    max-width: 1080px;
+    align-self: center;
+    padding: 28px;
+    border-width: 2px;
+    border-radius: 28px;
+    border-color: rgba(203, 91, 255, 0.72);
+    background-color: rgba(23, 22, 48, 0.97);
+}
+
+.gacha-opening__header,
+.gacha-product-row,
+.gacha-selected-product,
+.gacha-odds-row,
+.gacha-summary-row,
+.gacha-summary__actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.gacha-opening__heading,
+.gacha-product-row__copy,
+.gacha-selected-product__body,
+.gacha-summary-row__copy {
+    flex-grow: 1;
+}
+
+.gacha-opening__title,
+.gacha-stage__title {
+    color: white;
+    font-size: 34px;
+    -unity-font-style: bold;
+}
+
+.gacha-opening__subtitle,
+.gacha-selected-product__metadata,
+.gacha-product-row__metadata,
+.gacha-stage__hint,
+.gacha-reveal-progress,
+.gacha-reveal-card__metadata,
+.gacha-summary-row__metadata {
+    color: rgb(174, 186, 219);
+    font-size: 16px;
+    white-space: normal;
+}
+
+.gacha-opening__status {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: rgb(221, 234, 247);
+    background-color: rgba(48, 78, 104, 0.88);
+}
+
+.gacha-opening__status.is-error {
+    color: rgb(255, 225, 228);
+    background-color: rgba(133, 42, 55, 0.92);
+}
+
+.gacha-page {
+    flex-grow: 1;
+    margin-top: 16px;
+}
+
+.gacha-selection {
+    flex-direction: row;
+}
+
+.gacha-product-list {
+    width: 46%;
+    flex-shrink: 0;
+    margin-right: 18px;
+}
+
+.gacha-product-row {
+    height: 100%;
+    margin: 5px 7px;
+    padding: 10px 14px;
+    border-width: 1px;
+    border-radius: 16px;
+    border-color: rgba(125, 109, 182, 0.55);
+    background-color: rgba(42, 41, 78, 0.96);
+    transition-property: scale, background-color, border-color;
+    transition-duration: 0.12s;
+}
+
+.gacha-product-row:hover {
+    scale: 1.01 1.01;
+    border-color: rgb(215, 119, 255);
+    background-color: rgb(57, 50, 100);
+}
+
+.gacha-product-row__cover .async-card-image {
+    width: 72px;
+    height: 98px;
+}
+
+.gacha-product-row__copy {
+    margin-left: 14px;
+}
+
+.gacha-product-row__name,
+.gacha-selected-product__name,
+.gacha-reveal-card__name,
+.gacha-summary-row__name {
+    color: white;
+    font-size: 21px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.gacha-selected-product {
+    flex-grow: 1;
+    padding: 22px;
+    border-width: 1px;
+    border-radius: 22px;
+    border-color: rgba(198, 119, 238, 0.66);
+    background-color: rgba(38, 34, 69, 0.98);
+}
+
+.gacha-selected-product__art {
+    width: 210px;
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-selected-product__art .async-card-image {
+    width: 180px;
+    height: 250px;
+}
+
+.gacha-selected-product__body {
+    align-self: stretch;
+    margin-left: 22px;
+}
+
+.gacha-rule-badge,
+.gacha-reveal-card__badge,
+.gacha-summary-row__badge {
+    align-self: flex-start;
+    margin-top: 12px;
+    padding: 5px 10px;
+    border-radius: 9px;
+    color: rgb(255, 234, 181);
+    background-color: rgb(134, 79, 24);
+    -unity-font-style: bold;
+}
+
+.gacha-rule-badge.is-verified {
+    color: rgb(196, 255, 223);
+    background-color: rgb(22, 111, 74);
+}
+
+.gacha-rule-notice {
+    margin-top: 10px;
+    color: rgb(255, 208, 137);
+    white-space: normal;
+}
+
+.gacha-odds-heading {
+    margin-top: 18px;
+    margin-bottom: 6px;
+    color: rgb(226, 217, 255);
+    -unity-font-style: bold;
+}
+
+.gacha-odds-scroll {
+    flex-grow: 1;
+    max-height: 260px;
+    margin-bottom: 16px;
+}
+
+.gacha-odds-row {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(134, 121, 174, 0.35);
+}
+
+.gacha-odds-row__name {
+    flex-grow: 1;
+    color: rgb(213, 219, 238);
+}
+
+.gacha-odds-row__value {
+    color: rgb(255, 215, 117);
+    -unity-font-style: bold;
+}
+
+.gacha-button {
+    min-width: 140px;
+    height: 52px;
+    padding-left: 18px;
+    padding-right: 18px;
+    border-width: 1px;
+    border-radius: 14px;
+    border-color: rgba(220, 139, 255, 0.9);
+    color: white;
+    background-color: rgb(94, 55, 145);
+    font-size: 18px;
+    -unity-font-style: bold;
+    transition-property: scale, background-color;
+    transition-duration: 0.12s;
+}
+
+.gacha-button:hover {
+    background-color: rgb(126, 72, 178);
+}
+
+.gacha-button:active {
+    scale: 0.96 0.96;
+}
+
+.gacha-button--primary {
+    background-color: rgb(164, 58, 133);
+}
+
+.gacha-button--quiet {
+    align-self: flex-start;
+    background-color: rgba(55, 61, 91, 0.96);
+}
+
+.gacha-stage {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-pack-shell {
+    width: 330px;
+    height: 470px;
+    margin-top: 20px;
+    margin-bottom: 22px;
+    padding: 16px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-width: 3px;
+    border-radius: 24px;
+    border-color: rgb(219, 127, 255);
+    background-color: rgb(79, 37, 108);
+}
+
+.gacha-pack-shell__art .async-card-image {
+    width: 270px;
+    height: 390px;
+}
+
+.gacha-pack-shell__tear {
+    position: absolute;
+    left: 0;
+    top: 46%;
+    height: 7px;
+    width: 0;
+    background-color: rgb(255, 227, 125);
+}
+
+.gacha-reveal-card {
+    width: 330px;
+    height: 470px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-reveal-card__art .async-card-image {
+    width: 300px;
+    height: 420px;
+}
+
+.gacha-reveal-card__badge {
+    position: absolute;
+    right: 0;
+    top: 4px;
+    margin-top: 0;
+    color: rgb(220, 226, 239);
+    background-color: rgb(65, 70, 91);
+}
+
+.gacha-reveal-card__badge.is-new,
+.gacha-summary-row__badge.is-new {
+    color: rgb(32, 57, 45);
+    background-color: rgb(108, 239, 173);
+}
+
+.gacha-reveal-card__metadata {
+    margin-top: 6px;
+    margin-bottom: 16px;
+    -unity-text-align: middle-center;
+}
+
+.gacha-summary {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.gacha-summary-list {
+    flex-grow: 1;
+    margin-top: 18px;
+    margin-bottom: 18px;
+}
+
+.gacha-summary-row {
+    min-height: 70px;
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    border-width: 1px;
+    border-radius: 13px;
+    border-color: rgba(137, 127, 175, 0.5);
+    background-color: rgba(45, 43, 77, 0.96);
+}
+
+.gacha-summary-row__badge {
+    align-self: center;
+    margin-top: 0;
+    margin-left: 12px;
+}
+
+.gacha-summary__actions {
+    justify-content: center;
+}
+
+.gacha-summary__actions .gacha-button {
+    margin-left: 8px;
+    margin-right: 8px;
+}
 
 .collection-browser {
     position: absolute;
