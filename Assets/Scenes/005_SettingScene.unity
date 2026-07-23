@@ -204,7 +204,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1812078358}
-        m_TargetAssemblyTypeName: CollectionViewController, Assembly-CSharp
+        m_TargetAssemblyTypeName: MainMenuBackController, Assembly-CSharp
         m_MethodName: MenuBtnClick
         m_Mode: 1
         m_Arguments:
@@ -1462,11 +1462,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1812078357}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: da73fea70f0371342abb8000048a3f00, type: 3}
+  m_Script: {fileID: 11500000, guid: b7148ae41c3b458d9d477cf4f4c21d13, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  uiDocument: {fileID: 0}
-  cardItemTemplate: {fileID: 0}
 --- !u!4 &1812078359
 Transform:
   m_ObjectHideFlags: 0
