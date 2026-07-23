@@ -25,6 +25,11 @@ namespace Gacha.Presentation
         private Coroutine scaleRoutine;
         private bool pointerInside;
 
+        public void Configure(FeedbackCue cue)
+        {
+            clickCue = cue;
+        }
+
         private void Awake()
         {
             selectable = GetComponent<Selectable>();

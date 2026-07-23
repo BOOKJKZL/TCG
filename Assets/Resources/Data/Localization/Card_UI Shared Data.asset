@@ -14,7 +14,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_TableCollectionName: Card_UI
   m_TableCollectionNameGuidString: e6fdc82fbde69d148bcf98415b9582a5
-  m_Entries: []
+  m_Entries:
+  - m_Id: 166392714702270464
+    m_Key: settings.language.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573632
+    m_Key: settings.language.ui
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573633
+    m_Key: settings.language.content
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573634
+    m_Key: settings.language.fallback
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962240
+    m_Key: settings.language.only_installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962241
+    m_Key: language.en
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962242
+    m_Key: language.zh
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

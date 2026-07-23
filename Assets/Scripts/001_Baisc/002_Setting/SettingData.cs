@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum Language { en, zh }
 [CreateAssetMenu(fileName = "SettingData", menuName = "Basic/SettingData", order = 100)]
 [System.Serializable]
 public class SettingData : ScriptableObject
@@ -17,7 +16,8 @@ public class SettingData : ScriptableObject
     public float effectsVolume = 1f;
 
     [Header("Language")]
-    public Language langMode = Language.en;
+    public string uiLanguageId = "en";
+    public string contentLanguageId = "en";
 
     [Header("Accessibility")]
     public bool reduceMotion = false;

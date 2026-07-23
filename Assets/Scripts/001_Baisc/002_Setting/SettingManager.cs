@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Gacha.Application;
 using Gacha.Presentation;
 using TMPro;
 using Unity.VisualScripting;
@@ -31,6 +33,7 @@ public class SettingManager : MonoBehaviour
 
     [Header("Language")]
     public TMP_Dropdown textLangDD;
+    public TMP_Dropdown contentLangDD;
 
     [Header("User")]
     public TMP_InputField usernameInput;
@@ -45,6 +48,8 @@ public class SettingManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
 
             settingData = SaveFileHelper.ReadFileFirstTime(settingData);
+            GameApplicationBootstrap.EnsureConfigured();
+            SyncLanguageSettings();
             ConfigureFeedbackSettings();
         }
         else
@@ -73,10 +78,7 @@ public class SettingManager : MonoBehaviour
         GetEffectVolume();
         GetMasterVolume();
 
-        //LocalizationManager.Instance.OnLanguageChanged += () =>
-        //{
-        //    GetTextLangDD((int)LocalizationManager.Instance.CurrentLanguage);
-        //};
+        RefreshLanguageDropdowns();
 
         GetUsername();
     }
@@ -180,37 +182,41 @@ public class SettingManager : MonoBehaviour
     //Language
     public void SetLanguage(int choose)
     {
-        switch (choose)
-        {
-            case 0:
-                settingData.langMode = Language.en; 
-                break;
-            case 1:
-                settingData.langMode = Language.zh; 
-                break;
-        }
-        //if(settingData.langMode != LocalizationManager.Instance.CurrentLanguage)
-        //{
-        //    LocalizationManager.Instance.ChangeLanguage(settingData.langMode);
-        //}
+        if (!ApplicationServices.IsConfigured)
+            return;
+
+        IReadOnlyList<string> languages = ApplicationServices.Languages.AvailableUiLanguageIds;
+        if (choose < 0 || choose >= languages.Count)
+            return;
+
+        ApplicationServices.Languages.SelectUiLanguage(languages[choose]);
+        SyncLanguageSettings();
     }
 
     public void GetTextLangDD(int choose)
     {
-        // Create a new list of options
-        List<string> newOptions = new List<string>
-        {
-            //LocalizationManager.Instance.GetLocalizedText("en"),
-            //LocalizationManager.Instance.GetLocalizedText("zh")
-        };
+        if (textLangDD == null || !ApplicationServices.IsConfigured)
+            return;
 
-        // Clear the old options
+        List<string> newOptions = ApplicationServices.Languages.AvailableUiLanguageIds.ToList();
         textLangDD.ClearOptions();
-
-        // Add the new options
         textLangDD.AddOptions(newOptions);
+        textLangDD.SetValueWithoutNotify(Mathf.Clamp(choose, 0, Mathf.Max(0, newOptions.Count - 1)));
+    }
 
-        textLangDD.value = choose;
+    public void SetContentLanguage(int choose)
+    {
+        if (!ApplicationServices.IsConfigured || !ApplicationServices.Catalog.IsReady)
+            return;
+
+        string[] languages = ApplicationServices.Catalog.Catalog.Languages.Keys
+            .OrderBy(value => value, System.StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (choose < 0 || choose >= languages.Length)
+            return;
+
+        ApplicationServices.Languages.SelectContentLanguage(languages[choose], ApplicationServices.Catalog.Catalog);
+        SyncLanguageSettings();
     }
 
     public void GetUsername()
@@ -284,5 +290,41 @@ public class SettingManager : MonoBehaviour
             settingData.reduceMotion,
             settingData.hapticsEnabled,
             settingData.uiAnimationSpeed);
+    }
+
+    private void RefreshLanguageDropdowns()
+    {
+        if (!ApplicationServices.IsConfigured)
+            return;
+
+        IReadOnlyList<string> uiLanguages = ApplicationServices.Languages.AvailableUiLanguageIds;
+        int uiIndex = uiLanguages.ToList().FindIndex(value => string.Equals(
+            value,
+            ApplicationServices.Languages.UiLanguageId,
+            System.StringComparison.OrdinalIgnoreCase));
+        GetTextLangDD(Mathf.Max(0, uiIndex));
+
+        if (contentLangDD == null || !ApplicationServices.Catalog.IsReady)
+            return;
+
+        string[] contentLanguages = ApplicationServices.Catalog.Catalog.Languages.Keys
+            .OrderBy(value => value, System.StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        contentLangDD.ClearOptions();
+        contentLangDD.AddOptions(contentLanguages.ToList());
+        int contentIndex = System.Array.FindIndex(contentLanguages, value => string.Equals(
+            value,
+            ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId,
+            System.StringComparison.OrdinalIgnoreCase));
+        contentLangDD.SetValueWithoutNotify(Mathf.Max(0, contentIndex));
+    }
+
+    private void SyncLanguageSettings()
+    {
+        if (settingData == null || !ApplicationServices.IsConfigured)
+            return;
+
+        settingData.uiLanguageId = ApplicationServices.Languages.UiLanguageId;
+        settingData.contentLanguageId = ApplicationServices.Languages.RequestedContentLanguageId;
     }
 }

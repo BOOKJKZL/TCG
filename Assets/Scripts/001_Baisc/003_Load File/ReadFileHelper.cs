@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Gacha.Application;
 using UnityEngine;
 
 public enum LangFileType { Image, Text, Voice, Story, Character }
@@ -9,7 +10,10 @@ public static class ReadFileHelper
 {
     public static string getLangPath(LangFileType type)
     {
-        return "Localization/" + type.ToString() + "/" + SettingManager.Instance.settingData.langMode.ToString() + "/";
+        string languageId = ApplicationServices.IsConfigured
+            ? ApplicationServices.Languages.UiLanguageId
+            : "en";
+        return "Localization/" + type + "/" + languageId + "/";
     }
 
     public static string getNlPath(NlFileType type)

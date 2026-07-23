@@ -1,9 +1,9 @@
 {
-    "name": "Gacha.Presentation",
-    "rootNamespace": "Gacha.Presentation",
+    "name": "Gacha.PlayModeTests",
+    "rootNamespace": "Gacha.Tests.PlayMode",
     "references": [
         "Gacha.Application",
-        "Gacha.Domain",
+        "Gacha.Presentation",
         "Unity.Localization",
         "Unity.ResourceManager",
         "Unity.TextMeshPro",
@@ -14,8 +14,13 @@
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
 }

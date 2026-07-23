@@ -37,6 +37,11 @@ public class SettingEvent : MonoBehaviour
         SettingManager.Instance.SetLanguage(choose);
     }
 
+    public void OnContentLangChanged(int choose)
+    {
+        SettingManager.Instance.SetContentLanguage(choose);
+    }
+
     public void OnUsernameChanged(string change)
     {
         SettingManager.Instance.OnUsernameChanged(change);

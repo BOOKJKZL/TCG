@@ -1,10 +1,10 @@
-using UnityEngine;
-using UnityEngine.Localization.Settings;
+using Gacha.Application;
 
-public static class LocaleSwitcher { 
-    public static void SetLocale(string code) { 
-        var locale = LocalizationSettings.AvailableLocales.GetLocale(code); 
-        if (locale != null) 
-            LocalizationSettings.SelectedLocale = locale; 
-    } 
+public static class LocaleSwitcher
+{
+    public static void SetLocale(string code)
+    {
+        GameApplicationBootstrap.EnsureConfigured();
+        ApplicationServices.Languages.SelectUiLanguage(code);
+    }
 }

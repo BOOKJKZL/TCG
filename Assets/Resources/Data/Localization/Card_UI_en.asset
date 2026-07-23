@@ -17,7 +17,35 @@ MonoBehaviour:
   m_SharedData: {fileID: 11400000, guid: e6fdc82fbde69d148bcf98415b9582a5, type: 2}
   m_Metadata:
     m_Items: []
-  m_TableData: []
+  m_TableData:
+  - m_Id: 166392714702270464
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573632
+    m_Localized: Interface language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573633
+    m_Localized: Card content language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714773573634
+    m_Localized: Requested {0}; using {1}.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962240
+    m_Localized: Only one card language is installed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962241
+    m_Localized: English
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962242
+    m_Localized: Simplified Chinese
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

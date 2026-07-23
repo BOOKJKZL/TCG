@@ -46,6 +46,7 @@ namespace Gacha.Application
         private readonly string defaultUiLanguageId;
         private readonly string defaultContentLanguageId;
         private readonly ReadOnlyCollection<string> availableUiLanguageIds;
+        private UniversalCatalog currentCatalog;
 
         public LanguageSelectionService(
             ILanguagePreferenceStore store,
@@ -108,13 +109,18 @@ namespace Gacha.Application
             if (definition == null)
                 throw new ArgumentNullException(nameof(definition));
 
-            return definition.GetDisplayName(
-                ContentLanguage.ResolvedLanguageId,
-                defaultContentLanguageId);
+            foreach (string languageId in DisplayNameFallbacks(ContentLanguage.ResolvedLanguageId))
+            {
+                if (definition.Names.TryGetValue(languageId, out string localized))
+                    return localized;
+            }
+
+            return definition.Names.Values.First();
         }
 
         private ContentLanguageSelection ResolveContentLanguage(UniversalCatalog catalog, bool persistRequest)
         {
+            currentCatalog = catalog;
             string resolved = ResolveAvailableContentLanguage(RequestedContentLanguageId, catalog);
             ContentLanguageSelection next = new ContentLanguageSelection(RequestedContentLanguageId, resolved);
             bool changed = ContentLanguage == null ||
@@ -148,27 +154,47 @@ namespace Gacha.Application
             if (match != null)
                 return match;
 
-            string fallback = ResolveDefinitionFallback(requested, catalog, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            return fallback ??
-                   MatchAvailable(defaultContentLanguageId, available) ??
+            foreach (string candidate in RegionalFallbacks(requested))
+            {
+                match = MatchAvailable(candidate, available);
+                if (match != null)
+                    return match;
+            }
+
+            return MatchAvailable(defaultContentLanguageId, available) ??
                    available.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).First();
         }
 
-        private static string ResolveDefinitionFallback(
-            string languageId,
-            UniversalCatalog catalog,
-            ISet<string> visited)
+        private IEnumerable<string> DisplayNameFallbacks(string languageId)
         {
-            string canonical = MatchAvailable(languageId, catalog.Languages.Keys);
-            if (canonical == null || !visited.Add(canonical))
-                return null;
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string current = languageId;
+            while (!string.IsNullOrWhiteSpace(current) && visited.Add(current))
+            {
+                yield return current;
+                if (currentCatalog == null || !currentCatalog.Languages.TryGetValue(current, out LanguageDefinition definition))
+                    break;
+                current = definition.FallbackLanguageId;
+            }
 
-            LanguageDefinition language = catalog.Languages[canonical];
-            if (string.IsNullOrWhiteSpace(language.FallbackLanguageId))
-                return null;
+            foreach (string regional in RegionalFallbacks(languageId))
+                if (visited.Add(regional))
+                    yield return regional;
 
-            string fallback = MatchAvailable(language.FallbackLanguageId, catalog.Languages.Keys);
-            return fallback ?? ResolveDefinitionFallback(language.FallbackLanguageId, catalog, visited);
+            if (visited.Add(defaultContentLanguageId))
+                yield return defaultContentLanguageId;
+        }
+
+        private static IEnumerable<string> RegionalFallbacks(string languageId)
+        {
+            if (string.IsNullOrWhiteSpace(languageId))
+                yield break;
+
+            string normalized = languageId.Trim().Replace('_', '-');
+            if (string.Equals(normalized, "zh-CN", StringComparison.OrdinalIgnoreCase))
+                yield return "zh-TW";
+            else if (string.Equals(normalized, "zh-TW", StringComparison.OrdinalIgnoreCase))
+                yield return "zh-CN";
         }
 
         private void Save()

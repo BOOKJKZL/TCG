@@ -117,6 +117,33 @@ public class ApplicationServicesTests
         Assert.That(content.UsedFallback, Is.True);
     }
 
+    [Test]
+    public void LanguageSelection_UsesConfiguredRegionalAndDefinitionFallbacks()
+    {
+        var store = new PreferenceStore("zh", "zh-CN");
+        var service = new LanguageSelectionService(store, new[] { "en", "zh" });
+        UniversalCatalog regionalCatalog = CreateCatalog("zh-TW", "en");
+
+        ContentLanguageSelection regional = service.RefreshContentLanguage(regionalCatalog);
+        Assert.That(regional.ResolvedLanguageId, Is.EqualTo("zh-TW"));
+
+        UniversalCatalog definitionCatalog = CreateCatalog(
+            new LanguageDefinition("zh-CN", new Dictionary<string, string> { ["zh-CN"] = "简体中文" }, "zh-TW"),
+            new LanguageDefinition("zh-TW", new Dictionary<string, string> { ["zh-TW"] = "繁體中文" }),
+            new LanguageDefinition("en", new Dictionary<string, string> { ["en"] = "English" }));
+        service.SelectContentLanguage("zh-CN", definitionCatalog);
+        var displayDefinition = new GameDefinition(
+            "sample",
+            new Dictionary<string, string>
+            {
+                ["zh-TW"] = "測試遊戲",
+                ["en"] = "Sample Game"
+            },
+            new[] { "zh-TW", "en" });
+
+        Assert.That(service.GetDisplayName(displayDefinition), Is.EqualTo("測試遊戲"));
+    }
+
     private static UniversalCatalog CreateCatalog(params string[] languageIds)
     {
         var languages = new List<LanguageDefinition>();
@@ -127,6 +154,11 @@ public class ApplicationServicesTests
                 new Dictionary<string, string> { [languageId] = languageId }));
         }
 
+        return CreateCatalog(languages.ToArray());
+    }
+
+    private static UniversalCatalog CreateCatalog(params LanguageDefinition[] languages)
+    {
         return new UniversalCatalog(
             languages,
             Array.Empty<GameDefinition>(),
