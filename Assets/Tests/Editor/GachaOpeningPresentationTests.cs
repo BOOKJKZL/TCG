@@ -22,6 +22,7 @@ public class GachaOpeningPresentationTests
         Assert.That(root.Q<ScrollView>("summary-list"), Is.Not.Null);
         Assert.That(root.Q<Button>("tear-pack-button"), Is.Not.Null);
         Assert.That(root.Q<Button>("reveal-next-button"), Is.Not.Null);
+        Assert.That(root.Q<Button>("rule-source-button"), Is.Not.Null);
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
     }
 

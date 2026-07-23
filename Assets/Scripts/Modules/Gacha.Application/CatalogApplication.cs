@@ -107,15 +107,18 @@ namespace Gacha.Application
         public static CatalogSession Catalog { get; private set; }
         public static LanguageSelectionService Languages { get; private set; }
         public static IContentImageSource Images { get; private set; }
+        public static IProductRuleProvider ProductRules { get; private set; }
 
         public static void Configure(
             CatalogSession catalog,
             LanguageSelectionService languages,
-            IContentImageSource images = null)
+            IContentImageSource images = null,
+            IProductRuleProvider productRules = null)
         {
             Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             Languages = languages ?? throw new ArgumentNullException(nameof(languages));
             Images = images;
+            ProductRules = productRules;
         }
 
         public static void Reset()
@@ -123,6 +126,7 @@ namespace Gacha.Application
             Catalog = null;
             Languages = null;
             Images = null;
+            ProductRules = null;
         }
     }
 }

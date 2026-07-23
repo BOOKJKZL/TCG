@@ -19,6 +19,19 @@ namespace Gacha.Application
             ProductDrawRules rules,
             ProductRuleTrust trust,
             string sourceReference)
+            : this(
+                id,
+                rules,
+                trust,
+                string.IsNullOrWhiteSpace(sourceReference) ? Array.Empty<string>() : new[] { sourceReference })
+        {
+        }
+
+        public ProductRuleProfile(
+            string id,
+            ProductDrawRules rules,
+            ProductRuleTrust trust,
+            IEnumerable<string> sourceReferences)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("A rule profile needs an id.", nameof(id));
@@ -26,21 +39,24 @@ namespace Gacha.Application
             Id = id.Trim();
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
             Trust = trust;
-            SourceReference = string.IsNullOrWhiteSpace(sourceReference)
-                ? null
-                : sourceReference.Trim();
+            SourceReferences = new ReadOnlyCollection<string>((sourceReferences ?? Array.Empty<string>())
+                .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                .Select(reference => reference.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray());
         }
 
         public string Id { get; }
         public ProductDrawRules Rules { get; }
         public ProductRuleTrust Trust { get; }
-        public string SourceReference { get; }
+        public IReadOnlyList<string> SourceReferences { get; }
+        public string SourceReference => SourceReferences.FirstOrDefault();
         public bool IsHistoricallyVerified => Trust == ProductRuleTrust.HistoricallyVerified;
     }
 
     public interface IProductRuleProvider
     {
-        ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId);
+        ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string languageId = null);
     }
 
     public sealed class UniformSimulationRuleProvider : IProductRuleProvider
@@ -56,18 +72,39 @@ namespace Gacha.Application
             this.languageId = string.IsNullOrWhiteSpace(languageId) ? null : languageId.Trim();
         }
 
-        public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId)
+        public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string requestedLanguageId = null)
         {
+            string effectiveLanguageId = string.IsNullOrWhiteSpace(requestedLanguageId)
+                ? languageId
+                : requestedLanguageId;
             ProductDrawRules rules = SimulatedProductRuleFactory.CreateUniform(
                 catalog,
                 productId,
                 cardsPerPack,
-                languageId);
+                effectiveLanguageId);
             return new ProductRuleProfile(
                 "uniform-simulation-v1",
                 rules,
                 ProductRuleTrust.Simulated,
                 "generated:uniform-simulation-v1");
+        }
+    }
+
+    public sealed class FallbackProductRuleProvider : IProductRuleProvider
+    {
+        private readonly IProductRuleProvider primary;
+        private readonly IProductRuleProvider fallback;
+
+        public FallbackProductRuleProvider(IProductRuleProvider primary, IProductRuleProvider fallback)
+        {
+            this.primary = primary ?? throw new ArgumentNullException(nameof(primary));
+            this.fallback = fallback ?? throw new ArgumentNullException(nameof(fallback));
+        }
+
+        public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string languageId = null)
+        {
+            return primary.GetProfile(catalog, productId, languageId) ??
+                   fallback.GetProfile(catalog, productId, languageId);
         }
     }
 
@@ -226,22 +263,27 @@ namespace Gacha.Application
         private readonly IProductRuleProvider ruleProvider;
         private readonly IInventoryProgressStore inventory;
         private readonly GachaEngine engine;
+        private readonly string contentLanguageId;
 
         public ProductOpeningService(
             UniversalCatalog catalog,
             IProductRuleProvider ruleProvider,
             IInventoryProgressStore inventory,
-            GachaEngine engine = null)
+            GachaEngine engine = null,
+            string contentLanguageId = null)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.ruleProvider = ruleProvider ?? throw new ArgumentNullException(nameof(ruleProvider));
             this.inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
             this.engine = engine ?? new GachaEngine();
+            this.contentLanguageId = string.IsNullOrWhiteSpace(contentLanguageId)
+                ? null
+                : contentLanguageId.Trim();
         }
 
         public ProductRuleProfile GetProfile(string productId)
         {
-            ProductRuleProfile profile = ruleProvider.GetProfile(catalog, productId);
+            ProductRuleProfile profile = ruleProvider.GetProfile(catalog, productId, contentLanguageId);
             if (profile == null)
                 throw new InvalidOperationException("The product rule provider returned no profile.");
             if (!string.Equals(profile.Rules.ProductId, productId, StringComparison.Ordinal))

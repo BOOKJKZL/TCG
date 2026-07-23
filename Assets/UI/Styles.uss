@@ -172,6 +172,29 @@
     white-space: normal;
 }
 
+.gacha-source-button {
+    align-self: flex-start;
+    height: 36px;
+    margin-top: 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-width: 1px;
+    border-radius: 10px;
+    border-color: rgba(123, 213, 168, 0.85);
+    color: rgb(205, 255, 227);
+    background-color: rgba(24, 94, 65, 0.94);
+    transition-property: scale, background-color;
+    transition-duration: 0.12s;
+}
+
+.gacha-source-button:hover {
+    background-color: rgb(34, 126, 86);
+}
+
+.gacha-source-button:active {
+    scale: 0.96 0.96;
+}
+
 .gacha-odds-heading {
     margin-top: 18px;
     margin-bottom: 6px;

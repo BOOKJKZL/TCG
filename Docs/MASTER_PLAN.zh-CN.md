@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎和产品开启服务均有自动化测试；当前项目 EditMode 测试为 42/42 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎和产品开启服务均有自动化测试；当前项目 EditMode 测试为 44/44 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -81,18 +81,19 @@ AccessibilitySettings
 - 收藏场景已经可以按系列浏览本机 796 张卡，仅为可见列表项加载图片，并提供双语界面、详情入场动画、翻卡/返回/错误反馈和减少动态效果支持。
 - 已建立可替换的 `IProductRuleProvider`、规则可信度标记、卡位平均概率摘要和原子库存提交；落盘失败会回滚本次开包。
 - 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存。
+- 英文 Base Set Unlimited 已接入第一份 `HistoricallyVerified` 配列：5 Common、2 Basic Energy、3 Uncommon、1 Rare，Holo 平均约三包一张；Machamp 和 First Edition 已按来源排除。
 - 抽卡、收藏与设置场景 PlayMode 测试为 3/3 通过。
 
 尚未完成：
 
-- 具有可引用历史来源的各年代真实卡包配列规则；当前可玩切片明确使用等概率模拟规则。
+- Neo、EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
 - 其余菜单和游戏场景的 Localization 覆盖，以及可完整显示中文的 CJK 字体资源。
 - 完整开包、收藏库存持久化、搜索筛选和内容管理 UI。
 - R2 上传与手机远程下载闭环。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 75%，本地通用模拟器 MVP 约完成 68%，完整计划约完成 42%。
+按验收条件而不是代码数量估算，当前技术底座约完成 78%，本地通用模拟器 MVP 约完成 70%，完整计划约完成 45%。
 
 ## 四、阶段计划
 
@@ -178,7 +179,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 2：通用抽卡规则
 
-状态：通用规则引擎、可替换规则提供器、概率摘要和模拟单包 UI 已完成（2026-07-23）；真实年代配列资料待逐包验证和接入。
+状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited 成为第一份附来源的历史规则（2026-07-23），其余年代待逐包验证。
 
 目标：让抽卡引擎适用于不同游戏、产品和年代。
 
@@ -217,8 +218,10 @@ Game + Set + CardNumber + Language + Variant
 - `IProductRuleProvider` 返回规则可信度和来源引用；当前 `UniformSimulationRuleProvider` 标记为 `Simulated`，以后可以按产品替换成 `HistoricallyVerified` 配置。
 - `ProductOddsAnalyzer` 汇总多卡槽权重池的平均卡位概率；条件保底会单独标记，不与基础概率混淆。
 - 模拟卡池只包含当前 Content Language 的印刷版本，不会把不同语言卡面混入同一包。
+- `PokemonHistoricalRuleProvider` 为英文 Base Set Unlimited 提供 11 卡槽经验规则；规则来源、Machamp 例外和不能推断的工厂序列记录在 `RULE_SOURCES.zh-CN.md`。
+- Base Set Profile 只选择非 First Edition Printing；Rare 池排除 Starter Deck 专属 Machamp，Holo/非 Holo 总权重维持样本记录的约 1:3 比例。
 - 已知限制：引擎具备 `GuaranteeRule`，但均匀模拟配置没有历史保底、变体或真实配列；不能把“引擎支持保底”描述成“当前运行时卡包已配置保底”。
-- 下一切片：为 Base Set 或另一个资料最清楚的历史系列建立第一份附来源的真实规则配置，并复用现有 UI 验证。
+- 下一切片：从 Neo Genesis、Ruby & Sapphire、Sword & Shield 或 Scarlet & Violet 中选择资料最清楚的系列，建立第二份独立历史 Profile；不得从 Base Set 规则机械推断。
 
 ### 阶段 3：双层语言系统
 
@@ -340,8 +343,8 @@ Content Language  卡名、卡图、系列和产品
 - 未经史料验证的规则必须在界面标记为“模拟规则”。
 - 所有等待、成功、失败和缺图路径都有视觉与声音反馈。
 - 完成记录（2026-07-23）：五个已安装产品可选择；界面明确显示模拟规则和按稀有度汇总的平均概率；撕包、逐张翻卡、结果总结、卡图加载、声音、震动、新卡标记和本地保存均已接通。
-- 自动化验收：全量 EditMode 42/42、PlayMode 3/3；开包流程验证 5 张卡全部提交库存、逐张翻开并进入结果页。
-- 未完成部分：把等概率模拟配置替换为至少一个附可引用来源的历史真实卡包规则，然后扩展到其他年代。
+- 自动化验收：全量 EditMode 44/44、PlayMode 3/3；开包流程验证 Base Set 的 11 张卡全部提交库存、逐张翻开并进入结果页。
+- 已完成第一份 Base Set Unlimited 历史 Profile；未完成部分是为其余四个年代逐包补齐独立来源与规则。
 
 #### 阶段 5B：收藏体验
 
@@ -497,8 +500,8 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 ```text
 阶段 3：双层语言 + Application Catalog 边界（核心完成）
 → 阶段 4：卡图异步加载 + 系列/卡牌浏览（完成）
-→ 阶段 5A：等概率模拟单卡包可玩闭环（完成）
-→ 当前：阶段 2 收尾，为第一个历史系列接入附来源的真实配列规则
+→ 阶段 5A：单卡包可玩闭环（模拟规则完成，Base Set 历史规则完成）
+→ 当前：阶段 2 继续，为第二个历史年代接入独立来源与真实配列规则
 → 阶段 5B/5C：收藏、设置、性能与 PlayMode 测试
 → Android 本地内容冒烟测试
 → 阶段 6：内容安装管理

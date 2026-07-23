@@ -77,6 +77,7 @@ public sealed class GachaViewController : MonoBehaviour
     private Label summaryMetadata;
     private Button menuButton;
     private Button prepareButton;
+    private Button ruleSourceButton;
     private Button tearButton;
     private Button revealButton;
     private Button backToProductsButton;
@@ -335,6 +336,7 @@ public sealed class GachaViewController : MonoBehaviour
         summaryMetadata = Required<Label>("summary-metadata");
         menuButton = Required<Button>("gacha-menu-button");
         prepareButton = Required<Button>("prepare-pack-button");
+        ruleSourceButton = Required<Button>("rule-source-button");
         tearButton = Required<Button>("tear-pack-button");
         revealButton = Required<Button>("reveal-next-button");
         backToProductsButton = Required<Button>("back-to-products-button");
@@ -358,6 +360,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         menuButton.clicked += MenuBtnClick;
         prepareButton.clicked += () => PrepareSelectedProduct();
+        ruleSourceButton.clicked += OpenSelectedRuleSource;
         tearButton.clicked += () => TearPack();
         revealButton.clicked += () => RevealNextCard();
         backToProductsButton.clicked += () =>
@@ -376,10 +379,15 @@ public sealed class GachaViewController : MonoBehaviour
     private void RebuildProducts()
     {
         string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
+        IProductRuleProvider simulatedRules = new UniformSimulationRuleProvider(cardsPerPack, languageId);
+        IProductRuleProvider productRules = ApplicationServices.ProductRules == null
+            ? simulatedRules
+            : new FallbackProductRuleProvider(ApplicationServices.ProductRules, simulatedRules);
         openingService = new ProductOpeningService(
             catalog,
-            new UniformSimulationRuleProvider(cardsPerPack, languageId),
-            InventoryStoreOverride ?? new PlayerInventoryProgressStore());
+            productRules,
+            InventoryStoreOverride ?? new PlayerInventoryProgressStore(),
+            contentLanguageId: languageId);
 
         products.Clear();
         products.AddRange(catalog.Products.Values
@@ -486,6 +494,9 @@ public sealed class GachaViewController : MonoBehaviour
             : Localized(
                 "Equal odds per installed printing. This is not historical pack collation.",
                 "每个已安装印刷版本等概率；这不代表历史真实卡包配列。");
+        ruleSourceButton.style.display = selectedProfile.SourceReferences.Count > 0 && selectedProfile.IsHistoricallyVerified
+            ? DisplayStyle.Flex
+            : DisplayStyle.None;
         prepareButton.SetEnabled(true);
         PrintingDefinition cover = CoverFor(product);
         if (cover != null)
@@ -683,6 +694,7 @@ public sealed class GachaViewController : MonoBehaviour
             "选择已安装内容、确认规则，然后逐张翻开卡牌");
         menuButton.text = Localized("Main menu", "主菜单");
         prepareButton.text = Localized("Prepare pack", "准备卡包");
+        ruleSourceButton.text = Localized("Rule source", "规则来源");
         tearButton.text = Localized("Tear pack", "撕开卡包");
         backToProductsButton.text = Localized("All products", "全部卡包");
         openAgainButton.text = Localized("Open another", "再开一包");
@@ -716,6 +728,15 @@ public sealed class GachaViewController : MonoBehaviour
         RebuildProducts();
         RefreshLocalizedChrome();
         ShowSelectionPage();
+    }
+
+    private void OpenSelectedRuleSource()
+    {
+        string source = selectedProfile?.SourceReference;
+        if (string.IsNullOrWhiteSpace(source))
+            return;
+        UIFeedbackService.Play(FeedbackCue.Confirm);
+        UnityEngine.Application.OpenURL(source);
     }
 
     private PrintingDefinition CoverFor(ProductDefinition product)

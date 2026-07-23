@@ -46,7 +46,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((bool)GetProperty(controller, "IsReady"), Is.True,
                     GetProperty(controller, "InitializationError") as string);
                 Assert.That((int)GetProperty(controller, "ProductCount"), Is.EqualTo(5));
-                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("Simulated"));
+                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
@@ -62,12 +62,13 @@ namespace Gacha.Tests.PlayMode
                 while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
                     yield return null;
 
-                Assert.That((int)GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(5));
+                int openedCardCount = (int)GetProperty(controller, "LastOpenedCardCount");
+                Assert.That(openedCardCount, Is.EqualTo(11));
                 Assert.That(store.ProductsOpened, Is.EqualTo(1));
-                Assert.That(store.TotalCards, Is.EqualTo(5));
+                Assert.That(store.TotalCards, Is.EqualTo(openedCardCount));
                 Assert.That(cues, Does.Contain(FeedbackCue.PackOpen));
 
-                for (int index = 0; index < 5; index++)
+                for (int index = 0; index < openedCardCount; index++)
                 {
                     Assert.That(InvokeBool(controller, "RevealNextCard"), Is.True);
                     yield return new WaitForSecondsRealtime(0.28f);
@@ -76,9 +77,9 @@ namespace Gacha.Tests.PlayMode
                 deadline = Time.realtimeSinceStartup + 4f;
                 while ((int)GetProperty(controller, "CachedTextureCount") == 0 && Time.realtimeSinceStartup < deadline)
                     yield return null;
-                Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(5));
+                Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(openedCardCount));
                 Assert.That((int)GetProperty(controller, "CachedTextureCount"), Is.GreaterThan(0));
-                Assert.That(cues.Count(cue => cue == FeedbackCue.CardFlip), Is.EqualTo(5));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.CardFlip), Is.EqualTo(openedCardCount));
 
                 Assert.That(InvokeBool(controller, "RevealNextCard"), Is.True);
                 yield return null;

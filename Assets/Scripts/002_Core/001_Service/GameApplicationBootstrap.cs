@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
+using Gacha.Infrastructure.Rules;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -36,7 +37,7 @@ public static class GameApplicationBootstrap
         string contentRoot = ResolveContentRoot();
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(contentRoot));
         var images = new PrivateContentImageSource(contentRoot);
-        ApplicationServices.Configure(catalog, languages, images);
+        ApplicationServices.Configure(catalog, languages, images, new PokemonHistoricalRuleProvider());
         languages.UiLanguageChanged += ApplyUiLocale;
         configured = true;
 
