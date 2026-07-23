@@ -23,6 +23,8 @@ public sealed class CollectionViewController : MonoBehaviour
         public Label Name;
         public Label Number;
         public Label Rarity;
+        public Label Owned;
+        public Label NewBadge;
     }
 
     [SerializeField] private UIDocument uiDocument;
@@ -34,8 +36,10 @@ public sealed class CollectionViewController : MonoBehaviour
     private readonly Dictionary<string, List<PrintingDefinition>> cardsBySet =
         new Dictionary<string, List<PrintingDefinition>>(StringComparer.Ordinal);
     private readonly HashSet<AsyncCardImageView> imageViews = new HashSet<AsyncCardImageView>();
+    private readonly List<string> rarityFilterIds = new List<string>();
 
     private UniversalCatalog catalog;
+    private ICollectionProgressStore collectionProgress;
     private CardTextureCache textureCache;
     private VisualElement browserRoot;
     private VisualElement setPage;
@@ -50,18 +54,48 @@ public sealed class CollectionViewController : MonoBehaviour
     private Label cardCount;
     private Label detailName;
     private Label detailMetadata;
+    private Label detailProgress;
+    private Label detailNewBadge;
+    private Label filterEmpty;
     private AsyncCardImageView detailImage;
     private Button menuButton;
     private Button backToSetsButton;
     private Button closeDetailsButton;
+    private Button ownedOnlyButton;
+    private Button newOnlyButton;
+    private Button clearFiltersButton;
+    private TextField searchField;
+    private DropdownField rarityFilter;
     private SetDefinition currentSet;
     private IVisualElementScheduledItem detailsAnimation;
+    private IVisualElementScheduledItem filterAnimation;
+    private string searchQuery = string.Empty;
+    private string selectedRarityId;
+    private bool ownedOnly;
+    private bool newOnly;
+    private bool updatingFilterControls;
+
+    public static ICollectionProgressStore CollectionProgressStoreOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
     public int InstalledSetCount => sets.Count;
     public int CurrentCardCount => cards.Count;
+    public int CurrentSetTotalCount => CurrentSetCards.Count;
+    public int OwnedCardCount => CurrentSetCards.Count(printing => Progress(printing).IsOwned);
+    public int NewCardCount => CurrentSetCards.Count(printing => Progress(printing).IsNew);
     public int CachedTextureCount => textureCache?.Count ?? 0;
+
+    private IReadOnlyList<PrintingDefinition> CurrentSetCards =>
+        currentSet != null && cardsBySet.TryGetValue(currentSet.Id, out List<PrintingDefinition> setCards)
+            ? setCards
+            : Array.Empty<PrintingDefinition>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRuntimeState()
+    {
+        CollectionProgressStoreOverride = null;
+    }
 
     private void Awake()
     {
@@ -83,6 +117,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
         detailsAnimation?.Pause();
         detailsAnimation = null;
+        filterAnimation?.Pause();
+        filterAnimation = null;
         foreach (AsyncCardImageView imageView in imageViews.ToArray())
             imageView.Dispose();
         imageViews.Clear();
@@ -98,17 +134,13 @@ public sealed class CollectionViewController : MonoBehaviour
             return false;
 
         currentSet = set;
-        cards.Clear();
-        if (cardsBySet.TryGetValue(set.Id, out List<PrintingDefinition> setCards))
-            cards.AddRange(setCards);
-
         cardPageTitle.text = DisplayName(set);
-        cardCount.text = FormatCardCount(cards.Count);
         cardList.itemsSource = cards;
-        cardList.ClearSelection();
-        cardList.Rebuild();
         setPage.style.display = DisplayStyle.None;
         cardPage.style.display = DisplayStyle.Flex;
+        ResetFilters(false);
+        RebuildRarityFilter();
+        ApplyFilters(false);
         HideDetails(false);
         return true;
     }
@@ -125,10 +157,16 @@ public sealed class CollectionViewController : MonoBehaviour
             ? DisplayName(definition)
             : printing.RarityId;
         detailMetadata.text = $"#{printing.Identity.CardNumber}  ·  {rarity}  ·  {printing.Identity.LanguageId}";
+        CollectionItemProgress progress = Progress(printing);
+        detailProgress.text = FormatOwnedCount(progress.OwnedCount);
+        detailNewBadge.text = Localized("NEW", "新卡");
+        detailNewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
         detailImage.Bind(printing);
         detailsPanel.style.display = DisplayStyle.Flex;
         detailsPanel.BringToFront();
         AnimateDetailsIn();
+        if (progress.IsNew)
+            MarkPrintingSeen(printing);
         return true;
     }
 
@@ -167,6 +205,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
             catalog = load.Catalog;
             ApplicationServices.Languages.RefreshContentLanguage(catalog);
+            collectionProgress = CollectionProgressStoreOverride ?? new PlayerCollectionProgressStore();
             textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
             detailImage = Track(new AsyncCardImageView(textureCache));
             browserRoot.Q<VisualElement>("detail-art-slot").Add(detailImage.Element);
@@ -205,9 +244,17 @@ public sealed class CollectionViewController : MonoBehaviour
         cardCount = Required<Label>("card-count");
         detailName = Required<Label>("detail-name");
         detailMetadata = Required<Label>("detail-metadata");
+        detailProgress = Required<Label>("detail-progress");
+        detailNewBadge = Required<Label>("detail-new-badge");
+        filterEmpty = Required<Label>("filter-empty");
         menuButton = Required<Button>("menu-button");
         backToSetsButton = Required<Button>("back-to-sets-button");
         closeDetailsButton = Required<Button>("details-close-button");
+        ownedOnlyButton = Required<Button>("owned-only-button");
+        newOnlyButton = Required<Button>("new-only-button");
+        clearFiltersButton = Required<Button>("clear-filters-button");
+        searchField = Required<TextField>("card-search");
+        rarityFilter = Required<DropdownField>("rarity-filter");
     }
 
     private void EnsureDocumentAssets()
@@ -267,6 +314,42 @@ public sealed class CollectionViewController : MonoBehaviour
             UIFeedbackService.Play(FeedbackCue.Back);
             HideDetails(true);
         };
+        ownedOnlyButton.clicked += () =>
+        {
+            ownedOnly = !ownedOnly;
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+            RefreshFilterControls();
+            ApplyFilters(true);
+        };
+        newOnlyButton.clicked += () =>
+        {
+            newOnly = !newOnly;
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+            RefreshFilterControls();
+            ApplyFilters(true);
+        };
+        clearFiltersButton.clicked += () =>
+        {
+            UIFeedbackService.Play(FeedbackCue.Back);
+            ResetFilters(true);
+        };
+        searchField.RegisterValueChangedCallback(evt =>
+        {
+            if (updatingFilterControls)
+                return;
+            searchQuery = evt.newValue?.Trim() ?? string.Empty;
+            ApplyFilters(true);
+        });
+        rarityFilter.RegisterValueChangedCallback(_ =>
+        {
+            if (updatingFilterControls)
+                return;
+            selectedRarityId = rarityFilter.index > 0 && rarityFilter.index < rarityFilterIds.Count
+                ? rarityFilterIds[rarityFilter.index]
+                : null;
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+            ApplyFilters(true);
+        });
     }
 
     private void BuildBrowseData()
@@ -319,8 +402,12 @@ public sealed class CollectionViewController : MonoBehaviour
         var row = (SetRow)element.userData;
         row.Name.text = DisplayName(set);
         int count = cardsBySet.TryGetValue(set.Id, out List<PrintingDefinition> setCards) ? setCards.Count : 0;
+        int owned = setCards?.Count(printing => Progress(printing).IsOwned) ?? 0;
+        int unseen = setCards?.Count(printing => Progress(printing).IsNew) ?? 0;
         string year = set.ReleaseDate?.Year.ToString() ?? "—";
-        row.Metadata.text = $"{year}  ·  {FormatCardCount(count)}  ·  {ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId}";
+        row.Metadata.text = Localized(
+            $"{year}  ·  {owned}/{count} collected  ·  {unseen} new  ·  {ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId}",
+            $"{year} 年  ·  已收藏 {owned}/{count}  ·  {unseen} 张新卡  ·  {ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId}");
         PrintingDefinition cover = setCards?.FirstOrDefault(printing => !string.IsNullOrWhiteSpace(printing.ImageRelativePath));
         if (cover != null)
             row.Image.Bind(cover);
@@ -349,12 +436,29 @@ public sealed class CollectionViewController : MonoBehaviour
         number.AddToClassList("browser-row__metadata");
         var rarity = new Label();
         rarity.AddToClassList("card-row__rarity");
+        var progress = new VisualElement();
+        progress.AddToClassList("card-row__progress");
+        var owned = new Label();
+        owned.AddToClassList("card-row__owned");
+        var newBadge = new Label();
+        newBadge.AddToClassList("card-row__new");
+        progress.Add(newBadge);
+        progress.Add(owned);
         copy.Add(name);
         copy.Add(number);
         copy.Add(rarity);
         root.Add(image.Element);
         root.Add(copy);
-        root.userData = new CardRow { Image = image, Name = name, Number = number, Rarity = rarity };
+        root.Add(progress);
+        root.userData = new CardRow
+        {
+            Image = image,
+            Name = name,
+            Number = number,
+            Rarity = rarity,
+            Owned = owned,
+            NewBadge = newBadge
+        };
         return root;
     }
 
@@ -369,6 +473,13 @@ public sealed class CollectionViewController : MonoBehaviour
         row.Rarity.text = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarity)
             ? DisplayName(rarity)
             : printing.RarityId;
+        CollectionItemProgress progress = Progress(printing);
+        row.Owned.text = FormatOwnedCount(progress.OwnedCount);
+        row.Owned.EnableInClassList("is-owned", progress.IsOwned);
+        row.NewBadge.text = Localized("NEW", "新卡");
+        row.NewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
+        element.EnableInClassList("is-unowned", !progress.IsOwned);
+        element.EnableInClassList("is-new", progress.IsNew);
         row.Image.Bind(printing);
         element.tooltip = row.Name.text;
     }
@@ -411,6 +522,178 @@ public sealed class CollectionViewController : MonoBehaviour
         ShowPrintingDetails(printing.Id);
     }
 
+    public void RefreshCollectionProgress()
+    {
+        setList?.RefreshItems();
+        if (currentSet != null)
+            ApplyFilters(false);
+        else
+            SetBrowserStatus(FormatCollectionSummary(), false);
+    }
+
+    public void SetOwnedOnlyFilter(bool value)
+    {
+        ownedOnly = value;
+        RefreshFilterControls();
+        ApplyFilters(true);
+    }
+
+    public void SetNewOnlyFilter(bool value)
+    {
+        newOnly = value;
+        RefreshFilterControls();
+        ApplyFilters(true);
+    }
+
+    private void ApplyFilters(bool animate, bool hideDetails = true)
+    {
+        IEnumerable<PrintingDefinition> query = CurrentSetCards;
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            query = query.Where(printing =>
+                DisplayName(printing).IndexOf(searchQuery, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                printing.Identity.CardNumber.IndexOf(searchQuery, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedRarityId))
+            query = query.Where(printing => string.Equals(printing.RarityId, selectedRarityId, StringComparison.Ordinal));
+        if (ownedOnly)
+            query = query.Where(printing => Progress(printing).IsOwned);
+        if (newOnly)
+            query = query.Where(printing => Progress(printing).IsNew);
+
+        cards.Clear();
+        cards.AddRange(query);
+        cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
+        filterEmpty.text = Localized(
+            "No cards match these filters.",
+            "没有符合当前筛选条件的卡牌。");
+        filterEmpty.style.display = cards.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        cardList.itemsSource = cards;
+        cardList.ClearSelection();
+        cardList.Rebuild();
+        if (hideDetails)
+            HideDetails(false);
+        if (animate)
+            AnimateFilterResults();
+    }
+
+    private void ResetFilters(bool apply)
+    {
+        searchQuery = string.Empty;
+        selectedRarityId = null;
+        ownedOnly = false;
+        newOnly = false;
+        updatingFilterControls = true;
+        searchField.SetValueWithoutNotify(string.Empty);
+        if (rarityFilter.choices != null && rarityFilter.choices.Count > 0)
+            rarityFilter.index = 0;
+        updatingFilterControls = false;
+        RefreshFilterControls();
+        if (apply)
+            ApplyFilters(true);
+    }
+
+    private void RebuildRarityFilter()
+    {
+        string previousRarityId = selectedRarityId;
+        RarityDefinition[] rarities = CurrentSetCards
+            .Select(printing => catalog.Rarities[printing.RarityId])
+            .Distinct()
+            .OrderBy(rarity => rarity.DisplayRank)
+            .ThenBy(rarity => rarity.Id, StringComparer.Ordinal)
+            .ToArray();
+
+        rarityFilterIds.Clear();
+        rarityFilterIds.Add(null);
+        rarityFilterIds.AddRange(rarities.Select(rarity => rarity.Id));
+        var choices = new List<string> { Localized("All rarities", "全部稀有度") };
+        choices.AddRange(rarities.Select(DisplayName));
+        int nextIndex = string.IsNullOrWhiteSpace(previousRarityId)
+            ? 0
+            : rarityFilterIds.IndexOf(previousRarityId);
+        if (nextIndex < 0)
+        {
+            nextIndex = 0;
+            selectedRarityId = null;
+        }
+        updatingFilterControls = true;
+        rarityFilter.choices = choices;
+        rarityFilter.index = nextIndex;
+        updatingFilterControls = false;
+    }
+
+    private void RefreshFilterControls()
+    {
+        searchField.label = Localized("Search name or number", "搜索名称或卡号");
+        rarityFilter.label = Localized("Rarity", "稀有度");
+        ownedOnlyButton.text = ownedOnly
+            ? Localized("Owned: ON", "仅拥有：开")
+            : Localized("Owned: OFF", "仅拥有：关");
+        newOnlyButton.text = newOnly
+            ? Localized("New: ON", "仅新卡：开")
+            : Localized("New: OFF", "仅新卡：关");
+        clearFiltersButton.text = Localized("Clear", "清除筛选");
+        ownedOnlyButton.EnableInClassList("is-selected", ownedOnly);
+        newOnlyButton.EnableInClassList("is-selected", newOnly);
+    }
+
+    private void MarkPrintingSeen(PrintingDefinition printing)
+    {
+        try
+        {
+            if (!collectionProgress.MarkSeen(printing.Id))
+                return;
+
+            detailNewBadge.style.display = DisplayStyle.None;
+            setList.RefreshItems();
+            if (newOnly)
+                ApplyFilters(true, false);
+            else
+            {
+                int index = cards.IndexOf(printing);
+                if (index >= 0)
+                    cardList.RefreshItem(index);
+                cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
+            }
+            SetBrowserStatus(FormatCollectionSummary(), false);
+        }
+        catch (Exception exception)
+        {
+            SetBrowserStatus(Localized(
+                "Couldn't save the viewed-card status. The NEW badge was kept.",
+                "无法保存已查看状态，NEW 标记已保留。"), true);
+            Debug.LogWarning($"Collection viewed-card status could not be saved: {exception.Message}");
+            UIFeedbackService.Play(FeedbackCue.Error);
+        }
+    }
+
+    private void AnimateFilterResults()
+    {
+        filterAnimation?.Pause();
+        if (UIFeedbackService.ReduceMotion)
+        {
+            cardList.style.opacity = 1f;
+            filterEmpty.style.opacity = 1f;
+            return;
+        }
+
+        float startedAt = Time.realtimeSinceStartup;
+        float duration = 0.16f / UIFeedbackService.AnimationSpeed;
+        cardList.style.opacity = 0.55f;
+        filterEmpty.style.opacity = 0.55f;
+        filterAnimation = cardPage.schedule.Execute(() =>
+        {
+            float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
+            cardList.style.opacity = Mathf.Lerp(0.55f, 1f, progress);
+            filterEmpty.style.opacity = Mathf.Lerp(0.55f, 1f, progress);
+            if (progress < 1f)
+                return;
+            filterAnimation?.Pause();
+            filterAnimation = null;
+        }).Every(16);
+    }
+
     private void ShowSets()
     {
         currentSet = null;
@@ -420,7 +703,7 @@ public sealed class CollectionViewController : MonoBehaviour
         setPage.style.display = DisplayStyle.Flex;
         cardPage.style.display = DisplayStyle.None;
         HideDetails(false);
-        browserStatus.text = FormatSetCount(sets.Count);
+        SetBrowserStatus(FormatCollectionSummary(), false);
     }
 
     private void HideDetails(bool clearSelection)
@@ -430,6 +713,8 @@ public sealed class CollectionViewController : MonoBehaviour
         detailsPanel.style.display = DisplayStyle.None;
         detailsPanel.style.opacity = 0f;
         detailImage?.Unbind();
+        if (detailNewBadge != null)
+            detailNewBadge.style.display = DisplayStyle.None;
         if (clearSelection)
             cardList?.ClearSelection();
     }
@@ -466,16 +751,18 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         pageTitle.text = Localized("Card Collection", "卡牌收藏");
         pageSubtitle.text = Localized(
-            "Installed private sets · images load only when visible",
-            "已安装的私人系列 · 仅加载屏幕可见卡图");
+            "Browse installed sets, search your cards, and track new pulls",
+            "浏览已安装系列、搜索收藏并查看新获得卡牌");
         menuButton.text = Localized("Main menu", "主菜单");
         backToSetsButton.text = Localized("All sets", "全部系列");
         closeDetailsButton.text = Localized("Close", "关闭");
-        browserStatus.text = FormatSetCount(sets.Count);
+        SetBrowserStatus(FormatCollectionSummary(), false);
+        RefreshFilterControls();
         if (currentSet != null)
         {
             cardPageTitle.text = DisplayName(currentSet);
-            cardCount.text = FormatCardCount(cards.Count);
+            RebuildRarityFilter();
+            ApplyFilters(false);
         }
 
         setList?.RefreshItems();
@@ -501,14 +788,39 @@ public sealed class CollectionViewController : MonoBehaviour
         return ApplicationServices.Languages.GetDisplayName(definition);
     }
 
-    private static string FormatSetCount(int count)
+    private string FormatCollectionSummary()
     {
-        return Localized($"{count} installed sets", $"已安装 {count} 个系列");
+        int total = cardsBySet.Values.Sum(setCards => setCards.Count);
+        int owned = cardsBySet.Values.Sum(setCards => setCards.Count(printing => Progress(printing).IsOwned));
+        int unseen = cardsBySet.Values.Sum(setCards => setCards.Count(printing => Progress(printing).IsNew));
+        return Localized(
+            $"{sets.Count} installed sets · {owned}/{total} collected · {unseen} new",
+            $"已安装 {sets.Count} 个系列 · 已收藏 {owned}/{total} · {unseen} 张新卡");
     }
 
-    private static string FormatCardCount(int count)
+    private static string FormatFilteredCardCount(int shown, int total, int owned, int unseen)
     {
-        return Localized($"{count} cards", $"{count} 张卡牌");
+        return Localized(
+            $"{shown} shown · {owned}/{total} collected · {unseen} new",
+            $"显示 {shown} 张 · 已收藏 {owned}/{total} · {unseen} 张新卡");
+    }
+
+    private static string FormatOwnedCount(int count)
+    {
+        return count > 0
+            ? Localized($"Owned ×{count}", $"已拥有 ×{count}")
+            : Localized("Not owned", "尚未拥有");
+    }
+
+    private CollectionItemProgress Progress(PrintingDefinition printing)
+    {
+        return collectionProgress.GetProgress(printing.Id);
+    }
+
+    private void SetBrowserStatus(string message, bool isError)
+    {
+        browserStatus.text = message ?? string.Empty;
+        browserStatus.EnableInClassList("is-error", isError);
     }
 
     private static string Localized(string english, string chinese)

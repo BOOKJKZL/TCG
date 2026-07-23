@@ -23,6 +23,16 @@
                         <ui:Label name="card-count" class="card-page__count" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:VisualElement class="collection-filters">
+                    <ui:TextField name="card-search" class="collection-filter collection-filter--search" />
+                    <ui:DropdownField name="rarity-filter" class="collection-filter collection-filter--rarity" />
+                    <ui:VisualElement class="collection-filter__toggles">
+                        <ui:Button name="owned-only-button" class="browser-button browser-button--filter" />
+                        <ui:Button name="new-only-button" class="browser-button browser-button--filter" />
+                        <ui:Button name="clear-filters-button" class="browser-button browser-button--quiet browser-button--filter" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label name="filter-empty" class="collection-filter__empty" style="display: none;" />
                 <ui:ListView name="card-list" class="browser-list" />
             </ui:VisualElement>
 
@@ -30,8 +40,10 @@
                 <ui:VisualElement class="details-panel__scrim" />
                 <ui:VisualElement class="details-panel__card">
                     <ui:VisualElement name="detail-art-slot" class="details-panel__art" />
+                    <ui:Label name="detail-new-badge" class="details-panel__new" style="display: none;" />
                     <ui:Label name="detail-name" class="details-panel__name" />
                     <ui:Label name="detail-metadata" class="details-panel__metadata" />
+                    <ui:Label name="detail-progress" class="details-panel__progress" />
                     <ui:Button name="details-close-button" class="browser-button" />
                 </ui:VisualElement>
             </ui:VisualElement>

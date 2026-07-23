@@ -17,8 +17,15 @@ public class CollectionBrowserPresentationTests
         TemplateContainer root = asset.CloneTree();
         Assert.That(root.Q<ListView>("set-list"), Is.Not.Null);
         Assert.That(root.Q<ListView>("card-list"), Is.Not.Null);
+        Assert.That(root.Q<TextField>("card-search"), Is.Not.Null);
+        Assert.That(root.Q<DropdownField>("rarity-filter"), Is.Not.Null);
+        Assert.That(root.Q<Button>("owned-only-button"), Is.Not.Null);
+        Assert.That(root.Q<Button>("new-only-button"), Is.Not.Null);
+        Assert.That(root.Q<Label>("filter-empty"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("details-panel"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("detail-art-slot"), Is.Not.Null);
+        Assert.That(root.Q<Label>("detail-progress"), Is.Not.Null);
+        Assert.That(root.Q<Label>("detail-new-badge"), Is.Not.Null);
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
     }
 
