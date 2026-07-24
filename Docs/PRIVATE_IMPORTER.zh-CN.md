@@ -26,6 +26,8 @@ Tools > Gacha > Import Historical Sample Sets
 
 所有导入内容写入项目根目录的 `LocalContent/Imports`。该目录已经加入 `.gitignore`，不得把卡图或原始 API 数据提交到代码仓库。
 
+导入完成后可打开 `Tools > Universal Gacha > Private Content Publisher`，选择语言/系列并生成确定性 ZIP 与 schema catalog。发布输出位于 `LocalContent/Releases/android`，同样由 `.gitignore` 保护；发布器会用运行时 Planner、原子安装器和私人 Catalog 完整读回后才报告成功。当前 `Publish Base + Neo Fixtures` 批处理只用于最小远程闭环，不会自动发布其余三个系列。
+
 ```text
 LocalContent/Imports/en/{set-id}/
   manifest.json

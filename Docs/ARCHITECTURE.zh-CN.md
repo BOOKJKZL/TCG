@@ -25,7 +25,7 @@ Gacha.Presentation
   UI Toolkit / UGUI 控制器、下载进度、开包动画、收藏界面
 
 Gacha.Editor
-  内容导入、字体子集、概率校验、Android/Addressables 构建与发布工具
+  内容导入、确定性 ZIP/catalog 发布、字体子集、概率校验、Android/Addressables 构建工具
 ```
 
 当前已加入的替换点：
@@ -63,7 +63,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；阶段 7A 已加入受限 HTTPS catalog 与私人配置，下一步是确定性 ZIP 发布和 R2 最小远程闭环。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，下一步是 R2 最小远程闭环。
 
 ## 两阶段路线
 

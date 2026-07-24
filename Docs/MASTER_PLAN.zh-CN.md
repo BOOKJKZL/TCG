@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 7A 的受限 HTTPS catalog provider、私人运行时配置、Bootstrap 接线和真实 loopback 页面闭环已完成。下一切片先把现有导入内容确定性打包为版本化 ZIP 与 schema catalog，再接私人 R2；卡牌内容不再强制重复包装成 Addressables。
+本次修改原因：阶段 7B 的确定性 ZIP/schema catalog 发布器、运行时安装自验证和 Base Set/Neo Genesis 本机发布 fixture 已完成。下一切片进入私人 R2 最小上传与手机真实下载；卡牌内容不再强制重复包装成 Addressables。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装、HTTP 断点下载、远程 catalog 和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 176/176 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装、HTTP 断点下载、远程 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 182/182 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -102,17 +102,19 @@ AccessibilitySettings
 - 主菜单已加入 `CONTENT` 入口；内容管理页按包显示版本、下载大小、状态与进度，并提供安装、更新、修复、继续、重试、暂停、取消和 catalog 刷新操作。
 - 内容管理页使用 Unity 主线程桥接协调器事件，支持进入/状态切换/失败抖动动画、按钮按压、下载开始/完成/失败音效、完成震动、减少动态和 32 组中英文本；一次失败尝试只提示一次。
 - 远程 catalog provider 已支持 HTTPS、loopback fixture、15 秒默认超时、1 MiB 默认上限、流式二次计数、JSON/identity/200 校验、外部取消和最终重定向 URI；Bootstrap 可从私人文件或 Editor 环境变量配置，不向仓库或 APK写入密钥。
+- 电脑端发布器已按稳定文件顺序、固定 ZIP 时间戳和实际字节生成内容寻址归档与 schema catalog；发布后会用正式 Planner/安装器安装到临时目录并由运行时 Catalog 读回，验证完成才算成功。
+- Base Set 与 Neo Genesis 已生成两个本机 fixture：下载大小 14,906,006 / 16,437,718 bytes，安装大小 15,189,695 / 16,754,096 bytes；连续构建 3 个发布文件的 Hash 全部不变，输出位于 Git 忽略目录。
 
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
 - 其余菜单和游戏场景尚未全部迁入 Unity Localization String Table；当前运行时双语文本与中文回退字体已可用。
-- 确定性内容包发布器、真实 R2 只读 URL、上传与手机真实下载闭环。
+- 真实 R2 只读 URL、最小上传与手机真实下载闭环。
 - 已安装内容的卸载/缓存删除操作；必须保留收藏记录，并验证重装后恢复。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 70%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 仍需确定性打包、R2 发布、卸载/重装和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 73%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 仍需 R2 发布、卸载/重装和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -511,7 +513,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 7：私人 R2 与按需内容发布
 
-状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环已完成（2026-07-24）；确定性包发布器、真实 R2 上传、卸载/重装和手机断网验证待继续。
+状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环，7B 确定性包发布器与两个历史系列本机 fixture 已完成（2026-07-24）；真实 R2 上传、卸载/重装和手机断网验证待继续。
 
 目标：实现小 APK 和首装后按需下载。
 
@@ -553,7 +555,18 @@ Content Language  卡名、卡图、系列和产品
 - provider 定向测试 11/11、Bootstrap/Application 定向测试 7/7；真实 PlayMode fixture 经过 `TcpListener → System.Net.Http → Bootstrap → ApplicationServices → ContentManagementController` 成功列出远程包。
 - 全量 EditMode 176/176、PlayMode 6/6 通过；Android/IL2CPP 构建成功，APK 74.84 MiB，413 个条目中私人内容和私人配置匹配为 0。
 
-下一切片：实现编辑器/电脑端确定性内容发布器。它从 `LocalContent/Imports` 选择最小测试系列，生成固定路径 ZIP、实际安装字节数、SHA-256 和 schema v1 catalog，并在本机输出目录完成“生成两次 Hash 相同、catalog 可被运行时读取、ZIP 可被现有安装器安装”的自验证；完成后再决定 R2 bucket/域名并上传，不先批量发布全部历史资料。
+7B 完成记录（2026-07-24）：
+
+- 新增 EditorWindow 与 Batch 入口；可以扫描私人 manifest、选择任意语言/系列，并显式指定 Catalog Revision、Package Revision 和版本。
+- 发布器拒绝空包、重复 Package ID/安装路径、source/output 互相嵌套、链接文件/目录、大小写冲突和不可移植路径。
+- ZIP 使用 Ordinal 文件顺序、固定 1980 时间戳、固定外部属性与 UTF-8 Entry；源文件时间和文件系统枚举顺序不进入归档 Hash。
+- 每包按实际源文件求 InstalledBytes，归档完成后求 DownloadBytes/SHA-256，以 `packages/{package-id}/{sha256}.zip` 发布，并最后原子写入排序后的 schema v1 `catalog.json`。
+- 相同输入连续发布两次时 2 个 ZIP 与 catalog 共 3 个文件均无字节变化；临时 `.publishing-*` 工作区为 0。
+- 发布后自动使用正式 Planner、`FileSystemContentPackageInstaller` 和收据安装到隔离验证目录，再由 `PrivateContentCatalogProvider` 读回预期系列数；失败不会把 catalog 当成可发布结果，验证目录最终为 0。
+- 发布器定向测试 6/6、全量 EditMode 182/182 通过；新增代码只存在 Editor，不改变已通过的 PlayMode 6/6 与阶段 7A Android/IL2CPP 包。
+- 本机已发布 `en.base1` 与 `en.neo1`：ZIP 为 14,906,006 / 16,437,718 bytes，安装内容为 15,189,695 / 16,754,096 bytes，SHA-256 分别为 `2522292c…beceac` 与 `f353fe80…7a861b`；发布输出由 `.gitignore` 保护。
+
+下一切片：阶段 7C 私人 R2 最小上传。先确定 bucket 与公开只读自定义域名，再只上传 `catalog.json` 和上述两个内容寻址 ZIP；上传工具必须在电脑端读取凭证、远端 HEAD/下载复核大小与 SHA-256，并生成本机 `remote-content.json`。没有 R2 账号信息时不猜测 bucket、域名或写入密钥。
 
 验收：
 
@@ -640,7 +653,8 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → Android 真机私人内容、触摸、声音与震动冒烟测试（等待设备，可并行）
 → 阶段 6 内容管理页面、主线程派发与游戏反馈（完成）
 → 阶段 7A：HTTPS catalog + 私人运行时配置（完成）
-→ 当前：阶段 7B 确定性内容包发布器 + 私人 R2 最小上传
+→ 阶段 7B：确定性内容包发布器 + 两个历史系列本机 fixture（完成）
+→ 当前：阶段 7C 私人 R2 最小上传 + 手机真实下载
 → Android 下载/中断/离线缓存测试
 → 阶段 8：宝可梦真实规则适配
 → 阶段 9：最终 Android 验收

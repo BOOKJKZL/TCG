@@ -63,7 +63,28 @@ content/packages/{package-id}/{sha256}.zip
 5. Catalog 与卡图从文件缓存离线读取；下次启动无需重新下载。
 6. 后续允许用户卸载某个包，但收藏存档必须独立保留。
 
-阶段 7B 的发布器会生成不可变 ZIP 与 schema catalog；上传 R2 后只需替换小 catalog，应用无需重新安装即可发现新 Revision。Addressables 仍可独立用于通用特效/声音，但不再是卡牌数据和卡图发布的前置条件。
+阶段 7B 的发布器已经生成不可变 ZIP 与 schema catalog；上传 R2 后只需替换小 catalog，应用无需重新安装即可发现新 Revision。Addressables 仍可独立用于通用特效/声音，但不再是卡牌数据和卡图发布的前置条件。
+
+## 确定性内容发布器
+
+打开 `Tools > Universal Gacha > Private Content Publisher` 可以扫描 `LocalContent/Imports`，选择要发布的语言/系列并设置 Catalog Revision、Package Revision 与版本。批处理入口 `Tools > Universal Gacha > Publish Base + Neo Fixtures` 只发布当前最小验证集。
+
+发布器执行以下验证：
+
+1. 拒绝 source/output 嵌套、链接、空包、重复 ID/路径和不可移植文件名。
+2. 按 Ordinal 路径排序，忽略源文件时间，并以固定 ZIP 时间戳/属性生成归档。
+3. 从实际文件计算 InstalledBytes，从最终 ZIP 计算 DownloadBytes 与 SHA-256。
+4. 写入 `packages/{package-id}/{sha256}.zip`，全部包完成后才原子发布排序后的 `catalog.json`。
+5. 用正式 Planner 与 `FileSystemContentPackageInstaller` 安装到隔离目录，再由 `PrivateContentCatalogProvider` 读回预期系列；验证目录无论成功失败都会清理。
+
+当前本机 `LocalContent/Releases/android` 已有：
+
+| Package | ZIP bytes | Installed bytes | SHA-256（缩写） |
+|---|---:|---:|---|
+| `en.base1` | 14,906,006 | 15,189,695 | `2522292c…beceac` |
+| `en.neo1` | 16,437,718 | 16,754,096 | `f353fe80…7a861b` |
+
+连续构建时两个 ZIP 与 catalog 共 3 个文件全部保持相同 Hash。它们只存在于 Git 忽略的本机目录，尚未上传 R2。
 
 ## 远程 catalog 私人配置
 
