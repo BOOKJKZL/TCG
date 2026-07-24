@@ -49,10 +49,12 @@ namespace Gacha.Tests.PlayMode
             Assert.That(uiButton.interactable, Is.True);
             Assert.That(uiButton.GetComponent<GameFeedbackButton>(), Is.Not.Null);
 
-            string originalUi = ApplicationServices.Languages.UiLanguageId;
+            string persistedUi = ApplicationServices.Languages.UiLanguageId;
             string originalContent = ApplicationServices.Languages.RequestedContentLanguageId;
-            string expectedUi = originalUi == "en" ? "zh" : "en";
-            string expectedTitle = expectedUi == "zh" ? "语言设置" : "Language";
+            ApplicationServices.Languages.SelectUiLanguage("en");
+            yield return null;
+            const string expectedUi = "zh";
+            const string expectedTitle = "语言设置";
 
             uiButton.onClick.Invoke();
             TMP_Text title = panel.GetComponentsInChildren<TMP_Text>(true)
@@ -66,7 +68,7 @@ namespace Gacha.Tests.PlayMode
             Assert.That(LocalizationSettings.SelectedLocale.Identifier.Code, Is.EqualTo(expectedUi));
             Assert.That(title.text, Is.EqualTo(expectedTitle));
 
-            ApplicationServices.Languages.SelectUiLanguage(originalUi);
+            ApplicationServices.Languages.SelectUiLanguage(persistedUi);
             yield return new WaitForSecondsRealtime(0.3f);
             Assert.That(panel.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.01f));
 
@@ -119,6 +121,7 @@ namespace Gacha.Tests.PlayMode
             Assert.That(UIFeedbackService.ReduceMotion, Is.EqualTo(original.ReduceMotion));
             Assert.That(UIFeedbackService.HapticsEnabled, Is.EqualTo(original.HapticsEnabled));
             Assert.That(UIFeedbackService.AnimationSpeed, Is.EqualTo(original.AnimationSpeed));
+            LogAssert.NoUnexpectedReceived();
         }
 
     }
