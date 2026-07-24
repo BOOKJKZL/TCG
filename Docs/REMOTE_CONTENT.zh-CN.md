@@ -51,6 +51,8 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 下载完成后的本地 ZIP 由 `FileSystemContentPackageInstaller` 在实时 Catalog 之外验证和解压，再以同卷目录重命名提交；Hash、解压大小或路径检查失败时不会接触旧系列。收据发布失败会回滚旧目录，极端的二次回滚失败会保留事务工作区供恢复。
 
+阶段 6C1 已加入协议无关的下载状态机和文件断点层：未完成数据保存为 `.part`，Retry 使用实际文件长度作为 offset，只有声明字节数完整时才发布 `.zip`。当前 `LocalFileContentPackageByteSource` 用于验证和私人侧载；HTTP 字节源必须在续传时严格检查 `206` 与 `Content-Range`，不能把忽略 Range 的 `200` 响应追加到旧文件。
+
 1. 启动 Addressables 并检查远程 catalog 更新。
 2. 使用 `GetDownloadSizeAsync(label)` 获取准确下载量。
 3. 检查 Wi-Fi、剩余空间并让用户确认。
