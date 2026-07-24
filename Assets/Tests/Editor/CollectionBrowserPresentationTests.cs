@@ -13,7 +13,7 @@ using UnityEngine.UIElements;
 public class CollectionBrowserPresentationTests
 {
     [Test]
-    public void CollectionAndCardImageText_UsesCompleteEnglishAndChineseStringTableEntries()
+    public void CardUiText_UsesCompleteEnglishAndChineseStringTableEntries()
     {
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection(CardUiText.TableName);
         StringTable english = collection.GetTable("en") as StringTable;

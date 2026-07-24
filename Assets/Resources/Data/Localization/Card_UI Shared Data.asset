@@ -375,6 +375,122 @@ MonoBehaviour:
     m_Key: collection.unowned
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851462
+    m_Key: gacha.status.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851463
+    m_Key: gacha.pack.hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851464
+    m_Key: gacha.status.open_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851465
+    m_Key: gacha.badge.owned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851466
+    m_Key: gacha.reveal.progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851467
+    m_Key: gacha.action.view_results
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851468
+    m_Key: gacha.action.reveal_next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851469
+    m_Key: gacha.status.no_products
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851470
+    m_Key: gacha.rule.verified
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851471
+    m_Key: gacha.rule.simulation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851472
+    m_Key: gacha.rule.simulation_notice
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851473
+    m_Key: gacha.reveal.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851474
+    m_Key: gacha.reveal.one_at_time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851475
+    m_Key: gacha.reveal.pending_progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851476
+    m_Key: gacha.action.reveal_first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851477
+    m_Key: gacha.action.reveal_all
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851478
+    m_Key: gacha.summary.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851479
+    m_Key: gacha.summary.metadata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851480
+    m_Key: gacha.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851481
+    m_Key: gacha.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851482
+    m_Key: gacha.action.prepare
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851483
+    m_Key: gacha.action.rule_source
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851484
+    m_Key: gacha.action.tear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851485
+    m_Key: gacha.action.all_products
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851486
+    m_Key: gacha.action.open_another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851487
+    m_Key: gacha.action.choose_another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851488
+    m_Key: gacha.odds.heading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851489
+    m_Key: gacha.product.metadata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851490
+    m_Key: gacha.reveal.metadata
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

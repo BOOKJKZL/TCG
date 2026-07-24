@@ -380,6 +380,122 @@ MonoBehaviour:
     m_Localized: Not owned
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851462
+    m_Localized: 'Pack opening unavailable: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851463
+    m_Localized: Tap to tear this simulated pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851464
+    m_Localized: 'Could not open this pack: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851465
+    m_Localized: OWNED
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851466
+    m_Localized: Card {0} of {1}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851467
+    m_Localized: View results
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851468
+    m_Localized: Reveal next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851469
+    m_Localized: No products are installed for this content language.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851470
+    m_Localized: VERIFIED RULES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851471
+    m_Localized: SIMULATION
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851472
+    m_Localized: Equal odds per installed printing. This is not historical pack collation.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851473
+    m_Localized: Cards are ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851474
+    m_Localized: Reveal them one at a time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851475
+    m_Localized: 0 of {0} cards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851476
+    m_Localized: Reveal first card
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851477
+    m_Localized: Reveal all
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851478
+    m_Localized: Pack complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851479
+    m_Localized: "{0} cards \xB7 {1} new \xB7 Pack #{2}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851480
+    m_Localized: Open a Pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851481
+    m_Localized: Choose installed content, inspect the rule, then reveal every card
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851482
+    m_Localized: Prepare pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851483
+    m_Localized: Rule source
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851484
+    m_Localized: Tear pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851485
+    m_Localized: All products
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851486
+    m_Localized: Open another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851487
+    m_Localized: Choose another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851488
+    m_Localized: Average chance per card slot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851489
+    m_Localized: "{0} \xB7 {1} printings \xB7 {2}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851490
+    m_Localized: "#{0} \xB7 {1} \xB7 {2} \xB7 Owned {3}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -28,6 +28,7 @@ namespace Gacha.Tests.PlayMode
                 BindingFlags.Static | BindingFlags.Public);
             storeOverride.SetValue(null, store);
             var cues = new List<FeedbackCue>();
+            string originalUiLanguage = null;
             UIFeedbackService.FeedbackPlayed += cues.Add;
             try
             {
@@ -49,6 +50,16 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
+                originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+                ApplicationServices.Languages.SelectUiLanguage("zh");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("准备卡包"));
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("Open a Pack"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("Prepare pack"));
+
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
                 Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
 
@@ -64,6 +75,14 @@ namespace Gacha.Tests.PlayMode
 
                 int openedCardCount = (int)GetProperty(controller, "LastOpenedCardCount");
                 Assert.That(openedCardCount, Is.EqualTo(11));
+                ApplicationServices.Languages.SelectUiLanguage("zh");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("第 0 / 11 张"));
+                Assert.That(document.rootVisualElement.Q<Button>("reveal-next-button").text, Is.EqualTo("翻开第一张"));
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("0 of 11 cards"));
+                Assert.That(document.rootVisualElement.Q<Button>("reveal-next-button").text, Is.EqualTo("Reveal first card"));
                 Assert.That(store.ProductsOpened, Is.EqualTo(1));
                 Assert.That(store.TotalCards, Is.EqualTo(openedCardCount));
                 Assert.That(cues, Does.Contain(FeedbackCue.PackOpen));
@@ -85,6 +104,14 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
                 Assert.That(cues, Does.Contain(FeedbackCue.CollectionNew));
+                ApplicationServices.Languages.SelectUiLanguage("zh");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("summary-title").text, Is.EqualTo("开包完成"));
+                Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text, Does.Contain("张卡牌"));
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("summary-title").text, Is.EqualTo("Pack complete"));
+                Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text, Does.Contain("cards"));
 
                 int neoIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
@@ -117,6 +144,8 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
+                    ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
                 UIFeedbackService.FeedbackPlayed -= cues.Add;
                 storeOverride.SetValue(null, null);
             }

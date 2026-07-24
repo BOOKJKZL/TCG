@@ -192,7 +192,7 @@ public sealed class GachaViewController : MonoBehaviour
         catch (Exception exception)
         {
             InitializationError = exception.Message;
-            SetStatus(Localized("Pack opening unavailable", "开包功能暂不可用") + $": {exception.Message}", true);
+            SetStatus(CardUiText.Format("gacha.status.unavailable", exception.Message), true);
             Debug.LogWarning($"Gacha content could not be initialized: {exception.Message}");
             InitializationFailed?.Invoke(exception.Message);
             UIFeedbackService.Play(FeedbackCue.Error);
@@ -225,7 +225,7 @@ public sealed class GachaViewController : MonoBehaviour
         packTearLine.style.width = Length.Percent(0f);
         tearButton.SetEnabled(true);
         packTitle.text = DisplayName(selectedProduct);
-        packHint.text = Localized("Tap to tear this simulated pack", "点击撕开这个模拟卡包");
+        packHint.text = CardUiText.Get("gacha.pack.hint");
         PrintingDefinition cover = CoverFor(selectedProduct);
         if (cover != null)
             packImage.Bind(cover);
@@ -253,7 +253,7 @@ public sealed class GachaViewController : MonoBehaviour
         catch (Exception exception)
         {
             currentOutcome = null;
-            SetStatus(Localized("Could not open this pack", "无法开启这个卡包") + $": {exception.Message}", true);
+            SetStatus(CardUiText.Format("gacha.status.open_failed", exception.Message), true);
             Debug.LogWarning($"Pack opening failed: {exception.Message}");
             InitializationFailed?.Invoke(exception.Message);
             UIFeedbackService.Play(FeedbackCue.Error);
@@ -276,14 +276,17 @@ public sealed class GachaViewController : MonoBehaviour
         revealImage.Bind(entry.Printing);
         revealName.text = DisplayName(entry.Printing);
         revealMetadata.text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
-        revealNewBadge.text = entry.Award.IsNew ? Localized("NEW", "新卡") : Localized("OWNED", "已拥有");
+        revealNewBadge.text = entry.Award.IsNew
+            ? CardUiText.Get("common.badge.new")
+            : CardUiText.Get("gacha.badge.owned");
         revealNewBadge.EnableInClassList("is-new", entry.Award.IsNew);
-        revealProgress.text = Localized(
-            $"Card {revealIndex + 1} of {revealEntries.Count}",
-            $"第 {revealIndex + 1} / {revealEntries.Count} 张");
+        revealProgress.text = CardUiText.Format(
+            "gacha.reveal.progress",
+            revealIndex + 1,
+            revealEntries.Count);
         revealButton.text = revealIndex == revealEntries.Count - 1
-            ? Localized("View results", "查看结果")
-            : Localized("Reveal next", "翻开下一张");
+            ? CardUiText.Get("gacha.action.view_results")
+            : CardUiText.Get("gacha.action.reveal_next");
 
         UIFeedbackService.Play(FeedbackCue.CardFlip, true);
         if (catalog.Rarities.TryGetValue(entry.Printing.RarityId, out RarityDefinition rarity) &&
@@ -424,7 +427,7 @@ public sealed class GachaViewController : MonoBehaviour
             selectedProduct = null;
             selectedProfile = null;
             prepareButton.SetEnabled(false);
-            SetStatus(Localized("No products are installed for this content language.", "当前内容语言没有已安装卡包。"), true);
+            SetStatus(CardUiText.Get("gacha.status.no_products"), true);
             return;
         }
 
@@ -503,14 +506,12 @@ public sealed class GachaViewController : MonoBehaviour
         selectedName.text = DisplayName(product);
         selectedMetadata.text = ProductMetadata(product, set);
         ruleBadge.text = selectedProfile.IsHistoricallyVerified
-            ? Localized("VERIFIED RULES", "已验证规则")
-            : Localized("SIMULATION", "模拟规则");
+            ? CardUiText.Get("gacha.rule.verified")
+            : CardUiText.Get("gacha.rule.simulation");
         ruleBadge.EnableInClassList("is-verified", selectedProfile.IsHistoricallyVerified);
         ruleNotice.text = selectedProfile.IsHistoricallyVerified
             ? selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId)
-            : Localized(
-                "Equal odds per installed printing. This is not historical pack collation.",
-                "每个已安装印刷版本等概率；这不代表历史真实卡包配列。");
+            : CardUiText.Get("gacha.rule.simulation_notice");
         ruleSourceButton.style.display = selectedProfile.SourceReferences.Count > 0 && selectedProfile.IsHistoricallyVerified
             ? DisplayStyle.Flex
             : DisplayStyle.None;
@@ -573,15 +574,13 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage.style.display = DisplayStyle.None;
         revealIndex = -1;
         revealImage.Unbind();
-        revealName.text = Localized("Cards are ready", "卡牌已经准备好");
-        revealMetadata.text = Localized("Reveal them one at a time", "逐张翻开查看结果");
+        revealName.text = CardUiText.Get("gacha.reveal.ready");
+        revealMetadata.text = CardUiText.Get("gacha.reveal.one_at_time");
         revealNewBadge.text = string.Empty;
-        revealProgress.text = Localized(
-            $"0 of {revealEntries.Count} cards",
-            $"第 0 / {revealEntries.Count} 张");
-        revealButton.text = Localized("Reveal first card", "翻开第一张");
+        revealProgress.text = CardUiText.Format("gacha.reveal.pending_progress", revealEntries.Count);
+        revealButton.text = CardUiText.Get("gacha.action.reveal_first");
         revealButton.SetEnabled(true);
-        revealAllButton.text = Localized("Reveal all", "查看全部");
+        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
         revealAllButton.SetEnabled(true);
     }
 
@@ -592,10 +591,7 @@ public sealed class GachaViewController : MonoBehaviour
         revealAnimating = false;
         revealStage.style.display = DisplayStyle.None;
         summaryStage.style.display = DisplayStyle.Flex;
-        summaryTitle.text = Localized("Pack complete", "开包完成");
-        summaryMetadata.text = Localized(
-            $"{revealEntries.Count} cards · {currentOutcome.Inventory.NewPrintingCount} new · Pack #{currentOutcome.Inventory.ProductsOpened}",
-            $"{revealEntries.Count} 张卡牌 · {currentOutcome.Inventory.NewPrintingCount} 张新卡 · 第 {currentOutcome.Inventory.ProductsOpened} 包");
+        ApplySummaryText();
         BuildSummaryList();
         if (currentOutcome.Inventory.NewPrintingCount > 0)
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
@@ -618,7 +614,9 @@ public sealed class GachaViewController : MonoBehaviour
             metadata.AddToClassList("gacha-summary-row__metadata");
             copy.Add(name);
             copy.Add(metadata);
-            var badge = new Label(entry.Award.IsNew ? Localized("NEW", "新卡") : $"×{entry.Award.CurrentCount}");
+            var badge = new Label(entry.Award.IsNew
+                ? CardUiText.Get("common.badge.new")
+                : $"×{entry.Award.CurrentCount}");
             badge.AddToClassList("gacha-summary-row__badge");
             badge.EnableInClassList("is-new", entry.Award.IsNew);
             row.Add(copy);
@@ -710,32 +708,30 @@ public sealed class GachaViewController : MonoBehaviour
     {
         if (root == null)
             return;
-        title.text = Localized("Open a Pack", "开启卡包");
-        subtitle.text = Localized(
-            "Choose installed content, inspect the rule, then reveal every card",
-            "选择已安装内容、确认规则，然后逐张翻开卡牌");
-        menuButton.text = Localized("Main menu", "主菜单");
-        prepareButton.text = Localized("Prepare pack", "准备卡包");
-        ruleSourceButton.text = Localized("Rule source", "规则来源");
-        tearButton.text = Localized("Tear pack", "撕开卡包");
-        revealAllButton.text = Localized("Reveal all", "查看全部");
-        backToProductsButton.text = Localized("All products", "全部卡包");
-        openAgainButton.text = Localized("Open another", "再开一包");
-        summaryProductsButton.text = Localized("Choose another", "选择其他卡包");
-        oddsHeading.text = Localized("Average chance per card slot", "每个卡位的平均概率");
+        title.text = CardUiText.Get("gacha.title");
+        subtitle.text = CardUiText.Get("gacha.subtitle");
+        menuButton.text = CardUiText.Get("common.action.main_menu");
+        prepareButton.text = CardUiText.Get("gacha.action.prepare");
+        ruleSourceButton.text = CardUiText.Get("gacha.action.rule_source");
+        tearButton.text = CardUiText.Get("gacha.action.tear");
+        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
+        backToProductsButton.text = CardUiText.Get("gacha.action.all_products");
+        openAgainButton.text = CardUiText.Get("gacha.action.open_another");
+        summaryProductsButton.text = CardUiText.Get("gacha.action.choose_another");
+        oddsHeading.text = CardUiText.Get("gacha.odds.heading");
         if (selectedProduct != null)
             SelectProduct(selectedProduct);
-        if (currentOutcome != null && revealIndex >= 0 && revealIndex < revealEntries.Count)
-        {
-            RevealEntry entry = revealEntries[revealIndex];
-            revealName.text = DisplayName(entry.Printing);
-            revealMetadata.text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
-        }
+        else if (products.Count == 0)
+            SetStatus(CardUiText.Get("gacha.status.no_products"), true);
+        if (currentOutcome != null)
+            ApplyRevealText();
         if (IsSummaryVisible)
         {
-            summaryTitle.text = Localized("Pack complete", "开包完成");
+            ApplySummaryText();
             BuildSummaryList();
         }
+        if (packStage.resolvedStyle.display == DisplayStyle.Flex)
+            packHint.text = CardUiText.Get("gacha.pack.hint");
         productList?.RefreshItems();
     }
 
@@ -778,9 +774,7 @@ public sealed class GachaViewController : MonoBehaviour
         string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
         int cardCount = product.EligiblePrintingIds.Count(id =>
             string.Equals(catalog.Printings[id].Identity.LanguageId, languageId, StringComparison.OrdinalIgnoreCase));
-        return Localized(
-            $"{year} · {cardCount} printings · {languageId}",
-            $"{year} 年 · {cardCount} 个印刷版本 · {languageId}");
+        return CardUiText.Format("gacha.product.metadata", year, cardCount, languageId);
     }
 
     private string RevealMetadata(PrintingDefinition printing, int ownedCount)
@@ -788,9 +782,12 @@ public sealed class GachaViewController : MonoBehaviour
         string rarity = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition definition)
             ? DisplayName(definition)
             : printing.RarityId;
-        return Localized(
-            $"#{printing.Identity.CardNumber} · {rarity} · {printing.Identity.VariantId} · Owned {ownedCount}",
-            $"#{printing.Identity.CardNumber} · {rarity} · {printing.Identity.VariantId} · 已拥有 {ownedCount}");
+        return CardUiText.Format(
+            "gacha.reveal.metadata",
+            printing.Identity.CardNumber,
+            rarity,
+            printing.Identity.VariantId,
+            ownedCount);
     }
 
     private string DisplayName(Definition definition)
@@ -835,11 +832,40 @@ public sealed class GachaViewController : MonoBehaviour
         return imageView;
     }
 
-    private static string Localized(string english, string chinese)
+    private void ApplyRevealText()
     {
-        return ApplicationServices.IsConfigured &&
-               ApplicationServices.Languages.UiLanguageId.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
-            ? chinese
-            : english;
+        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
+        if (revealIndex < 0 || revealIndex >= revealEntries.Count)
+        {
+            revealName.text = CardUiText.Get("gacha.reveal.ready");
+            revealMetadata.text = CardUiText.Get("gacha.reveal.one_at_time");
+            revealNewBadge.text = string.Empty;
+            revealProgress.text = CardUiText.Format("gacha.reveal.pending_progress", revealEntries.Count);
+            revealButton.text = CardUiText.Get("gacha.action.reveal_first");
+            return;
+        }
+
+        RevealEntry entry = revealEntries[revealIndex];
+        revealName.text = DisplayName(entry.Printing);
+        revealMetadata.text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
+        revealNewBadge.text = entry.Award.IsNew
+            ? CardUiText.Get("common.badge.new")
+            : CardUiText.Get("gacha.badge.owned");
+        revealProgress.text = CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
+        revealButton.text = revealIndex == revealEntries.Count - 1
+            ? CardUiText.Get("gacha.action.view_results")
+            : CardUiText.Get("gacha.action.reveal_next");
+    }
+
+    private void ApplySummaryText()
+    {
+        if (currentOutcome == null)
+            return;
+        summaryTitle.text = CardUiText.Get("gacha.summary.title");
+        summaryMetadata.text = CardUiText.Format(
+            "gacha.summary.metadata",
+            revealEntries.Count,
+            currentOutcome.Inventory.NewPrintingCount,
+            currentOutcome.Inventory.ProductsOpened);
     }
 }
