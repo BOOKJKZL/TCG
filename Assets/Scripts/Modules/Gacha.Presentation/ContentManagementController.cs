@@ -37,6 +37,8 @@ namespace Gacha.Presentation
                 ["content.catalog.empty"] = "No downloadable content is listed in this catalog.",
                 ["content.catalog.unavailable"] = "The content catalog is unavailable: {0}",
                 ["content.catalog.not_configured"] = "Remote content is not configured yet.",
+                ["content.catalog.cached"] = "Offline · showing {0} packs from the last verified catalog.",
+                ["content.catalog.cache_warning"] = "{0} packs available, but the offline catalog cache could not be updated.",
                 ["content.package.metadata"] = "Version {0} · {1}",
                 ["content.status.ready"] = "Ready to install",
                 ["content.status.checking"] = "Checking storage and installed version...",
@@ -169,6 +171,8 @@ namespace Gacha.Presentation
         private IVisualElementScheduledItem entranceAnimation;
         private int loadGeneration;
         private bool destroyed;
+        private bool catalogUsedCache;
+        private bool catalogHasCacheWarning;
 
         public static IContentPackageCatalogProvider CatalogProviderOverride { private get; set; }
         public static IContentPackageInstallCoordinatorFactory OperationFactoryOverride { private get; set; }
@@ -337,7 +341,7 @@ namespace Gacha.Presentation
                     if (result == null || !result.Succeeded)
                         ApplyCatalogFailure(generation, result?.ErrorMessage ?? "No catalog result was returned.");
                     else
-                        ApplyCatalog(generation, result.Catalog);
+                        ApplyCatalog(generation, result);
                 });
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -354,12 +358,16 @@ namespace Gacha.Presentation
             }
         }
 
-        private void ApplyCatalog(int generation, ContentPackageCatalog value)
+        private void ApplyCatalog(int generation, ContentPackageCatalogLoadResult result)
         {
             if (destroyed || generation != loadGeneration)
                 return;
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
-            catalog = value;
+            catalog = result.Catalog;
+            catalogUsedCache = result.UsedCachedCatalog;
+            catalogHasCacheWarning = !string.IsNullOrWhiteSpace(result.WarningMessage);
+            if (catalogHasCacheWarning)
+                Debug.LogWarning("Content package catalog warning: " + result.WarningMessage);
             ClearOperations();
             packageList.Clear();
             rows.Clear();
@@ -389,11 +397,9 @@ namespace Gacha.Presentation
                 bool empty = rows.Count == 0;
                 emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
                 packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
-                SetCatalogStatus(empty
-                    ? L("content.catalog.empty")
-                    : string.Format(L("content.catalog.loaded"), rows.Count), false);
                 IsReady = true;
                 InitializationError = null;
+                ApplyReadyCatalogStatus();
                 refreshButton.SetEnabled(true);
             }
             catch (Exception exception)
@@ -407,6 +413,8 @@ namespace Gacha.Presentation
             if (destroyed || generation != loadGeneration)
                 return;
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
+            catalogUsedCache = false;
+            catalogHasCacheWarning = false;
             InitializationError = string.IsNullOrWhiteSpace(message)
                 ? "Content catalog is unavailable."
                 : message.Trim();
@@ -722,6 +730,8 @@ namespace Gacha.Presentation
                     : operation.Result;
             }
             ApplyLocalizedChrome();
+            if (IsReady)
+                ApplyReadyCatalogStatus();
             foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
                 ApplyOperation(pair.Key, pair.Value.Current);
             localizationRoutine = null;
@@ -747,12 +757,38 @@ namespace Gacha.Presentation
             return EnglishFallbacks.TryGetValue(key, out string fallback) ? fallback : key;
         }
 
-        private void SetCatalogStatus(string value, bool error)
+        private void ApplyReadyCatalogStatus()
+        {
+            if (!IsReady)
+                return;
+            if (catalogUsedCache)
+            {
+                SetCatalogStatus(
+                    string.Format(L("content.catalog.cached"), rows.Count),
+                    false,
+                    true);
+                return;
+            }
+            if (catalogHasCacheWarning)
+            {
+                SetCatalogStatus(
+                    string.Format(L("content.catalog.cache_warning"), rows.Count),
+                    false,
+                    true);
+                return;
+            }
+            SetCatalogStatus(rows.Count == 0
+                ? L("content.catalog.empty")
+                : string.Format(L("content.catalog.loaded"), rows.Count), false);
+        }
+
+        private void SetCatalogStatus(string value, bool error, bool warning = false)
         {
             if (catalogStatus == null)
                 return;
             catalogStatus.text = value;
             catalogStatus.EnableInClassList("is-error", error);
+            catalogStatus.EnableInClassList("is-warning", warning && !error);
         }
 
         private void PlayEntrance()

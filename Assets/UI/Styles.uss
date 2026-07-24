@@ -66,6 +66,11 @@
     background-color: rgba(133, 42, 55, 0.92);
 }
 
+.content-management__catalog-status.is-warning {
+    color: rgb(255, 242, 201);
+    background-color: rgba(126, 86, 26, 0.94);
+}
+
 .content-management__empty {
     flex-grow: 1;
     margin-top: 16px;

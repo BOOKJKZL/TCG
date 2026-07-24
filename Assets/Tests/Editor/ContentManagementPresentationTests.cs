@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Presentation;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine.Localization.Tables;
 
 public class ContentManagementPresentationTests
 {
@@ -87,6 +89,22 @@ public class ContentManagementPresentationTests
 
         Assert.That(result.PrimaryAction, Is.EqualTo(expected));
         Assert.That(result.PrimaryActionKey, Is.EqualTo(key));
+    }
+
+    [Test]
+    public void OfflineCatalogLocalization_HasEnglishAndChineseEntries()
+    {
+        StringTable english = AssetDatabase.LoadAssetAtPath<StringTable>(
+            "Assets/Resources/Data/Localization/Card_UI_en.asset");
+        StringTable chinese = AssetDatabase.LoadAssetAtPath<StringTable>(
+            "Assets/Resources/Data/Localization/Card_UI_zh.asset");
+
+        foreach (string key in new[] { "content.catalog.cached", "content.catalog.cache_warning" })
+        {
+            Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing English key: " + key);
+            Assert.That(chinese.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing Chinese key: " + key);
+        }
+        Assert.That(chinese.GetEntry("content.catalog.cached").LocalizedValue, Does.Contain("离线模式"));
     }
 
     [Test]

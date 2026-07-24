@@ -18,6 +18,7 @@ public static class GameApplicationBootstrap
     private const string HapticsEnabledKey = "settings.haptics-enabled";
     private const string AnimationSpeedKey = "settings.animation-speed";
     private const string CatalogUrlEnvironmentKey = "GACHA_CONTENT_CATALOG_URL";
+    private const string CatalogCachePathEnvironmentKey = "GACHA_CONTENT_CATALOG_CACHE_PATH";
     private const string BundledRemoteConfigResource = "Data/RemoteContent";
     private const string PrivateRemoteConfigFile = "remote-content.json";
     private static bool configured;
@@ -129,14 +130,29 @@ public static class GameApplicationBootstrap
                 catalogUri,
                 maximumCatalogBytes: maximumBytes,
                 timeout: timeout);
-            Debug.Log("Remote content catalog is configured from private runtime settings.");
-            return provider;
+            var cachedProvider = new CachedContentPackageCatalogProvider(
+                provider,
+                ResolveCatalogCachePath(),
+                catalogUri,
+                maximumBytes);
+            Debug.Log("Remote content catalog and its verified offline cache are configured from private runtime settings.");
+            return cachedProvider;
         }
         catch (Exception exception)
         {
             Debug.LogWarning("Remote content configuration was ignored: " + exception.Message);
             return null;
         }
+    }
+
+    private static string ResolveCatalogCachePath()
+    {
+#if UNITY_EDITOR
+        string overridePath = Environment.GetEnvironmentVariable(CatalogCachePathEnvironmentKey);
+        if (!string.IsNullOrWhiteSpace(overridePath))
+            return Path.GetFullPath(overridePath.Trim());
+#endif
+        return Path.Combine(ResolveDownloadRoot(), "catalog-cache-v1.json");
     }
 
     private static RemoteContentConfiguration LoadRemoteContentConfiguration()

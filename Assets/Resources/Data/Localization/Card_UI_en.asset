@@ -254,6 +254,14 @@ MonoBehaviour:
     m_Localized: 'Content removed with cleanup warning: {0}'
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851431
+    m_Localized: 'Offline · showing {0} packs from the last verified catalog.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851432
+    m_Localized: '{0} packs available, but the offline catalog cache could not be updated.'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

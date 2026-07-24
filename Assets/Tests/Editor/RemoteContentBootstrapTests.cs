@@ -25,7 +25,7 @@ public class RemoteContentBootstrapTests
 
             provider = create.Invoke(null, null) as IDisposable;
 
-            Assert.That(provider, Is.TypeOf<HttpContentPackageCatalogProvider>());
+            Assert.That(provider, Is.TypeOf<CachedContentPackageCatalogProvider>());
         }
         finally
         {

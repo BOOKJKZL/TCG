@@ -112,21 +112,34 @@ namespace Gacha.Application
 
     public sealed class ContentPackageCatalogLoadResult
     {
-        private ContentPackageCatalogLoadResult(ContentPackageCatalog catalog, string errorMessage)
+        private ContentPackageCatalogLoadResult(
+            ContentPackageCatalog catalog,
+            string errorMessage,
+            string warningMessage,
+            bool usedCachedCatalog)
         {
             Catalog = catalog;
             ErrorMessage = errorMessage;
+            WarningMessage = warningMessage;
+            UsedCachedCatalog = usedCachedCatalog;
         }
 
         public ContentPackageCatalog Catalog { get; }
         public string ErrorMessage { get; }
+        public string WarningMessage { get; }
+        public bool UsedCachedCatalog { get; }
         public bool Succeeded => Catalog != null && string.IsNullOrEmpty(ErrorMessage);
 
-        public static ContentPackageCatalogLoadResult Success(ContentPackageCatalog catalog)
+        public static ContentPackageCatalogLoadResult Success(
+            ContentPackageCatalog catalog,
+            string warningMessage = null,
+            bool usedCachedCatalog = false)
         {
             return new ContentPackageCatalogLoadResult(
                 catalog ?? throw new ArgumentNullException(nameof(catalog)),
-                null);
+                null,
+                string.IsNullOrWhiteSpace(warningMessage) ? null : warningMessage.Trim(),
+                usedCachedCatalog);
         }
 
         public static ContentPackageCatalogLoadResult Failure(string errorMessage)
@@ -135,7 +148,9 @@ namespace Gacha.Application
                 null,
                 string.IsNullOrWhiteSpace(errorMessage)
                     ? "Content package catalog could not be loaded."
-                    : errorMessage.Trim());
+                    : errorMessage.Trim(),
+                null,
+                false);
         }
     }
 

@@ -251,6 +251,14 @@ MonoBehaviour:
     m_Key: content.status.remove_warning
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851431
+    m_Key: content.catalog.cached
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851432
+    m_Key: content.catalog.cache_warning
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

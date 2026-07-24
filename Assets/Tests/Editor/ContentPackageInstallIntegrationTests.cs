@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -46,6 +47,26 @@ public class ContentPackageInstallIntegrationTests
                 RequestMessage = request
             };
             return Task.FromResult(response);
+        }
+    }
+
+    private sealed class ResponseHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> response;
+
+        public ResponseHandler(Func<HttpRequestMessage, HttpResponseMessage> response)
+        {
+            this.response = response;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HttpResponseMessage result = response(request);
+            result.RequestMessage = request;
+            return Task.FromResult(result);
         }
     }
 
@@ -175,6 +196,64 @@ public class ContentPackageInstallIntegrationTests
         }
     }
 
+    [Test]
+    public async Task InterruptedDownload_NewCoordinatorResumesPersistedBytesAfterRestart()
+    {
+        PackageArchive archive = Archive("restart-version", "restart-card-image");
+        ContentPackageCatalog catalog = Catalog(1, "1.0.0", archive);
+        ContentPackageCatalogEntry entry = catalog.Packages[0];
+        int persistedBytes = Math.Max(1, archive.Bytes.Length / 2);
+
+        var firstHandler = new ResponseHandler(request =>
+        {
+            Assert.That(request.Headers.Range, Is.Null);
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(Slice(archive.Bytes, 0, persistedBytes))
+            };
+            response.Content.Headers.ContentLength = archive.Bytes.Length;
+            return response;
+        });
+        using (var firstClient = new HttpClient(firstHandler))
+        using (var firstSource = new HttpContentPackageByteSource(catalog, firstClient))
+        {
+            ContentPackageOperationSnapshot interrupted = await Coordinator(entry.Package, firstSource).StartAsync();
+
+            Assert.That(interrupted.State, Is.EqualTo(ContentPackageOperationState.Failed));
+            Assert.That(interrupted.FailureStage, Is.EqualTo(ContentPackageOperationFailureStage.Download));
+            Assert.That(new FileInfo(Path.Combine(downloadRoot, "en.base1.part")).Length,
+                Is.EqualTo(persistedBytes));
+        }
+
+        var resumedHandler = new ResponseHandler(request =>
+        {
+            Assert.That(request.Headers.Range?.ToString(), Is.EqualTo("bytes=" + persistedBytes + "-"));
+            var response = new HttpResponseMessage(HttpStatusCode.PartialContent)
+            {
+                Content = new ByteArrayContent(Slice(
+                    archive.Bytes,
+                    persistedBytes,
+                    archive.Bytes.Length - persistedBytes))
+            };
+            response.Content.Headers.ContentRange = new ContentRangeHeaderValue(
+                persistedBytes,
+                archive.Bytes.Length - 1,
+                archive.Bytes.Length);
+            return response;
+        });
+        using (var resumedClient = new HttpClient(resumedHandler))
+        using (var resumedSource = new HttpContentPackageByteSource(catalog, resumedClient))
+        {
+            ContentPackageOperationSnapshot completed = await Coordinator(entry.Package, resumedSource).StartAsync();
+
+            Assert.That(completed.State, Is.EqualTo(ContentPackageOperationState.Succeeded));
+            Assert.That(File.ReadAllText(Path.Combine(contentRoot, "en", "base1", "manifest.json")),
+                Is.EqualTo("restart-version"));
+            Assert.That(new FileSystemInstalledContentPackageRegistry(contentRoot).Find("en.base1"), Is.Not.Null);
+            Assert.That(Directory.Exists(downloadRoot), Is.False);
+        }
+    }
+
     private ContentPackageInstallCoordinator Coordinator(
         ContentPackageDescriptor package,
         IContentPackageByteSource source)
@@ -261,6 +340,13 @@ public class ContentPackageInstallIntegrationTests
         ZipArchiveEntry entry = archive.CreateEntry(path, CompressionLevel.NoCompression);
         using (Stream stream = entry.Open())
             stream.Write(bytes, 0, bytes.Length);
+    }
+
+    private static byte[] Slice(byte[] source, int offset, int count)
+    {
+        var result = new byte[count];
+        Buffer.BlockCopy(source, offset, result, 0, count);
+        return result;
     }
 
     private sealed class PackageArchive

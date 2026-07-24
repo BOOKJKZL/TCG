@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -19,6 +20,7 @@ namespace Gacha.Tests.PlayMode
     public class RemoteContentCatalogPlayModeTests
     {
         private const string EnvironmentKey = "GACHA_CONTENT_CATALOG_URL";
+        private const string CacheEnvironmentKey = "GACHA_CONTENT_CATALOG_CACHE_PATH";
         private const string Hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
         private sealed class LoopbackCatalogServer : IDisposable
@@ -80,6 +82,11 @@ namespace Gacha.Tests.PlayMode
         public IEnumerator PrivateEnvironmentConfig_LoadsCatalogIntoContentScene()
         {
             string previous = Environment.GetEnvironmentVariable(EnvironmentKey);
+            string previousCache = Environment.GetEnvironmentVariable(CacheEnvironmentKey);
+            string cacheRoot = Path.Combine(
+                Path.GetTempPath(),
+                "gacha-remote-playmode-" + Guid.NewGuid().ToString("N"));
+            string cachePath = Path.Combine(cacheRoot, "catalog-cache-v1.json");
             var server = new LoopbackCatalogServer(CatalogJson());
             try
             {
@@ -88,11 +95,13 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.DispatcherOverride = null;
                 ApplicationServices.Reset();
                 Environment.SetEnvironmentVariable(EnvironmentKey, server.CatalogUrl);
-                LogAssert.Expect(LogType.Log, "Remote content catalog is configured from private runtime settings.");
+                Environment.SetEnvironmentVariable(CacheEnvironmentKey, cachePath);
+                LogAssert.Expect(LogType.Log,
+                    "Remote content catalog and its verified offline cache are configured from private runtime settings.");
                 InvokeBootstrap();
 
                 Assert.That(ApplicationServices.ContentPackageCatalogs,
-                    Is.TypeOf<HttpContentPackageCatalogProvider>());
+                    Is.TypeOf<CachedContentPackageCatalogProvider>());
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
                 yield return load;
                 yield return null;
@@ -110,6 +119,7 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That(server.Completion.IsCompletedSuccessfully, Is.True,
                     server.Completion.Exception?.ToString());
+                Assert.That(File.Exists(cachePath), Is.True);
                 LogAssert.NoUnexpectedReceived();
             }
             finally
@@ -117,10 +127,13 @@ namespace Gacha.Tests.PlayMode
                 server.Dispose();
                 ApplicationServices.Reset();
                 Environment.SetEnvironmentVariable(EnvironmentKey, previous);
+                Environment.SetEnvironmentVariable(CacheEnvironmentKey, previousCache);
                 InvokeBootstrap();
                 ContentManagementController.CatalogProviderOverride = null;
                 ContentManagementController.OperationFactoryOverride = null;
                 ContentManagementController.DispatcherOverride = null;
+                if (Directory.Exists(cacheRoot))
+                    Directory.Delete(cacheRoot, true);
             }
         }
 

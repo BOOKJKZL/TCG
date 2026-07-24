@@ -24,10 +24,12 @@ namespace Gacha.Tests.PlayMode
         private sealed class CatalogProvider : IContentPackageCatalogProvider
         {
             private readonly ContentPackageCatalog catalog;
+            private readonly bool cached;
 
-            public CatalogProvider(ContentPackageCatalog catalog)
+            public CatalogProvider(ContentPackageCatalog catalog, bool cached = false)
             {
                 this.catalog = catalog;
+                this.cached = cached;
             }
 
             public async Task<ContentPackageCatalogLoadResult> LoadAsync(CancellationToken cancellationToken)
@@ -35,7 +37,10 @@ namespace Gacha.Tests.PlayMode
                 return await Task.Run(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    return ContentPackageCatalogLoadResult.Success(catalog);
+                    return ContentPackageCatalogLoadResult.Success(
+                        catalog,
+                        cached ? "fixture network offline" : null,
+                        cached);
                 }, cancellationToken);
             }
         }
@@ -178,7 +183,7 @@ namespace Gacha.Tests.PlayMode
             int mainThreadId = Environment.CurrentManagedThreadId;
             var lifecycle = new Lifecycle();
             var factory = new OperationFactory(lifecycle);
-            ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
+            ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog(), true);
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
             var cues = new List<FeedbackCue>();
@@ -190,6 +195,7 @@ namespace Gacha.Tests.PlayMode
             string originalLanguage = null;
             try
             {
+                LogAssert.Expect(LogType.Warning, "Content package catalog warning: fixture network offline");
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
                 yield return load;
                 yield return null;
@@ -210,6 +216,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.visualTreeAsset, Is.Not.Null);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + SuccessId), Is.Not.Null);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + RetryId), Is.Not.Null);
+                Label catalogStatus = document.rootVisualElement.Q<Label>("catalog-status");
+                Assert.That(catalogStatus.text, Does.StartWith("Offline"));
+                Assert.That(catalogStatus.ClassListContains("is-warning"), Is.True);
 
                 originalExperience = ApplicationServices.ExperienceSettings?.Current;
                 if (ApplicationServices.ExperienceSettings != null)
@@ -285,6 +294,7 @@ namespace Gacha.Tests.PlayMode
                     while (title.text != "内容库" && Time.realtimeSinceStartup < deadline)
                         yield return null;
                     Assert.That(title.text, Is.EqualTo("内容库"));
+                    Assert.That(catalogStatus.text, Does.StartWith("离线模式"));
                 }
 
                 LogAssert.NoUnexpectedReceived();
