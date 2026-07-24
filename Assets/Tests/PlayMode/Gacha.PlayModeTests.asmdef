@@ -4,6 +4,7 @@
     "references": [
         "Gacha.Application",
         "Gacha.Domain",
+        "Gacha.Infrastructure",
         "Gacha.Presentation",
         "Unity.Localization",
         "Unity.ResourceManager",
