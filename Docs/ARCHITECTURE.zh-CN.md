@@ -33,7 +33,7 @@ Gacha.Editor
 - `Gacha.Domain`：无 Unity 引擎依赖的通用定义、印刷身份和 Catalog 校验。
 - `Gacha.Infrastructure`：读取私人 manifest，并把外部数据转换成 `UniversalCatalog`。
 - `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
-- `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度与减少动态效果。
+- `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果，以及只观察 Application 快照的内容管理页面。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
 
 - `ICatalogProvider`：Catalog 可由私人 manifest、Addressables 或下载后的数据库提供。
@@ -49,6 +49,7 @@ Gacha.Editor
 - `IContentPackageInstaller`：Application 只接收结构化安装结果；ZIP、staging、目录替换、收据和回滚细节留在 Infrastructure。
 - `IContentPackageTransfer` / `IContentPackageByteSource`：Application 管理暂停、重试和失败事件；Infrastructure 管理 `.part/.zip` 与本机或 HTTP 字节流。
 - `ContentPackageCatalog` / `IContentPackageInstallCoordinatorFactory`：版本化清单同时充当严格 URI resolver；Presentation 通过工厂取得单包协调器，不直接排列规划、传输和安装调用。
+- `IUiThreadDispatcher` / `ContentPackageOperationUiBridge`：后台协调器事件统一切回 Unity 主线程；页面销毁后不会继续更新已失效的 VisualElement。
 
 ## 通用数据模型现状与下一步
 
@@ -62,7 +63,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C3 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog 与协调器；下一步是带动画、音效、本地化和主线程派发的玩家内容管理页面，再接 R2/Addressables。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；下一步是 HTTPS catalog 与 R2/Addressables 最小远程闭环。
 
 ## 两阶段路线
 
@@ -70,9 +71,9 @@ Gacha.Editor
 
 1. 数据驱动模型、核心 asmdef、抽卡、收藏、设置与本机内容浏览已经完成。
 2. 连接 Android 真机完成本地 MVP 设备验收。
-3. 加入内容包管理页：可下载、暂停、删除和更新单个系列。
-4. 为断网、空间不足、Hash 失败和内容升级编写测试。
-5. 接入 Addressables 与私人 R2，不让托管实现渗透到 UI。
+3. 内容包管理页已支持下载、暂停、取消、重试、修复和更新；卸载/重装仍待远程闭环验证。
+4. 为远程断网、空间不足、Hash 失败、卸载保留收藏和内容升级补齐测试。
+5. 接入 HTTPS catalog、Addressables 与私人 R2，不让托管实现渗透到 UI。
 
 ### 第二阶段：宝可梦内容适配器
 

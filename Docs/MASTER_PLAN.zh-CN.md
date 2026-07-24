@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 6C3 的版本化内容 catalog、下载安装协调器、真实 ZIP/HTTP 完整闭环和运行时工厂接线已完成。下一切片进入玩家内容管理页面，并同时实现状态动画、点击/完成/失败音效、本地化和错误防抖；Android 真机验收在设备连接后继续。
+本次修改原因：阶段 6C4 的玩家内容管理页面、Unity 主线程状态桥、双语文案、动画、音效/震动、错误防抖和 Android 构建验证已完成。下一切片转入远程 HTTPS catalog 配置与私人 R2 发布闭环；Android 真机验收在设备连接后继续。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装和 HTTP 断点下载均有自动化测试；当前项目 EditMode 测试为 148/148 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装、HTTP 断点下载和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 164/164 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -89,8 +89,8 @@ AccessibilitySettings
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6C3 最新 APK 约 74.8 MiB，413 个 ZIP 条目中私人内容匹配为 0，ADB 私人内容推送脚本已准备。阶段 5C 曾约 51.6 MiB，新增约 23.2 MiB 需在阶段 7 结合 IL2CPP stripping 与 Addressables 做包体回归分析。
-- 抽卡、收藏、设置和场景切换 PlayMode 测试为 4/4 通过。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6C4 最新 APK 为 74.83 MiB，6 个场景、413 个 ZIP 条目中私人内容匹配为 0，ADB 私人内容推送脚本已准备。阶段 5C 曾约 51.6 MiB，新增约 23.2 MiB 需在阶段 7 结合 IL2CPP stripping 与 Addressables 做包体回归分析。
+- 抽卡、收藏、设置、内容管理和场景切换 PlayMode 测试为 5/5 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
 - ZIP 安装器会先核对下载字节数与 SHA-256，再在实时 Catalog 目录外解压；只有实际解压字节数也匹配后才原子替换系列目录并发布收据。
@@ -99,17 +99,19 @@ AccessibilitySettings
 - `.part` 文件可以跨任务和重启按真实长度继续，达到声明大小后才发布为 `.zip`；本机文件源已经用与未来 HTTP Range 相同的 offset 合同完成验证。
 - HTTP 字节源只允许公开 HTTPS 和 loopback HTTP；新下载必须返回精确 `200`，续传必须返回匹配 offset、末字节与总大小的 `206 Content-Range`，忽略 Range、错误长度、压缩编码和截断响应不会制造假完成。
 - schema v1 包清单要求每个 archive URL 包含对应 SHA-256；单包协调器已经统一规划、下载、暂停/取消/重试、原子安装和归档清理，玩家界面不需要自行排列基础设施调用。
+- 主菜单已加入 `CONTENT` 入口；内容管理页按包显示版本、下载大小、状态与进度，并提供安装、更新、修复、继续、重试、暂停、取消和 catalog 刷新操作。
+- 内容管理页使用 Unity 主线程桥接协调器事件，支持进入/状态切换/失败抖动动画、按钮按压、下载开始/完成/失败音效、完成震动、减少动态和 32 组中英文本；一次失败尝试只提示一次。
 
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
 - 其余菜单和游戏场景尚未全部迁入 Unity Localization String Table；当前运行时双语文本与中文回退字体已可用。
-- 内容管理 UI。
-- R2 上传与手机远程下载闭环。
+- 远程 HTTPS catalog provider、R2 URL/鉴权配置、上传与手机真实下载闭环。
+- 已安装内容的卸载/缓存删除操作；必须保留收藏记录，并验证重装后恢复。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 98%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 65%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 6–7 的远程内容闭环另行计算。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 68%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 6–7 仍需远程 catalog、R2 发布、卸载/重装和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -406,7 +408,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 6：内容管理系统
 
-状态：6A 安装前决策与本地状态适配层、6B 原子归档安装事务、6C1 下载状态与文件断点缓存、6C2 HTTP Range 传输、6C3 catalog 与协调安装闭环已完成（2026-07-24）；玩家内容管理页面待继续。
+状态：6A 安装前决策与本地状态适配层、6B 原子归档安装事务、6C1 下载状态与文件断点缓存、6C2 HTTP Range 传输、6C3 catalog 与协调安装闭环、6C4 玩家内容管理页面已完成（2026-07-24）；远程 provider 与卸载/重装闭环待继续。
 
 目标：在游戏内安装、更新和删除系列。
 
@@ -481,9 +483,21 @@ Content Language  卡名、卡图、系列和产品
 - Bootstrap 已把共享 HTTP 工厂和独立 `ContentDownloads` 目录接入 `ApplicationServices.ContentPackageOperations`；Reset 会释放工厂，后续 UI 不需要直接操作 planner、传输层或 installer。
 - Catalog 定向测试 10/10、协调器测试 11/11、端到端测试 2/2、工厂测试 3/3、全量 EditMode 148/148、PlayMode 4/4 通过。
 - Android/IL2CPP 构建成功，5 个场景，约 2 分 21 秒，APK 74.8 MiB；413 个 APK 条目中私人内容名称匹配为 0。
-- 当前仅有本机 JSON catalog provider，尚未决定正式 R2 catalog URL/读取鉴权；协调器事件也尚未切回 Unity 主线程。两者会在页面与远程接入切片分别解决。
+- 6C3 完成时仅有本机 JSON catalog provider，尚未决定正式 R2 catalog URL/读取鉴权，协调器事件也未切回 Unity 主线程；主线程桥已在 6C4 解决，远程 provider 继续由阶段 7 完成。
 
-下一切片：实现内容管理 Presentation 页面。页面只消费 catalog entry 与 `ContentPackageOperationSnapshot`，同时完成进入/状态切换动画、按钮按压、下载开始/完成/失败音效、可选震动、双语 String Table、减少动态效果、错误事件去重和主线程派发；先用本机 fixture catalog 验证，再替换为远程 provider。
+6C4 完成记录（2026-07-24）：
+
+- 新增第 6 个可构建场景 `006_ContentScene` 与主菜单 `CONTENT` 入口；场景 Seeder 会自验证 UXML 引用、幂等更新入口并维护 Build Settings。
+- `ContentManagementController` 只消费 `IContentPackageCatalogProvider`、协调器工厂、catalog entry 与快照，不直接访问 HTTP、ZIP、收据或 R2。
+- `ContentPackageOperationUiBridge` 通过捕获的 Unity `SynchronizationContext` 把后台状态、进度和错误派发回主线程；销毁页面后已排队回调不会再触碰 UI。
+- 页面提供安装、更新、修复、继续、重试、暂停、取消和刷新；展示版本、下载大小、进度与友好错误，未配置远程 catalog 时不会崩溃。
+- 已完成页面淡入、状态切换、错误抖动、按钮按压、下载开始/完成/失败音效、完成震动、错误 Attempt 去重、减少动态和动画速度支持。
+- `Card_UI` 新增 32 组英/中文内容管理文案；运行时切换中文后页面和动态行会同步刷新。
+- 页面 PlayMode fixture 从后台线程加载两个包，覆盖成功安装、失败一次、错误只提示一次、重试成功、完成震动、中文切换和主线程更新。
+- 全量 EditMode 164/164、PlayMode 5/5 通过；Android/IL2CPP 构建成功，6 个场景，APK 74.83 MiB，413 个条目中私人内容匹配为 0。
+- 当前正式运行时尚未配置远程 catalog 地址，因此页面会显示“尚未配置远程内容”；这不是静默假成功，下一切片必须提供 HTTPS provider 与私人 R2 配置后才进行手机真实下载。
+
+下一切片：进入阶段 7 的最小远程闭环。先实现带超时、取消、大小上限和结构化错误的 HTTPS catalog provider，再通过非敏感配置接入一个私人 R2 fixture；随后让内容页完成真实下载、离线缓存、卸载但保留收藏、重装恢复与断网测试。不要先批量上传全部卡图。
 
 验收：
 
@@ -607,8 +621,8 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 5B：库存、新卡、搜索与筛选体验（完成）
 → 阶段 5C：设置完整性、性能、中文字体与 Android 构建（完成）
 → Android 真机私人内容、触摸、声音与震动冒烟测试（等待设备，可并行）
-→ 当前：阶段 6 内容管理页面、主线程派发与游戏反馈
-→ 阶段 7：Addressables + 私人 R2
+→ 阶段 6 内容管理页面、主线程派发与游戏反馈（完成）
+→ 当前：阶段 7 HTTPS catalog + 私人 R2 最小闭环
 → Android 下载/中断/离线缓存测试
 → 阶段 8：宝可梦真实规则适配
 → 阶段 9：最终 Android 验收
