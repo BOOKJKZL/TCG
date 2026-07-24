@@ -46,6 +46,7 @@ Gacha.Editor
 - `IContentDeliveryService`：资源托管商不会渗透到 UI 和业务代码。
 - `IInstalledContentPackageRegistry`：已安装版本和整包 Hash 由可替换收据存储提供。
 - `IContentStorageProbe`：安装决策只读取可用字节，不依赖 Android 或桌面存储 API。
+- `IContentPackageInstaller`：Application 只接收结构化安装结果；ZIP、staging、目录替换、收据和回滚细节留在 Infrastructure。
 
 ## 通用数据模型现状与下一步
 
@@ -59,7 +60,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A 已加入与平台无关的安装决策、版本/Hash 前置校验和本地收据边界；下一步是在 Infrastructure 实现可中断的原子安装事务，再接 R2/Addressables 和玩家界面。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6B 已加入与平台无关的安装决策、安全安装路径、本地收据和可回滚的原子 ZIP 安装事务；下一步是下载任务状态机，再接 R2/Addressables 和玩家界面。
 
 ## 两阶段路线
 
