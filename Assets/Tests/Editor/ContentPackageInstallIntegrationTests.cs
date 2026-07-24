@@ -145,6 +145,36 @@ public class ContentPackageInstallIntegrationTests
         }
     }
 
+    [Test]
+    public async Task InstalledPackage_RemoveResetAndReinstall_CompletesInSameCoordinator()
+    {
+        PackageArchive archive = Archive("version-one", "card-image-one");
+        ContentPackageCatalog catalog = Catalog(1, "1.0.0", archive);
+        ContentPackageCatalogEntry entry = catalog.Packages[0];
+        var handler = new QueueHandler(archive.Bytes, archive.Bytes);
+
+        using (var client = new HttpClient(handler))
+        using (var source = new HttpContentPackageByteSource(catalog, client))
+        {
+            ContentPackageInstallCoordinator coordinator = Coordinator(entry.Package, source);
+            ContentPackageOperationSnapshot installed = await coordinator.StartAsync();
+            var lifecycle = new FileSystemContentPackageLifecycleService(contentRoot);
+
+            ContentPackageRemovalResult removed = await lifecycle.RemoveAsync(entry.Package.PackageId);
+            ContentPackageOperationSnapshot reset = await coordinator.ResetAfterRemovalAsync();
+            ContentPackageOperationSnapshot reinstalled = await coordinator.StartAsync();
+
+            Assert.That(installed.State, Is.EqualTo(ContentPackageOperationState.Succeeded));
+            Assert.That(removed.Succeeded, Is.True, removed.ErrorMessage);
+            Assert.That(reset.State, Is.EqualTo(ContentPackageOperationState.Idle));
+            Assert.That(reinstalled.State, Is.EqualTo(ContentPackageOperationState.Succeeded));
+            Assert.That(handler.Calls, Is.EqualTo(2));
+            Assert.That(lifecycle.FindInstalled(entry.Package.PackageId), Is.Not.Null);
+            Assert.That(File.ReadAllText(Path.Combine(contentRoot, "en", "base1", "manifest.json")),
+                Is.EqualTo("version-one"));
+        }
+    }
+
     private ContentPackageInstallCoordinator Coordinator(
         ContentPackageDescriptor package,
         IContentPackageByteSource source)

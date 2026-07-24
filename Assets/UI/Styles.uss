@@ -121,7 +121,7 @@
 }
 
 .content-package-row__controls {
-    width: 410px;
+    width: 500px;
     margin-left: 18px;
 }
 
@@ -132,6 +132,11 @@
 
 .content-package-row__actions {
     justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.content-package-row__actions .content-button {
+    min-width: 102px;
 }
 
 .content-button {

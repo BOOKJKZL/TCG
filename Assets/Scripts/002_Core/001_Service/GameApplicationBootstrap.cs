@@ -50,6 +50,7 @@ public static class GameApplicationBootstrap
             new FileSystemInstalledContentPackageRegistry(contentRoot),
             new FileSystemContentStorageProbe(contentRoot));
         var contentPackageInstaller = new FileSystemContentPackageInstaller(contentRoot);
+        var contentPackageLifecycle = new FileSystemContentPackageLifecycleService(contentRoot);
         var contentPackageOperations = new HttpContentPackageInstallCoordinatorFactory(
             ResolveDownloadRoot(),
             contentPackages,
@@ -64,7 +65,8 @@ public static class GameApplicationBootstrap
             contentPackages,
             contentPackageInstaller,
             contentPackageOperations,
-            contentPackageCatalogs);
+            contentPackageCatalogs,
+            contentPackageLifecycle);
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);

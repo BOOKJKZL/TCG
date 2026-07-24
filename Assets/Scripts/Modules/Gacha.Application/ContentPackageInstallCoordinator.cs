@@ -242,6 +242,38 @@ namespace Gacha.Application
             return Transition(currentAttempt, ContentPackageOperationState.Cancelled, null, null);
         }
 
+        /// <summary>
+        /// Returns a terminal coordinator to a fresh install state after an
+        /// external lifecycle service removes its installed receipt and files.
+        /// Any stale archive is discarded so reinstall cannot reuse deleted state.
+        /// </summary>
+        public async Task<ContentPackageOperationSnapshot> ResetAfterRemovalAsync()
+        {
+            lock (gate)
+            {
+                if (IsActive(state))
+                    throw new InvalidOperationException("An active content operation cannot be reset for reinstall.");
+            }
+
+            ContentDownloadSnapshot discarded = await downloadTask.DiscardAsync();
+            ContentPackageOperationSnapshot snapshot;
+            lock (gate)
+            {
+                state = ContentPackageOperationState.Idle;
+                plan = null;
+                download = discarded;
+                installResult = null;
+                failureStage = ContentPackageOperationFailureStage.None;
+                errorMessage = null;
+                warningMessage = discarded.State == ContentDownloadState.Failed
+                    ? "Downloaded package cleanup failed: " + discarded.ErrorMessage
+                    : null;
+                snapshot = SnapshotLocked();
+            }
+            PublishChanged(snapshot);
+            return snapshot;
+        }
+
         private async Task<ContentPackageOperationSnapshot> RunAsync(
             int runAttempt,
             CancellationTokenSource runCancellation)

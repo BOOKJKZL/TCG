@@ -40,9 +40,34 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
-        private sealed class Registry : IInstalledContentPackageRegistry
+        private sealed class Lifecycle : IInstalledContentPackageRegistry, IContentPackageLifecycleService
         {
-            public InstalledContentPackage Find(string packageId) => null;
+            private readonly Dictionary<string, InstalledContentPackage> installed =
+                new Dictionary<string, InstalledContentPackage>(StringComparer.Ordinal);
+
+            public InstalledContentPackage Find(string packageId)
+            {
+                installed.TryGetValue(packageId, out InstalledContentPackage package);
+                return package;
+            }
+
+            public InstalledContentPackage FindInstalled(string packageId) => Find(packageId);
+
+            public void Install(InstalledContentPackage package)
+            {
+                installed[package.PackageId] = package;
+            }
+
+            public Task<ContentPackageRemovalResult> RemoveAsync(
+                string packageId,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!installed.TryGetValue(packageId, out InstalledContentPackage package))
+                    return Task.FromResult(ContentPackageRemovalResult.NotInstalled());
+                installed.Remove(packageId);
+                return Task.FromResult(ContentPackageRemovalResult.Removed(package));
+            }
         }
 
         private sealed class Storage : IContentStorageProbe
@@ -92,18 +117,27 @@ namespace Gacha.Tests.PlayMode
 
         private sealed class Installer : IContentPackageInstaller
         {
+            private readonly Lifecycle lifecycle;
+
+            public Installer(Lifecycle lifecycle)
+            {
+                this.lifecycle = lifecycle;
+            }
+
             public Task<ContentPackageInstallResult> InstallAsync(
                 ContentInstallPlan plan,
                 string archivePath,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(ContentPackageInstallResult.Success(new InstalledContentPackage(
+                var installed = new InstalledContentPackage(
                     plan.Package.PackageId,
                     plan.Package.InstallRelativePath,
                     plan.Package.Revision,
                     plan.Package.Version,
                     plan.Package.InstalledBytes,
-                    plan.Package.Sha256)));
+                    plan.Package.Sha256);
+                lifecycle.Install(installed);
+                return Task.FromResult(ContentPackageInstallResult.Success(installed));
             }
         }
 
@@ -111,9 +145,11 @@ namespace Gacha.Tests.PlayMode
         {
             private readonly Dictionary<string, Transfer> transfers =
                 new Dictionary<string, Transfer>(StringComparer.Ordinal);
+            private readonly Lifecycle lifecycle;
 
-            public OperationFactory()
+            public OperationFactory(Lifecycle lifecycle)
             {
+                this.lifecycle = lifecycle;
                 transfers[SuccessId] = new Transfer();
                 transfers[RetryId] = new Transfer { FailNext = true };
             }
@@ -124,9 +160,9 @@ namespace Gacha.Tests.PlayMode
                     throw new InvalidOperationException("Fixture package was not found.");
                 return new ContentPackageInstallCoordinator(
                     entry.Package,
-                    new ContentPackagePlanner(new Registry(), new Storage(), 0),
+                    new ContentPackagePlanner(lifecycle, new Storage(), 0),
                     transfers[packageId],
-                    new Installer());
+                    new Installer(lifecycle));
             }
         }
 
@@ -140,9 +176,11 @@ namespace Gacha.Tests.PlayMode
         public IEnumerator ContentScene_LoadsLocalizedPackagesAndSurvivesFailureRetry()
         {
             int mainThreadId = Environment.CurrentManagedThreadId;
-            var factory = new OperationFactory();
+            var lifecycle = new Lifecycle();
+            var factory = new OperationFactory(lifecycle);
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
             ContentManagementController.OperationFactoryOverride = factory;
+            ContentManagementController.LifecycleOverride = lifecycle;
             var cues = new List<FeedbackCue>();
             var haptic = new HapticSink();
             UIFeedbackService.FeedbackPlayed += cues.Add;
@@ -211,6 +249,33 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(cues.Count(cue => cue == FeedbackCue.Error), Is.EqualTo(1));
                 Assert.That(controller.LastAppliedThreadId, Is.EqualTo(mainThreadId));
 
+                Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
+                Button remove = document.rootVisualElement
+                    .Q<VisualElement>("package-" + SuccessId)
+                    .Q<Button>("remove-button");
+                Assert.That(remove, Is.Not.Null);
+                Assert.That(remove.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
+                yield return null;
+                Assert.That(remove.text, Is.EqualTo("Confirm remove"));
+                Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
+                deadline = Time.realtimeSinceStartup + 5f;
+                while ((controller.IsPackageInstalled(SuccessId) ||
+                        controller.GetPackageState(SuccessId) != ContentPackageOperationState.Idle) &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.IsPackageInstalled(SuccessId), Is.False);
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.Confirm), Is.GreaterThanOrEqualTo(2));
+
+                Assert.That(controller.StartOrRetryPackage(SuccessId), Is.True);
+                deadline = Time.realtimeSinceStartup + 5f;
+                while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
+                Assert.That(haptic.Pulses, Is.GreaterThanOrEqualTo(4));
+
                 if (ApplicationServices.Languages != null)
                 {
                     originalLanguage = ApplicationServices.Languages.UiLanguageId;
@@ -239,6 +304,7 @@ namespace Gacha.Tests.PlayMode
                 UIFeedbackService.RegisterHapticSink(null);
                 ContentManagementController.CatalogProviderOverride = null;
                 ContentManagementController.OperationFactoryOverride = null;
+                ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
             }
         }

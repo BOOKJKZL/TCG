@@ -20,7 +20,7 @@ namespace Gacha.Presentation
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["content.title"] = "Content Library",
-                ["content.subtitle"] = "Download, pause, update, or repair individual content packs",
+                ["content.subtitle"] = "Install, update, repair, or remove content packs without losing collection progress",
                 ["content.action.back"] = "Main menu",
                 ["content.action.refresh"] = "Refresh catalog",
                 ["content.action.install"] = "Install",
@@ -30,6 +30,8 @@ namespace Gacha.Presentation
                 ["content.action.retry"] = "Retry",
                 ["content.action.pause"] = "Pause",
                 ["content.action.cancel"] = "Cancel",
+                ["content.action.remove"] = "Remove",
+                ["content.action.confirm_remove"] = "Confirm remove",
                 ["content.catalog.loading"] = "Checking available content...",
                 ["content.catalog.loaded"] = "{0} content packs available.",
                 ["content.catalog.empty"] = "No downloadable content is listed in this catalog.",
@@ -50,6 +52,12 @@ namespace Gacha.Presentation
                 ["content.status.cancelled"] = "Cancelled",
                 ["content.status.failed"] = "Operation failed",
                 ["content.status.warning"] = "Installed with cleanup warning: {0}",
+                ["content.status.update_available"] = "Update available",
+                ["content.status.remove_confirm"] = "Remove downloaded cards? Collection progress stays saved.",
+                ["content.status.removing"] = "Removing downloaded content...",
+                ["content.status.removed"] = "Content removed. Collection progress is still saved.",
+                ["content.status.remove_failed"] = "Content removal failed: {0}",
+                ["content.status.remove_warning"] = "Content removed with cleanup warning: {0}",
                 ["content.progress"] = "{0}% · {1} / {2}"
             };
 
@@ -59,7 +67,8 @@ namespace Gacha.Presentation
                 ContentPackageCatalogEntry entry,
                 Action<string> primary,
                 Action<string> pause,
-                Action<string> cancel)
+                Action<string> cancel,
+                Action<string> remove)
             {
                 Entry = entry;
                 Root = new VisualElement { name = "package-" + entry.Package.PackageId };
@@ -86,12 +95,15 @@ namespace Gacha.Presentation
                 Primary = Button("primary", () => primary(entry.Package.PackageId));
                 Pause = Button("pause", () => pause(entry.Package.PackageId));
                 Cancel = Button("cancel", () => cancel(entry.Package.PackageId));
+                Remove = Button("remove", () => remove(entry.Package.PackageId));
                 Primary.AddToClassList("content-button--primary");
                 Pause.AddToClassList("content-button--quiet");
                 Cancel.AddToClassList("content-button--danger");
+                Remove.AddToClassList("content-button--danger");
                 actions.Add(Primary);
                 actions.Add(Pause);
                 actions.Add(Cancel);
+                actions.Add(Remove);
                 controls.Add(Progress);
                 controls.Add(actions);
                 Root.Add(copy);
@@ -107,6 +119,12 @@ namespace Gacha.Presentation
             public Button Primary { get; }
             public Button Pause { get; }
             public Button Cancel { get; }
+            public Button Remove { get; }
+            public InstalledContentPackage Installed { get; set; }
+            public string LifecycleError { get; set; }
+            public bool AwaitingRemovalConfirmation { get; set; }
+            public bool Removing { get; set; }
+            public IVisualElementScheduledItem RemovalConfirmationTimeout { get; set; }
             public ContentPackageOperationState? LastState { get; set; }
             public IVisualElementScheduledItem Animation { get; set; }
 
@@ -133,6 +151,7 @@ namespace Gacha.Presentation
 
         private IContentPackageCatalogProvider catalogProvider;
         private IContentPackageInstallCoordinatorFactory operationFactory;
+        private IContentPackageLifecycleService lifecycleService;
         private IUiThreadDispatcher dispatcher;
         private ExperienceSettingsService experienceSettings;
         private VisualElement pageRoot;
@@ -153,6 +172,7 @@ namespace Gacha.Presentation
 
         public static IContentPackageCatalogProvider CatalogProviderOverride { private get; set; }
         public static IContentPackageInstallCoordinatorFactory OperationFactoryOverride { private get; set; }
+        public static IContentPackageLifecycleService LifecycleOverride { private get; set; }
         public static IUiThreadDispatcher DispatcherOverride { private get; set; }
 
         public bool IsReady { get; private set; }
@@ -191,11 +211,25 @@ namespace Gacha.Presentation
             return true;
         }
 
+        public bool RequestRemovePackage(string packageId)
+        {
+            if (packageId == null || !rows.ContainsKey(packageId))
+                return false;
+            RemoveClicked(packageId);
+            return true;
+        }
+
+        public bool IsPackageInstalled(string packageId)
+        {
+            return packageId != null && rows.TryGetValue(packageId, out PackageRow row) && row.Installed != null;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetOverrides()
         {
             CatalogProviderOverride = null;
             OperationFactoryOverride = null;
+            LifecycleOverride = null;
             DispatcherOverride = null;
         }
 
@@ -216,6 +250,7 @@ namespace Gacha.Presentation
                 BuildView();
                 catalogProvider = CatalogProviderOverride ?? ApplicationServices.ContentPackageCatalogs;
                 operationFactory = OperationFactoryOverride ?? ApplicationServices.ContentPackageOperations;
+                lifecycleService = LifecycleOverride ?? ApplicationServices.ContentPackageLifecycle;
                 experienceSettings = ApplicationServices.ExperienceSettings;
                 if (experienceSettings != null)
                     experienceSettings.Changed += OnExperienceSettingsChanged;
@@ -344,7 +379,8 @@ namespace Gacha.Presentation
                     operations.Add(packageId, operation);
                     bridges.Add(packageId, bridge);
 
-                    var row = new PackageRow(entry, PrimaryClicked, PauseClicked, CancelClicked);
+                    var row = new PackageRow(entry, PrimaryClicked, PauseClicked, CancelClicked, RemoveClicked);
+                    RefreshInstalledState(row);
                     rows.Add(packageId, row);
                     packageList.Add(row.Root);
                     ApplyOperation(packageId, operation.Current);
@@ -395,16 +431,30 @@ namespace Gacha.Presentation
                 L("content.package.metadata"),
                 item.Version,
                 FormatBytes(item.DownloadBytes));
+            if (snapshot.State == ContentPackageOperationState.Succeeded ||
+                snapshot.State == ContentPackageOperationState.AlreadyCurrent)
+                RefreshInstalledState(row);
+
+            bool installedCurrent = Matches(row.Installed, row.Entry.Package);
             string status = L(item.UiState.StatusKey);
+            if (row.Removing)
+                status = L("content.status.removing");
+            else if (row.AwaitingRemovalConfirmation)
+                status = L("content.status.remove_confirm");
+            else if (!string.IsNullOrWhiteSpace(row.LifecycleError))
+                status = string.Format(L("content.status.remove_failed"), row.LifecycleError);
+            else if (snapshot.State == ContentPackageOperationState.Idle && row.Installed != null)
+                status = L(installedCurrent ? "content.status.current" : "content.status.update_available");
             if (!string.IsNullOrWhiteSpace(item.ErrorMessage))
                 status += " · " + item.ErrorMessage;
             else if (!string.IsNullOrWhiteSpace(item.WarningMessage))
                 status = string.Format(L("content.status.warning"), item.WarningMessage);
             row.Status.text = status;
-            row.Status.EnableInClassList("is-error", item.UiState.IsError);
+            row.Status.EnableInClassList("is-error", item.UiState.IsError || !string.IsNullOrWhiteSpace(row.LifecycleError));
             row.Status.EnableInClassList("is-success",
                 snapshot.State == ContentPackageOperationState.Succeeded ||
-                snapshot.State == ContentPackageOperationState.AlreadyCurrent);
+                snapshot.State == ContentPackageOperationState.AlreadyCurrent ||
+                snapshot.State == ContentPackageOperationState.Idle && installedCurrent);
 
             row.Progress.value = item.Progress01 * 100f;
             long downloaded = snapshot.Download?.DownloadedBytes ?? 0;
@@ -416,14 +466,31 @@ namespace Gacha.Presentation
             row.Progress.style.display = item.UiState.ShowProgress ? DisplayStyle.Flex : DisplayStyle.None;
 
             bool hasPrimary = item.UiState.PrimaryAction != ContentPackagePrimaryAction.None;
+            if (snapshot.State == ContentPackageOperationState.Idle && installedCurrent)
+                hasPrimary = false;
             row.Primary.style.display = hasPrimary ? DisplayStyle.Flex : DisplayStyle.None;
-            row.Primary.text = hasPrimary ? L(item.UiState.PrimaryActionKey) : string.Empty;
-            row.Primary.SetEnabled(hasPrimary && !item.UiState.IsBusy);
+            string primaryKey = snapshot.State == ContentPackageOperationState.Idle && row.Installed != null
+                ? "content.action.update"
+                : item.UiState.PrimaryActionKey;
+            row.Primary.text = hasPrimary ? L(primaryKey) : string.Empty;
+            row.Primary.SetEnabled(hasPrimary && !item.UiState.IsBusy && !row.Removing && !row.AwaitingRemovalConfirmation);
             row.Pause.style.display = item.CanPause ? DisplayStyle.Flex : DisplayStyle.None;
             row.Pause.text = L("content.action.pause");
             bool canCancel = CanShowCancel(snapshot.State);
             row.Cancel.style.display = canCancel ? DisplayStyle.Flex : DisplayStyle.None;
             row.Cancel.text = L("content.action.cancel");
+            bool canRemove = row.Installed != null && !item.UiState.IsBusy && !canCancel;
+            row.Remove.style.display = canRemove ? DisplayStyle.Flex : DisplayStyle.None;
+            row.Remove.text = L(row.AwaitingRemovalConfirmation
+                ? "content.action.confirm_remove"
+                : "content.action.remove");
+            row.Remove.SetEnabled(canRemove && !row.Removing);
+            if (row.Removing)
+            {
+                row.Primary.style.display = DisplayStyle.None;
+                row.Pause.style.display = DisplayStyle.None;
+                row.Cancel.style.display = DisplayStyle.None;
+            }
 
             if (previous.HasValue && previous.Value != snapshot.State)
                 AnimateRow(row, snapshot.State == ContentPackageOperationState.Failed);
@@ -431,6 +498,10 @@ namespace Gacha.Presentation
                 previous.Value != ContentPackageOperationState.Succeeded &&
                 snapshot.State == ContentPackageOperationState.Succeeded)
                 UIFeedbackService.Play(FeedbackCue.DownloadComplete, true);
+            if (previous.HasValue &&
+                previous.Value != ContentPackageOperationState.Succeeded &&
+                snapshot.State == ContentPackageOperationState.Succeeded)
+                ReloadLocalCatalog();
         }
 
         private async void PrimaryClicked(string packageId)
@@ -478,6 +549,85 @@ namespace Gacha.Presentation
             }
             catch (Exception exception)
             {
+                ShowUnexpectedError(packageId, exception);
+            }
+        }
+
+        private async void RemoveClicked(string packageId)
+        {
+            if (lifecycleService == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                row.Installed == null || row.Removing ||
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
+                return;
+            ContentPackageOperationState state = operation.Current.State;
+            if (state == ContentPackageOperationState.Planning ||
+                state == ContentPackageOperationState.Downloading ||
+                state == ContentPackageOperationState.Installing)
+                return;
+
+            if (!row.AwaitingRemovalConfirmation)
+            {
+                row.AwaitingRemovalConfirmation = true;
+                row.RemovalConfirmationTimeout?.Pause();
+                row.RemovalConfirmationTimeout = row.Root.schedule.Execute(() =>
+                {
+                    row.AwaitingRemovalConfirmation = false;
+                    row.RemovalConfirmationTimeout = null;
+                    ApplyOperation(packageId, operation.Current);
+                }).StartingIn(4000);
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                ApplyOperation(packageId, operation.Current);
+                AnimateRow(row, false);
+                return;
+            }
+
+            row.AwaitingRemovalConfirmation = false;
+            row.RemovalConfirmationTimeout?.Pause();
+            row.RemovalConfirmationTimeout = null;
+            row.Removing = true;
+            ApplyOperation(packageId, operation.Current);
+            AnimateRow(row, false);
+            UIFeedbackService.Play(FeedbackCue.Back);
+            try
+            {
+                ContentPackageRemovalResult result = await lifecycleService.RemoveAsync(packageId);
+                if (destroyed)
+                    return;
+                if (result == null || !result.Succeeded)
+                {
+                    row.Removing = false;
+                    string error = result?.ErrorMessage ?? "No removal result was returned.";
+                    ApplyOperation(packageId, operation.Current);
+                    row.Status.text = string.Format(L("content.status.remove_failed"), error);
+                    row.Status.EnableInClassList("is-error", true);
+                    UIFeedbackService.Play(FeedbackCue.Error);
+                    AnimateRow(row, true);
+                    return;
+                }
+
+                ContentPackageOperationSnapshot reset = await operation.ResetAfterRemovalAsync();
+                if (destroyed)
+                    return;
+                row.Removing = false;
+                RefreshInstalledState(row);
+                ApplyOperation(packageId, operation.Current);
+                string warning = CombineWarnings(result.WarningMessage, reset.WarningMessage);
+                row.Status.text = string.IsNullOrWhiteSpace(warning)
+                    ? L("content.status.removed")
+                    : string.Format(L("content.status.remove_warning"), warning);
+                row.Status.EnableInClassList("is-error", false);
+                row.Status.EnableInClassList("is-success", true);
+                ReloadLocalCatalog();
+                UIFeedbackService.Play(FeedbackCue.Confirm, true);
+                AnimateRow(row, false);
+            }
+            catch (Exception exception)
+            {
+                if (destroyed)
+                    return;
+                row.Removing = false;
+                ApplyOperation(packageId, operation.Current);
                 ShowUnexpectedError(packageId, exception);
             }
         }
@@ -545,6 +695,7 @@ namespace Gacha.Presentation
             foreach (PackageRow row in rows.Values)
             {
                 row.Animation?.Pause();
+                row.RemovalConfirmationTimeout?.Pause();
                 row.Animation = null;
                 row.Root.style.opacity = 1f;
                 row.Root.style.translate = new Translate(0f, 0f, 0f);
@@ -670,7 +821,10 @@ namespace Gacha.Presentation
             foreach (ContentPackageOperationUiBridge bridge in bridges.Values)
                 bridge.Dispose();
             foreach (PackageRow row in rows.Values)
+            {
                 row.Animation?.Pause();
+                row.RemovalConfirmationTimeout?.Pause();
+            }
             bridges.Clear();
             operations.Clear();
         }
@@ -691,6 +845,49 @@ namespace Gacha.Presentation
                    state == ContentPackageOperationState.Paused ||
                    state == ContentPackageOperationState.Installing ||
                    state == ContentPackageOperationState.Failed;
+        }
+
+        private void RefreshInstalledState(PackageRow row)
+        {
+            row.Installed = null;
+            row.LifecycleError = null;
+            if (lifecycleService == null)
+                return;
+            try
+            {
+                row.Installed = lifecycleService.FindInstalled(row.Entry.Package.PackageId);
+            }
+            catch (Exception exception)
+            {
+                row.LifecycleError = exception.Message;
+            }
+        }
+
+        private static bool Matches(InstalledContentPackage installed, ContentPackageDescriptor package)
+        {
+            return installed != null && package != null &&
+                   installed.Revision >= package.Revision &&
+                   string.Equals(installed.InstallRelativePath, package.InstallRelativePath, StringComparison.Ordinal) &&
+                   string.Equals(installed.Sha256, package.Sha256, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void ReloadLocalCatalog()
+        {
+            CatalogSession session = ApplicationServices.Catalog;
+            if (session == null)
+                return;
+            CatalogLoadResult result = session.EnsureLoaded(true);
+            if (result.Succeeded)
+                ApplicationServices.Languages?.RefreshContentLanguage(result.Catalog);
+        }
+
+        private static string CombineWarnings(string first, string second)
+        {
+            if (string.IsNullOrWhiteSpace(first))
+                return string.IsNullOrWhiteSpace(second) ? null : second.Trim();
+            if (string.IsNullOrWhiteSpace(second))
+                return first.Trim();
+            return first.Trim() + " | " + second.Trim();
         }
 
         private static string FormatBytes(long bytes)

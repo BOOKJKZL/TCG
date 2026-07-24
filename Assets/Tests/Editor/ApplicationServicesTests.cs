@@ -105,6 +105,18 @@ public class ApplicationServicesTests
         }
     }
 
+    private sealed class PackageLifecycle : IContentPackageLifecycleService
+    {
+        public InstalledContentPackage FindInstalled(string packageId) => null;
+
+        public Task<ContentPackageRemovalResult> RemoveAsync(
+            string packageId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ContentPackageRemovalResult.NotInstalled());
+        }
+    }
+
     [TearDown]
     public void TearDown()
     {
@@ -149,6 +161,7 @@ public class ApplicationServicesTests
         var installer = new PackageInstaller();
         var operations = new PackageOperationFactory();
         var packageCatalogs = new PackageCatalogProvider();
+        var lifecycle = new PackageLifecycle();
 
         ApplicationServices.Configure(
             catalog,
@@ -156,17 +169,20 @@ public class ApplicationServicesTests
             contentPackages: planner,
             contentPackageInstaller: installer,
             contentPackageOperations: operations,
-            contentPackageCatalogs: packageCatalogs);
+            contentPackageCatalogs: packageCatalogs,
+            contentPackageLifecycle: lifecycle);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
         Assert.That(ApplicationServices.ContentPackageOperations, Is.SameAs(operations));
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.SameAs(packageCatalogs));
+        Assert.That(ApplicationServices.ContentPackageLifecycle, Is.SameAs(lifecycle));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
         Assert.That(ApplicationServices.ContentPackageOperations, Is.Null);
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.Null);
+        Assert.That(ApplicationServices.ContentPackageLifecycle, Is.Null);
         Assert.That(operations.Disposed, Is.True);
         Assert.That(packageCatalogs.Disposed, Is.True);
     }

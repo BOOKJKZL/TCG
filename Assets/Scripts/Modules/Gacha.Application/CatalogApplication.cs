@@ -113,6 +113,7 @@ namespace Gacha.Application
         public static IContentPackageInstaller ContentPackageInstaller { get; private set; }
         public static IContentPackageInstallCoordinatorFactory ContentPackageOperations { get; private set; }
         public static IContentPackageCatalogProvider ContentPackageCatalogs { get; private set; }
+        public static IContentPackageLifecycleService ContentPackageLifecycle { get; private set; }
 
         public static void Configure(
             CatalogSession catalog,
@@ -123,7 +124,8 @@ namespace Gacha.Application
             ContentPackagePlanner contentPackages = null,
             IContentPackageInstaller contentPackageInstaller = null,
             IContentPackageInstallCoordinatorFactory contentPackageOperations = null,
-            IContentPackageCatalogProvider contentPackageCatalogs = null)
+            IContentPackageCatalogProvider contentPackageCatalogs = null,
+            IContentPackageLifecycleService contentPackageLifecycle = null)
         {
             if (catalog == null)
                 throw new ArgumentNullException(nameof(catalog));
@@ -144,6 +146,7 @@ namespace Gacha.Application
             ContentPackageInstaller = contentPackageInstaller;
             ContentPackageOperations = contentPackageOperations;
             ContentPackageCatalogs = contentPackageCatalogs;
+            ContentPackageLifecycle = contentPackageLifecycle;
         }
 
         public static void Reset()
@@ -161,6 +164,7 @@ namespace Gacha.Application
             ContentPackageInstaller = null;
             ContentPackageOperations = null;
             ContentPackageCatalogs = null;
+            ContentPackageLifecycle = null;
         }
     }
 }

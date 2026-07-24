@@ -219,6 +219,38 @@ MonoBehaviour:
     m_Key: content.progress
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851423
+    m_Key: content.action.remove
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851424
+    m_Key: content.action.confirm_remove
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851425
+    m_Key: content.status.update_available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851426
+    m_Key: content.status.remove_confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851427
+    m_Key: content.status.removing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851428
+    m_Key: content.status.removed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851429
+    m_Key: content.status.remove_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851430
+    m_Key: content.status.remove_warning
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
