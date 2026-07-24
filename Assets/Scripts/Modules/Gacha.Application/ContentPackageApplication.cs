@@ -151,7 +151,7 @@ namespace Gacha.Application
 
         public ContentInstallPlan Plan(ContentPackageDescriptor package)
         {
-            string validationError = Validate(package);
+            string validationError = ValidateDescriptor(package);
             if (validationError != null)
                 return Result(ContentInstallPlanStatus.InvalidPackage, ContentInstallAction.None, package, null, 0, -1, validationError);
 
@@ -253,7 +253,7 @@ namespace Gacha.Application
                 : ContentInstallAction.Repair;
         }
 
-        private static string Validate(ContentPackageDescriptor package)
+        public static string ValidateDescriptor(ContentPackageDescriptor package)
         {
             if (package == null)
                 return "Package metadata is missing.";
