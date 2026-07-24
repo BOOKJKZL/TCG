@@ -23,6 +23,7 @@ namespace Gacha.Application
     {
         public ContentPackageDescriptor(
             string packageId,
+            string installRelativePath,
             long revision,
             string version,
             long downloadBytes,
@@ -30,6 +31,7 @@ namespace Gacha.Application
             string sha256)
         {
             PackageId = packageId?.Trim();
+            InstallRelativePath = NormalizeRelativePath(installRelativePath);
             Revision = revision;
             Version = version?.Trim();
             DownloadBytes = downloadBytes;
@@ -38,23 +40,31 @@ namespace Gacha.Application
         }
 
         public string PackageId { get; }
+        public string InstallRelativePath { get; }
         public long Revision { get; }
         public string Version { get; }
         public long DownloadBytes { get; }
         public long InstalledBytes { get; }
         public string Sha256 { get; }
+
+        private static string NormalizeRelativePath(string value)
+        {
+            return value?.Trim().Replace('\\', '/');
+        }
     }
 
     public sealed class InstalledContentPackage
     {
         public InstalledContentPackage(
             string packageId,
+            string installRelativePath,
             long revision,
             string version,
             long installedBytes,
             string sha256)
         {
             PackageId = packageId?.Trim();
+            InstallRelativePath = NormalizeRelativePath(installRelativePath);
             Revision = revision;
             Version = version?.Trim();
             InstalledBytes = installedBytes;
@@ -62,10 +72,16 @@ namespace Gacha.Application
         }
 
         public string PackageId { get; }
+        public string InstallRelativePath { get; }
         public long Revision { get; }
         public string Version { get; }
         public long InstalledBytes { get; }
         public string Sha256 { get; }
+
+        private static string NormalizeRelativePath(string value)
+        {
+            return value?.Trim().Replace('\\', '/');
+        }
     }
 
     public interface IInstalledContentPackageRegistry
@@ -231,6 +247,8 @@ namespace Gacha.Application
                 return "Package metadata is missing.";
             if (!IsSafePackageId(package.PackageId))
                 return "Package id must contain only letters, digits, period, dash or underscore.";
+            if (!IsSafeInstallRelativePath(package.InstallRelativePath))
+                return "Package install path must be a safe relative path outside internal state directories.";
             if (package.Revision <= 0)
                 return "Package revision must be greater than zero.";
             if (string.IsNullOrWhiteSpace(package.Version))
@@ -248,7 +266,10 @@ namespace Gacha.Application
         {
             if (package == null)
                 return "Installed package is missing.";
-            if (!IsSafePackageId(package.PackageId) || package.Revision <= 0 || package.InstalledBytes <= 0)
+            if (!IsSafePackageId(package.PackageId) ||
+                !IsSafeInstallRelativePath(package.InstallRelativePath) ||
+                package.Revision <= 0 ||
+                package.InstalledBytes <= 0)
                 return "Installed package metadata is invalid.";
             if (string.IsNullOrWhiteSpace(package.Version) || !IsSha256(package.Sha256))
                 return "Installed package version or SHA-256 is invalid.";
@@ -282,6 +303,41 @@ namespace Gacha.Application
                     return false;
             }
             return true;
+        }
+
+        private static bool IsSafeInstallRelativePath(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Length > 512 || PathLooksRooted(value))
+                return false;
+
+            string[] segments = value.Split('/');
+            if (segments.Length == 0 ||
+                string.Equals(segments[0], ".packages", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(segments[0], ".staging", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            foreach (string segment in segments)
+            {
+                if (string.IsNullOrWhiteSpace(segment) || segment == "." || segment == "..")
+                    return false;
+                if (segment.EndsWith(".", StringComparison.Ordinal) || segment.EndsWith(" ", StringComparison.Ordinal))
+                    return false;
+
+                foreach (char character in segment)
+                {
+                    if (character < 32 || character == '<' || character == '>' || character == ':' ||
+                        character == '"' || character == '|' || character == '?' || character == '*')
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool PathLooksRooted(string value)
+        {
+            return value.StartsWith("/", StringComparison.Ordinal) ||
+                   value.StartsWith("\\", StringComparison.Ordinal) ||
+                   value.Length >= 2 && char.IsLetter(value[0]) && value[1] == ':';
         }
 
         private static long SaturatingAdd(long first, long second, long third)

@@ -40,13 +40,14 @@ public class FileSystemContentPackageStateTests
     {
         WriteReceipt(
             "en.base1",
-            "{\"PackageId\":\"en.base1\",\"Revision\":7,\"Version\":\"2.1.0\",\"InstalledBytes\":456,\"Sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
+            "{\"PackageId\":\"en.base1\",\"InstallRelativePath\":\"en/base1\",\"Revision\":7,\"Version\":\"2.1.0\",\"InstalledBytes\":456,\"Sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
         var registry = new FileSystemInstalledContentPackageRegistry(temporaryRoot);
 
         InstalledContentPackage installed = registry.Find("en.base1");
 
         Assert.That(installed, Is.Not.Null);
         Assert.That(installed.PackageId, Is.EqualTo("en.base1"));
+        Assert.That(installed.InstallRelativePath, Is.EqualTo("en/base1"));
         Assert.That(installed.Revision, Is.EqualTo(7));
         Assert.That(installed.Version, Is.EqualTo("2.1.0"));
         Assert.That(installed.InstalledBytes, Is.EqualTo(456));
@@ -58,7 +59,7 @@ public class FileSystemContentPackageStateTests
     {
         WriteReceipt(
             "en.base1",
-            "{\"PackageId\":\"en.other\",\"Revision\":7,\"Version\":\"2.1.0\",\"InstalledBytes\":456,\"Sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
+            "{\"PackageId\":\"en.other\",\"InstallRelativePath\":\"en/base1\",\"Revision\":7,\"Version\":\"2.1.0\",\"InstalledBytes\":456,\"Sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
         var registry = new FileSystemInstalledContentPackageRegistry(temporaryRoot);
 
         Assert.Throws<InvalidDataException>(() => registry.Find("en.base1"));
@@ -96,6 +97,7 @@ public class FileSystemContentPackageStateTests
             0);
         var package = new ContentPackageDescriptor(
             "en.base1",
+            "en/base1",
             1,
             "1.0.0",
             100,

@@ -151,6 +151,26 @@ public class ContentPackagePlanningTests
         Assert.That(storage.Calls, Is.Zero);
     }
 
+    [TestCase("../base1")]
+    [TestCase("/en/base1")]
+    [TestCase("C:/en/base1")]
+    [TestCase(".packages/en.base1")]
+    [TestCase("en//base1")]
+    public void Plan_UnsafeInstallPath_IsRejectedBeforeReadingLocalState(string installRelativePath)
+    {
+        var registry = new Registry { Error = new InvalidOperationException("must not run") };
+        var storage = new Storage { Error = new InvalidOperationException("must not run") };
+        var planner = new ContentPackagePlanner(registry, storage);
+        ContentPackageDescriptor package = Package(installRelativePath: installRelativePath);
+
+        ContentInstallPlan plan = planner.Plan(package);
+
+        Assert.That(plan.Status, Is.EqualTo(ContentInstallPlanStatus.InvalidPackage));
+        Assert.That(plan.ErrorMessage, Does.Contain("install path"));
+        Assert.That(registry.Calls, Is.Zero);
+        Assert.That(storage.Calls, Is.Zero);
+    }
+
     [Test]
     public void Plan_StorageFailure_IsReturnedAsStateInsteadOfEscaping()
     {
@@ -186,10 +206,12 @@ public class ContentPackagePlanningTests
         long revision = 4,
         long downloadBytes = 100,
         long installedBytes = 200,
-        string sha256 = HashA)
+        string sha256 = HashA,
+        string installRelativePath = "en/base1")
     {
         return new ContentPackageDescriptor(
             "en.base1",
+            installRelativePath,
             revision,
             "1.0.0",
             downloadBytes,
@@ -199,6 +221,6 @@ public class ContentPackagePlanningTests
 
     private static InstalledContentPackage Installed(long revision, string sha256)
     {
-        return new InstalledContentPackage("en.base1", revision, "1.0.0", 200, sha256);
+        return new InstalledContentPackage("en.base1", "en/base1", revision, "1.0.0", 200, sha256);
     }
 }

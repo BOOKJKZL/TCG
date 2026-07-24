@@ -37,6 +37,7 @@ namespace Gacha.Infrastructure.Content
 
             return new InstalledContentPackage(
                 receipt.PackageId,
+                receipt.InstallRelativePath,
                 receipt.Revision,
                 receipt.Version,
                 receipt.InstalledBytes,
@@ -59,6 +60,7 @@ namespace Gacha.Infrastructure.Content
         private sealed class ContentPackageReceiptDto
         {
             public string PackageId;
+            public string InstallRelativePath;
             public long Revision;
             public string Version;
             public long InstalledBytes;
