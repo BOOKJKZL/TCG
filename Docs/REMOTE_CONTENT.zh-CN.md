@@ -61,9 +61,20 @@ content/packages/{package-id}/{sha256}.zip
 3. 协调器通过 Range 下载 `.part`，完成后发布 `.zip`。
 4. 安装器校验 SHA-256、路径和实际解压大小，再原子替换内容目录与收据。
 5. Catalog 与卡图从文件缓存离线读取；下次启动无需重新下载。
-6. 后续允许用户卸载某个包，但收藏存档必须独立保留。
+6. 用户可二次确认卸载单个包；只删除收据登记的内容，收藏存档独立保留，并可在同一页面重新安装。
 
 阶段 7B 的发布器已经生成不可变 ZIP 与 schema catalog；上传 R2 后只需替换小 catalog，应用无需重新安装即可发现新 Revision。Addressables 仍可独立用于通用特效/声音，但不再是卡牌数据和卡图发布的前置条件。
+
+## 卸载、收藏隔离与重装
+
+阶段 6C5 已加入 `IContentPackageLifecycleService` 与文件系统实现。内容页只调用 Application 接口；实际文件操作只在 Infrastructure 内执行：
+
+1. 读取并验证 `.packages/<package-id>.json`，拒绝非法 ID、路径逃逸、链接和损坏收据。
+2. 只把收据声明的系列目录移动到同卷 `.<ContentRoot>-removing` 事务；未登记目录和文件不会被顺带删除。
+3. 再移动收据完成逻辑提交；收据提交失败会把系列目录恢复原位，回滚也失败时保留恢复工作区。
+4. 成功后清理事务与空目录，重置该包的下载协调器并重载本地 catalog；玩家可以不离开页面直接重装。
+
+库存、已查看 NEW 状态、语言和体验设置不位于 `Content` 根目录，因此卸载器无法寻址这些存档。真实 ZIP fixture 已验证安装、写入收藏、卸载、重装全过程中收藏快照字节完全不变；PlayMode 也覆盖了二次确认、状态动画、音效/震动和立即重装。
 
 ## 确定性内容发布器
 
@@ -144,7 +155,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7A 的 Android/IL2CPP 冒烟包为 74.84 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C5 的 Android/IL2CPP 冒烟包为 74.85 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - 在真实 R2 上传完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。

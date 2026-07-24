@@ -15,7 +15,7 @@ Gacha.Domain
   不依赖 UI、Cloud Save、Addressables
 
 Gacha.Application
-  Catalog/语言/体验设置状态、开包用例、收藏进度、内容安装接口
+  Catalog/语言/体验设置状态、开包用例、收藏进度、内容安装与卸载接口
 
 Gacha.Infrastructure
   ResourcesCatalog / AddressablesCatalog / LocalSave / UnityCloudSave
@@ -47,6 +47,7 @@ Gacha.Editor
 - `IInstalledContentPackageRegistry`：已安装版本和整包 Hash 由可替换收据存储提供。
 - `IContentStorageProbe`：安装决策只读取可用字节，不依赖 Android 或桌面存储 API。
 - `IContentPackageInstaller`：Application 只接收结构化安装结果；ZIP、staging、目录替换、收据和回滚细节留在 Infrastructure。
+- `IContentPackageLifecycleService`：Application 只表达查找与卸载结果；Infrastructure 只删除收据登记的内容，并用同卷事务保证失败可恢复且不接触玩家存档。
 - `IContentPackageTransfer` / `IContentPackageByteSource`：Application 管理暂停、重试和失败事件；Infrastructure 管理 `.part/.zip` 与本机或 HTTP 字节流。
 - `ContentPackageCatalog` / `IContentPackageInstallCoordinatorFactory`：版本化清单同时充当严格 URI resolver；Presentation 通过工厂取得单包协调器，不直接排列规划、传输和安装调用。
 - `IUiThreadDispatcher` / `ContentPackageOperationUiBridge`：后台协调器事件统一切回 Unity 主线程；页面销毁后不会继续更新已失效的 VisualElement。
@@ -63,7 +64,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界。下一步是带真实私人参数的 R2/Android 远程闭环。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界。下一步是带真实私人参数的 R2/Android 远程闭环。
 
 ## 两阶段路线
 
@@ -71,8 +72,8 @@ Gacha.Editor
 
 1. 数据驱动模型、核心 asmdef、抽卡、收藏、设置与本机内容浏览已经完成。
 2. 连接 Android 真机完成本地 MVP 设备验收。
-3. 内容包管理页已支持下载、暂停、取消、重试、修复和更新；卸载/重装仍待远程闭环验证。
-4. 为远程断网、空间不足、Hash 失败、卸载保留收藏和内容升级补齐测试。
+3. 内容包管理页已支持下载、暂停、取消、重试、修复、更新、安全卸载和同页重装；收藏隔离已由真实文件 fixture 验证。
+4. 为真实 R2 首次下载、中断续传、断网重启和 Android 真机卸载/重装补齐设备验收。
 5. 接入 HTTPS catalog、确定性 ZIP 与私人 R2；Addressables 只用于确实需要 Unity AssetBundle 的共用资源，不让托管实现渗透到 UI。
 
 ### 第二阶段：宝可梦内容适配器
