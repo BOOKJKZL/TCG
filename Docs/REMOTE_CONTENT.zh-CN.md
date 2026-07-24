@@ -47,6 +47,8 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 项目已经提供 `IContentDeliveryService` 和 `AddressablesContentDeliveryService`，可供下载页面调用：
 
+安装前置检查已经由 `ContentPackagePlanner` 统一处理：包 ID、Revision、版本、整包 SHA-256、下载/安装大小、现有收据和可用空间都会先产生可本地化的状态；UI 不应直接操作文件或自行比较版本。
+
 1. 启动 Addressables 并检查远程 catalog 更新。
 2. 使用 `GetDownloadSizeAsync(label)` 获取准确下载量。
 3. 检查 Wi-Fi、剩余空间并让用户确认。

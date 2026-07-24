@@ -32,7 +32,7 @@ Gacha.Editor
 
 - `Gacha.Domain`：无 Unity 引擎依赖的通用定义、印刷身份和 Catalog 校验。
 - `Gacha.Infrastructure`：读取私人 manifest，并把外部数据转换成 `UniversalCatalog`。
-- `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启与收藏进度用例均不依赖 Unity。
+- `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
 - `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度与减少动态效果。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
 
@@ -44,6 +44,8 @@ Gacha.Editor
 - `IGachaRandomSource`：可注入固定随机序列进行自动测试。
 - `IInventoryConflictResolver`：本地与云端冲突策略可替换。
 - `IContentDeliveryService`：资源托管商不会渗透到 UI 和业务代码。
+- `IInstalledContentPackageRegistry`：已安装版本和整包 Hash 由可替换收据存储提供。
+- `IContentStorageProbe`：安装决策只读取可用字节，不依赖 Android 或桌面存储 API。
 
 ## 通用数据模型现状与下一步
 
@@ -57,7 +59,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。下一步不是再次重写模型，而是在阶段 6–7 为同一接口加入手机内容安装、版本/Hash 校验和 R2/Addressables 适配器。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A 已加入与平台无关的安装决策、版本/Hash 前置校验和本地收据边界；下一步是在 Infrastructure 实现可中断的原子安装事务，再接 R2/Addressables 和玩家界面。
 
 ## 两阶段路线
 
