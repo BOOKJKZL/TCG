@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -80,6 +81,14 @@ namespace Gacha.Application
 
         void DeletePartial(ContentPackageDescriptor package);
         string GetArchivePath(ContentPackageDescriptor package);
+    }
+
+    public interface IContentPackageByteSource
+    {
+        Task<Stream> OpenReadAsync(
+            ContentPackageDescriptor package,
+            long offset,
+            CancellationToken cancellationToken);
     }
 
     /// <summary>
@@ -230,14 +239,11 @@ namespace Gacha.Application
                 }
 
                 ReportProgress(runAttempt, existingBytes);
-                if (existingBytes < package.DownloadBytes)
-                {
-                    await transfer.DownloadAsync(
-                        package,
-                        existingBytes,
-                        new InlineProgress(bytes => ReportProgress(runAttempt, bytes)),
-                        token);
-                }
+                await transfer.DownloadAsync(
+                    package,
+                    existingBytes,
+                    new InlineProgress(bytes => ReportProgress(runAttempt, bytes)),
+                    token);
 
                 if (HasStopRequest(runAttempt))
                     return HandleStop(runAttempt);
