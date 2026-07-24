@@ -6,6 +6,7 @@ namespace Gacha.Presentation
         Back,
         Confirm,
         Error,
+        DownloadStart,
         DownloadComplete,
         PackOpen,
         CardFlip,
@@ -19,6 +20,7 @@ namespace Gacha.Presentation
         public const string Back = "ui.back";
         public const string Confirm = "ui.confirm";
         public const string Error = "ui.error";
+        public const string DownloadStart = "download.start";
         public const string DownloadComplete = "download.complete";
         public const string PackOpen = "pack.open";
         public const string CardFlip = "card.flip";
@@ -32,6 +34,7 @@ namespace Gacha.Presentation
                 case FeedbackCue.Back: return Back;
                 case FeedbackCue.Confirm: return Confirm;
                 case FeedbackCue.Error: return Error;
+                case FeedbackCue.DownloadStart: return DownloadStart;
                 case FeedbackCue.DownloadComplete: return DownloadComplete;
                 case FeedbackCue.PackOpen: return PackOpen;
                 case FeedbackCue.CardFlip: return CardFlip;

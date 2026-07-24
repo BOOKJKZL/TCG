@@ -20,4 +20,9 @@ public class MainMenuController : MonoBehaviour
     {
         GameManager.Instance.loadManager.LoadScene(4);
     }
+
+    public void ContentBtnClick()
+    {
+        GameManager.Instance.loadManager.LoadScene(5);
+    }
 }

@@ -90,6 +90,14 @@ public class ApplicationServicesTests
         }
     }
 
+    private sealed class PackageCatalogProvider : IContentPackageCatalogProvider
+    {
+        public Task<ContentPackageCatalogLoadResult> LoadAsync(CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException("fixture");
+        }
+    }
+
     [TearDown]
     public void TearDown()
     {
@@ -133,21 +141,25 @@ public class ApplicationServicesTests
         var planner = new ContentPackagePlanner(new EmptyPackageRegistry(), new FixedStorageProbe(), 0);
         var installer = new PackageInstaller();
         var operations = new PackageOperationFactory();
+        var packageCatalogs = new PackageCatalogProvider();
 
         ApplicationServices.Configure(
             catalog,
             languages,
             contentPackages: planner,
             contentPackageInstaller: installer,
-            contentPackageOperations: operations);
+            contentPackageOperations: operations,
+            contentPackageCatalogs: packageCatalogs);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
         Assert.That(ApplicationServices.ContentPackageOperations, Is.SameAs(operations));
+        Assert.That(ApplicationServices.ContentPackageCatalogs, Is.SameAs(packageCatalogs));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
         Assert.That(ApplicationServices.ContentPackageOperations, Is.Null);
+        Assert.That(ApplicationServices.ContentPackageCatalogs, Is.Null);
         Assert.That(operations.Disposed, Is.True);
     }
 

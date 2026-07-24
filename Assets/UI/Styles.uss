@@ -1,5 +1,185 @@
 .main-menu { flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 
+.content-management {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    padding: 30px;
+    color: rgb(236, 247, 255);
+    background-color: rgba(4, 12, 23, 0.96);
+}
+
+.content-management__shell {
+    flex-grow: 1;
+    width: 100%;
+    max-width: 1080px;
+    align-self: center;
+    padding: 26px;
+    border-width: 2px;
+    border-radius: 28px;
+    border-color: rgba(66, 196, 213, 0.7);
+    background-color: rgba(16, 34, 49, 0.98);
+}
+
+.content-management__header,
+.content-management__header-actions,
+.content-package-row,
+.content-package-row__actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.content-management__heading,
+.content-package-row__copy {
+    flex-grow: 1;
+}
+
+.content-management__title {
+    color: white;
+    font-size: 34px;
+    -unity-font-style: bold;
+}
+
+.content-management__subtitle,
+.content-package-row__metadata {
+    color: rgb(159, 190, 208);
+    font-size: 16px;
+    white-space: normal;
+}
+
+.content-management__header-actions .content-button {
+    margin-left: 10px;
+}
+
+.content-management__catalog-status {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: rgb(211, 237, 242);
+    background-color: rgba(35, 84, 98, 0.92);
+}
+
+.content-management__catalog-status.is-error {
+    color: rgb(255, 225, 228);
+    background-color: rgba(133, 42, 55, 0.92);
+}
+
+.content-management__empty {
+    flex-grow: 1;
+    margin-top: 16px;
+    padding: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    color: rgb(164, 194, 211);
+    background-color: rgba(10, 25, 38, 0.88);
+    font-size: 19px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.content-management__list {
+    flex-grow: 1;
+    margin-top: 14px;
+}
+
+.content-package-row {
+    min-height: 148px;
+    margin: 6px 4px;
+    padding: 18px;
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: rgba(88, 161, 174, 0.55);
+    background-color: rgba(25, 51, 67, 0.96);
+}
+
+.content-package-row__name {
+    color: white;
+    font-size: 23px;
+    -unity-font-style: bold;
+}
+
+.content-package-row__metadata {
+    margin-top: 5px;
+}
+
+.content-package-row__status {
+    margin-top: 10px;
+    color: rgb(147, 218, 192);
+    white-space: normal;
+}
+
+.content-package-row__status.is-error {
+    color: rgb(255, 151, 157);
+}
+
+.content-package-row__status.is-success {
+    color: rgb(126, 239, 177);
+    -unity-font-style: bold;
+}
+
+.content-package-row__controls {
+    width: 410px;
+    margin-left: 18px;
+}
+
+.content-package-row__progress {
+    height: 28px;
+    margin-bottom: 12px;
+}
+
+.content-package-row__actions {
+    justify-content: flex-end;
+}
+
+.content-button {
+    min-width: 128px;
+    height: 48px;
+    margin-left: 8px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-width: 1px;
+    border-radius: 13px;
+    border-color: rgba(106, 222, 231, 0.9);
+    color: white;
+    background-color: rgb(24, 119, 137);
+    font-size: 16px;
+    -unity-font-style: bold;
+    transition-property: scale, background-color;
+    transition-duration: 0.12s;
+}
+
+.content-button:hover {
+    background-color: rgb(32, 151, 169);
+}
+
+.content-button:active {
+    scale: 0.96 0.96;
+}
+
+.reduce-motion .content-button {
+    transition-duration: 0s;
+}
+
+.reduce-motion .content-button:active {
+    scale: 1 1;
+}
+
+.content-button--primary {
+    background-color: rgb(37, 137, 104);
+}
+
+.content-button--quiet {
+    background-color: rgba(44, 70, 87, 0.96);
+}
+
+.content-button--danger {
+    border-color: rgba(238, 121, 132, 0.9);
+    background-color: rgb(137, 52, 65);
+}
+
 .gacha-opening {
     position: absolute;
     left: 0;

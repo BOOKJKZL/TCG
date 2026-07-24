@@ -24,7 +24,8 @@ public class AndroidBuildReadinessTests
             "002_MainMenuScene",
             "003_GachaScene",
             "004_CollectionScene",
-            "005_SettingScene"
+            "005_SettingScene",
+            "006_ContentScene"
         }));
     }
 

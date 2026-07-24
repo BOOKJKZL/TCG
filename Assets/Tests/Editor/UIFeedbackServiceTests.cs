@@ -51,6 +51,15 @@ public class UIFeedbackServiceTests
     }
 
     [Test]
+    public void Play_MapsDownloadStartToStableAudioKey()
+    {
+        bool played = UIFeedbackService.Play(FeedbackCue.DownloadStart);
+
+        Assert.That(played, Is.True);
+        Assert.That(audio.LastKey, Is.EqualTo(FeedbackCueKeys.DownloadStart));
+    }
+
+    [Test]
     public void Play_OnlyPulsesWhenRequestedAndEnabled()
     {
         UIFeedbackService.Play(FeedbackCue.RareReveal, true);

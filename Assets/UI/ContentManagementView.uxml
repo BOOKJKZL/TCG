@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Styles.uss" />
+    <ui:VisualElement name="content-management" class="content-management">
+        <ui:VisualElement name="content-shell" class="content-management__shell">
+            <ui:VisualElement class="content-management__header">
+                <ui:VisualElement class="content-management__heading">
+                    <ui:Label name="content-title" class="content-management__title" />
+                    <ui:Label name="content-subtitle" class="content-management__subtitle" />
+                </ui:VisualElement>
+                <ui:VisualElement class="content-management__header-actions">
+                    <ui:Button name="refresh-button" class="content-button content-button--quiet" />
+                    <ui:Button name="back-button" class="content-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="catalog-status" class="content-management__catalog-status" />
+            <ui:Label name="content-empty" class="content-management__empty" />
+            <ui:ScrollView name="package-list" class="content-management__list" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

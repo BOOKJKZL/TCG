@@ -94,6 +94,134 @@ MonoBehaviour:
     m_Localized: 'Unable to save: {0}'
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783687131136
+    m_Localized: Content Library
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851392
+    m_Localized: Download, pause, update, or repair individual content packs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851393
+    m_Localized: Main menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851394
+    m_Localized: Refresh catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851395
+    m_Localized: Install
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851396
+    m_Localized: Update
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851397
+    m_Localized: Repair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851398
+    m_Localized: Resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851399
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851400
+    m_Localized: Pause
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851401
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851402
+    m_Localized: Checking available content...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851403
+    m_Localized: '{0} content packs available.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851404
+    m_Localized: No downloadable content is listed in this catalog.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851405
+    m_Localized: 'The content catalog is unavailable: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851406
+    m_Localized: Remote content is not configured yet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851407
+    m_Localized: "Version {0} \xB7 {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851408
+    m_Localized: Ready to install
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851409
+    m_Localized: Checking storage and installed version...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851410
+    m_Localized: Cannot start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851411
+    m_Localized: Not enough storage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851412
+    m_Localized: Package metadata is invalid
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851413
+    m_Localized: Storage is unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851414
+    m_Localized: Downloading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851415
+    m_Localized: Download paused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851416
+    m_Localized: Verifying and installing...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851417
+    m_Localized: Installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851418
+    m_Localized: Already up to date
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851419
+    m_Localized: Cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851420
+    m_Localized: Operation failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851421
+    m_Localized: 'Installed with cleanup warning: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851422
+    m_Localized: "{0}% \xB7 {1} / {2}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

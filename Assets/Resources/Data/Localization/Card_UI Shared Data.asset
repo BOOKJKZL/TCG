@@ -91,6 +91,134 @@ MonoBehaviour:
     m_Key: settings.experience.save_failed
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783687131136
+    m_Key: content.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851392
+    m_Key: content.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851393
+    m_Key: content.action.back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851394
+    m_Key: content.action.refresh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851395
+    m_Key: content.action.install
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851396
+    m_Key: content.action.update
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851397
+    m_Key: content.action.repair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851398
+    m_Key: content.action.resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851399
+    m_Key: content.action.retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851400
+    m_Key: content.action.pause
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851401
+    m_Key: content.action.cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851402
+    m_Key: content.catalog.loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851403
+    m_Key: content.catalog.loaded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851404
+    m_Key: content.catalog.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851405
+    m_Key: content.catalog.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851406
+    m_Key: content.catalog.not_configured
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851407
+    m_Key: content.package.metadata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851408
+    m_Key: content.status.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851409
+    m_Key: content.status.checking
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851410
+    m_Key: content.status.blocked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851411
+    m_Key: content.status.insufficient_space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851412
+    m_Key: content.status.invalid_package
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851413
+    m_Key: content.status.storage_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851414
+    m_Key: content.status.downloading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851415
+    m_Key: content.status.paused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851416
+    m_Key: content.status.installing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851417
+    m_Key: content.status.installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851418
+    m_Key: content.status.current
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851419
+    m_Key: content.status.cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851420
+    m_Key: content.status.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851421
+    m_Key: content.status.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851422
+    m_Key: content.progress
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
