@@ -6,12 +6,12 @@
 
 这个个人项目优先推荐：
 
-1. **Cloudflare R2 + Addressables**：当前首选。R2 可公开提供 HTTPS 对象；截至 2026-07，其 Standard 免费额度包含每月 10 GB-month 存储、100 万 Class A、1000 万 Class B 请求，直接从 R2 出网不收流量费。正式使用应绑定自有域名；`r2.dev` 官方说明仅适合非生产流量并会限速。
+1. **Cloudflare R2 + 版本化内容包**：当前首选。R2 可公开提供 HTTPS 对象；截至 2026-07，其 Standard 免费额度包含每月 10 GB-month 存储、100 万 Class A、1000 万 Class B 请求，直接从 R2 出网不收流量费。正式使用应绑定自有域名；`r2.dev` 官方说明仅适合非生产流量并会限速。卡牌数据/图片使用本项目已有的 ZIP、SHA-256、schema catalog 和原子安装链路。
 2. **Unity CCD + Addressables**：Unity 集成最省事，适合不想维护上传脚本和 URL 的情况；费用和额度应在实际启用前再次确认。
 3. **Firebase Storage**：鉴权和移动端生态完善，但公开大文件分发的费用模型通常不如 R2 简单；2026 年新 bucket 的免费额度与区域有关。
 4. **Google Drive**：仅用于你自己的一两台设备测试，不作为发布架构。
 
-这里的“没有服务器”不构成阻碍。对象存储本身就是静态 HTTPS 文件主机；本项目不需要运行后端程序，手机只需要读取远程 catalog、hash 和 asset bundle。
+这里的“没有服务器”不构成阻碍。对象存储本身就是静态 HTTPS 文件主机；本项目不需要运行后端程序，手机只需要读取远程 catalog、hash 和不可变归档。
 
 ## 推荐资源划分
 
@@ -22,10 +22,10 @@ APK 内只保留：
 - 抽卡核心代码
 - 一个很小的离线演示内容包
 
-远程内容按 Addressables label 拆分：
+远程卡牌内容按可独立安装的 Package ID 拆分：
 
 ```text
-core                    通用卡背、开包特效、共用声音
+core                    可选离线演示与共用数据
 set/{game}/{set-id}     一个系列的卡牌数据与图片
 product/{game}/{id}     卡包包装、概率与配列规则
 language/{code}         可选语言内容
@@ -34,18 +34,15 @@ language/{code}         可选语言内容
 对象存储建议布局：
 
 ```text
-content/android/catalog.json
-content/android/catalog.hash
-content/android/core/*.bundle
-content/android/sets/{set-id}/*.bundle
-content/android/products/{product-id}/*.bundle
+content/releases/android/catalog.json
+content/packages/{package-id}/{sha256}.zip
 ```
 
-Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分别构建，不能共用同一批 bundle。
+卡牌 JSON/图片 ZIP 在格式一致时可跨平台复用；只有通用卡背、特效、声音或其他 Unity 序列化资产需要 Addressables，并按 Android、iOS、Windows 分别构建。这样不会让卡牌内容同时维护 ZIP 与 AssetBundle 两套版本/缓存状态。
 
 ## 手机首次下载流程
 
-项目已经提供 `IContentDeliveryService` 和 `AddressablesContentDeliveryService`，可供下载页面调用：
+项目已经提供 `IContentPackageCatalogProvider`、`ContentPackageInstallCoordinator` 和内容管理页面：
 
 安装前置检查已经由 `ContentPackagePlanner` 统一处理：包 ID、Revision、版本、整包 SHA-256、下载/安装大小、现有收据和可用空间都会先产生可本地化的状态；UI 不应直接操作文件或自行比较版本。
 
@@ -57,22 +54,51 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 阶段 6C3 已把这项约束写入 schema v1 包清单：每个 archive URL 的路径必须包含完整 SHA-256，重复 Package ID、非法 descriptor、公开 HTTP、旧 revision 描述符和 `latest.zip` 类可变地址都会在下载前失败。`ContentPackageInstallCoordinator` 已串起规划、断点下载、原子安装与归档清理；真实 ZIP/HTTP fixture 已验证损坏更新保留旧内容，正确重下后才发布新收据。当前仍缺少正式 R2 catalog 的远程读取与鉴权配置。
 
-阶段 6C4 已加入第 6 个内容管理场景：页面可显示包版本、大小、状态和进度，执行安装、更新、修复、暂停、取消、失败重试与 catalog 刷新，并把后台协调器事件切回 Unity 主线程。进入/状态/失败动画、下载开始/完成/失败音效、完成震动、双语文案、减少动态和错误 Attempt 去重已由 PlayMode fixture 验证。正式运行时仍故意显示“尚未配置远程内容”，直到阶段 7 提供受限 HTTPS catalog provider 与 R2 配置，避免把测试 URL 当成可发布服务。
+阶段 6C4 已加入第 6 个内容管理场景：页面可显示包版本、大小、状态和进度，执行安装、更新、修复、暂停、取消、失败重试与 catalog 刷新，并把后台协调器事件切回 Unity 主线程。进入/状态/失败动画、下载开始/完成/失败音效、完成震动、双语文案、减少动态和错误 Attempt 去重已由 PlayMode fixture 验证。
 
-1. 启动 Addressables 并检查远程 catalog 更新。
-2. 使用 `GetDownloadSizeAsync(label)` 获取准确下载量。
-3. 检查 Wi-Fi、剩余空间并让用户确认。
-4. 使用 `DownloadAsync(label, progress)` 显示下载进度。
-5. Addressables 校验并缓存 bundle；下次直接读取缓存。
-6. 允许用户在内容管理页删除某个系列的缓存。
+1. `HttpContentPackageCatalogProvider` 读取受限 schema catalog。
+2. 页面显示 catalog 声明的准确下载量，Planner 检查剩余空间和现有收据。
+3. 协调器通过 Range 下载 `.part`，完成后发布 `.zip`。
+4. 安装器校验 SHA-256、路径和实际解压大小，再原子替换内容目录与收据。
+5. Catalog 与卡图从文件缓存离线读取；下次启动无需重新下载。
+6. 后续允许用户卸载某个包，但收藏存档必须独立保留。
 
-发布时启用 Build Remote Catalog，把远程组设为 `RemoteBuildPath/RemoteLoadPath`，构建后上传 bundle、catalog JSON 和 hash。Unity 官方说明远程 catalog 可以让应用不重新安装就发现更新，只下载变化的 bundle。
+阶段 7B 的发布器会生成不可变 ZIP 与 schema catalog；上传 R2 后只需替换小 catalog，应用无需重新安装即可发现新 Revision。Addressables 仍可独立用于通用特效/声音，但不再是卡牌数据和卡图发布的前置条件。
+
+## 远程 catalog 私人配置
+
+阶段 7A 已提供 `HttpContentPackageCatalogProvider`。它只接受 HTTPS；HTTP 仅允许 `127.0.0.1`/loopback 自动测试。请求固定声明 JSON 与 identity encoding，必须收到 `200 OK`，默认 15 秒超时、最大 1 MiB，并会对无 `Content-Length` 的流式响应再次计数。外部取消会继续向上传播，超时、超限、非 JSON、公开 HTTP、带用户密码或 fragment 的 URL 会返回结构化失败。
+
+配置优先级如下：
+
+1. Unity Editor 进程环境变量 `GACHA_CONTENT_CATALOG_URL`，适合临时测试。
+2. 项目根目录 `LocalContent/remote-content.json`；目录已被 Git 忽略，适合本机私人配置。
+3. 可选的 `Assets/Resources/Data/RemoteContent.json`；只适合嵌入公开读取 URL，不能放 API Token、R2 Access Key 或其他秘密。
+4. Android/桌面正式包读取 `Application.persistentDataPath/remote-content.json`，以后可由私人安装脚本或设置页写入。
+
+本机配置可以从 `Tools/Content/remote-content.example.json` 复制，格式为：
+
+```json
+{
+  "catalogUrl": "https://你的公开读取域名/releases/android/catalog.json",
+  "timeoutSeconds": 15,
+  "maxCatalogBytes": 1048576
+}
+```
+
+PowerShell 临时测试示例：
+
+```powershell
+$env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/android/catalog.json'
+```
+
+不要把 R2 管理 API 凭证放进游戏。推荐让游戏对象使用公开只读的自定义域名，并依靠不可猜测不是安全边界这一事实来决定是否接受公开读取；若未来必须鉴权，应另加短期令牌服务，而不是把长期密钥打进 APK。catalog 内的归档路径仍必须包含完整 SHA-256，避免可变 URL 破坏断点续传。
 
 ## 当前 Android 私测路径
 
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C4 的 Android/IL2CPP 冒烟包为 74.83 MiB，包含 6 个场景，413 个 APK 条目中私人内容匹配为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，阶段 7 必须结合 IL2CPP stripping、Addressables 和构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7A 的 Android/IL2CPP 冒烟包为 74.84 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
-- 在阶段 7 远程 provider 完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
+- 在阶段 7B 包发布/R2 上传完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
 
 参考资料：

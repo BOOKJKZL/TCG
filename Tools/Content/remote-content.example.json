@@ -1,0 +1,5 @@
+{
+  "catalogUrl": "https://content.example.invalid/releases/android/catalog.json",
+  "timeoutSeconds": 15,
+  "maxCatalogBytes": 1048576
+}

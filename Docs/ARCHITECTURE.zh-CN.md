@@ -63,7 +63,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；下一步是 HTTPS catalog 与 R2/Addressables 最小远程闭环。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C4 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；阶段 7A 已加入受限 HTTPS catalog 与私人配置，下一步是确定性 ZIP 发布和 R2 最小远程闭环。
 
 ## 两阶段路线
 
@@ -73,7 +73,7 @@ Gacha.Editor
 2. 连接 Android 真机完成本地 MVP 设备验收。
 3. 内容包管理页已支持下载、暂停、取消、重试、修复和更新；卸载/重装仍待远程闭环验证。
 4. 为远程断网、空间不足、Hash 失败、卸载保留收藏和内容升级补齐测试。
-5. 接入 HTTPS catalog、Addressables 与私人 R2，不让托管实现渗透到 UI。
+5. 接入 HTTPS catalog、确定性 ZIP 与私人 R2；Addressables 只用于确实需要 Unity AssetBundle 的共用资源，不让托管实现渗透到 UI。
 
 ### 第二阶段：宝可梦内容适配器
 
