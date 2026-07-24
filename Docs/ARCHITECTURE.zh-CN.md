@@ -33,7 +33,7 @@ Gacha.Editor
 - `Gacha.Domain`：无 Unity 引擎依赖的通用定义、印刷身份和 Catalog 校验。
 - `Gacha.Infrastructure`：读取私人 manifest，并把外部数据转换成 `UniversalCatalog`。
 - `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
-- `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果、`CardUiText` String Table 解析与英文兜底，以及只观察 Application 快照的内容管理页面。
+- `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果、`CardUiText` String Table 解析与英文兜底，以及只观察 Application 快照的内容管理页面；收藏、共享卡图状态和开包流程共用该文本边界，并能在当前页面状态中即时刷新语言。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
 
 - `ICatalogProvider`：Catalog 可由私人 manifest、Addressables 或下载后的数据库提供。

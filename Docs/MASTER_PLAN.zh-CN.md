@@ -2,7 +2,7 @@
 
 最后更新：2026-07-25
 
-本次修改原因：把收藏页与共享卡图加载状态从控制器内硬编码双语迁入 Unity `Card_UI` String Table，并加入可复用的 Presentation 文本解析器；同时修正 Seeder 缺少阶段 6/7 后续键、重复 Seed 会回退旧内容页文案的问题。真实 R2 与真机仍是关键路径，等待外部参数和设备期间继续完成不依赖外部条件的全场景文本迁移。
+本次修改原因：继续把开包选择、撕包、逐张揭示和结果总结中的硬编码双语文案迁入 Unity `Card_UI` String Table，让运行中的开包流程可完整响应 `zh ↔ en` 切换；同时保留既有动画、音效、震动和规则可信度呈现。真实 R2 与真机仍是关键路径，等待外部参数和设备期间继续完成不依赖外部条件的全场景文本迁移。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -83,14 +83,14 @@ AccessibilitySettings
 - 收藏场景已接入真实库存数量、持久化 NEW 状态、名称/卡号搜索、稀有度筛选、仅拥有/仅新卡切换和空结果反馈；查看新卡详情会立即保存已查看状态。
 - 库存快照已升级为 v3，云端优先读取 `inventory_v3` 并保留 `inventory_v2` 回读；旧 v2 收藏不会在迁移后被误标为新卡。
 - 已建立可替换的 `IProductRuleProvider`、规则可信度标记、卡位平均概率摘要和原子库存提交；落盘失败会回滚本次开包。
-- 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存。
+- 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存；开包流程的 29 个玩家文本键已迁入 String Table，选择、待翻卡、翻卡中和结果页均可在运行时切换中英文。
 - 英文 Base Set Unlimited 已接入第一份 `HistoricallyVerified` 配列：5 Common、2 Basic Energy、3 Uncommon、1 Rare，Holo 平均约三包一张；Machamp 和 First Edition 已按来源排除。
 - 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
 - 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；最新 APK 为 74.86 MiB，6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.3 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；最新 APK 为 78,492,830 bytes（约 74.86 MiB），6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.3 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
 - 抽卡、收藏、设置、内容管理、远程 catalog 和场景切换 PlayMode 测试为 6/6 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -112,7 +112,7 @@ AccessibilitySettings
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
-- 主菜单、开包页等剩余场景尚未全部迁入 Unity Localization String Table；设置、内容管理、收藏与共享卡图状态已经完成，当前运行时双语文本与中文回退字体可用。
+- 主菜单及旧 UGUI 场景的剩余静态文本尚未全部迁入 Unity Localization String Table；设置、内容管理、收藏、共享卡图状态与开包页已经完成，当前运行时双语文本与中文回退字体可用。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
@@ -252,7 +252,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 3：双层语言系统
 
-状态：Application 语言核心、回退、持久化、设置界面、收藏页、共享卡图状态和 Android 桌面应用名已完成（更新于 2026-07-25）；主菜单与开包页等剩余文本待继续。
+状态：Application 语言核心、回退、持久化、设置界面、收藏页、共享卡图状态、开包页和 Android 桌面应用名已完成（更新于 2026-07-25）；主菜单及旧 UGUI 场景的剩余静态文本待继续。
 
 目标：区分应用界面语言与卡牌内容语言。
 
@@ -288,11 +288,12 @@ Content Language  卡名、卡图、系列和产品
 - 设置场景会运行时安装独立双语言面板；按钮使用统一按下动画和确认音效，切换时遵守减少动态效果设置。
 - `Card_UI` 中英文 String Table 已加入语言设置文本；缺少内容语言时会显示当前回退结果。
 - `Card_UI` 新增稳定的 `app.display_name`，Localization Settings 配置 Android App Info；实际 Android 构建已验证两种 `strings.xml` 与 Manifest 标签，并消除未配置元数据警告。
-- `CardUiText` 在 Presentation 层统一从 `Card_UI` 读取并按 locale 缓存文本，缺表或初始化异常时使用英文兜底；收藏控制器和 `AsyncCardImageView` 不再保存中英成对文案。
+- `CardUiText` 在 Presentation 层统一从 `Card_UI` 读取并按 locale 缓存文本，缺表或初始化异常时使用英文兜底；收藏控制器、`AsyncCardImageView` 和 `GachaViewController` 不再保存中英成对文案。
 - 收藏/卡图新增 28 个中英文键；实际执行 Seeder 后，表完整性、中文字体和内容管理回归均通过，重复 Seed 不再覆盖卸载或离线 catalog 后续文案。
+- 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 208/208、PlayMode 6/6 通过；Android/IL2CPP APK 为 78,498,362 bytes（约 74.86 MiB）、413 个条目且私人内容名称匹配为 0。
-- 已加入约 51 KB 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；主菜单、开包和收藏文本尚未全部迁入 String Table，后续新增中文后必须重新生成子集。
+- 截至本次补强，全项目 EditMode 208/208、PlayMode 6/6 通过；Android/IL2CPP APK 为 78,492,830 bytes（约 74.86 MiB）、413 个条目且私人内容名称匹配为 0。
+- 已加入约 51 KB 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；主菜单及旧 UGUI 场景的剩余静态文本尚未全部迁入 String Table，后续新增中文后必须重新生成子集。
 
 ### 阶段 4：接入私人导入内容
 
