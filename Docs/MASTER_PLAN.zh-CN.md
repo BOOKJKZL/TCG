@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 6C5 的安全卸载、收藏存档隔离、同页重装、双语交互反馈与回滚自验证已完成。下一步需要用户提供私人 R2 参数后执行最小真实上传，再进入手机首次下载、中断续传与离线重启；卡牌内容不再强制重复包装成 Addressables。
+本次修改原因：阶段 6C5 的安全卸载、收藏存档隔离、同页重装、双语交互反馈与回滚自验证已完成；Android 私测脚本也已同时支持本地直推和仅公开配置的远程首次下载模式。下一步需要用户提供私人 R2 参数后执行最小真实上传，再进入手机首次下载、中断续传与离线重启；卡牌内容不再强制重复包装成 Addressables。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -89,7 +89,7 @@ AccessibilitySettings
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6C5 最新 APK 为 74.85 MiB，6 个场景、413 个 ZIP 条目中私人内容和 `remote-content.json` 匹配均为 0，ADB 私人内容推送脚本已准备。阶段 5C 曾约 51.6 MiB，新增约 23.2 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6C5 最新 APK 为 74.85 MiB，6 个场景、413 个 ZIP 条目中私人内容和 `remote-content.json` 匹配均为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.2 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
 - 抽卡、收藏、设置、内容管理、远程 catalog 和场景切换 PlayMode 测试为 6/6 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -583,6 +583,7 @@ Content Language  卡名、卡图、系列和产品
 - 所有 ZIP 验证后才发布 `catalog.json`；本机 catalog 若在预检后改变会终止。catalog 的 origin/公开读取再次验证后，才原子写入 Git 忽略的 `LocalContent/remote-content.json`。
 - Access Key/Secret 只存在于 Editor 字段或环境变量，不写入项目、日志、catalog、配置或 APK；批处理缺少任一必需值会明确失败。
 - R2 发布定向测试 8/8 通过，包含固定 Signature V4 向量、凭据 endpoint 防泄露、catalog-last 顺序、冲突拒绝、对象复用和失败不生成配置。
+- Android 私测脚本保留默认本地直推，同时新增 `Remote`、`ResetDownloadedContent`、`ValidateOnly` 与 `SelfTest`；远程配置严格拒绝秘密字段并只推送公开 catalog 参数，纯脚本自测 8/8、本地/远程预检均通过。
 
 下一切片：用户在 Cloudflare 建立只限定目标 bucket 的 Object Read & Write Token、公开只读自定义域名，并提供/在本机填写 S3 endpoint、bucket、公开 Base URL、Access Key ID、Secret Access Key。只执行 `en.base1`、`en.neo1` 与 catalog 的最小真实上传；成功后把 `remote-content.json` 安装到 Android 私人持久目录，验证首次下载、中断续传、离线重启和真机卸载/重装。没有这些账号信息时不猜测 bucket、域名或写入密钥。
 

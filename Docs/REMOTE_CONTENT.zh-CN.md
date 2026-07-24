@@ -157,8 +157,25 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 - 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C5 的 Android/IL2CPP 冒烟包为 74.85 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
-- 在真实 R2 上传完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
+- `Tools/Android/install_smoke_content.ps1` 默认使用 `Local` 模式：安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。它适合 R2 尚未配置时验证触摸、声音、震动和本地内容读取。
+- 同一脚本的 `Remote` 模式只把 `LocalContent/remote-content.json` 推到 `Application.persistentDataPath` 根目录，不复制卡图。配置只允许 `catalogUrl`、`timeoutSeconds`、`maxCatalogBytes`，强制公开 HTTPS，拒绝额外字段、嵌入凭据、fragment 和越界参数。
+- `-ResetDownloadedContent` 只清除该应用固定的 `Content` 与 `ContentDownloads` 目录，用于复现首次下载；不会触及库存、语言或体验设置存档。脚本同时要求安全 Package ID 与恰好一台已授权设备，避免把 shell 路径变成可注入输入。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
+
+先在不连接设备时自验证：
+
+```powershell
+./Tools/Android/install_smoke_content.ps1 -SelfTest
+./Tools/Android/install_smoke_content.ps1 -ContentMode Remote -RemoteConfigPath Tools/Content/remote-content.example.json -ValidateOnly
+```
+
+R2 成功发布并生成私人配置后，首次下载验收命令为：
+
+```powershell
+./Tools/Android/install_smoke_content.ps1 -ContentMode Remote -ResetDownloadedContent
+```
+
+不要在命令行传 R2 Access Key/Secret；手机配置只需要发布器生成的公开 catalog URL。
 
 参考资料：
 
