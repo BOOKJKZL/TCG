@@ -35,9 +35,10 @@ public class UniversalUiFontTests
                     required.Add(character);
         }
         var missing = new List<char>();
+        Assert.That(fallback.sourceFontFile, Is.Not.Null);
         foreach (char character in required)
         {
-            if (!fallback.HasCharacter(character, false, true))
+            if (!fallback.sourceFontFile.HasCharacter(character))
                 missing.Add(character);
         }
 
