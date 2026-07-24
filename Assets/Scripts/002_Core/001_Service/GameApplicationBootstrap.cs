@@ -52,7 +52,8 @@ public static class GameApplicationBootstrap
             images,
             new PokemonHistoricalRuleProvider(),
             experienceSettings,
-            contentPackages);
+            contentPackages,
+            new FileSystemContentPackageInstaller(contentRoot));
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);

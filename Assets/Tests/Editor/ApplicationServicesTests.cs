@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Domain;
 using NUnit.Framework;
@@ -60,6 +62,19 @@ public class ApplicationServicesTests
         public long GetAvailableBytes() => 1024;
     }
 
+    private sealed class PackageInstaller : IContentPackageInstaller
+    {
+        public Task<ContentPackageInstallResult> InstallAsync(
+            ContentInstallPlan plan,
+            string archivePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ContentPackageInstallResult.Failure(
+                ContentPackageInstallStatus.InvalidPlan,
+                "fixture"));
+        }
+    }
+
     [TearDown]
     public void TearDown()
     {
@@ -101,12 +116,19 @@ public class ApplicationServicesTests
         var catalog = new CatalogSession(new CatalogProvider(CreateCatalog("en")));
         var languages = new LanguageSelectionService(new PreferenceStore("en", "en"), new[] { "en" });
         var planner = new ContentPackagePlanner(new EmptyPackageRegistry(), new FixedStorageProbe(), 0);
+        var installer = new PackageInstaller();
 
-        ApplicationServices.Configure(catalog, languages, contentPackages: planner);
+        ApplicationServices.Configure(
+            catalog,
+            languages,
+            contentPackages: planner,
+            contentPackageInstaller: installer);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
+        Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
+        Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
     }
 
     [Test]

@@ -110,6 +110,7 @@ namespace Gacha.Application
         public static IProductRuleProvider ProductRules { get; private set; }
         public static ExperienceSettingsService ExperienceSettings { get; private set; }
         public static ContentPackagePlanner ContentPackages { get; private set; }
+        public static IContentPackageInstaller ContentPackageInstaller { get; private set; }
 
         public static void Configure(
             CatalogSession catalog,
@@ -117,7 +118,8 @@ namespace Gacha.Application
             IContentImageSource images = null,
             IProductRuleProvider productRules = null,
             ExperienceSettingsService experienceSettings = null,
-            ContentPackagePlanner contentPackages = null)
+            ContentPackagePlanner contentPackages = null,
+            IContentPackageInstaller contentPackageInstaller = null)
         {
             Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             Languages = languages ?? throw new ArgumentNullException(nameof(languages));
@@ -125,6 +127,7 @@ namespace Gacha.Application
             ProductRules = productRules;
             ExperienceSettings = experienceSettings;
             ContentPackages = contentPackages;
+            ContentPackageInstaller = contentPackageInstaller;
         }
 
         public static void Reset()
@@ -135,6 +138,7 @@ namespace Gacha.Application
             ProductRules = null;
             ExperienceSettings = null;
             ContentPackages = null;
+            ContentPackageInstaller = null;
         }
     }
 }
