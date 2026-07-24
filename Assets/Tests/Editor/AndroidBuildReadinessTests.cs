@@ -1,0 +1,38 @@
+using System.IO;
+using System.Linq;
+using Gacha.EditorTools;
+using NUnit.Framework;
+using UnityEditor;
+
+public class AndroidBuildReadinessTests
+{
+    [Test]
+    public void AndroidBuild_UsesStableIdentityAndAllGameplayScenes()
+    {
+        Assert.That(
+            PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android),
+            Is.EqualTo("com.personal.universalgacha"));
+        Assert.That(PlayerSettings.productName, Is.EqualTo("Universal Gacha Simulator"));
+
+        string[] scenes = EditorBuildSettings.scenes
+            .Where(scene => scene.enabled)
+            .Select(scene => Path.GetFileNameWithoutExtension(scene.path))
+            .ToArray();
+        Assert.That(scenes, Is.EqualTo(new[]
+        {
+            "001_StartScene",
+            "002_MainMenuScene",
+            "003_GachaScene",
+            "004_CollectionScene",
+            "005_SettingScene"
+        }));
+    }
+
+    [Test]
+    public void AndroidBuild_DoesNotEmbedPrivateImportedContent()
+    {
+        Assert.That(Directory.Exists("Assets/StreamingAssets/LocalContent"), Is.False);
+        Assert.That(AndroidSmokeBuilder.OutputPath.Replace('\\', '/'), Does.StartWith("Builds/"),
+            "Build artifacts must remain outside Assets so they cannot inflate the application package.");
+    }
+}
