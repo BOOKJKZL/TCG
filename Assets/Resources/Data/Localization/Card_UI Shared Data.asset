@@ -263,6 +263,118 @@ MonoBehaviour:
     m_Key: app.display_name
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851434
+    m_Key: common.action.retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851435
+    m_Key: common.status.loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851436
+    m_Key: common.action.main_menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851437
+    m_Key: common.action.close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851438
+    m_Key: common.action.clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851439
+    m_Key: common.badge.new
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851440
+    m_Key: card_image.error.invalid_path
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851441
+    m_Key: card_image.error.not_installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851442
+    m_Key: card_image.error.verification_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851443
+    m_Key: card_image.error.loading_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851444
+    m_Key: collection.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851445
+    m_Key: collection.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851446
+    m_Key: collection.action.all_sets
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851447
+    m_Key: collection.status.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851448
+    m_Key: collection.set.metadata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851449
+    m_Key: collection.filter.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851450
+    m_Key: collection.filter.all_rarities
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851451
+    m_Key: collection.filter.search
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851452
+    m_Key: collection.filter.rarity
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851453
+    m_Key: collection.filter.owned_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851454
+    m_Key: collection.filter.owned_off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851455
+    m_Key: collection.filter.new_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851456
+    m_Key: collection.filter.new_off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851457
+    m_Key: collection.status.seen_save_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851458
+    m_Key: collection.summary.all
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851459
+    m_Key: collection.summary.filtered
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851460
+    m_Key: collection.owned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851461
+    m_Key: collection.unowned
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

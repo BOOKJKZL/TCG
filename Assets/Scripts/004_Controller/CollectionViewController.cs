@@ -5,6 +5,8 @@ using Gacha.Application;
 using Gacha.Domain;
 using Gacha.Presentation;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -114,6 +116,7 @@ public sealed class CollectionViewController : MonoBehaviour
             ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
             ApplicationServices.Languages.ContentLanguageChanged -= OnContentLanguageChanged;
         }
+        LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
 
         detailsAnimation?.Pause();
         detailsAnimation = null;
@@ -159,7 +162,7 @@ public sealed class CollectionViewController : MonoBehaviour
         detailMetadata.text = $"#{printing.Identity.CardNumber}  ·  {rarity}  ·  {printing.Identity.LanguageId}";
         CollectionItemProgress progress = Progress(printing);
         detailProgress.text = FormatOwnedCount(progress.OwnedCount);
-        detailNewBadge.text = Localized("NEW", "新卡");
+        detailNewBadge.text = CardUiText.Get("common.badge.new");
         detailNewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
         detailImage.Bind(printing);
         detailsPanel.style.display = DisplayStyle.Flex;
@@ -218,13 +221,14 @@ public sealed class CollectionViewController : MonoBehaviour
 
             ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
             ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
+            LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
             IsReady = true;
         }
         catch (Exception exception)
         {
             InitializationError = exception.Message;
             if (browserStatus != null)
-                browserStatus.text = Localized("Collection unavailable", "收藏浏览暂不可用") + $": {exception.Message}";
+                browserStatus.text = CardUiText.Format("collection.status.unavailable", exception.Message);
             Debug.LogWarning($"Collection browser could not be initialized: {exception.Message}");
             UIFeedbackService.Play(FeedbackCue.Error);
         }
@@ -405,9 +409,13 @@ public sealed class CollectionViewController : MonoBehaviour
         int owned = setCards?.Count(printing => Progress(printing).IsOwned) ?? 0;
         int unseen = setCards?.Count(printing => Progress(printing).IsNew) ?? 0;
         string year = set.ReleaseDate?.Year.ToString() ?? "—";
-        row.Metadata.text = Localized(
-            $"{year}  ·  {owned}/{count} collected  ·  {unseen} new  ·  {ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId}",
-            $"{year} 年  ·  已收藏 {owned}/{count}  ·  {unseen} 张新卡  ·  {ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId}");
+        row.Metadata.text = CardUiText.Format(
+            "collection.set.metadata",
+            year,
+            owned,
+            count,
+            unseen,
+            ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId);
         PrintingDefinition cover = setCards?.FirstOrDefault(printing => !string.IsNullOrWhiteSpace(printing.ImageRelativePath));
         if (cover != null)
             row.Image.Bind(cover);
@@ -476,7 +484,7 @@ public sealed class CollectionViewController : MonoBehaviour
         CollectionItemProgress progress = Progress(printing);
         row.Owned.text = FormatOwnedCount(progress.OwnedCount);
         row.Owned.EnableInClassList("is-owned", progress.IsOwned);
-        row.NewBadge.text = Localized("NEW", "新卡");
+        row.NewBadge.text = CardUiText.Get("common.badge.new");
         row.NewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
         element.EnableInClassList("is-unowned", !progress.IsOwned);
         element.EnableInClassList("is-new", progress.IsNew);
@@ -565,9 +573,7 @@ public sealed class CollectionViewController : MonoBehaviour
         cards.Clear();
         cards.AddRange(query);
         cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
-        filterEmpty.text = Localized(
-            "No cards match these filters.",
-            "没有符合当前筛选条件的卡牌。");
+        filterEmpty.text = CardUiText.Get("collection.filter.empty");
         filterEmpty.style.display = cards.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
         cardList.itemsSource = cards;
         cardList.ClearSelection();
@@ -607,7 +613,7 @@ public sealed class CollectionViewController : MonoBehaviour
         rarityFilterIds.Clear();
         rarityFilterIds.Add(null);
         rarityFilterIds.AddRange(rarities.Select(rarity => rarity.Id));
-        var choices = new List<string> { Localized("All rarities", "全部稀有度") };
+        var choices = new List<string> { CardUiText.Get("collection.filter.all_rarities") };
         choices.AddRange(rarities.Select(DisplayName));
         int nextIndex = string.IsNullOrWhiteSpace(previousRarityId)
             ? 0
@@ -625,15 +631,15 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void RefreshFilterControls()
     {
-        searchField.label = Localized("Search name or number", "搜索名称或卡号");
-        rarityFilter.label = Localized("Rarity", "稀有度");
+        searchField.label = CardUiText.Get("collection.filter.search");
+        rarityFilter.label = CardUiText.Get("collection.filter.rarity");
         ownedOnlyButton.text = ownedOnly
-            ? Localized("Owned: ON", "仅拥有：开")
-            : Localized("Owned: OFF", "仅拥有：关");
+            ? CardUiText.Get("collection.filter.owned_on")
+            : CardUiText.Get("collection.filter.owned_off");
         newOnlyButton.text = newOnly
-            ? Localized("New: ON", "仅新卡：开")
-            : Localized("New: OFF", "仅新卡：关");
-        clearFiltersButton.text = Localized("Clear", "清除筛选");
+            ? CardUiText.Get("collection.filter.new_on")
+            : CardUiText.Get("collection.filter.new_off");
+        clearFiltersButton.text = CardUiText.Get("common.action.clear");
         ownedOnlyButton.EnableInClassList("is-selected", ownedOnly);
         newOnlyButton.EnableInClassList("is-selected", newOnly);
     }
@@ -660,9 +666,7 @@ public sealed class CollectionViewController : MonoBehaviour
         }
         catch (Exception exception)
         {
-            SetBrowserStatus(Localized(
-                "Couldn't save the viewed-card status. The NEW badge was kept.",
-                "无法保存已查看状态，NEW 标记已保留。"), true);
+            SetBrowserStatus(CardUiText.Get("collection.status.seen_save_failed"), true);
             Debug.LogWarning($"Collection viewed-card status could not be saved: {exception.Message}");
             UIFeedbackService.Play(FeedbackCue.Error);
         }
@@ -749,13 +753,11 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void RefreshLocalizedChrome()
     {
-        pageTitle.text = Localized("Card Collection", "卡牌收藏");
-        pageSubtitle.text = Localized(
-            "Browse installed sets, search your cards, and track new pulls",
-            "浏览已安装系列、搜索收藏并查看新获得卡牌");
-        menuButton.text = Localized("Main menu", "主菜单");
-        backToSetsButton.text = Localized("All sets", "全部系列");
-        closeDetailsButton.text = Localized("Close", "关闭");
+        pageTitle.text = CardUiText.Get("collection.title");
+        pageSubtitle.text = CardUiText.Get("collection.subtitle");
+        menuButton.text = CardUiText.Get("common.action.main_menu");
+        backToSetsButton.text = CardUiText.Get("collection.action.all_sets");
+        closeDetailsButton.text = CardUiText.Get("common.action.close");
         SetBrowserStatus(FormatCollectionSummary(), false);
         RefreshFilterControls();
         if (currentSet != null)
@@ -770,6 +772,11 @@ public sealed class CollectionViewController : MonoBehaviour
     }
 
     private void OnUiLanguageChanged(string languageId)
+    {
+        RefreshLocalizedChrome();
+    }
+
+    private void OnSelectedLocaleChanged(Locale locale)
     {
         RefreshLocalizedChrome();
     }
@@ -793,23 +800,19 @@ public sealed class CollectionViewController : MonoBehaviour
         int total = cardsBySet.Values.Sum(setCards => setCards.Count);
         int owned = cardsBySet.Values.Sum(setCards => setCards.Count(printing => Progress(printing).IsOwned));
         int unseen = cardsBySet.Values.Sum(setCards => setCards.Count(printing => Progress(printing).IsNew));
-        return Localized(
-            $"{sets.Count} installed sets · {owned}/{total} collected · {unseen} new",
-            $"已安装 {sets.Count} 个系列 · 已收藏 {owned}/{total} · {unseen} 张新卡");
+        return CardUiText.Format("collection.summary.all", sets.Count, owned, total, unseen);
     }
 
     private static string FormatFilteredCardCount(int shown, int total, int owned, int unseen)
     {
-        return Localized(
-            $"{shown} shown · {owned}/{total} collected · {unseen} new",
-            $"显示 {shown} 张 · 已收藏 {owned}/{total} · {unseen} 张新卡");
+        return CardUiText.Format("collection.summary.filtered", shown, owned, total, unseen);
     }
 
     private static string FormatOwnedCount(int count)
     {
         return count > 0
-            ? Localized($"Owned ×{count}", $"已拥有 ×{count}")
-            : Localized("Not owned", "尚未拥有");
+            ? CardUiText.Format("collection.owned", count)
+            : CardUiText.Get("collection.unowned");
     }
 
     private CollectionItemProgress Progress(PrintingDefinition printing)
@@ -821,14 +824,6 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         browserStatus.text = message ?? string.Empty;
         browserStatus.EnableInClassList("is-error", isError);
-    }
-
-    private static string Localized(string english, string chinese)
-    {
-        return ApplicationServices.IsConfigured &&
-               ApplicationServices.Languages.UiLanguageId.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
-            ? chinese
-            : english;
     }
 
     private AsyncCardImageView Track(AsyncCardImageView imageView)

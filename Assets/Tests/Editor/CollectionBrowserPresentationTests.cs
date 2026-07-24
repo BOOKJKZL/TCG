@@ -1,13 +1,38 @@
+using System.Collections.Generic;
 using System.Linq;
+using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.Localization;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Localization.Tables;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 public class CollectionBrowserPresentationTests
 {
+    [Test]
+    public void CollectionAndCardImageText_UsesCompleteEnglishAndChineseStringTableEntries()
+    {
+        StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection(CardUiText.TableName);
+        StringTable english = collection.GetTable("en") as StringTable;
+        StringTable chinese = collection.GetTable("zh") as StringTable;
+
+        Assert.That(english, Is.Not.Null);
+        Assert.That(chinese, Is.Not.Null);
+        foreach (KeyValuePair<string, string> pair in CardUiText.EnglishFallbacks)
+        {
+            StringTableEntry englishEntry = english.GetEntry(pair.Key);
+            StringTableEntry chineseEntry = chinese.GetEntry(pair.Key);
+            Assert.That(englishEntry, Is.Not.Null, $"Missing English Card_UI key '{pair.Key}'.");
+            Assert.That(chineseEntry, Is.Not.Null, $"Missing Chinese Card_UI key '{pair.Key}'.");
+            Assert.That(englishEntry.Value, Is.EqualTo(pair.Value), $"English fallback drifted for '{pair.Key}'.");
+            Assert.That(chineseEntry.Value, Is.Not.Empty, $"Chinese Card_UI key '{pair.Key}' is empty.");
+            Assert.That(chineseEntry.Value, Is.Not.EqualTo(englishEntry.Value), $"Chinese Card_UI key '{pair.Key}' was not translated.");
+        }
+    }
+
     [Test]
     public void CollectionView_ContainsVirtualizedBrowserAndDetailsElements()
     {

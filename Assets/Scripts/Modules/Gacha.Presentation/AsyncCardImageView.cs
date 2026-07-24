@@ -140,7 +140,7 @@ namespace Gacha.Presentation
         private void SetState(AsyncCardImageState state, bool preserveStatus = false)
         {
             State = state;
-            retry.text = Localized("Retry", "重试");
+            retry.text = CardUiText.Get("common.action.retry");
             Element.EnableInClassList("is-loading", state == AsyncCardImageState.Loading);
             Element.EnableInClassList("is-ready", state == AsyncCardImageState.Ready);
             Element.EnableInClassList("is-failed", state == AsyncCardImageState.Failed);
@@ -149,7 +149,7 @@ namespace Gacha.Presentation
             if (!preserveStatus)
             {
                 status.text = state == AsyncCardImageState.Loading
-                    ? Localized("Loading…", "加载中…")
+                    ? CardUiText.Get("common.status.loading")
                     : string.Empty;
             }
         }
@@ -198,22 +198,14 @@ namespace Gacha.Presentation
             switch (status)
             {
                 case ContentImageLoadStatus.InvalidPath:
-                    return Localized("Invalid image path", "图片路径无效");
+                    return CardUiText.Get("card_image.error.invalid_path");
                 case ContentImageLoadStatus.NotFound:
-                    return Localized("Image not installed", "卡图尚未安装");
+                    return CardUiText.Get("card_image.error.not_installed");
                 case ContentImageLoadStatus.IntegrityMismatch:
-                    return Localized("Image verification failed", "卡图校验失败");
+                    return CardUiText.Get("card_image.error.verification_failed");
                 default:
-                    return Localized("Image loading failed", "卡图加载失败");
+                    return CardUiText.Get("card_image.error.loading_failed");
             }
-        }
-
-        private static string Localized(string english, string chinese)
-        {
-            return ApplicationServices.IsConfigured &&
-                   ApplicationServices.Languages.UiLanguageId.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
-                ? chinese
-                : english;
         }
 
         private void ThrowIfDisposed()

@@ -28,6 +28,7 @@ namespace Gacha.Tests.PlayMode
                 BindingFlags.Static | BindingFlags.Public);
             storeOverride.SetValue(null, progressStore);
             var cues = new List<FeedbackCue>();
+            string originalUiLanguage = null;
             UIFeedbackService.FeedbackPlayed += cues.Add;
             try
             {
@@ -50,6 +51,16 @@ namespace Gacha.Tests.PlayMode
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
+                originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+                ApplicationServices.Languages.SelectUiLanguage("zh");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("collection-title").text, Is.EqualTo("卡牌收藏"));
+                Assert.That(document.rootVisualElement.Q<TextField>("card-search").label, Is.EqualTo("搜索名称或卡号"));
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("collection-title").text, Is.EqualTo("Card Collection"));
+                Assert.That(document.rootVisualElement.Q<TextField>("card-search").label, Is.EqualTo("Search name or number"));
+
                 ListView setList = document.rootVisualElement.Q<ListView>("set-list");
                 ListView cardList = document.rootVisualElement.Q<ListView>("card-list");
                 Assert.That(setList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
@@ -131,6 +142,8 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
+                    ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
                 UIFeedbackService.FeedbackPlayed -= cues.Add;
                 storeOverride.SetValue(null, null);
             }

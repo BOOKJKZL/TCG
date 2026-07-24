@@ -99,7 +99,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 166673783745851392
-    m_Localized: Install, update, repair, or remove content packs without losing collection progress
+    m_Localized: Install, update, repair, or remove content packs without losing
+      collection progress
     m_Metadata:
       m_Items: []
   - m_Id: 166673783745851393
@@ -255,15 +256,128 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 166673783745851431
-    m_Localized: 'Offline · showing {0} packs from the last verified catalog.'
+    m_Localized: "Offline \xB7 showing {0} packs from the last verified catalog."
     m_Metadata:
       m_Items: []
   - m_Id: 166673783745851432
-    m_Localized: '{0} packs available, but the offline catalog cache could not be updated.'
+    m_Localized: '{0} packs available, but the offline catalog cache could not be
+      updated.'
     m_Metadata:
       m_Items: []
   - m_Id: 166673783745851433
     m_Localized: Universal Gacha Simulator
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851434
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851435
+    m_Localized: "Loading\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851436
+    m_Localized: Main menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851437
+    m_Localized: Close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851438
+    m_Localized: Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851439
+    m_Localized: NEW
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851440
+    m_Localized: Invalid image path
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851441
+    m_Localized: Image not installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851442
+    m_Localized: Image verification failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851443
+    m_Localized: Image loading failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851444
+    m_Localized: Card Collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851445
+    m_Localized: Browse installed sets, search your cards, and track new pulls
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851446
+    m_Localized: All sets
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851447
+    m_Localized: 'Collection unavailable: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851448
+    m_Localized: "{0} \xB7 {1}/{2} collected \xB7 {3} new \xB7 {4}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851449
+    m_Localized: No cards match these filters.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851450
+    m_Localized: All rarities
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851451
+    m_Localized: Search name or number
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851452
+    m_Localized: Rarity
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851453
+    m_Localized: 'Owned: ON'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851454
+    m_Localized: 'Owned: OFF'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851455
+    m_Localized: 'New: ON'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851456
+    m_Localized: 'New: OFF'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851457
+    m_Localized: Couldn't save the viewed-card status. The NEW badge was kept.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851458
+    m_Localized: "{0} installed sets \xB7 {1}/{2} collected \xB7 {3} new"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851459
+    m_Localized: "{0} shown \xB7 {1}/{2} collected \xB7 {3} new"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851460
+    m_Localized: "Owned \xD7{0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851461
+    m_Localized: Not owned
     m_Metadata:
       m_Items: []
   references:
