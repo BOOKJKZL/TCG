@@ -37,8 +37,8 @@ namespace Gacha.Presentation
             root.SetActive(false);
             RectTransform rootRect = root.GetComponent<RectTransform>();
             rootRect.anchorMin = rootRect.anchorMax = rootRect.pivot = new Vector2(0.5f, 0.5f);
-            rootRect.anchoredPosition = new Vector2(0f, -80f);
-            rootRect.sizeDelta = new Vector2(840f, 560f);
+            rootRect.anchoredPosition = new Vector2(0f, 455f);
+            rootRect.sizeDelta = new Vector2(840f, 500f);
 
             Image background = root.AddComponent<Image>();
             background.color = new Color(0.055f, 0.075f, 0.12f, 0.94f);
@@ -382,11 +382,12 @@ namespace Gacha.Presentation
             if (!scene.IsValid() || !scene.isLoaded || scene.name != SettingsSceneName)
                 return;
 
-            foreach (GameObject root in scene.GetRootGameObjects())
-            {
-                if (root.GetComponentInChildren<LanguageSettingsPanel>(true) != null)
-                    return;
-            }
+            bool hasLanguagePanel = scene.GetRootGameObjects().Any(root =>
+                root.GetComponentInChildren<LanguageSettingsPanel>(true) != null);
+            bool hasExperiencePanel = scene.GetRootGameObjects().Any(root =>
+                root.GetComponentInChildren<ExperienceSettingsPanel>(true) != null);
+            if (hasLanguagePanel && hasExperiencePanel)
+                return;
 
             Canvas canvas = scene.GetRootGameObjects()
                 .SelectMany(root => root.GetComponentsInChildren<Canvas>(true))
@@ -397,7 +398,10 @@ namespace Gacha.Presentation
                 return;
             }
 
-            LanguageSettingsPanel.Create(canvas.transform);
+            if (!hasLanguagePanel)
+                LanguageSettingsPanel.Create(canvas.transform);
+            if (!hasExperiencePanel)
+                ExperienceSettingsPanel.Create(canvas.transform);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.IO;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
 using Gacha.Infrastructure.Rules;
+using Gacha.Presentation;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -12,6 +13,10 @@ public static class GameApplicationBootstrap
 {
     private const string UiLanguageKey = "settings.ui-language";
     private const string ContentLanguageKey = "settings.content-language";
+    private const string SoundEnabledKey = "settings.sound-enabled";
+    private const string ReduceMotionKey = "settings.reduce-motion";
+    private const string HapticsEnabledKey = "settings.haptics-enabled";
+    private const string AnimationSpeedKey = "settings.animation-speed";
     private static bool configured;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -34,11 +39,19 @@ public static class GameApplicationBootstrap
 
         var languageStore = new PlayerPrefsLanguagePreferenceStore(UiLanguageKey, ContentLanguageKey);
         var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh" });
+        var experienceSettings = new ExperienceSettingsService(new PlayerPrefsExperienceSettingsStore());
         string contentRoot = ResolveContentRoot();
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(contentRoot));
         var images = new PrivateContentImageSource(contentRoot);
-        ApplicationServices.Configure(catalog, languages, images, new PokemonHistoricalRuleProvider());
+        ApplicationServices.Configure(
+            catalog,
+            languages,
+            images,
+            new PokemonHistoricalRuleProvider(),
+            experienceSettings);
         languages.UiLanguageChanged += ApplyUiLocale;
+        experienceSettings.Changed += ApplyExperienceSettings;
+        ApplyExperienceSettings(experienceSettings.Current);
         configured = true;
 
         if (Directory.Exists(contentRoot))
@@ -94,6 +107,18 @@ public static class GameApplicationBootstrap
             : null;
     }
 
+    private static void ApplyExperienceSettings(ExperienceSettings settings)
+    {
+        if (settings == null)
+            return;
+
+        UIFeedbackService.Configure(
+            settings.ReduceMotion,
+            settings.HapticsEnabled,
+            settings.AnimationSpeed,
+            settings.SoundEnabled);
+    }
+
     private sealed class PlayerPrefsLanguagePreferenceStore : ILanguagePreferenceStore
     {
         private readonly string uiLanguageKey;
@@ -119,6 +144,30 @@ public static class GameApplicationBootstrap
 
             PlayerPrefs.SetString(uiLanguageKey, preferences.UiLanguageId);
             PlayerPrefs.SetString(contentLanguageKey, preferences.ContentLanguageId);
+            PlayerPrefs.Save();
+        }
+    }
+
+    private sealed class PlayerPrefsExperienceSettingsStore : IExperienceSettingsStore
+    {
+        public ExperienceSettings Load()
+        {
+            return new ExperienceSettings(
+                PlayerPrefs.GetInt(SoundEnabledKey, 1) != 0,
+                PlayerPrefs.GetInt(ReduceMotionKey, 0) != 0,
+                PlayerPrefs.GetInt(HapticsEnabledKey, 1) != 0,
+                PlayerPrefs.GetFloat(AnimationSpeedKey, 1f));
+        }
+
+        public void Save(ExperienceSettings settings)
+        {
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+
+            PlayerPrefs.SetInt(SoundEnabledKey, settings.SoundEnabled ? 1 : 0);
+            PlayerPrefs.SetInt(ReduceMotionKey, settings.ReduceMotion ? 1 : 0);
+            PlayerPrefs.SetInt(HapticsEnabledKey, settings.HapticsEnabled ? 1 : 0);
+            PlayerPrefs.SetFloat(AnimationSpeedKey, settings.AnimationSpeed);
             PlayerPrefs.Save();
         }
     }

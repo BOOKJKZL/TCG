@@ -63,10 +63,33 @@ public class UIFeedbackServiceTests
     [Test]
     public void Configure_ClampsAnimationSpeedAndStoresAccessibilityOptions()
     {
-        UIFeedbackService.Configure(true, false, 9f);
+        UIFeedbackService.Configure(true, false, 9f, false);
 
         Assert.That(UIFeedbackService.ReduceMotion, Is.True);
         Assert.That(UIFeedbackService.HapticsEnabled, Is.False);
+        Assert.That(UIFeedbackService.SoundEnabled, Is.False);
         Assert.That(UIFeedbackService.AnimationSpeed, Is.EqualTo(2f));
+    }
+
+    [Test]
+    public void Play_WhenMuted_SuppressesAudioButStillPublishesCue()
+    {
+        FeedbackCue? published = null;
+        System.Action<FeedbackCue> handler = cue => published = cue;
+        UIFeedbackService.FeedbackPlayed += handler;
+
+        try
+        {
+            UIFeedbackService.Configure(false, true, 1f, false);
+            bool played = UIFeedbackService.Play(FeedbackCue.Confirm);
+
+            Assert.That(played, Is.False);
+            Assert.That(audio.LastKey, Is.Null);
+            Assert.That(published, Is.EqualTo(FeedbackCue.Confirm));
+        }
+        finally
+        {
+            UIFeedbackService.FeedbackPlayed -= handler;
+        }
     }
 }

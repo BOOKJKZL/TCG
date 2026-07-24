@@ -46,6 +46,54 @@ MonoBehaviour:
     m_Localized: Simplified Chinese
     m_Metadata:
       m_Items: []
+  - m_Id: 166392714781962243
+    m_Localized: Experience
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962244
+    m_Localized: Sound cues
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962245
+    m_Localized: Reduce motion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962246
+    m_Localized: Haptics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962247
+    m_Localized: Animation speed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962248
+    m_Localized: On
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962249
+    m_Localized: Muted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962250
+    m_Localized: On
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962251
+    m_Localized: Off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962252
+    m_Localized: Changes save automatically.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962253
+    m_Localized: Saved automatically.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962254
+    m_Localized: 'Unable to save: {0}'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -43,6 +43,54 @@ MonoBehaviour:
     m_Key: language.zh
     m_Metadata:
       m_Items: []
+  - m_Id: 166392714781962243
+    m_Key: settings.experience.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962244
+    m_Key: settings.experience.sound
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962245
+    m_Key: settings.experience.reduce_motion
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962246
+    m_Key: settings.experience.haptics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962247
+    m_Key: settings.experience.animation_speed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962248
+    m_Key: settings.experience.sound_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962249
+    m_Key: settings.experience.muted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962250
+    m_Key: settings.experience.on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962251
+    m_Key: settings.experience.off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962252
+    m_Key: settings.experience.auto_save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962253
+    m_Key: settings.experience.saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166392714781962254
+    m_Key: settings.experience.save_failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

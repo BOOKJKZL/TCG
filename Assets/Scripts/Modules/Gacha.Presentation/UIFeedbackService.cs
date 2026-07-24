@@ -30,6 +30,7 @@ namespace Gacha.Presentation
 
         public static bool ReduceMotion { get; private set; }
         public static bool HapticsEnabled { get; private set; } = true;
+        public static bool SoundEnabled { get; private set; } = true;
         public static float AnimationSpeed { get; private set; } = 1f;
 
         public static event Action<FeedbackCue> FeedbackPlayed;
@@ -41,14 +42,20 @@ namespace Gacha.Presentation
             hapticSink = new MobileHapticFeedbackSink();
             ReduceMotion = false;
             HapticsEnabled = true;
+            SoundEnabled = true;
             AnimationSpeed = 1f;
             FeedbackPlayed = null;
         }
 
-        public static void Configure(bool reduceMotion, bool hapticsEnabled, float animationSpeed)
+        public static void Configure(
+            bool reduceMotion,
+            bool hapticsEnabled,
+            float animationSpeed,
+            bool soundEnabled = true)
         {
             ReduceMotion = reduceMotion;
             HapticsEnabled = hapticsEnabled;
+            SoundEnabled = soundEnabled;
             AnimationSpeed = Mathf.Clamp(animationSpeed, 0.5f, 2f);
         }
 
@@ -72,7 +79,7 @@ namespace Gacha.Presentation
 
         public static bool Play(FeedbackCue cue, bool requestHaptic = false)
         {
-            bool playedAudio = audioSink != null && audioSink.TryPlay(FeedbackCueKeys.FromCue(cue));
+            bool playedAudio = SoundEnabled && audioSink != null && audioSink.TryPlay(FeedbackCueKeys.FromCue(cue));
 
             if (requestHaptic && HapticsEnabled)
             {
