@@ -148,6 +148,27 @@ public class DeterministicContentPackagePublisherTests
             Is.Empty);
     }
 
+    [Test]
+    public void BatchPublish_VerifiesRuntimeInstallAndPrivateCatalogLoad()
+    {
+        File.WriteAllText(
+            Path.Combine(source, "manifest.json"),
+            "{\"SchemaVersion\":1,\"Source\":\"fixture\",\"Language\":\"en\"," +
+            "\"Set\":{\"Id\":\"fixture\",\"Name\":\"Fixture Set\",\"SeriesId\":\"fixture\"," +
+            "\"SeriesName\":\"Fixture\",\"ReleaseDate\":\"2000-01-01\"," +
+            "\"OfficialCardCount\":0,\"TotalCardCount\":0},\"Cards\":[],\"Errors\":[]}");
+
+        ContentPackagePublishResult result = ContentPackagePublisherBatch.Publish(
+            output,
+            1,
+            1,
+            "1.0.0",
+            new[] { new ContentPackagePublisherBatch.ImportedSet("en", "fixture", source) });
+
+        Assert.That(result.Packages.Count, Is.EqualTo(1));
+        Assert.That(Directory.GetDirectories(output, ".verification-*"), Is.Empty);
+    }
+
     private ContentPackagePublishRequest Request()
     {
         return new ContentPackagePublishRequest(

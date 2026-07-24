@@ -196,10 +196,63 @@ public static class ContentPackagePublisherBatch
                 packageRevision,
                 version))
             .ToArray();
-        return new DeterministicContentPackagePublisher().Publish(new ContentPackagePublishRequest(
+        ContentPackagePublishResult result = new DeterministicContentPackagePublisher().Publish(new ContentPackagePublishRequest(
             outputRoot,
             catalogRevision,
             definitions));
+        VerifyRuntimeInstallation(result, definitions.Length, outputRoot);
+        return result;
+    }
+
+    private static void VerifyRuntimeInstallation(
+        ContentPackagePublishResult publication,
+        int expectedSetCount,
+        string outputRoot)
+    {
+        string verificationRoot = Path.Combine(
+            Path.GetFullPath(outputRoot),
+            ".verification-" + Guid.NewGuid().ToString("N"));
+        string contentRoot = Path.Combine(verificationRoot, "Content");
+        try
+        {
+            var registry = new FileSystemInstalledContentPackageRegistry(contentRoot);
+            var planner = new Gacha.Application.ContentPackagePlanner(
+                registry,
+                new FileSystemContentStorageProbe(contentRoot),
+                0);
+            var installer = new FileSystemContentPackageInstaller(contentRoot);
+            foreach (PublishedContentPackage package in publication.Packages)
+            {
+                Gacha.Application.ContentInstallPlan plan = planner.Plan(package.Package);
+                if (!plan.CanStart)
+                {
+                    throw new InvalidOperationException(
+                        $"Published package '{package.Package.PackageId}' failed install planning: {plan.ErrorMessage}");
+                }
+                Gacha.Application.ContentPackageInstallResult installed = installer
+                    .InstallAsync(plan, package.ArchivePath)
+                    .GetAwaiter()
+                    .GetResult();
+                if (!installed.Succeeded)
+                {
+                    throw new InvalidOperationException(
+                        $"Published package '{package.Package.PackageId}' failed runtime installation: {installed.ErrorMessage}");
+                }
+            }
+
+            Gacha.Application.CatalogLoadResult catalog = new PrivateContentCatalogProvider(contentRoot).Load();
+            if (!catalog.Succeeded || catalog.SourceSetCount != expectedSetCount)
+            {
+                throw new InvalidOperationException(
+                    $"Installed publication failed runtime catalog loading: sets={catalog.SourceSetCount}/{expectedSetCount}, " +
+                    (catalog.ErrorMessage ?? "unknown error"));
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(verificationRoot))
+                Directory.Delete(verificationRoot, true);
+        }
     }
 
     private static IReadOnlyList<ImportedSet> DiscoverImports(string root)
