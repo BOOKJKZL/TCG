@@ -86,6 +86,33 @@ content/packages/{package-id}/{sha256}.zip
 
 连续构建时两个 ZIP 与 catalog 共 3 个文件全部保持相同 Hash。它们只存在于 Git 忽略的本机目录，尚未上传 R2。
 
+## 私人 R2 上传器
+
+阶段 7C 已加入 `Tools > Universal Gacha > Private R2 Publisher`。`Offline preflight` 不访问网络，先用正式 schema reader 读取本机 catalog，逐个核对 ZIP 路径、大小与 SHA-256，并显示最终对象键。正式发布需要以下值：
+
+| 环境变量 | 来源 | 是否秘密 |
+|---|---|---|
+| `GACHA_R2_S3_ENDPOINT` | R2 API Token 建立完成页提供的完整 S3 endpoint；兼容默认与 jurisdiction endpoint | 否 |
+| `GACHA_R2_BUCKET` | 只存放私人游戏内容的 bucket 名 | 否 |
+| `GACHA_R2_PUBLIC_BASE_URL` | 已连到该 bucket 的公开 HTTPS 自定义域名；临时测试也可用 `r2.dev` | 否 |
+| `GACHA_R2_OBJECT_PREFIX` | 可选，默认 `releases/android` | 否 |
+| `GACHA_R2_ACCESS_KEY_ID` | 限制到上述 bucket 的 R2 S3 Access Key ID | 是 |
+| `GACHA_R2_SECRET_ACCESS_KEY` | 对应 Secret Access Key | 是 |
+
+建议在 Cloudflare 建立只允许指定 bucket 的 `Object Read & Write` Token。上传器直接使用 S3 Signature V4，region 固定为 R2 要求的 `auto`，因此不依赖本机全局安装的 AWS CLI、rclone 或 Wrangler。endpoint 必须是无路径、无用户密码的 `https://*.r2.cloudflarestorage.com`；这样即使 UI 输入错误，也不会把长期凭据发到其他主机。Access Key 与 Secret 只留在当前 Editor 进程/环境变量，不会写入 Assets、catalog、运行配置、日志或 APK。
+
+发布顺序和失败边界如下：
+
+1. HEAD 检查每个内容寻址 ZIP；同名对象的大小或元数据 Hash 不一致时拒绝覆盖。
+2. 上传缺少的 ZIP；已存在且匹配的 ZIP 可以复用，但两者都会从 S3 origin 完整下载并重新计算大小与 SHA-256。
+3. 再从公开只读 URL 完整读取 ZIP，确认手机将使用的访问路径也返回相同字节。
+4. 重新确认本机 catalog 自预检后没有变化，最后以 `no-cache, no-store` 单对象 PUT 更新 `catalog.json`。
+5. S3 origin 与公开 URL 都读回相同 catalog 后，才原子生成 Git 忽略的 `LocalContent/remote-content.json`。
+
+中途取消或失败可能留下已经验证过的内容寻址 ZIP，但不会提前移动 catalog 指针，也不会生成看似可用的本机运行配置。批处理离线入口为 `PrivateR2PublisherBatch.PreflightFromEnvironment`；未设置公开 Base URL 时只使用不可联网的 `example.invalid` 计算对象映射。真实入口为 `PrivateR2PublisherBatch.PublishFromEnvironment`，读取完整环境变量。真实执行前仍应先查看离线预检结果。
+
+当前工具链和 8 个定向测试已完成，但因为尚未提供 bucket、S3 endpoint、公开读取 URL 与凭据，本项目没有执行真实外部上传。这是刻意的权限边界，不是静默跳过。
+
 ## 远程 catalog 私人配置
 
 阶段 7A 已提供 `HttpContentPackageCatalogProvider`。它只接受 HTTPS；HTTP 仅允许 `127.0.0.1`/loopback 自动测试。请求固定声明 JSON 与 identity encoding，必须收到 `200 OK`，默认 15 秒超时、最大 1 MiB，并会对无 `Content-Length` 的流式响应再次计数。外部取消会继续向上传播，超时、超限、非 JSON、公开 HTTP、带用户密码或 fragment 的 URL 会返回结构化失败。
@@ -119,7 +146,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 - 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7A 的 Android/IL2CPP 冒烟包为 74.84 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
-- 在阶段 7B 包发布/R2 上传完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
+- 在真实 R2 上传完成前，仍可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
 
 参考资料：
@@ -127,6 +154,9 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 - [Unity Addressables 远程内容说明](https://docs.unity3d.com/Packages/com.unity.addressables@1.21/manual/remote-content-intro.html)
 - [Cloudflare R2 定价](https://developers.cloudflare.com/r2/pricing/)
 - [Cloudflare R2 公开 bucket](https://developers.cloudflare.com/r2/buckets/public-buckets/)
+- [Cloudflare R2 S3 入门与 endpoint](https://developers.cloudflare.com/r2/get-started/s3/)
+- [Cloudflare R2 S3 兼容性与 `auto` region](https://developers.cloudflare.com/r2/api/s3/api/)
+- [Cloudflare R2 API Token](https://developers.cloudflare.com/r2/api/tokens/)
 - [Google Drive API 配额](https://developers.google.com/workspace/drive/api/guides/limits)
 - [Firebase 定价](https://firebase.google.com/pricing)
 

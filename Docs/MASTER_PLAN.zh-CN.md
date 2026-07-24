@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 7B 的确定性 ZIP/schema catalog 发布器、运行时安装自验证和 Base Set/Neo Genesis 本机发布 fixture 已完成。下一切片进入私人 R2 最小上传与手机真实下载；卡牌内容不再强制重复包装成 Addressables。
+本次修改原因：阶段 7C 的私人 R2 离线预检、S3 Signature V4 上传、不可变对象冲突保护、origin/公开 URL 双重下载复核和 catalog-last 发布工具已完成。下一步需要用户提供私人 R2 参数后执行最小真实上传，再进入手机真实下载；卡牌内容不再强制重复包装成 Addressables。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -104,17 +104,18 @@ AccessibilitySettings
 - 远程 catalog provider 已支持 HTTPS、loopback fixture、15 秒默认超时、1 MiB 默认上限、流式二次计数、JSON/identity/200 校验、外部取消和最终重定向 URI；Bootstrap 可从私人文件或 Editor 环境变量配置，不向仓库或 APK写入密钥。
 - 电脑端发布器已按稳定文件顺序、固定 ZIP 时间戳和实际字节生成内容寻址归档与 schema catalog；发布后会用正式 Planner/安装器安装到临时目录并由运行时 Catalog 读回，验证完成才算成功。
 - Base Set 与 Neo Genesis 已生成两个本机 fixture：下载大小 14,906,006 / 16,437,718 bytes，安装大小 15,189,695 / 16,754,096 bytes；连续构建 3 个发布文件的 Hash 全部不变，输出位于 Git 忽略目录。
+- 私人 R2 Editor/Batch 上传器已就绪：凭据仅从进程内输入或环境变量读取，限制 S3 endpoint，拒绝覆盖冲突的不可变 ZIP，先验证 origin 与公开 URL，最后发布 catalog 并生成私人运行配置。
 
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
 - 其余菜单和游戏场景尚未全部迁入 Unity Localization String Table；当前运行时双语文本与中文回退字体已可用。
-- 真实 R2 只读 URL、最小上传与手机真实下载闭环。
+- 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
 - 已安装内容的卸载/缓存删除操作；必须保留收藏记录，并验证重装后恢复。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 73%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 仍需 R2 发布、卸载/重装和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 74%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 仍需真实 R2 发布、卸载/重装和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -513,7 +514,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 7：私人 R2 与按需内容发布
 
-状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环，7B 确定性包发布器与两个历史系列本机 fixture 已完成（2026-07-24）；真实 R2 上传、卸载/重装和手机断网验证待继续。
+状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环，7B 确定性包发布器与两个历史系列本机 fixture，7C 私人 R2 安全上传工具均已完成（2026-07-24）；真实 R2 写入等待用户参数，卸载/重装和手机断网验证待继续。
 
 目标：实现小 APK 和首装后按需下载。
 
@@ -566,7 +567,16 @@ Content Language  卡名、卡图、系列和产品
 - 发布器定向测试 6/6、全量 EditMode 182/182 通过；新增代码只存在 Editor，不改变已通过的 PlayMode 6/6 与阶段 7A Android/IL2CPP 包。
 - 本机已发布 `en.base1` 与 `en.neo1`：ZIP 为 14,906,006 / 16,437,718 bytes，安装内容为 15,189,695 / 16,754,096 bytes，SHA-256 分别为 `2522292c…beceac` 与 `f353fe80…7a861b`；发布输出由 `.gitignore` 保护。
 
-下一切片：阶段 7C 私人 R2 最小上传。先确定 bucket 与公开只读自定义域名，再只上传 `catalog.json` 和上述两个内容寻址 ZIP；上传工具必须在电脑端读取凭证、远端 HEAD/下载复核大小与 SHA-256，并生成本机 `remote-content.json`。没有 R2 账号信息时不猜测 bucket、域名或写入密钥。
+7C 工具完成记录（2026-07-24）：
+
+- 新增 `Private R2 Publisher` EditorWindow 与环境变量 Batch 入口；离线预检先用正式 catalog reader 核对本机 catalog、归档路径、大小和 SHA-256，不触发网络写入。
+- 直接实现 R2 S3 Signature V4，region 使用官方要求的 `auto`；接收 Dashboard 给出的完整 S3 endpoint，支持默认/EU jurisdiction，并拒绝把凭据发送到非 `*.r2.cloudflarestorage.com` 主机。
+- 内容寻址 ZIP 先 HEAD；冲突对象禁止覆盖，匹配对象可复用。新上传和复用对象都要从 S3 origin 与公开只读 URL 完整读回并重算大小/Hash。
+- 所有 ZIP 验证后才发布 `catalog.json`；本机 catalog 若在预检后改变会终止。catalog 的 origin/公开读取再次验证后，才原子写入 Git 忽略的 `LocalContent/remote-content.json`。
+- Access Key/Secret 只存在于 Editor 字段或环境变量，不写入项目、日志、catalog、配置或 APK；批处理缺少任一必需值会明确失败。
+- R2 发布定向测试 8/8 通过，包含固定 Signature V4 向量、凭据 endpoint 防泄露、catalog-last 顺序、冲突拒绝、对象复用和失败不生成配置。
+
+下一切片：用户在 Cloudflare 建立只限定目标 bucket 的 Object Read & Write Token、公开只读自定义域名，并提供/在本机填写 S3 endpoint、bucket、公开 Base URL、Access Key ID、Secret Access Key。只执行 `en.base1`、`en.neo1` 与 catalog 的最小真实上传；成功后把 `remote-content.json` 安装到 Android 私人持久目录，验证首次下载、中断续传、离线重启。没有这些账号信息时不猜测 bucket、域名或写入密钥。
 
 验收：
 
@@ -654,7 +664,8 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 6 内容管理页面、主线程派发与游戏反馈（完成）
 → 阶段 7A：HTTPS catalog + 私人运行时配置（完成）
 → 阶段 7B：确定性内容包发布器 + 两个历史系列本机 fixture（完成）
-→ 当前：阶段 7C 私人 R2 最小上传 + 手机真实下载
+→ 阶段 7C：私人 R2 安全上传工具（完成；真实写入等待私人参数）
+→ 当前：最小真实 R2 上传 + 手机真实下载
 → Android 下载/中断/离线缓存测试
 → 阶段 8：宝可梦真实规则适配
 → 阶段 9：最终 Android 验收
