@@ -225,6 +225,32 @@ namespace Gacha.Application
             return Task.FromResult(CancelStoppedTask());
         }
 
+        /// <summary>
+        /// Deletes downloaded bytes even after completion. Coordinators use this
+        /// when an installer proves that a published archive is corrupt.
+        /// </summary>
+        public Task<ContentDownloadSnapshot> DiscardAsync()
+        {
+            CancellationTokenSource source = null;
+            Task<ContentDownloadSnapshot> task = null;
+            lock (gate)
+            {
+                if (state == ContentDownloadState.Downloading)
+                {
+                    stopRequest = StopRequest.Cancel;
+                    source = cancellation;
+                    task = activeTask;
+                }
+            }
+
+            if (source != null)
+            {
+                TryCancel(source);
+                return task;
+            }
+            return Task.FromResult(CancelStoppedTask());
+        }
+
         private async Task<ContentDownloadSnapshot> RunAsync(
             int runAttempt,
             CancellationTokenSource runCancellation)
