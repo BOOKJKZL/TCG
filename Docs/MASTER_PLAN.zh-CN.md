@@ -1,8 +1,8 @@
 # Universal Gacha Simulator 项目主计划
 
-最后更新：2026-07-24
+最后更新：2026-07-25
 
-本次修改原因：补齐 Unity Localization 的 Android App Info，让桌面应用名随系统语言显示 “Universal Gacha Simulator” 或“万能抽卡模拟器”，并消除 Android 构建缺少本地化元数据的警告。阶段 7D 的 catalog 离线缓存与跨重启续传已完成；下一步仍是提供私人 R2 参数后执行最小真实上传，再进入手机首次下载、中断续传与离线重启真机验收。
+本次修改原因：把收藏页与共享卡图加载状态从控制器内硬编码双语迁入 Unity `Card_UI` String Table，并加入可复用的 Presentation 文本解析器；同时修正 Seeder 缺少阶段 6/7 后续键、重复 Seed 会回退旧内容页文案的问题。真实 R2 与真机仍是关键路径，等待外部参数和设备期间继续完成不依赖外部条件的全场景文本迁移。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,14 +72,14 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 207/207 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 208/208 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
 - UI 与卡牌内容语言已经分离，设置场景提供两个独立选择器、回退提示、持久化、淡入动画和确认音效。
 - Android 桌面应用名已接入同一套 Unity Localization，英文为 “Universal Gacha Simulator”、简体中文为“万能抽卡模拟器”；Seeder 会幂等恢复 App Info 元数据和稳定 GUID/ID 引用。
 - 私人卡图已经支持异步读取、重复请求合并、32 张 LRU 纹理缓存、加载占位、失败重试和失效请求取消。
-- 收藏场景已经可以按系列浏览本机 796 张卡，仅为可见列表项加载图片，并提供双语界面、详情入场动画、翻卡/返回/错误反馈和减少动态效果支持。
+- 收藏场景已经可以按系列浏览本机 796 张卡，仅为可见列表项加载图片，并提供双语界面、详情入场动画、翻卡/返回/错误反馈和减少动态效果支持；收藏与共享卡图状态的 28 个玩家文本键已迁入 String Table，运行时 `zh ↔ en` 切换由 PlayMode 验证。
 - 收藏场景已接入真实库存数量、持久化 NEW 状态、名称/卡号搜索、稀有度筛选、仅拥有/仅新卡切换和空结果反馈；查看新卡详情会立即保存已查看状态。
 - 库存快照已升级为 v3，云端优先读取 `inventory_v3` 并保留 `inventory_v2` 回读；旧 v2 收藏不会在迁移后被误标为新卡。
 - 已建立可替换的 `IProductRuleProvider`、规则可信度标记、卡位平均概率摘要和原子库存提交；落盘失败会回滚本次开包。
@@ -112,7 +112,7 @@ AccessibilitySettings
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
-- 其余菜单和游戏场景尚未全部迁入 Unity Localization String Table；当前运行时双语文本与中文回退字体已可用。
+- 主菜单、开包页等剩余场景尚未全部迁入 Unity Localization String Table；设置、内容管理、收藏与共享卡图状态已经完成，当前运行时双语文本与中文回退字体可用。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
@@ -252,7 +252,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 3：双层语言系统
 
-状态：Application 语言核心、回退、持久化、设置界面和 Android 桌面应用名已完成（更新于 2026-07-24）；全场景文本迁移待继续。
+状态：Application 语言核心、回退、持久化、设置界面、收藏页、共享卡图状态和 Android 桌面应用名已完成（更新于 2026-07-25）；主菜单与开包页等剩余文本待继续。
 
 目标：区分应用界面语言与卡牌内容语言。
 
@@ -288,8 +288,10 @@ Content Language  卡名、卡图、系列和产品
 - 设置场景会运行时安装独立双语言面板；按钮使用统一按下动画和确认音效，切换时遵守减少动态效果设置。
 - `Card_UI` 中英文 String Table 已加入语言设置文本；缺少内容语言时会显示当前回退结果。
 - `Card_UI` 新增稳定的 `app.display_name`，Localization Settings 配置 Android App Info；实际 Android 构建已验证两种 `strings.xml` 与 Manifest 标签，并消除未配置元数据警告。
+- `CardUiText` 在 Presentation 层统一从 `Card_UI` 读取并按 locale 缓存文本，缺表或初始化异常时使用英文兜底；收藏控制器和 `AsyncCardImageView` 不再保存中英成对文案。
+- 收藏/卡图新增 28 个中英文键；实际执行 Seeder 后，表完整性、中文字体和内容管理回归均通过，重复 Seed 不再覆盖卸载或离线 catalog 后续文案。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 207/207、PlayMode 6/6 通过，Android/IL2CPP APK 74.86 MiB 且私人内容名称匹配为 0。
+- 截至本次补强，全项目 EditMode 208/208、PlayMode 6/6 通过；Android/IL2CPP APK 为 78,498,362 bytes（约 74.86 MiB）、413 个条目且私人内容名称匹配为 0。
 - 已加入约 51 KB 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；主菜单、开包和收藏文本尚未全部迁入 String Table，后续新增中文后必须重新生成子集。
 
 ### 阶段 4：接入私人导入内容
