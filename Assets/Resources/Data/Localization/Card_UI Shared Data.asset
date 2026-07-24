@@ -259,6 +259,10 @@ MonoBehaviour:
     m_Key: content.catalog.cache_warning
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851433
+    m_Key: app.display_name
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

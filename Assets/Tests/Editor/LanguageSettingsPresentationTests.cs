@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Localization;
 using UnityEngine;
+using UnityEngine.Localization.Platform.Android;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.Tables;
 using UnityEngine.UI;
@@ -38,6 +39,26 @@ public class LanguageSettingsPresentationTests
         Assert.That(english.GetEntry("settings.experience.animation_speed").Value, Is.EqualTo("Animation speed"));
         Assert.That(chinese.GetEntry("settings.experience.reduce_motion").Value, Is.EqualTo("减少动态效果"));
         Assert.That(chinese.GetEntry("settings.experience.animation_speed").Value, Is.EqualTo("动画速度"));
+    }
+
+    [Test]
+    public void AndroidAppInfo_UsesLocalizedDisplayNameFromCardUiCollection()
+    {
+        StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
+        StringTable english = collection.GetTable("en") as StringTable;
+        StringTable chinese = collection.GetTable("zh") as StringTable;
+        SharedTableData.SharedTableEntry appNameEntry = collection.SharedData.GetEntry("app.display_name");
+        AppInfo appInfo = LocalizationSettings.Metadata.GetMetadata<AppInfo>();
+
+        Assert.That(appInfo, Is.Not.Null);
+        Assert.That(appInfo.DisplayName.TableReference.ReferenceType, Is.EqualTo(TableReference.Type.Guid));
+        Assert.That(
+            appInfo.DisplayName.TableReference.TableCollectionNameGuid,
+            Is.EqualTo(collection.SharedData.TableCollectionNameGuid));
+        Assert.That(appInfo.DisplayName.TableEntryReference.ReferenceType, Is.EqualTo(TableEntryReference.Type.Id));
+        Assert.That(appInfo.DisplayName.TableEntryReference.KeyId, Is.EqualTo(appNameEntry.Id));
+        Assert.That(english.GetEntry(appNameEntry.Id).Value, Is.EqualTo("Universal Gacha Simulator"));
+        Assert.That(chinese.GetEntry(appNameEntry.Id).Value, Is.EqualTo("万能抽卡模拟器"));
     }
 
     [Test]

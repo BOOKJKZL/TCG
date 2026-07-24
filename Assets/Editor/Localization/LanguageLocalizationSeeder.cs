@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Localization;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Platform.Android;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.Tables;
 
 public static class LanguageLocalizationSeeder
 {
     private const string CollectionName = "Card_UI";
+    private const string AppDisplayNameKey = "app.display_name";
     private const string SettingsAssetPath = "Assets/Resources/Data/Localization/Localization Settings.asset";
 
     [MenuItem("Tools/Universal Gacha/Seed Language Configuration")]
@@ -27,6 +30,7 @@ public static class LanguageLocalizationSeeder
 
         Apply(english, new Dictionary<string, string>
         {
+            [AppDisplayNameKey] = "Universal Gacha Simulator",
             ["settings.language.title"] = "Language",
             ["settings.language.ui"] = "Interface language",
             ["settings.language.content"] = "Card content language",
@@ -70,6 +74,7 @@ public static class LanguageLocalizationSeeder
 
         Apply(chinese, new Dictionary<string, string>
         {
+            [AppDisplayNameKey] = "万能抽卡模拟器",
             ["settings.language.title"] = "语言设置",
             ["settings.language.ui"] = "界面语言",
             ["settings.language.content"] = "卡牌内容语言",
@@ -114,6 +119,7 @@ public static class LanguageLocalizationSeeder
         EditorUtility.SetDirty(collection.SharedData);
         EditorUtility.SetDirty(english);
         EditorUtility.SetDirty(chinese);
+        EnsureAndroidAppInfo(collection);
         AssetDatabase.SaveAssets();
         Debug.Log("Language settings and localized entries are up to date.");
     }
@@ -131,6 +137,26 @@ public static class LanguageLocalizationSeeder
         if (LocalizationEditorSettings.ActiveLocalizationSettings != settings)
             LocalizationEditorSettings.ActiveLocalizationSettings = settings;
 
+        EditorUtility.SetDirty(settings);
+    }
+
+    private static void EnsureAndroidAppInfo(StringTableCollection collection)
+    {
+        LocalizationSettings settings = LocalizationEditorSettings.ActiveLocalizationSettings;
+        SharedTableData.SharedTableEntry appNameEntry = collection.SharedData.GetEntry(AppDisplayNameKey);
+        if (settings == null || appNameEntry == null)
+            throw new InvalidOperationException("Localization settings and the app display-name entry are required.");
+
+        AppInfo appInfo = LocalizationSettings.Metadata.GetMetadata<AppInfo>();
+        if (appInfo == null)
+        {
+            appInfo = new AppInfo();
+            LocalizationSettings.Metadata.AddMetadata(appInfo);
+        }
+
+        appInfo.DisplayName = new LocalizedString(
+            collection.SharedData.TableCollectionNameGuid,
+            appNameEntry.Id);
         EditorUtility.SetDirty(settings);
     }
 
