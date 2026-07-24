@@ -91,6 +91,11 @@ namespace Gacha.Application
             CancellationToken cancellationToken);
     }
 
+    public interface IContentPackageUriResolver
+    {
+        Uri Resolve(ContentPackageDescriptor package);
+    }
+
     /// <summary>
     /// Owns one package's resumable download lifecycle. It intentionally does not
     /// install the archive; a completed snapshot can be passed to the installer.
