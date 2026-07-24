@@ -90,11 +90,18 @@ public class ApplicationServicesTests
         }
     }
 
-    private sealed class PackageCatalogProvider : IContentPackageCatalogProvider
+    private sealed class PackageCatalogProvider : IContentPackageCatalogProvider, IDisposable
     {
+        public bool Disposed { get; private set; }
+
         public Task<ContentPackageCatalogLoadResult> LoadAsync(CancellationToken cancellationToken)
         {
             throw new NotSupportedException("fixture");
+        }
+
+        public void Dispose()
+        {
+            Disposed = true;
         }
     }
 
@@ -161,6 +168,7 @@ public class ApplicationServicesTests
         Assert.That(ApplicationServices.ContentPackageOperations, Is.Null);
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.Null);
         Assert.That(operations.Disposed, Is.True);
+        Assert.That(packageCatalogs.Disposed, Is.True);
     }
 
     [Test]

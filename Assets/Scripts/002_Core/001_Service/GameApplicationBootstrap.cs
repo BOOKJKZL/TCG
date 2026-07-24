@@ -17,6 +17,9 @@ public static class GameApplicationBootstrap
     private const string ReduceMotionKey = "settings.reduce-motion";
     private const string HapticsEnabledKey = "settings.haptics-enabled";
     private const string AnimationSpeedKey = "settings.animation-speed";
+    private const string CatalogUrlEnvironmentKey = "GACHA_CONTENT_CATALOG_URL";
+    private const string BundledRemoteConfigResource = "Data/RemoteContent";
+    private const string PrivateRemoteConfigFile = "remote-content.json";
     private static bool configured;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -51,6 +54,7 @@ public static class GameApplicationBootstrap
             ResolveDownloadRoot(),
             contentPackages,
             contentPackageInstaller);
+        IContentPackageCatalogProvider contentPackageCatalogs = CreateRemoteContentCatalogProvider();
         ApplicationServices.Configure(
             catalog,
             languages,
@@ -59,7 +63,8 @@ public static class GameApplicationBootstrap
             experienceSettings,
             contentPackages,
             contentPackageInstaller,
-            contentPackageOperations);
+            contentPackageOperations,
+            contentPackageCatalogs);
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);
@@ -96,6 +101,73 @@ public static class GameApplicationBootstrap
         return Path.Combine(projectRoot, "LocalContent", "Downloads");
 #else
         return Path.Combine(UnityEngine.Application.persistentDataPath, "ContentDownloads");
+#endif
+    }
+
+    private static IContentPackageCatalogProvider CreateRemoteContentCatalogProvider()
+    {
+        try
+        {
+            RemoteContentConfiguration configuration = LoadRemoteContentConfiguration();
+            if (configuration == null || string.IsNullOrWhiteSpace(configuration.catalogUrl))
+                return null;
+            if (!Uri.TryCreate(configuration.catalogUrl.Trim(), UriKind.Absolute, out Uri catalogUri))
+            {
+                Debug.LogWarning("Remote content configuration has an invalid catalogUrl.");
+                return null;
+            }
+
+            int maximumBytes = configuration.maxCatalogBytes > 0
+                ? configuration.maxCatalogBytes
+                : HttpContentPackageCatalogProvider.DefaultMaximumCatalogBytes;
+            TimeSpan timeout = configuration.timeoutSeconds > 0
+                ? TimeSpan.FromSeconds(configuration.timeoutSeconds)
+                : HttpContentPackageCatalogProvider.DefaultTimeout;
+            var provider = new HttpContentPackageCatalogProvider(
+                catalogUri,
+                maximumCatalogBytes: maximumBytes,
+                timeout: timeout);
+            Debug.Log("Remote content catalog is configured from private runtime settings.");
+            return provider;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Remote content configuration was ignored: " + exception.Message);
+            return null;
+        }
+    }
+
+    private static RemoteContentConfiguration LoadRemoteContentConfiguration()
+    {
+#if UNITY_EDITOR
+        string environmentUrl = Environment.GetEnvironmentVariable(CatalogUrlEnvironmentKey);
+        if (!string.IsNullOrWhiteSpace(environmentUrl))
+            return new RemoteContentConfiguration { catalogUrl = environmentUrl };
+#endif
+
+        string privatePath = ResolveRemoteContentConfigurationPath();
+        if (File.Exists(privatePath))
+            return ParseRemoteContentConfiguration(File.ReadAllText(privatePath));
+
+        TextAsset bundled = Resources.Load<TextAsset>(BundledRemoteConfigResource);
+        return bundled == null ? null : ParseRemoteContentConfiguration(bundled.text);
+    }
+
+    private static RemoteContentConfiguration ParseRemoteContentConfiguration(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            throw new InvalidDataException("Remote content configuration is empty.");
+        RemoteContentConfiguration configuration = JsonUtility.FromJson<RemoteContentConfiguration>(json);
+        return configuration ?? throw new InvalidDataException("Remote content configuration has no root object.");
+    }
+
+    private static string ResolveRemoteContentConfigurationPath()
+    {
+#if UNITY_EDITOR
+        string projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName ?? UnityEngine.Application.dataPath;
+        return Path.Combine(projectRoot, "LocalContent", PrivateRemoteConfigFile);
+#else
+        return Path.Combine(UnityEngine.Application.persistentDataPath, PrivateRemoteConfigFile);
 #endif
     }
 
@@ -191,5 +263,13 @@ public static class GameApplicationBootstrap
             PlayerPrefs.SetFloat(AnimationSpeedKey, settings.AnimationSpeed);
             PlayerPrefs.Save();
         }
+    }
+
+    [Serializable]
+    private sealed class RemoteContentConfiguration
+    {
+        public string catalogUrl;
+        public int timeoutSeconds;
+        public int maxCatalogBytes;
     }
 }

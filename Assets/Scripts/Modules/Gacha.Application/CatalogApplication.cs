@@ -132,6 +132,9 @@ namespace Gacha.Application
             if (!ReferenceEquals(ContentPackageOperations, contentPackageOperations) &&
                 ContentPackageOperations is IDisposable previousOperations)
                 previousOperations.Dispose();
+            if (!ReferenceEquals(ContentPackageCatalogs, contentPackageCatalogs) &&
+                ContentPackageCatalogs is IDisposable previousCatalogs)
+                previousCatalogs.Dispose();
             Catalog = catalog;
             Languages = languages;
             Images = images;
@@ -147,6 +150,8 @@ namespace Gacha.Application
         {
             if (ContentPackageOperations is IDisposable operations)
                 operations.Dispose();
+            if (ContentPackageCatalogs is IDisposable catalogs)
+                catalogs.Dispose();
             Catalog = null;
             Languages = null;
             Images = null;
