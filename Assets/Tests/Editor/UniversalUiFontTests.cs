@@ -21,11 +21,19 @@ public class UniversalUiFontTests
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
         StringTable chinese = collection.GetTable("zh") as StringTable;
         Assert.That(chinese, Is.Not.Null);
-        char[] required = chinese.Values
+        var required = new HashSet<char>(chinese.Values
             .SelectMany(entry => entry.Value ?? string.Empty)
             .Where(character => character >= 0x2E80)
-            .Distinct()
-            .ToArray();
+            .Distinct());
+        foreach (string guid in AssetDatabase.FindAssets("t:MonoScript", new[] { "Assets/Scripts" }))
+        {
+            MonoScript script = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid));
+            if (script == null)
+                continue;
+            foreach (char character in script.text)
+                if (character >= 0x2E80)
+                    required.Add(character);
+        }
         var missing = new List<char>();
         foreach (char character in required)
         {

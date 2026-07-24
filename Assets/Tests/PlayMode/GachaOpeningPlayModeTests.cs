@@ -105,6 +105,15 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(11));
                 Assert.That(store.LastCommittedIds.Count, Is.EqualTo(11));
                 Assert.That(store.LastCommittedIds.All(id => id.Contains("first-edition")), Is.True);
+
+                Button revealAll = document.rootVisualElement.Q<Button>("reveal-all-button");
+                Assert.That(revealAll, Is.Not.Null);
+                Assert.That(revealAll.ClassListContains("gacha-button--quiet"), Is.True);
+                Assert.That(InvokeBool(controller, "RevealAllCards"), Is.True);
+                yield return null;
+                Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(11));
+                Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
+                Assert.That(InvokeBool(controller, "RevealAllCards"), Is.False);
             }
             finally
             {

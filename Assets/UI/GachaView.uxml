@@ -51,7 +51,10 @@
                     </ui:VisualElement>
                     <ui:Label name="reveal-name" class="gacha-reveal-card__name" />
                     <ui:Label name="reveal-metadata" class="gacha-reveal-card__metadata" />
-                    <ui:Button name="reveal-next-button" class="gacha-button gacha-button--primary" />
+                    <ui:VisualElement class="gacha-reveal__actions">
+                        <ui:Button name="reveal-next-button" class="gacha-button gacha-button--primary" />
+                        <ui:Button name="reveal-all-button" class="gacha-button gacha-button--quiet" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
 
                 <ui:VisualElement name="summary-stage" class="gacha-stage gacha-summary" style="display: none;">

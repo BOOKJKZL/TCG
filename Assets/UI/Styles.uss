@@ -328,6 +328,17 @@
     -unity-text-align: middle-center;
 }
 
+.gacha-reveal__actions {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.gacha-reveal__actions .gacha-button {
+    align-self: center;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
 .gacha-summary {
     align-items: stretch;
     justify-content: flex-start;

@@ -80,6 +80,7 @@ public sealed class GachaViewController : MonoBehaviour
     private Button ruleSourceButton;
     private Button tearButton;
     private Button revealButton;
+    private Button revealAllButton;
     private Button backToProductsButton;
     private Button openAgainButton;
     private Button summaryProductsButton;
@@ -294,6 +295,19 @@ public sealed class GachaViewController : MonoBehaviour
         return true;
     }
 
+    public bool RevealAllCards()
+    {
+        if (currentOutcome == null || packAnimating || revealEntries.Count == 0 || IsSummaryVisible)
+            return false;
+
+        revealAnimation?.Pause();
+        revealAnimation = null;
+        revealAnimating = false;
+        revealIndex = revealEntries.Count - 1;
+        ShowSummary();
+        return true;
+    }
+
     public void MenuBtnClick()
     {
         UIFeedbackService.Play(FeedbackCue.Back);
@@ -340,6 +354,7 @@ public sealed class GachaViewController : MonoBehaviour
         ruleSourceButton = Required<Button>("rule-source-button");
         tearButton = Required<Button>("tear-pack-button");
         revealButton = Required<Button>("reveal-next-button");
+        revealAllButton = Required<Button>("reveal-all-button");
         backToProductsButton = Required<Button>("back-to-products-button");
         openAgainButton = Required<Button>("open-again-button");
         summaryProductsButton = Required<Button>("summary-products-button");
@@ -364,6 +379,7 @@ public sealed class GachaViewController : MonoBehaviour
         ruleSourceButton.clicked += OpenSelectedRuleSource;
         tearButton.clicked += () => TearPack();
         revealButton.clicked += () => RevealNextCard();
+        revealAllButton.clicked += () => RevealAllCards();
         backToProductsButton.clicked += () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
@@ -565,10 +581,15 @@ public sealed class GachaViewController : MonoBehaviour
             $"第 0 / {revealEntries.Count} 张");
         revealButton.text = Localized("Reveal first card", "翻开第一张");
         revealButton.SetEnabled(true);
+        revealAllButton.text = Localized("Reveal all", "查看全部");
+        revealAllButton.SetEnabled(true);
     }
 
     private void ShowSummary()
     {
+        revealAnimation?.Pause();
+        revealAnimation = null;
+        revealAnimating = false;
         revealStage.style.display = DisplayStyle.None;
         summaryStage.style.display = DisplayStyle.Flex;
         summaryTitle.text = Localized("Pack complete", "开包完成");
@@ -697,6 +718,7 @@ public sealed class GachaViewController : MonoBehaviour
         prepareButton.text = Localized("Prepare pack", "准备卡包");
         ruleSourceButton.text = Localized("Rule source", "规则来源");
         tearButton.text = Localized("Tear pack", "撕开卡包");
+        revealAllButton.text = Localized("Reveal all", "查看全部");
         backToProductsButton.text = Localized("All products", "全部卡包");
         openAgainButton.text = Localized("Open another", "再开一包");
         summaryProductsButton.text = Localized("Choose another", "选择其他卡包");
