@@ -89,7 +89,7 @@ AccessibilitySettings
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`，APK 约 51.6 MiB，未嵌入任何私人 `LocalContent`；ADB 私人内容推送脚本已准备。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6B 最新 APK 约 74.7 MiB，413 个 ZIP 条目中私人内容匹配为 0，ADB 私人内容推送脚本已准备。阶段 5C 曾约 51.6 MiB，新增约 23.1 MiB 需在阶段 7 结合 IL2CPP stripping 与 Addressables 做包体回归分析。
 - 抽卡、收藏、设置和场景切换 PlayMode 测试为 4/4 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -436,6 +436,7 @@ Content Language  卡名、卡图、系列和产品
 - 若回滚本身失败，结果会返回 `RollbackFailed` 和恢复工作区位置，最终清理不会删除旧内容的唯一副本。
 - 新安装不能覆盖没有收据的同名目录，已安装包也不能在没有显式迁移的情况下偷偷改变安装路径。
 - 安装器定向测试 10/10、内容包模块测试 33/33、运行时接线 6/6、全量 EditMode 94/94、PlayMode 4/4 通过；Missing Script、重复 GUID 和 Domain/Application 分层越界均为 0。
+- 新事务代码通过 Android/IL2CPP smoke build：5 个场景，构建约 4 分 51 秒，APK 74.7 MiB，私人 `LocalContent`/五个历史系列/manifest 文件名匹配为 0；当前 APK 最大压缩条目是 `libil2cpp.so`、`libunity.so` 和 `global-metadata.dat`，包体增长不能归因于卡图。
 - 本切片仍是后台基础设施；下载速度/进度、状态动画、点击与完成/失败音效、震动、本地化和错误防抖尚未作为玩家体验完成。
 
 下一切片：实现独立于 R2 的下载任务状态机和可替换字节源，支持进度、暂停、继续、取消、重试、临时文件续传与失败事件防重复；随后用本机 HTTP fixture 验证断线恢复。

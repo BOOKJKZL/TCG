@@ -62,7 +62,7 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 ## 当前 Android 私测路径
 
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 的 Android/IL2CPP 冒烟包约 51.6 MiB，包内私人内容条目为 0。
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6B 的 Android/IL2CPP 冒烟包约 74.7 MiB，413 个 APK 条目中私人内容匹配为 0。它比阶段 5C 的 51.6 MiB 增长约 23.1 MiB，阶段 7 必须结合 IL2CPP stripping、Addressables 和构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - 在阶段 6 下载 UI 完成前，可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
