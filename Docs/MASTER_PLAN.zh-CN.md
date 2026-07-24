@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 6C5 的安全卸载、收藏存档隔离、同页重装、双语交互反馈与回滚自验证已完成；Android 私测脚本也已同时支持本地直推和仅公开配置的远程首次下载模式。下一步需要用户提供私人 R2 参数后执行最小真实上传，再进入手机首次下载、中断续传与离线重启；卡牌内容不再强制重复包装成 Addressables。
+本次修改原因：阶段 7D 的最后已验证 catalog 离线缓存、断网内容页、跨协调器下载续传与 Android 运行时验证已完成。下一步需要用户提供私人 R2 参数后执行最小真实上传，再进入手机首次下载、中断续传与离线重启真机验收；卡牌内容不再强制重复包装成 Addressables。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 197/197 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 206/206 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -89,7 +89,7 @@ AccessibilitySettings
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 6C5 最新 APK 为 74.85 MiB，6 个场景、413 个 ZIP 条目中私人内容和 `remote-content.json` 匹配均为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.2 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；阶段 7D 最新 APK 为 74.86 MiB，6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.3 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
 - 抽卡、收藏、设置、内容管理、远程 catalog 和场景切换 PlayMode 测试为 6/6 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -100,11 +100,13 @@ AccessibilitySettings
 - HTTP 字节源只允许公开 HTTPS 和 loopback HTTP；新下载必须返回精确 `200`，续传必须返回匹配 offset、末字节与总大小的 `206 Content-Range`，忽略 Range、错误长度、压缩编码和截断响应不会制造假完成。
 - schema v1 包清单要求每个 archive URL 包含对应 SHA-256；单包协调器已经统一规划、下载、暂停/取消/重试、原子安装和归档清理，玩家界面不需要自行排列基础设施调用。
 - 主菜单已加入 `CONTENT` 入口；内容管理页按包显示版本、下载大小、状态与进度，并提供安装、更新、修复、继续、重试、暂停、取消、双击确认卸载和 catalog 刷新操作。
-- 内容管理页使用 Unity 主线程桥接协调器事件，支持进入/状态切换/失败抖动动画、按钮按压、下载与卸载反馈、完成震动、减少动态和 40 组中英文本；一次失败尝试只提示一次。
+- 内容管理页使用 Unity 主线程桥接协调器事件，支持进入/状态切换/失败抖动动画、按钮按压、下载与卸载反馈、完成震动、减少动态和 42 组中英文本；一次失败尝试只提示一次。
 - 远程 catalog provider 已支持 HTTPS、loopback fixture、15 秒默认超时、1 MiB 默认上限、流式二次计数、JSON/identity/200 校验、外部取消和最终重定向 URI；Bootstrap 可从私人文件或 Editor 环境变量配置，不向仓库或 APK写入密钥。
 - 电脑端发布器已按稳定文件顺序、固定 ZIP 时间戳和实际字节生成内容寻址归档与 schema catalog；发布后会用正式 Planner/安装器安装到临时目录并由运行时 Catalog 读回，验证完成才算成功。
 - Base Set 与 Neo Genesis 已生成两个本机 fixture：下载大小 14,906,006 / 16,437,718 bytes，安装大小 15,189,695 / 16,754,096 bytes；连续构建 3 个发布文件的 Hash 全部不变，输出位于 Git 忽略目录。
 - 私人 R2 Editor/Batch 上传器已就绪：凭据仅从进程内输入或环境变量读取，限制 S3 endpoint，拒绝覆盖冲突的不可变 ZIP，先验证 origin 与公开 URL，最后发布 catalog 并生成私人运行配置。
+- 远程 catalog 在线验证成功后会原子保存为来源绑定的本地缓存；断网重启仍能列出内容包并显示双语离线警告，来源改变、损坏、超限或链接缓存不会被采用。
+- 真实 ZIP/HTTP fixture 已验证下载截断后销毁旧协调器，重建协调器会从 `.part` 实际长度发送精确 Range、完成安装并清理下载缓存。
 
 尚未完成：
 
@@ -114,7 +116,7 @@ AccessibilitySettings
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 76%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 仍需真实 R2 发布、首次下载、中断续传和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 78%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -522,7 +524,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 7：私人 R2 与按需内容发布
 
-状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环，7B 确定性包发布器与两个历史系列本机 fixture，7C 私人 R2 安全上传工具均已完成（2026-07-24）；安全卸载/重装已由 6C5 完成，真实 R2 写入等待用户参数，手机首次下载、中断和离线验证待继续。
+状态：7A 受限 HTTPS catalog provider、私人运行时配置和 Bootstrap/页面真实 loopback 闭环，7B 确定性包发布器与两个历史系列本机 fixture，7C 私人 R2 安全上传工具，7D catalog 离线缓存与跨重启下载续传自动化均已完成（2026-07-24）；安全卸载/重装已由 6C5 完成，真实 R2 写入等待用户参数，手机首次下载、中断和离线验证待继续。
 
 目标：实现小 APK 和首装后按需下载。
 
@@ -584,6 +586,16 @@ Content Language  卡名、卡图、系列和产品
 - Access Key/Secret 只存在于 Editor 字段或环境变量，不写入项目、日志、catalog、配置或 APK；批处理缺少任一必需值会明确失败。
 - R2 发布定向测试 8/8 通过，包含固定 Signature V4 向量、凭据 endpoint 防泄露、catalog-last 顺序、冲突拒绝、对象复用和失败不生成配置。
 - Android 私测脚本保留默认本地直推，同时新增 `Remote`、`ResetDownloadedContent`、`ValidateOnly` 与 `SelfTest`；远程配置严格拒绝秘密字段并只推送公开 catalog 参数，纯脚本自测 8/8、本地/远程预检均通过。
+
+7D 完成记录（2026-07-24）：
+
+- `CachedContentPackageCatalogProvider` 只缓存已经通过正式 reader 的 catalog，并与当前配置的 source URI 精确绑定；改变域名/路径后不会静默使用旧来源数据。
+- 缓存限制 UTF-8 与大小，拒绝链接、损坏 schema、不同来源和无效 catalog；使用 `.tmp` 原子提交，`File.Replace` 不可用时以 `.backup` 同卷事务替代，并能在中断后恢复旧缓存。
+- 在线 catalog 可用但缓存写入失败时仍允许玩家继续使用在线列表，只显示双语琥珀色警告；远程失败且缓存有效时内容页继续显示包列表，切换中英文会同步更新离线提示。
+- 外部取消不会回退到陈旧缓存；PlayMode 的 loopback 缓存使用独立临时路径，不覆盖开发者本机私人目录。
+- 真实 HTTP 截断测试会先留下实际 `.part`，再销毁旧协调器模拟重启；新协调器从持久字节数发送精确 `206 Range`，完成 SHA/ZIP 安装和缓存清理。
+- 缓存定向测试 7/7、安装/重启集成测试 4/4、Presentation 定向测试 16/16、Bootstrap 1/1、全量 EditMode 206/206、PlayMode 6/6 通过。
+- Android/IL2CPP 构建成功，APK 74.86 MiB；413 个条目中私人内容、运行配置和 catalog 缓存名称匹配为 0。
 
 下一切片：用户在 Cloudflare 建立只限定目标 bucket 的 Object Read & Write Token、公开只读自定义域名，并提供/在本机填写 S3 endpoint、bucket、公开 Base URL、Access Key ID、Secret Access Key。只执行 `en.base1`、`en.neo1` 与 catalog 的最小真实上传；成功后把 `remote-content.json` 安装到 Android 私人持久目录，验证首次下载、中断续传、离线重启和真机卸载/重装。没有这些账号信息时不猜测 bucket、域名或写入密钥。
 
@@ -675,8 +687,9 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 7B：确定性内容包发布器 + 两个历史系列本机 fixture（完成）
 → 阶段 7C：私人 R2 安全上传工具（完成；真实写入等待私人参数）
 → 阶段 6C5：安全卸载、保留收藏与同页重装（完成）
+→ 阶段 7D：已验证 catalog 离线缓存 + 跨重启续传（完成）
 → 当前：最小真实 R2 上传 + 手机真实下载
-→ Android 下载/中断/离线缓存测试
+→ Android 真机下载/中断/离线缓存验收
 → 阶段 8：宝可梦真实规则适配
 → 阶段 9：最终 Android 验收
 ```

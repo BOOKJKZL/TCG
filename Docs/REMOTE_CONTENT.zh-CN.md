@@ -60,7 +60,7 @@ content/packages/{package-id}/{sha256}.zip
 2. 页面显示 catalog 声明的准确下载量，Planner 检查剩余空间和现有收据。
 3. 协调器通过 Range 下载 `.part`，完成后发布 `.zip`。
 4. 安装器校验 SHA-256、路径和实际解压大小，再原子替换内容目录与收据。
-5. Catalog 与卡图从文件缓存离线读取；下次启动无需重新下载。
+5. 已验证 catalog 与卡图从文件缓存离线读取；下次启动无需重新下载，内容管理页仍会列出包并明确显示离线状态。
 6. 用户可二次确认卸载单个包；只删除收据登记的内容，收藏存档独立保留，并可在同一页面重新安装。
 
 阶段 7B 的发布器已经生成不可变 ZIP 与 schema catalog；上传 R2 后只需替换小 catalog，应用无需重新安装即可发现新 Revision。Addressables 仍可独立用于通用特效/声音，但不再是卡牌数据和卡图发布的前置条件。
@@ -128,6 +128,17 @@ content/packages/{package-id}/{sha256}.zip
 
 阶段 7A 已提供 `HttpContentPackageCatalogProvider`。它只接受 HTTPS；HTTP 仅允许 `127.0.0.1`/loopback 自动测试。请求固定声明 JSON 与 identity encoding，必须收到 `200 OK`，默认 15 秒超时、最大 1 MiB，并会对无 `Content-Length` 的流式响应再次计数。外部取消会继续向上传播，超时、超限、非 JSON、公开 HTTP、带用户密码或 fragment 的 URL 会返回结构化失败。
 
+阶段 7D 在它外层加入 `CachedContentPackageCatalogProvider`：
+
+- 只有正式 reader 已成功解析的在线 catalog 才能写入 `ContentDownloads/catalog-cache-v1.json`。
+- 缓存记录配置来源 URI；更换 catalog 域名、路径或查询后，旧缓存不会跨来源复用。
+- 写入使用 `.tmp` 与同卷替换；平台不支持 `File.Replace` 时使用可恢复的 `.backup` 事务，启动时会修复中断留下的备份。
+- 缓存读取再次执行 UTF-8、大小、schema、包描述符、SHA 内容寻址 URL 和来源检查；损坏、链接或超限文件只会产生结构化失败。
+- 网络失败且缓存有效时返回成功 catalog，同时内容页显示双语琥珀色离线提示；缓存写入失败不阻止在线 catalog 使用。
+- 页面销毁或刷新触发的外部取消不会回退到旧缓存，避免已失效请求重新更新 UI。
+
+下载数据继续由 `.part` 独立持久化。自动化已经销毁第一个协调器来模拟应用进程重启，再以新协调器读取实际 partial 长度、发送精确 `Range`、完成 ZIP/Hash 安装；这不是只在同一个内存任务中调用 Retry。
+
 配置优先级如下：
 
 1. Unity Editor 进程环境变量 `GACHA_CONTENT_CATALOG_URL`，适合临时测试。
@@ -155,7 +166,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C5 的 Android/IL2CPP 冒烟包为 74.85 MiB，包含 6 个场景，413 个 APK 条目中私人内容和 `remote-content.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7D 的 Android/IL2CPP 冒烟包为 74.86 MiB，包含 6 个场景，413 个 APK 条目中私人内容、`remote-content.json` 和 `catalog-cache-v1.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.3 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - `Tools/Android/install_smoke_content.ps1` 默认使用 `Local` 模式：安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。它适合 R2 尚未配置时验证触摸、声音、震动和本地内容读取。
 - 同一脚本的 `Remote` 模式只把 `LocalContent/remote-content.json` 推到 `Application.persistentDataPath` 根目录，不复制卡图。配置只允许 `catalogUrl`、`timeoutSeconds`、`maxCatalogBytes`，强制公开 HTTPS，拒绝额外字段、嵌入凭据、fragment 和越界参数。
