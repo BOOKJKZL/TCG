@@ -46,6 +46,11 @@ public static class GameApplicationBootstrap
         var contentPackages = new ContentPackagePlanner(
             new FileSystemInstalledContentPackageRegistry(contentRoot),
             new FileSystemContentStorageProbe(contentRoot));
+        var contentPackageInstaller = new FileSystemContentPackageInstaller(contentRoot);
+        var contentPackageOperations = new HttpContentPackageInstallCoordinatorFactory(
+            ResolveDownloadRoot(),
+            contentPackages,
+            contentPackageInstaller);
         ApplicationServices.Configure(
             catalog,
             languages,
@@ -53,7 +58,8 @@ public static class GameApplicationBootstrap
             new PokemonHistoricalRuleProvider(),
             experienceSettings,
             contentPackages,
-            new FileSystemContentPackageInstaller(contentRoot));
+            contentPackageInstaller,
+            contentPackageOperations);
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);
@@ -80,6 +86,16 @@ public static class GameApplicationBootstrap
         return Path.Combine(projectRoot, "LocalContent", "Imports");
 #else
         return Path.Combine(UnityEngine.Application.persistentDataPath, "Content");
+#endif
+    }
+
+    private static string ResolveDownloadRoot()
+    {
+#if UNITY_EDITOR
+        string projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName ?? UnityEngine.Application.dataPath;
+        return Path.Combine(projectRoot, "LocalContent", "Downloads");
+#else
+        return Path.Combine(UnityEngine.Application.persistentDataPath, "ContentDownloads");
 #endif
     }
 

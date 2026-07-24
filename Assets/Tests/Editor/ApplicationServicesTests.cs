@@ -75,6 +75,21 @@ public class ApplicationServicesTests
         }
     }
 
+    private sealed class PackageOperationFactory : IContentPackageInstallCoordinatorFactory, IDisposable
+    {
+        public bool Disposed { get; private set; }
+
+        public ContentPackageInstallCoordinator Create(ContentPackageCatalog catalog, string packageId)
+        {
+            throw new NotSupportedException("fixture");
+        }
+
+        public void Dispose()
+        {
+            Disposed = true;
+        }
+    }
+
     [TearDown]
     public void TearDown()
     {
@@ -117,18 +132,23 @@ public class ApplicationServicesTests
         var languages = new LanguageSelectionService(new PreferenceStore("en", "en"), new[] { "en" });
         var planner = new ContentPackagePlanner(new EmptyPackageRegistry(), new FixedStorageProbe(), 0);
         var installer = new PackageInstaller();
+        var operations = new PackageOperationFactory();
 
         ApplicationServices.Configure(
             catalog,
             languages,
             contentPackages: planner,
-            contentPackageInstaller: installer);
+            contentPackageInstaller: installer,
+            contentPackageOperations: operations);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
+        Assert.That(ApplicationServices.ContentPackageOperations, Is.SameAs(operations));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
+        Assert.That(ApplicationServices.ContentPackageOperations, Is.Null);
+        Assert.That(operations.Disposed, Is.True);
     }
 
     [Test]

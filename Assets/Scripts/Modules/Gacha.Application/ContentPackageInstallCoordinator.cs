@@ -94,6 +94,11 @@ namespace Gacha.Application
         public string ErrorMessage { get; }
     }
 
+    public interface IContentPackageInstallCoordinatorFactory
+    {
+        ContentPackageInstallCoordinator Create(ContentPackageCatalog catalog, string packageId);
+    }
+
     /// <summary>
     /// Coordinates one immutable package through planning, resumable download,
     /// verified installation and archive cleanup. Presentation code observes one

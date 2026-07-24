@@ -111,6 +111,7 @@ namespace Gacha.Application
         public static ExperienceSettingsService ExperienceSettings { get; private set; }
         public static ContentPackagePlanner ContentPackages { get; private set; }
         public static IContentPackageInstaller ContentPackageInstaller { get; private set; }
+        public static IContentPackageInstallCoordinatorFactory ContentPackageOperations { get; private set; }
 
         public static void Configure(
             CatalogSession catalog,
@@ -119,19 +120,30 @@ namespace Gacha.Application
             IProductRuleProvider productRules = null,
             ExperienceSettingsService experienceSettings = null,
             ContentPackagePlanner contentPackages = null,
-            IContentPackageInstaller contentPackageInstaller = null)
+            IContentPackageInstaller contentPackageInstaller = null,
+            IContentPackageInstallCoordinatorFactory contentPackageOperations = null)
         {
-            Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-            Languages = languages ?? throw new ArgumentNullException(nameof(languages));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+            if (languages == null)
+                throw new ArgumentNullException(nameof(languages));
+            if (!ReferenceEquals(ContentPackageOperations, contentPackageOperations) &&
+                ContentPackageOperations is IDisposable previousOperations)
+                previousOperations.Dispose();
+            Catalog = catalog;
+            Languages = languages;
             Images = images;
             ProductRules = productRules;
             ExperienceSettings = experienceSettings;
             ContentPackages = contentPackages;
             ContentPackageInstaller = contentPackageInstaller;
+            ContentPackageOperations = contentPackageOperations;
         }
 
         public static void Reset()
         {
+            if (ContentPackageOperations is IDisposable operations)
+                operations.Dispose();
             Catalog = null;
             Languages = null;
             Images = null;
@@ -139,6 +151,7 @@ namespace Gacha.Application
             ExperienceSettings = null;
             ContentPackages = null;
             ContentPackageInstaller = null;
+            ContentPackageOperations = null;
         }
     }
 }
