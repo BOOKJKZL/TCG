@@ -21,7 +21,7 @@ Texture2D:
   m_IsReadable: 1
   m_IsPreProcessed: 0
   m_IgnoreMipmapLimit: 1
-  m_MipmapLimitGroupName: 
+  m_MipmapLimitGroupName:
   m_StreamingMipmaps: 0
   m_StreamingMipmapsPriority: 0
   m_VTOnly: 0
@@ -38,14 +38,14 @@ Texture2D:
     m_WrapW: 0
   m_LightmapFormat: 0
   m_ColorSpace: 1
-  m_PlatformBlob: 
+  m_PlatformBlob:
   image data: 1
   _typelessdata: 00
   m_StreamData:
     serializedVersion: 2
     offset: 0
     size: 0
-    path: 
+    path:
 --- !u!21 &-1602199890735297863
 Material:
   serializedVersion: 8
@@ -65,7 +65,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties: 
+  m_LockedProperties:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -124,7 +124,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 71c1514a6bd24e1e882cebbe1904ce04, type: 3}
   m_Name: Universal UI Chinese Fallback SDF
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   m_Version: 1.1.0
   m_FaceInfo:
     m_FaceIndex: 0
@@ -151,8 +151,8 @@ MonoBehaviour:
   m_Material: {fileID: -1602199890735297863}
   m_SourceFontFileGUID: 9ce2db14a80b76740ba2d274b59cb243
   m_CreationSettings:
-    sourceFontFileName: 
-    sourceFontFileGUID: 
+    sourceFontFileName:
+    sourceFontFileGUID:
     faceIndex: 0
     pointSizeSamplingMode: 0
     pointSize: 0
@@ -162,15 +162,15 @@ MonoBehaviour:
     atlasWidth: 0
     atlasHeight: 0
     characterSetSelectionMode: 0
-    characterSequence: 
-    referencedFontAssetGUID: 
-    referencedTextAssetGUID: 
+    characterSequence:
+    referencedFontAssetGUID:
+    referencedTextAssetGUID:
     fontStyle: 0
     fontStyleModifier: 0
     renderMode: 0
     includeFontFeatures: 0
   m_SourceFontFile: {fileID: 12800000, guid: 9ce2db14a80b76740ba2d274b59cb243, type: 3}
-  m_SourceFontFilePath: 
+  m_SourceFontFilePath:
   m_AtlasPopulationMode: 1
   InternalDynamicOS: 0
   m_GlyphTable: []
@@ -228,7 +228,7 @@ MonoBehaviour:
   italicStyle: 35
   tabSize: 10
   m_fontInfo:
-    Name: 
+    Name:
     PointSize: 0
     Scale: 0
     CharacterCount: 0
