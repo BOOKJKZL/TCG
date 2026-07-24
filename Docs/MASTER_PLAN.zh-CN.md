@@ -2,7 +2,7 @@
 
 最后更新：2026-07-24
 
-本次修改原因：阶段 5B 的收藏库存、未查看状态、搜索与筛选已经完成。当前关键路径切换到阶段 5C 的设置完整性、连续开包性能和 Android 本地内容冒烟测试。
+本次修改原因：阶段 5C 的设置、可跳过揭晓、性能、中文字体和 Android 构建冒烟已经完成。当前只剩连接真机执行私人内容推送与触摸/声音/震动验收，之后进入阶段 6 的内容安装管理。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启和收藏进度服务均有自动化测试；当前项目 EditMode 测试为 48/48 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度和体验设置服务均有自动化测试；当前项目 EditMode 测试为 60/60 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -85,18 +85,23 @@ AccessibilitySettings
 - 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存。
 - 英文 Base Set Unlimited 已接入第一份 `HistoricallyVerified` 配列：5 Common、2 Basic Energy、3 Uncommon、1 Rare，Holo 平均约三包一张；Machamp 和 First Edition 已按来源排除。
 - 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
-- 抽卡、收藏与设置场景 PlayMode 测试为 3/3 通过。
+- 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
+- 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
+- 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
+- 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`，APK 约 51.6 MiB，未嵌入任何私人 `LocalContent`；ADB 私人内容推送脚本已准备。
+- 抽卡、收藏、设置和场景切换 PlayMode 测试为 4/4 通过。
 
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
-- 其余菜单和游戏场景的 Localization 覆盖，以及可完整显示中文的 CJK 字体资源。
-- 内容管理 UI，以及连续开包和大型收藏的性能收尾。
+- 其余菜单和游戏场景尚未全部迁入 Unity Localization String Table；当前运行时双语文本与中文回退字体已可用。
+- 内容管理 UI。
 - R2 上传与手机远程下载闭环。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 82%，本地通用模拟器 MVP 约完成 82%，完整计划约完成 49%。
+按验收条件而不是代码数量估算，当前技术底座约完成 90%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 55%。剩余 4% 是必须在连接 Android 真机后完成的设备验收，不是继续堆功能代码。
 
 ## 四、阶段计划
 
@@ -131,7 +136,7 @@ AccessibilitySettings
 - `UIFeedbackAutoInstaller` 会为所有已加载场景中的 UGUI `Button` 自动添加 `GameFeedbackButton`。
 - 设置数据已支持 `reduceMotion`、`hapticsEnabled` 与 `uiAnimationSpeed`，接口已可供设置页绑定。
 - Unity 6000.0.73f1 编译成功；EditMode 7/7 通过；场景和 Prefab 文本未发现 `m_Script: {fileID: 0}`。
-- 已知限制：当前设置页尚未放置上述三个选项的控件，正式按钮音效资产也尚未制作；这两项会随阶段 3 和阶段 5 的 UI 一起完成。
+- 阶段 5C 已补齐静音、减少动态、震动和动画速度控件；正式音效资产仍可在后续美术阶段替换当前低音量程序化反馈声。
 - 已知限制：`GachaViewController` 仍直接构造私人内容读取器，不满足 Presentation 只依赖 Application 接口的最终边界；该问题并入阶段 3 的语言与 Catalog 状态服务一起解决。
 
 ### 阶段 1：通用数据模型
@@ -227,7 +232,7 @@ Game + Set + CardNumber + Language + Variant
 - `ProductRuleProfile` 可携带中英规则说明；开包界面会直接显示版本、槽位和已验证平均比例，不需要通过宝可梦专用 UI 判断 Profile。
 - Neo 来源只说明 7 张 Common，未说明独立能量槽，因此当前 Common 池包含基础能量但不保证每包能量；Unlimited 与精确印刷序列继续保持未验证。
 - 已知限制：引擎具备 `GuaranteeRule`，但均匀模拟配置没有历史保底、变体或真实配列；不能把“引擎支持保底”描述成“当前运行时卡包已配置保底”。
-- 下一切片：转入阶段 5C，完成动画速度/减少动态/震动控件、连续开包与大型收藏性能验证；EX、Sword & Shield 与 Scarlet & Violet 保持模拟标记，等本地 MVP 可用性完成后再逐套调查。
+- 下一切片：连接 Android 真机运行已生成的 APK 与私人内容推送脚本；通过后进入阶段 6。EX、Sword & Shield 与 Scarlet & Violet 继续保持模拟标记，等内容安装闭环稳定后再逐套调查。
 
 ### 阶段 3：双层语言系统
 
@@ -266,8 +271,8 @@ Content Language  卡名、卡图、系列和产品
 - `GameApplicationBootstrap` 使用 PlayerPrefs 恢复语言，并把 UI Language 应用到 Unity Localization。
 - 设置场景会运行时安装独立双语言面板；按钮使用统一按下动画和确认音效，切换时遵守减少动态效果设置。
 - `Card_UI` 中英文 String Table 已加入语言设置文本；缺少内容语言时会显示当前回退结果。
-- 截至当前，全量 EditMode 36/36 与 PlayMode 2/2 通过，其中包含设置场景语言切换回归。
-- 已知限制：当前 TMP 字体资源不能保证覆盖完整中文字形，且主菜单、开包和收藏文本尚未全部迁入 String Table；阶段 3 因此仍保留收尾任务。
+- 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
+- 已加入约 51 KB 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；主菜单、开包和收藏文本尚未全部迁入 String Table，后续新增中文后必须重新生成子集。
 
 ### 阶段 4：接入私人导入内容
 
@@ -310,7 +315,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 5：本地游戏闭环
 
-状态：存档、统一反馈、已安装内容浏览、两套历史规则、模拟单包闭环和收藏库存体验已完成；阶段 5C 的设置完整性、性能与 Android 冒烟测试尚待继续。
+状态：存档、统一反馈、已安装内容浏览、两套历史规则、模拟单包闭环、收藏库存和阶段 5C 自动化均已完成；Android/IL2CPP 构建冒烟通过，真机设备验收待连接手机执行。
 
 目标：完成第一版真正可玩的离线模拟器。
 
@@ -368,6 +373,18 @@ Content Language  卡名、卡图、系列和产品
 - 连续开包、场景切换和大型收藏的内存与帧率检查。
 - 增加 PlayMode 测试，并完成第一次 Android 本地内容冒烟测试。
 
+完成记录（2026-07-24）：
+
+- Application 层 `ExperienceSettingsService` 管理静音、减少动态、震动和动画速度，PlayerPrefs 适配器负责移动端持久化；保存失败保持旧状态且不发布变更。
+- 设置场景新增四个双语控件、即时预览、保存状态、按下动画、确认音效和启用震动时的单次预览。
+- 开包场景新增 `Reveal All / 查看全部`，跳过剩余逐张揭晓动画后直接生成完整结果列表，不重复播放每张卡的声音或震动。
+- `ProductOpeningService` 缓存已经验证的规则 Profile；真实五系列连续开 500 包/5500 张卡约 0.138 秒，托管内存净增长约 0.059 MiB。
+- 1 万卡库存快照往返约 0.027 秒、JSON 约 464 KB；256 张卡图压力测试始终保持 32 张 LRU 上限。
+- 三轮开包/收藏/设置场景切换约 4.4 秒，热身后托管内存净增长约 0.137 MiB，旧场景 Controller 不会残留。
+- 中文 UI 使用 51 KB 修改字体子集，EditMode 会检查 String Table 与代码中文，PlayMode 强制切换中文并拒绝缺字日志。
+- 全量 EditMode 60/60、PlayMode 4/4 通过；Android/IL2CPP 构建成功，APK 约 51.6 MiB，包内私人内容条目为 0。
+- 已提供 `Tools/Android/install_smoke_content.ps1`，但当前没有连接 Android 设备，因此触摸、真实震动、扬声器声音和 `persistentDataPath/Content` 读取仍需真机验收。
+
 验收：
 
 - 开包、展示、收藏和重启恢复完整可用。
@@ -377,7 +394,7 @@ Content Language  卡名、卡图、系列和产品
 
 预计：8–14 小时。
 
-完成阶段 5，即达到本地通用抽卡模拟器 MVP。
+阶段 5 的代码与自动化已达到本地通用抽卡模拟器 MVP；真机设备验收通过后正式关闭该阶段。
 
 ### 阶段 6：内容管理系统
 
@@ -493,8 +510,8 @@ Content Language  卡名、卡图、系列和产品
 以 2026-07-24 的当前完成度重新估算剩余工作：
 
 - 第一个可玩的纵向切片：已完成。
-- 完成本地通用模拟器 MVP：约 8–14 小时。
-- 远程内容和宝可梦适配仍沿用原估算，待本地 MVP 验收后再校准。
+- 完成本地通用模拟器 MVP：代码和自动化已完成；连接手机后的安装、内容推送、触摸、声音和震动验收预计 1–2 小时。
+- 远程内容和宝可梦适配仍沿用原估算，待真机 MVP 验收后再校准。
 
 Token 仅能估算累计工作量，平台没有固定可见的单任务总上限：
 
@@ -512,8 +529,8 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 4：卡图异步加载 + 系列/卡牌浏览（完成）
 → 阶段 5A：单卡包可玩闭环（模拟规则、Base Set 与 Neo Genesis 历史规则完成）
 → 阶段 5B：库存、新卡、搜索与筛选体验（完成）
-→ 当前：阶段 5C，设置完整性、性能与 PlayMode 测试
-→ Android 本地内容冒烟测试
+→ 阶段 5C：设置完整性、性能、中文字体与 Android 构建（完成）
+→ 当前：Android 真机私人内容、触摸、声音与震动冒烟测试
 → 阶段 6：内容安装管理
 → 阶段 7：Addressables + 私人 R2
 → Android 下载/中断/离线缓存测试

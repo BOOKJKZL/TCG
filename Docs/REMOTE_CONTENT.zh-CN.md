@@ -56,6 +56,13 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 发布时启用 Build Remote Catalog，把远程组设为 `RemoteBuildPath/RemoteLoadPath`，构建后上传 bundle、catalog JSON 和 hash。Unity 官方说明远程 catalog 可以让应用不重新安装就发现更新，只下载变化的 bundle。
 
+## 当前 Android 私测路径
+
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 的 Android/IL2CPP 冒烟包约 51.6 MiB，包内私人内容条目为 0。
+- 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
+- 在阶段 6 下载 UI 完成前，可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
+- 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
+
 参考资料：
 
 - [Unity Addressables 远程内容说明](https://docs.unity3d.com/Packages/com.unity.addressables@1.21/manual/remote-content-intro.html)
