@@ -50,6 +50,16 @@ public class ApplicationServicesTests
         }
     }
 
+    private sealed class EmptyPackageRegistry : IInstalledContentPackageRegistry
+    {
+        public InstalledContentPackage Find(string packageId) => null;
+    }
+
+    private sealed class FixedStorageProbe : IContentStorageProbe
+    {
+        public long GetAvailableBytes() => 1024;
+    }
+
     [TearDown]
     public void TearDown()
     {
@@ -83,6 +93,20 @@ public class ApplicationServicesTests
         Assert.That(failed.ErrorMessage, Does.Contain("fixture unavailable"));
         Assert.That(recovered.Succeeded, Is.True);
         Assert.That(provider.Calls, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ApplicationServices_ExposesPackagePlannerAndResetClearsIt()
+    {
+        var catalog = new CatalogSession(new CatalogProvider(CreateCatalog("en")));
+        var languages = new LanguageSelectionService(new PreferenceStore("en", "en"), new[] { "en" });
+        var planner = new ContentPackagePlanner(new EmptyPackageRegistry(), new FixedStorageProbe(), 0);
+
+        ApplicationServices.Configure(catalog, languages, contentPackages: planner);
+
+        Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
+        ApplicationServices.Reset();
+        Assert.That(ApplicationServices.ContentPackages, Is.Null);
     }
 
     [Test]

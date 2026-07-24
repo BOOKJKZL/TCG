@@ -43,12 +43,16 @@ public static class GameApplicationBootstrap
         string contentRoot = ResolveContentRoot();
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(contentRoot));
         var images = new PrivateContentImageSource(contentRoot);
+        var contentPackages = new ContentPackagePlanner(
+            new FileSystemInstalledContentPackageRegistry(contentRoot),
+            new FileSystemContentStorageProbe(contentRoot));
         ApplicationServices.Configure(
             catalog,
             languages,
             images,
             new PokemonHistoricalRuleProvider(),
-            experienceSettings);
+            experienceSettings,
+            contentPackages);
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);
