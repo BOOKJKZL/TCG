@@ -183,6 +183,18 @@ namespace Gacha.Application
                     -1,
                     "The installed package registry returned a mismatched package id.");
             }
+            if (installed != null &&
+                !string.Equals(installed.InstallRelativePath, package.InstallRelativePath, StringComparison.Ordinal))
+            {
+                return Result(
+                    ContentInstallPlanStatus.InvalidPackage,
+                    ContentInstallAction.None,
+                    package,
+                    installed,
+                    0,
+                    -1,
+                    "An installed package cannot change its install path without an explicit migration.");
+            }
 
             ContentInstallAction action = ResolveAction(package, installed);
             if (action == ContentInstallAction.None)

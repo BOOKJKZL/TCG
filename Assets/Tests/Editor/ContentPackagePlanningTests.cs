@@ -137,6 +137,26 @@ public class ContentPackagePlanningTests
     }
 
     [Test]
+    public void Plan_InstalledPackageCannotSilentlyMoveToAnotherDirectory()
+    {
+        var registry = new Registry
+        {
+            Installed = Installed(revision: 3, sha256: HashA)
+        };
+        var storage = new Storage { Error = new InvalidOperationException("must not run") };
+        var planner = new ContentPackagePlanner(registry, storage);
+
+        ContentInstallPlan plan = planner.Plan(Package(
+            revision: 4,
+            sha256: HashB,
+            installRelativePath: "en/moved-base1"));
+
+        Assert.That(plan.Status, Is.EqualTo(ContentInstallPlanStatus.InvalidPackage));
+        Assert.That(plan.ErrorMessage, Does.Contain("explicit migration"));
+        Assert.That(storage.Calls, Is.Zero);
+    }
+
+    [Test]
     public void Plan_InvalidHash_IsRejectedBeforeReadingLocalState()
     {
         var registry = new Registry { Error = new InvalidOperationException("must not run") };

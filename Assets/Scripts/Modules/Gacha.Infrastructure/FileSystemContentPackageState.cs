@@ -44,6 +44,22 @@ namespace Gacha.Infrastructure.Content
                 receipt.Sha256);
         }
 
+        internal static string SerializeReceipt(InstalledContentPackage package)
+        {
+            if (package == null)
+                throw new ArgumentNullException(nameof(package));
+
+            return JsonConvert.SerializeObject(new ContentPackageReceiptDto
+            {
+                PackageId = package.PackageId,
+                InstallRelativePath = package.InstallRelativePath,
+                Revision = package.Revision,
+                Version = package.Version,
+                InstalledBytes = package.InstalledBytes,
+                Sha256 = package.Sha256
+            });
+        }
+
         private static bool IsSafePackageId(string value)
         {
             if (string.IsNullOrWhiteSpace(value) || value.Length > 128)
