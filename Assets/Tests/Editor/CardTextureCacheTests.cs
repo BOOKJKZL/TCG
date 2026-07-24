@@ -126,6 +126,26 @@ public class CardTextureCacheTests
         }
     }
 
+    [Test]
+    [Category("Performance")]
+    public async Task LoadAsync_LargeCollectionKeepsTextureWorkingSetAtCapacity()
+    {
+        var source = new ImageSource { ImmediateBytes = pngBytes };
+        using (var cache = new CardTextureCache(source, 32))
+        {
+            for (int index = 0; index < 256; index++)
+            {
+                CardTextureLoadResult result = await cache.LoadAsync(CreatePrinting($"large-{index}"));
+                Assert.That(result.Succeeded, Is.True);
+                Assert.That(cache.Count, Is.LessThanOrEqualTo(32));
+                Assert.That(cache.InFlightCount, Is.Zero);
+            }
+
+            Assert.That(source.Calls, Is.EqualTo(256));
+            Assert.That(cache.Count, Is.EqualTo(32));
+        }
+    }
+
     private static PrintingDefinition CreatePrinting(string id)
     {
         return new PrintingDefinition(

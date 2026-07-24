@@ -318,6 +318,8 @@ namespace Gacha.Application
         private readonly IInventoryProgressStore inventory;
         private readonly GachaEngine engine;
         private readonly string contentLanguageId;
+        private readonly Dictionary<string, ProductRuleProfile> profileCache =
+            new Dictionary<string, ProductRuleProfile>(StringComparer.Ordinal);
 
         public ProductOpeningService(
             UniversalCatalog catalog,
@@ -337,11 +339,17 @@ namespace Gacha.Application
 
         public ProductRuleProfile GetProfile(string productId)
         {
+            if (string.IsNullOrWhiteSpace(productId))
+                throw new ArgumentException("A product id is required.", nameof(productId));
+            if (profileCache.TryGetValue(productId, out ProductRuleProfile cached))
+                return cached;
+
             ProductRuleProfile profile = ruleProvider.GetProfile(catalog, productId, contentLanguageId);
             if (profile == null)
                 throw new InvalidOperationException("The product rule provider returned no profile.");
             if (!string.Equals(profile.Rules.ProductId, productId, StringComparison.Ordinal))
                 throw new InvalidOperationException("The product rule provider returned rules for another product.");
+            profileCache.Add(productId, profile);
             return profile;
         }
 

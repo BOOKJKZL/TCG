@@ -103,6 +103,19 @@ public class ProductOpeningApplicationTests
         }
     }
 
+    [Test]
+    public void OpeningService_CachesValidatedProfileAcrossRepeatedPacks()
+    {
+        Fixture fixture = CreateFixture();
+        var provider = new CountingRuleProvider(new UniformSimulationRuleProvider(3));
+        var service = new ProductOpeningService(fixture.Catalog, provider, new MemoryInventory());
+
+        for (int index = 0; index < 100; index++)
+            service.Open(fixture.Product.Id, new FixedRandom());
+
+        Assert.That(provider.CallCount, Is.EqualTo(1));
+    }
+
     private static Fixture CreateFixture()
     {
         var names = new Dictionary<string, string> { ["en"] = "Name" };
@@ -180,6 +193,24 @@ public class ProductOpeningApplicationTests
     {
         public double Value => 0d;
         public int Range(int minInclusive, int maxExclusive) => minInclusive;
+    }
+
+    private sealed class CountingRuleProvider : IProductRuleProvider
+    {
+        private readonly IProductRuleProvider inner;
+
+        public CountingRuleProvider(IProductRuleProvider inner)
+        {
+            this.inner = inner;
+        }
+
+        public int CallCount { get; private set; }
+
+        public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string languageId = null)
+        {
+            CallCount++;
+            return inner.GetProfile(catalog, productId, languageId);
+        }
     }
 
     private sealed class MemoryInventory : IInventoryProgressStore
