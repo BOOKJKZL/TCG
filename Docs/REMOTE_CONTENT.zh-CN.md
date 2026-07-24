@@ -55,6 +55,8 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 正式对象应使用不可变、带版本的 URL，例如把 Revision 或 SHA-256 放进对象名。当前下载收据还没有持久化 ETag/`If-Range`，因此不能在某台手机续传期间用新文件覆盖同一远程路径；最终 ZIP 仍会由安装器用 catalog 声明的 SHA-256 再校验一次。
 
+阶段 6C3 已把这项约束写入 schema v1 包清单：每个 archive URL 的路径必须包含完整 SHA-256，重复 Package ID、非法 descriptor、公开 HTTP、旧 revision 描述符和 `latest.zip` 类可变地址都会在下载前失败。`ContentPackageInstallCoordinator` 已串起规划、断点下载、原子安装与归档清理；真实 ZIP/HTTP fixture 已验证损坏更新保留旧内容，正确重下后才发布新收据。当前仍缺少正式 R2 catalog 的远程读取与鉴权配置。
+
 1. 启动 Addressables 并检查远程 catalog 更新。
 2. 使用 `GetDownloadSizeAsync(label)` 获取准确下载量。
 3. 检查 Wi-Fi、剩余空间并让用户确认。
@@ -66,7 +68,7 @@ Addressables bundle 与平台相关，因此 Android、iOS 和 Windows 必须分
 
 ## 当前 Android 私测路径
 
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C2 的 Android/IL2CPP 冒烟包约 74.8 MiB，413 个 APK 条目中私人内容匹配为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，阶段 7 必须结合 IL2CPP stripping、Addressables 和构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
+- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 6C3 的 Android/IL2CPP 冒烟包约 74.8 MiB，413 个 APK 条目中私人内容匹配为 0。它比阶段 5C 的 51.6 MiB 增长约 23.2 MiB，阶段 7 必须结合 IL2CPP stripping、Addressables 和构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - 在阶段 6 下载 UI 完成前，可连接一台已授权 Android 设备并运行 `Tools/Android/install_smoke_content.ps1`：脚本安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。

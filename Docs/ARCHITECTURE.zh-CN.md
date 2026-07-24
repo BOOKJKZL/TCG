@@ -48,6 +48,7 @@ Gacha.Editor
 - `IContentStorageProbe`：安装决策只读取可用字节，不依赖 Android 或桌面存储 API。
 - `IContentPackageInstaller`：Application 只接收结构化安装结果；ZIP、staging、目录替换、收据和回滚细节留在 Infrastructure。
 - `IContentPackageTransfer` / `IContentPackageByteSource`：Application 管理暂停、重试和失败事件；Infrastructure 管理 `.part/.zip` 与本机或 HTTP 字节流。
+- `ContentPackageCatalog` / `IContentPackageInstallCoordinatorFactory`：版本化清单同时充当严格 URI resolver；Presentation 通过工厂取得单包协调器，不直接排列规划、传输和安装调用。
 
 ## 通用数据模型现状与下一步
 
@@ -61,7 +62,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C2 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存和严格 HTTP Range 字节源；下一步是版本化内容 catalog 与协调器，再接 R2/Addressables 和玩家界面。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C3 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog 与协调器；下一步是带动画、音效、本地化和主线程派发的玩家内容管理页面，再接 R2/Addressables。
 
 ## 两阶段路线
 
