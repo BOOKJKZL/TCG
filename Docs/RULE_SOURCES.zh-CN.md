@@ -2,7 +2,7 @@
 
 最后更新：2026-07-25
 
-本文件记录每一份 `HistoricallyVerified` 规则的证据、实现边界和不能推断的内容。没有列在这里的产品必须继续标记为 `Simulated`。
+本文件记录每一份 `HistoricallyVerified` 或 `SourceInformedSimulation` 规则的证据、实现边界和不能推断的内容。没有列在这里的产品必须继续标记为 `Simulated`。
 
 ## Base Set Unlimited（英文）
 
@@ -88,3 +88,34 @@
 - 6.5/36 和 3/36 是对来源“6–7 张”与“约 3 张”的可重复模拟换算，不表示每盒固定命中这些数量。
 - 剩余 26.5/36 归入 Non-Holo Rare，使 Rare 槽类别权重合计为 36；类别内部仍按本机 manifest 中的 Printing 等权抽取。
 - 当前实现不复刻工厂印刷序列、整盒固定位置、Wrapper 映射或 Pokémon-ex 的官方插入算法；获得更多一手资料后应建立新版本 Profile，而不是静默改写本 Profile。
+
+## Sword & Shield Base（国际英文版）
+
+规则 Profile：`pokemon-swsh1-sourced-simulation-v1`
+
+实现范围：
+
+- 模拟器每包记录 10 张可收藏系列卡：5 Common、3 Uncommon、1 Reverse Holo、1 Rare。
+- 实体包的 Basic Energy 和 code card 不在 swsh1 系列 manifest 中，当前作为非收藏插入物明确省略，不用错误系列卡代替。
+- Rare 槽权重为 Non-Holo Rare 59.52%、常规 Holo Rare 18.20%、Holo Rare V 14.20%、Holo Rare VMAX 2.20%、Ultra Rare 3.74%、Rainbow/Secret Rare 合计 2.14%。
+- 本机卡池边界为 60 Common、56 Uncommon、164 Reverse、32 Non-Holo Rare、17 常规 Holo Rare、17 Holo Rare V、4 Holo Rare VMAX、16 Ultra Rare 和 14 Rainbow/Secret Rare。
+- 只使用英文、非 `first-edition`、非 `w-promo` 的印刷版本。
+
+来源：
+
+1. Pokémon Support 的 booster 说明：<https://support.pokemon.com/hc/en-us/articles/360000981613-What-can-I-expect-in-a-Pok%C3%A9mon-Trading-Card-Game-booster-pack>
+   - 官方明确说明 Scarlet & Violet 之前的系列每包至少保证 1 张 Reverse foil。
+   - 官方不保证某个具体角色或高稀有度类型会在指定卡包出现。
+2. Elite Fourum 的英文开包汇总：<https://www.elitefourum.com/t/pull-rates-in-sun-moon-sword-shield-sets/25220>
+   - Sword & Shield Base 样本为 4,628 包，数据来自英文开包视频汇总。
+   - 样本记录 Ultra Rare 3.74%、Holo Rare V 14.20%、Holo Rare VMAX 2.20%、Rainbow Rare 1.23%、Secret Rare 0.91%。
+3. CardCodex 的 Sword & Shield Base 资料页：<https://cardcodex.com/pokemon/sword-shield/sword-shield-base/>
+   - 资料页列出 5 Common、3 Uncommon、1 Energy，以及 Reverse 与 Rare 类别的逐包估算。
+   - 卡表将 #34 与 #35 Cinderace 列为 Holo Rare，可用于校正当前 TCGdex manifest 把它们误标成 Holo Rare VMAX 的资料异常。
+
+可信度说明：
+
+- 本 Profile 为 `SourceInformedSimulation + Corroborated`，不是 `HistoricallyVerified`：官方资料只覆盖 Reverse 保证等边界，高稀有度权重来自开包样本和第三方资料。
+- Non-Holo Rare 59.52% 是从 100% 扣除其余已列 Rare 类别后的剩余权重；CardCodex 的常规 Holo 18.20% 与 Elite Fourum 的高稀有度样本共同构成模拟，不代表官方插入率。
+- TCGdex 将 Rainbow 与 Gold Secret 都映射为 `Secret Rare`，因此当前把 1.23% 与 0.91% 合并成 2.14%，再在 14 张本机 Printing 内等权抽取。
+- 当前不实现整盒固定命中数、印刷批次、code card 颜色映射或同稀有度卡牌的工厂权重；取得一手资料前不得升级为 `HistoricallyVerified`。
