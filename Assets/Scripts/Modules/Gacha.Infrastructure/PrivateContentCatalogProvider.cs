@@ -8,11 +8,13 @@ namespace Gacha.Infrastructure.Content
         private readonly string contentRoot;
         private readonly string gameId;
         private readonly string gameDisplayName;
+        private readonly IImportedCardVariantPolicy variantPolicy;
 
         public PrivateContentCatalogProvider(
             string contentRoot,
             string gameId = "pokemon-tcg",
-            string gameDisplayName = "Pokémon Trading Card Game")
+            string gameDisplayName = "Pokémon Trading Card Game",
+            IImportedCardVariantPolicy variantPolicy = null)
         {
             if (string.IsNullOrWhiteSpace(contentRoot))
                 throw new ArgumentException("Content root cannot be empty.", nameof(contentRoot));
@@ -20,12 +22,13 @@ namespace Gacha.Infrastructure.Content
             this.contentRoot = contentRoot;
             this.gameId = gameId;
             this.gameDisplayName = gameDisplayName;
+            this.variantPolicy = variantPolicy;
         }
 
         public CatalogLoadResult Load()
         {
             var documents = new PrivateContentManifestReader().LoadDirectory(contentRoot);
-            PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter().Build(
+            PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter(variantPolicy).Build(
                 documents,
                 gameId,
                 gameDisplayName);

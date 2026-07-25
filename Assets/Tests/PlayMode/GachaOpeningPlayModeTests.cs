@@ -108,19 +108,26 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
                     Is.EqualTo(3));
 
-                int simulatedIndex = productList.itemsSource.Cast<ProductDefinition>()
+                int scarletVioletIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
                     .Single(pair => pair.product.SetId.EndsWith(":sv01", StringComparison.Ordinal))
                     .index;
-                productList.SetSelection(simulatedIndex);
+                productList.SetSelection(scarletVioletIndex);
                 yield return null;
-                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("Simulated"));
-                Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(), Is.EqualTo("Unverified"));
-                Assert.That(document.rootVisualElement.Q<Label>("rule-badge").text, Is.EqualTo("SIMULATION"));
+                Assert.That((string)GetProperty(controller, "SelectedRuleProfileId"),
+                    Is.EqualTo("pokemon-sv01-sourced-simulation-v1"));
+                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(),
+                    Is.EqualTo("SourceInformedSimulation"));
+                Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(),
+                    Is.EqualTo("Corroborated"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-badge").text,
+                    Is.EqualTo("SOURCED SIMULATION"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-notice").text,
+                    Does.Contain("4 Common").And.Contain("2 foil slots"));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
-                    Is.EqualTo("Region and historical collation are unverified."));
+                    Does.Contain("Corroborated").And.Contain("2026-07-25"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
-                    Is.EqualTo(0));
+                    Is.EqualTo(2));
 
                 int baseIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })

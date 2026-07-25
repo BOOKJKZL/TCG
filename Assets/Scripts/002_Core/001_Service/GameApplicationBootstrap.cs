@@ -45,7 +45,9 @@ public static class GameApplicationBootstrap
         var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh" });
         var experienceSettings = new ExperienceSettingsService(new PlayerPrefsExperienceSettingsStore());
         string contentRoot = ResolveContentRoot();
-        var catalog = new CatalogSession(new PrivateContentCatalogProvider(contentRoot));
+        var catalog = new CatalogSession(new PrivateContentCatalogProvider(
+            contentRoot,
+            variantPolicy: new PokemonImportedCardVariantPolicy()));
         var images = new PrivateContentImageSource(contentRoot);
         var contentPackages = new ContentPackagePlanner(
             new FileSystemInstalledContentPackageRegistry(contentRoot),

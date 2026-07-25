@@ -198,7 +198,7 @@ public class PokemonHistoricalRuleProviderTests
         string contentRoot = Path.Combine(Directory.GetCurrentDirectory(), "LocalContent", "Imports");
         if (!Directory.Exists(contentRoot))
             Assert.Ignore("Private LocalContent fixture is not installed on this machine.");
-        return new PrivateManifestCatalogAdapter()
+        return new PrivateManifestCatalogAdapter(new PokemonImportedCardVariantPolicy())
             .Build(new PrivateContentManifestReader().LoadDirectory(contentRoot))
             .Catalog;
     }

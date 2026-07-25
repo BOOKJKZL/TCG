@@ -19,7 +19,9 @@ public class GameplayPerformanceTests
     {
         string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
         string contentRoot = Path.Combine(projectRoot, "LocalContent", "Imports");
-        CatalogLoadResult loaded = new PrivateContentCatalogProvider(contentRoot).Load();
+        CatalogLoadResult loaded = new PrivateContentCatalogProvider(
+            contentRoot,
+            variantPolicy: new PokemonImportedCardVariantPolicy()).Load();
         Assert.That(loaded.Succeeded, Is.True, loaded.ErrorMessage);
         Assert.That(loaded.Catalog.Products.Count, Is.EqualTo(5));
 

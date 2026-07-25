@@ -8,6 +8,11 @@ using Gacha.Domain;
 
 namespace Gacha.Infrastructure.Content
 {
+    public interface IImportedCardVariantPolicy
+    {
+        ImportedCardVariantsDto Resolve(string setId, ImportedCardDto card);
+    }
+
     public sealed class PrivateCatalogImportResult
     {
         public PrivateCatalogImportResult(
@@ -31,6 +36,13 @@ namespace Gacha.Infrastructure.Content
 
     public sealed class PrivateManifestCatalogAdapter
     {
+        private readonly IImportedCardVariantPolicy variantPolicy;
+
+        public PrivateManifestCatalogAdapter(IImportedCardVariantPolicy variantPolicy = null)
+        {
+            this.variantPolicy = variantPolicy;
+        }
+
         private class NamedAccumulator
         {
             public readonly Dictionary<string, string> Names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -146,7 +158,9 @@ namespace Gacha.Infrastructure.Content
                     }
                     rarity.Names[languageId] = ValueOrFallback(card.Rarity, "Unspecified");
 
-                    foreach (VariantDescriptor descriptor in ExpandVariants(card.Variants))
+                    ImportedCardVariantsDto resolvedVariants =
+                        variantPolicy?.Resolve(manifest.Set.Id, card) ?? card.Variants;
+                    foreach (VariantDescriptor descriptor in ExpandVariants(resolvedVariants))
                     {
                         string variantId = Id(gameId, "variant", descriptor.Id);
                         if (!variants.TryGetValue(variantId, out VariantAccumulator variant))

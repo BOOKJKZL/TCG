@@ -16,6 +16,10 @@ namespace Gacha.Infrastructure.Rules
             "https://www.elitefourum.com/t/pull-rates-in-sun-moon-sword-shield-sets/25220";
         public const string CardCodexPullRateUrl =
             "https://cardcodex.com/pokemon/sword-shield/sword-shield-base/";
+        public const string ScarletVioletSetId = "pokemon-tcg:set:sv01";
+        public const string ScarletVioletProfileId = "pokemon-sv01-sourced-simulation-v1";
+        public const string TcgPlayerScarletVioletPullRateUrl =
+            "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Scarlet-Violet-Pull-Rates/a7702fce-dd64-4a58-beb1-0f871c853215/";
 
         private static readonly DateTime EvidenceCheckedOn = new DateTime(2026, 7, 25);
 
@@ -30,9 +34,11 @@ namespace Gacha.Infrastructure.Rules
                 throw new ArgumentException($"Unknown product '{productId}'.", nameof(productId));
             if (!string.Equals(languageId, "en", StringComparison.OrdinalIgnoreCase))
                 return null;
-            return string.Equals(product.SetId, SwordShieldSetId, StringComparison.Ordinal)
-                ? BuildSwordShieldBase(catalog, product)
-                : null;
+            if (string.Equals(product.SetId, SwordShieldSetId, StringComparison.Ordinal))
+                return BuildSwordShieldBase(catalog, product);
+            if (string.Equals(product.SetId, ScarletVioletSetId, StringComparison.Ordinal))
+                return BuildScarletVioletBase(catalog, product);
+            return null;
         }
 
         private static ProductRuleProfile BuildSwordShieldBase(
@@ -115,6 +121,90 @@ namespace Gacha.Infrastructure.Rules
                 Descriptions(
                     "Sword & Shield sourced simulation · 5 Common / 3 Uncommon / 1 Reverse / 1 Rare · 10 collected set cards; Basic Energy and code inserts omitted",
                     "剑与盾有来源模拟 · 5 普通 / 3 非普通 / 1 反向闪 / 1 稀有 · 收藏 10 张系列卡；不计基础能量与代码卡插入物"));
+        }
+
+        private static ProductRuleProfile BuildScarletVioletBase(
+            UniversalCatalog catalog,
+            ProductDefinition product)
+        {
+            PrintingDefinition[] eligible = product.EligiblePrintingIds
+                .Select(id => catalog.Printings[id])
+                .Where(printing =>
+                    string.Equals(printing.Identity.LanguageId, "en", StringComparison.OrdinalIgnoreCase) &&
+                    !HasTrait(catalog, printing, "first-edition") &&
+                    !HasTrait(catalog, printing, "w-promo"))
+                .ToArray();
+            PrintingDefinition[] commons = eligible.Where(printing =>
+                IsRarity(printing, "common") && HasTrait(catalog, printing, "normal")).ToArray();
+            PrintingDefinition[] uncommons = eligible.Where(printing =>
+                IsRarity(printing, "uncommon") && HasTrait(catalog, printing, "normal")).ToArray();
+            PrintingDefinition[] standardReverses = eligible.Where(printing =>
+                HasTrait(catalog, printing, "reverse") &&
+                (IsRarity(printing, "common") ||
+                 IsRarity(printing, "uncommon") ||
+                 IsRarity(printing, "rare"))).ToArray();
+            PrintingDefinition[] regularRares = eligible.Where(printing =>
+                IsRarity(printing, "rare") && HasTrait(catalog, printing, "holo")).ToArray();
+            PrintingDefinition[] doubleRares = eligible.Where(printing =>
+                IsRarity(printing, "double-rare") && HasTrait(catalog, printing, "holo")).ToArray();
+            PrintingDefinition[] ultraRares = eligible.Where(printing =>
+                IsRarity(printing, "ultra-rare") && HasTrait(catalog, printing, "holo")).ToArray();
+            PrintingDefinition[] illustrationRares = eligible.Where(printing =>
+                IsRarity(printing, "illustration-rare") && HasTrait(catalog, printing, "holo")).ToArray();
+            PrintingDefinition[] specialIllustrationRares = eligible.Where(printing =>
+                IsRarity(printing, "special-illustration-rare") && HasTrait(catalog, printing, "holo")).ToArray();
+            PrintingDefinition[] hyperRares = eligible.Where(printing =>
+                IsRarity(printing, "hyper-rare") && HasTrait(catalog, printing, "holo")).ToArray();
+
+            RequireCount(commons, 105, "Scarlet & Violet Common");
+            RequireCount(uncommons, 60, "Scarlet & Violet Uncommon");
+            RequireCount(standardReverses, 186, "Scarlet & Violet standard Reverse Holo");
+            RequireCount(regularRares, 21, "Scarlet & Violet regular Holo Rare");
+            RequireCount(doubleRares, 12, "Scarlet & Violet Double Rare");
+            RequireCount(ultraRares, 20, "Scarlet & Violet Ultra Rare");
+            RequireCount(illustrationRares, 24, "Scarlet & Violet Illustration Rare");
+            RequireCount(specialIllustrationRares, 10, "Scarlet & Violet Special Illustration Rare");
+            RequireCount(hyperRares, 6, "Scarlet & Violet Hyper Rare");
+
+            string prefix = product.Id + ":sourced:sv01";
+            var commonPool = Pool(prefix + ":pool:common", commons);
+            var uncommonPool = Pool(prefix + ":pool:uncommon", uncommons);
+            var firstReversePool = Pool(prefix + ":pool:first-reverse", standardReverses);
+            var secondFoilEntries = WeightedGroup(standardReverses, 87.33d)
+                .Concat(WeightedGroup(illustrationRares, 7.67d))
+                .Concat(WeightedGroup(specialIllustrationRares, 3.15d))
+                .Concat(WeightedGroup(hyperRares, 1.85d));
+            var secondFoilPool = new WeightedPool(prefix + ":pool:second-foil", secondFoilEntries);
+            var rareEntries = WeightedGroup(regularRares, 79.67d)
+                .Concat(WeightedGroup(doubleRares, 13.76d))
+                .Concat(WeightedGroup(ultraRares, 6.57d));
+            var rarePool = new WeightedPool(prefix + ":pool:rare", rareEntries);
+            var rules = new ProductDrawRules(
+                product.Id,
+                new[] { commonPool, uncommonPool, firstReversePool, secondFoilPool, rarePool },
+                new[]
+                {
+                    new SlotRule(prefix + ":slot:common", commonPool.Id, 4, 0, false),
+                    new SlotRule(prefix + ":slot:uncommon", uncommonPool.Id, 3, 4, false),
+                    new SlotRule(prefix + ":slot:first-reverse", firstReversePool.Id, 1, 7, false),
+                    new SlotRule(prefix + ":slot:second-foil", secondFoilPool.Id, 1, 8, false),
+                    new SlotRule(prefix + ":slot:rare", rarePool.Id, 1, 9, false)
+                });
+            return new ProductRuleProfile(
+                ScarletVioletProfileId,
+                rules,
+                ProductRuleTrust.SourceInformedSimulation,
+                ProductRuleConfidence.Corroborated,
+                PokemonHistoricalRuleProvider.InternationalRegionId,
+                Regions("International English market", "国际英文市场"),
+                new[]
+                {
+                    Evidence("Official Pokémon booster support", OfficialBoosterSupportUrl),
+                    Evidence("TCGplayer 8,000+ pack pull-rate study", TcgPlayerScarletVioletPullRateUrl)
+                },
+                Descriptions(
+                    "Scarlet & Violet sourced simulation · 4 Common / 3 Uncommon / 2 foil slots / 1 Rare-or-higher · 10 collected set cards; Basic Energy and code inserts omitted",
+                    "朱与紫有来源模拟 · 4 普通 / 3 非普通 / 2 闪卡位 / 1 稀有以上 · 收藏 10 张系列卡；不计基础能量与代码卡插入物"));
         }
 
         private static WeightedPool Pool(string id, IEnumerable<PrintingDefinition> printings)
