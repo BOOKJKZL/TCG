@@ -119,3 +119,32 @@
 - Non-Holo Rare 59.52% 是从 100% 扣除其余已列 Rare 类别后的剩余权重；CardCodex 的常规 Holo 18.20% 与 Elite Fourum 的高稀有度样本共同构成模拟，不代表官方插入率。
 - TCGdex 将 Rainbow 与 Gold Secret 都映射为 `Secret Rare`，因此当前把 1.23% 与 0.91% 合并成 2.14%，再在 14 张本机 Printing 内等权抽取。
 - 当前不实现整盒固定命中数、印刷批次、code card 颜色映射或同稀有度卡牌的工厂权重；取得一手资料前不得升级为 `HistoricallyVerified`。
+
+## Scarlet & Violet Base（国际英文版）
+
+规则 Profile：`pokemon-sv01-sourced-simulation-v1`
+
+实现范围：
+
+- 模拟器每包记录 10 张可收藏系列卡：4 Common、3 Uncommon、1 个第一闪卡位、1 个第二闪卡位和 1 个 Rare-or-higher 槽。
+- 实体包额外包含的 Basic Energy 和 code card 不在 sv01 收藏 manifest 中，当前作为非收藏插入物明确省略。
+- 第一闪卡位从 Common、Uncommon、Rare 的标准 Reverse Printing 中抽取。
+- 第二闪卡位权重为标准 Reverse 87.33%、Illustration Rare 7.67%、Special Illustration Rare 3.15%、Hyper Rare 1.85%。
+- Rare-or-higher 槽权重为常规 Holo Rare 79.67%、Double Rare 13.76%、Ultra Rare 6.57%。
+- `PokemonImportedCardVariantPolicy` 只在运行时补正 sv01 的实体闪卡形态，不改写私人原始 manifest；本系列因此形成 444 个可抽取 Printing：105 Common normal、60 Uncommon normal、186 个标准 Reverse、21 Holo Rare、12 Double Rare、20 Ultra Rare、24 Illustration Rare、10 Special Illustration Rare 和 6 Hyper Rare。
+
+来源：
+
+1. Pokémon Support 的 booster 说明：<https://support.pokemon.com/hc/en-us/articles/360000981613-What-can-I-expect-in-a-Pok%C3%A9mon-Trading-Card-Game-booster-pack>
+   - 官方说明 Scarlet & Violet 系列每包包含 4 Common、3 Uncommon 和 3 张 foil，其中至少 1 张为 Rare 或更高稀有度；另有 1 张 Basic Energy 与 1 张 code card。
+   - 官方没有公开各高稀有度在三个闪卡位中的精确插入率。
+2. TCGplayer 的 Scarlet & Violet 开包研究：<https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Scarlet-Violet-Pull-Rates/a7702fce-dd64-4a58-beb1-0f871c853215/>
+   - 样本超过 8,000 包，记录 Double Rare 13.76%、Ultra Rare 6.57%、Illustration Rare 7.67%、Special Illustration Rare 3.15%、Hyper Rare 1.85%。
+   - 研究把 Illustration Rare、Special Illustration Rare 与 Hyper Rare 归入第二个 Reverse/foil 位置，把 Double Rare 与 Ultra Rare 归入 Rare 位置；当前权重按这两个位置分别归一。
+
+可信度说明：
+
+- 本 Profile 为 `SourceInformedSimulation + Corroborated`，不是 `HistoricallyVerified`：槽位数量有官方边界，高稀有度概率来自大样本开包研究。
+- 标准 Reverse 87.33% 与常规 Holo Rare 79.67% 分别是对应卡位扣除已列高稀有度概率后的剩余权重，不是 Pokémon 官方公开的插入率。
+- 同一类别内的 Printing 当前等权抽取；不实现工厂印刷序列、批次差异、整盒固定命中、同稀有度个体权重或 foil 图案差异。
+- 若未来取得更权威或分地区资料，应新建版本化 Profile；不得静默把本模拟升级成历史已验证规则。

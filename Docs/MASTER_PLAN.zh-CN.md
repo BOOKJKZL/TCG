@@ -2,7 +2,7 @@
 
 最后更新：2026-07-25
 
-本次修改原因：在真实 R2 与真机条件尚未提供时继续阶段 8B，并完成 Sword & Shield Base 的来源指导模拟。现有五个测试系列已有三套历史规则、一套已佐证来源模拟和一套纯模拟；玩家界面现在能明确区分这三种可信度，不会把开包样本概率冒充官方配列。
+本次修改原因：在真实 R2 与真机条件尚未提供时继续阶段 8B，并完成 Scarlet & Violet Base 的来源指导模拟与运行时 foil 形态补正。现有五个测试系列已有三套历史规则和两套已佐证来源模拟；通用均匀模拟仍作为未知内容的明确后备方案，不会把开包样本概率冒充官方配列。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,9 +72,9 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 214/214 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 215/215 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
-- 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
+- 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
 - UI 与卡牌内容语言已经分离，设置场景提供两个独立选择器、回退提示、持久化、淡入动画和确认音效。
 - Android 桌面应用名已接入同一套 Unity Localization，英文为 “Universal Gacha Simulator”、简体中文为“万能抽卡模拟器”；Seeder 会幂等恢复 App Info 元数据和稳定 GUID/ID 引用。
@@ -89,11 +89,12 @@ AccessibilitySettings
 - 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
 - 英文 EX Ruby & Sapphire 已接入第三份 `HistoricallyVerified + Corroborated` 配列：5 Common、2 Uncommon、1 Reverse Holo、1 Rare；Rare 槽使用可追溯的整盒经验比例，并明确不声称官方工厂序列。
 - 英文 Sword & Shield Base 已接入 `SourceInformedSimulation + Corroborated`：10 张可收藏系列卡、保证 Reverse 槽和六类 Rare 权重均有来源边界；实体 Basic Energy/code card 明确作为非收藏插入物省略。
+- 英文 Scarlet & Violet Base 已接入 `SourceInformedSimulation + Corroborated`：4 Common、3 Uncommon、两个独立 foil 槽与一个 Rare-or-higher 槽；官方包结构和超过 8,000 包样本分别限定槽位与权重，Basic Energy/code card 作为非收藏插入物省略。
 - 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 62.2 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
-- 连续开 500 包/5200 张卡约 0.157 秒，本轮托管内存净增长为 0 MiB，低于 32 MiB 验收阈值；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,503,774 bytes（约 51.98 MiB），ZIP 空洞仅 77 KB。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
+- 连续开 500 包/5100 张卡约 0.075 秒，本轮托管内存净增长约 0.063 MiB，低于 32 MiB 验收阈值；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,507,485 bytes（约 51.98 MiB），ZIP 容器开销为 77,410 bytes。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
 - 抽卡、收藏、设置、旧 UGUI 本地化、内容管理、远程 catalog 和场景切换 PlayMode 测试为 7/7 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -114,12 +115,12 @@ AccessibilitySettings
 
 尚未完成：
 
-- Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
+- 已接入系列的来源模拟仍可在取得更权威资料后版本化精炼；未知产品继续明确使用等概率模拟规则。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
-- 宝可梦不同年代的真实卡包配列规则。
+- 宝可梦不同年代的包装、开包动画、光效与音效主题适配。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 82%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 84%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环，阶段 8 下一重点转向年代主题表现。
 
 ## 四、阶段计划
 
@@ -205,7 +206,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 2：通用抽卡规则
 
-状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited、Neo Genesis First Edition 与 EX Ruby & Sapphire 为三份历史规则，Sword & Shield Base 为一份来源指导模拟（2026-07-25），Scarlet & Violet 待验证。
+状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited、Neo Genesis First Edition 与 EX Ruby & Sapphire 为三份历史规则，Sword & Shield Base 与 Scarlet & Violet Base 为两份来源指导模拟（2026-07-25）。
 
 目标：让抽卡引擎适用于不同游戏、产品和年代。
 
@@ -250,7 +251,7 @@ Game + Set + CardNumber + Language + Variant
 - `ProductRuleProfile` 可携带中英规则说明和地区名，并为每个 HTTPS 证据保存标题与核验日期；开包界面会直接显示版本、槽位、可信度、核验日期和全部来源入口，不需要通过宝可梦专用 UI 判断 Profile。
 - Neo 来源只说明 7 张 Common，未说明独立能量槽，因此当前 Common 池包含基础能量但不保证每包能量；Unlimited 与精确印刷序列继续保持未验证。
 - 已知限制：引擎具备 `GuaranteeRule`，但均匀模拟配置没有历史保底、变体或真实配列；不能把“引擎支持保底”描述成“当前运行时卡包已配置保底”。
-- 下一条设备切片：连接 Android 真机运行已生成的 APK 与私人内容推送脚本。真实 R2 和真机仍等待外部参数；等待期间继续调查 Scarlet & Violet，证据不足的部分保持模拟标记。
+- 下一条设备切片：连接 Android 真机运行已生成的 APK 与私人内容推送脚本。真实 R2 和真机仍等待外部参数；等待期间转入不同年代共用契约下的包装、开包动画和音效主题适配。
 
 ### 阶段 3：双层语言系统
 
@@ -295,7 +296,7 @@ Content Language  卡名、卡图、系列和产品
 - 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
 - `LegacySceneTextLocalizer` 以场景级映射覆盖主菜单四个入口及设置、开包、收藏三个旧 UGUI 标题，不改动旧场景序列化引用；动态面板中的空 TMP 文本会被安全忽略。新增 5 个菜单/设置键，开始场景没有静态文字，关闭按钮 `X` 不需要翻译。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 214/214、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,503,774 bytes（约 51.98 MiB）、413 个条目且私人内容名称匹配为 0。
+- 截至本次补强，全项目 EditMode 215/215、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,507,485 bytes（约 51.98 MiB）、413 个条目且私人内容名称匹配为 0。
 - 已加入 62.2 KB、227 个 UI codepoint 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；新增中文后必须继续重新生成子集。
 
 ### 阶段 4：接入私人导入内容
@@ -328,7 +329,7 @@ Content Language  卡名、卡图、系列和产品
 - `PrivateContentManifestReader` 会递归读取已安装内容并检查 Schema、语言和系列基本字段。
 - `PrivateManifestCatalogAdapter` 会聚合多语言名称、系列、卡牌、稀有度、变体、印刷版本和模拟卡包产品。
 - 普通、反向闪、闪卡与第一版等标记会展开成独立 `PrintingIdentity`，收藏可以分别计数。
-- 本机集成验证：5 个 manifest、796 张来源卡、12 种稀有度、1278 个印刷版本、0 个导入警告，所有图片路径存在。
+- 本机原始资料集成验证：5 个 manifest、796 张来源卡、12 种稀有度、1278 个印刷版本、0 个导入警告，所有图片路径存在；宝可梦适配策略在运行时另将 sv01 的实体 foil 形态补正为总 Catalog 1462 个 Printing，不回写来源文件。
 - `PrivateContentImageSource` 只允许读取安装目录内的相对路径，异步返回图片字节并验证 manifest SHA-256；缺图、越界路径和损坏文件会返回可区分状态。
 - `CardTextureCache` 会合并相同卡图的并发请求，以容量 32 的 LRU 释放淘汰纹理；调用方取消不会误杀其他共享请求。
 - `AsyncCardImageView` 提供加载脉冲、双语失败提示和手动重试，虚拟化列表复用行时会取消并忽略过期结果，错误音效不会连续轰炸玩家。
@@ -339,7 +340,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 5：本地游戏闭环
 
-状态：存档、统一反馈、已安装内容浏览、三套历史规则、一套来源模拟、模拟单包闭环、收藏库存和阶段 5C 自动化均已完成；Android/IL2CPP 构建冒烟通过，真机设备验收待连接手机执行。
+状态：存档、统一反馈、已安装内容浏览、三套历史规则、两套来源模拟、通用模拟后备、单包闭环、收藏库存和阶段 5C 自动化均已完成；Android/IL2CPP 构建冒烟通过，真机设备验收待连接手机执行。
 
 目标：完成第一版真正可玩的离线模拟器。
 
@@ -379,7 +380,7 @@ Content Language  卡名、卡图、系列和产品
 - 所有等待、成功、失败和缺图路径都有视觉与声音反馈。
 - 完成记录（2026-07-23）：五个已安装产品可选择；界面明确显示模拟规则和按稀有度汇总的平均概率；撕包、逐张翻卡、结果总结、卡图加载、声音、震动、新卡标记和本地保存均已接通。
 - 自动化验收：全量 EditMode 45/45、PlayMode 3/3；开包流程会先完整验证 Base Set，再切换到 Neo Genesis 并确认 11 张结果全部为第一版 Printing。
-- 已完成 Base Set Unlimited、Neo Genesis First Edition 与 EX Ruby & Sapphire 三份历史 Profile，以及 Sword & Shield Base 来源指导模拟；当前五个本机系列中三套为历史规则、一套为来源模拟、一套继续明确标记为纯模拟。
+- 已完成 Base Set Unlimited、Neo Genesis First Edition 与 EX Ruby & Sapphire 三份历史 Profile，以及 Sword & Shield Base、Scarlet & Violet Base 两份来源指导模拟；当前五个本机系列均有各自 Profile，通用纯模拟仍用于未来未知内容。
 
 #### 阶段 5B：收藏体验
 
@@ -402,7 +403,7 @@ Content Language  卡名、卡图、系列和产品
 - Application 层 `ExperienceSettingsService` 管理静音、减少动态、震动和动画速度，PlayerPrefs 适配器负责移动端持久化；保存失败保持旧状态且不发布变更。
 - 设置场景新增四个双语控件、即时预览、保存状态、按下动画、确认音效和启用震动时的单次预览。
 - 开包场景新增 `Reveal All / 查看全部`，跳过剩余逐张揭晓动画后直接生成完整结果列表，不重复播放每张卡的声音或震动。
-- `ProductOpeningService` 缓存已经验证的规则 Profile；真实五系列连续开 500 包/5200 张卡约 0.157 秒，本轮托管内存净增长为 0 MiB，低于 32 MiB 阈值。
+- `ProductOpeningService` 缓存已经验证的规则 Profile；当前真实五系列连续开 500 包/5100 张卡约 0.075 秒，本轮托管内存净增长约 0.063 MiB，低于 32 MiB 阈值。
 - 1 万卡库存快照往返约 0.027 秒、JSON 约 464 KB；256 张卡图压力测试始终保持 32 张 LRU 上限。
 - 三轮开包/收藏/设置场景切换约 4.4 秒，热身后托管内存净增长约 0.137 MiB，旧场景 Controller 不会残留。
 - 中文 UI 当前使用 62.2 KB 修改字体子集，EditMode 会检查 String Table 与代码中文，PlayMode 强制切换中文并拒绝缺字日志。
@@ -618,7 +619,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 8：宝可梦适配层
 
-状态：8A 规则证据基础层已完成；8B 的 EX Ruby & Sapphire 历史规则和 Sword & Shield Base 来源指导模拟均已完成（2026-07-25）。五个测试系列中三套为历史规则、一套为来源模拟，Scarlet & Violet 仍待研究和实现。
+状态：8A 规则证据基础层已完成；8B 的 EX Ruby & Sapphire 历史规则、Sword & Shield Base 与 Scarlet & Violet Base 来源指导模拟均已完成（2026-07-25）。五个测试系列中三套为历史规则、两套为来源模拟，规则验收已覆盖全部现有系列；下一步为年代主题表现。
 
 目标：在通用系统上提供不同年代和地区的宝可梦卡包。
 
@@ -649,6 +650,9 @@ Content Language  卡名、卡图、系列和产品
 - TCGdex 对 #34/#35 Cinderace 的 VMAX 错标在规则适配层显式修正，不改写私人原始 manifest；实体 Basic Energy 与 code card 因不属于 swsh1 收藏 manifest 而明确省略。
 - 玩家界面新增蓝色“来源模拟规则 / SOURCED SIMULATION”第三状态；来源按钮继续使用统一按压动画与确认音效，纯模拟和历史已验证状态仍分别保留。
 - Sword & Shield 规则定向 EditMode 2/2、开包场景 PlayMode 1/1、全量 EditMode 214/214、PlayMode 7/7 通过；500 包/5200 张性能回归通过，Android/IL2CPP 干净 APK 为 54,503,774 bytes（51.98 MiB）、413 个条目、私人内容名称匹配 0。
+- Scarlet & Violet Base 按官方边界实现 4 Common、3 Uncommon、第一 Reverse、第二 foil 与 Rare-or-higher 共 10 张可收藏系列卡；第二 foil 槽和 Rare-or-higher 槽分别按超过 8,000 包研究归一，不把样本权重声明为官方插入率。
+- `PokemonImportedCardVariantPolicy` 在 Catalog 适配边界为 sv01 补正 normal/reverse/holo Printing，使产品由来源卡展开为 444 个可抽取 Printing；策略接口可替换，且不改写 TCGdex 私人原始 manifest。
+- Scarlet & Violet 规则定向 EditMode 3/3、开包场景 PlayMode 1/1、全量 EditMode 215/215、PlayMode 7/7 通过；500 包/5100 张性能回归约 0.075 秒、托管内存净增长约 0.063 MiB。Android/IL2CPP 干净 APK 为 54,507,485 bytes（51.98 MiB）、413 个条目、私人内容名称匹配 0。
 
 验收：
 
@@ -720,9 +724,10 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 8A：地区、可信度、核验日期与多来源证据基础层（等待外部条件期间并行完成）
 → 阶段 8B 第一套：EX Ruby & Sapphire 九张卡历史规则（完成）
 → 阶段 8B 第二套：Sword & Shield Base 来源指导模拟（完成）
+→ 阶段 8B 第三套：Scarlet & Violet Base 来源指导模拟 + foil 形态补正（完成）
 → 当前外部关键路径：最小真实 R2 上传 + 手机真实下载
 → Android 真机下载/中断/离线缓存验收
-→ 阶段 8B 后续：Scarlet & Violet 真实规则与年代主题适配
+→ 阶段 8B 后续：不同年代包装、开包动画、光效与音效主题适配
 → 阶段 9：最终 Android 验收
 ```
 
