@@ -491,6 +491,26 @@ MonoBehaviour:
     m_Key: gacha.reveal.metadata
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851491
+    m_Key: main_menu.action.gacha
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851492
+    m_Key: main_menu.action.collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851493
+    m_Key: main_menu.action.content
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851494
+    m_Key: main_menu.action.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851495
+    m_Key: settings.title
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

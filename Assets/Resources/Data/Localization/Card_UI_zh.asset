@@ -502,6 +502,26 @@ MonoBehaviour:
     m_Localized: "#{0} \xB7 {1} \xB7 {2} \xB7 \u5DF2\u62E5\u6709 {3}"
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745851491
+    m_Localized: "\u62BD\u5361"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851492
+    m_Localized: "\u6536\u85CF"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851493
+    m_Localized: "\u5185\u5BB9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851494
+    m_Localized: "\u8BBE\u7F6E"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 166673783745851495
+    m_Localized: "\u8BBE\u7F6E"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

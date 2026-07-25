@@ -70,7 +70,12 @@ namespace Gacha.Presentation
                 ["gacha.action.choose_another"] = "Choose another",
                 ["gacha.odds.heading"] = "Average chance per card slot",
                 ["gacha.product.metadata"] = "{0} · {1} printings · {2}",
-                ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · Owned {3}"
+                ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · Owned {3}",
+                ["main_menu.action.gacha"] = "Gacha",
+                ["main_menu.action.collection"] = "Collection",
+                ["main_menu.action.content"] = "Content",
+                ["main_menu.action.settings"] = "Settings",
+                ["settings.title"] = "Settings"
             };
 
         private static readonly Dictionary<string, string> LocalizedCache =

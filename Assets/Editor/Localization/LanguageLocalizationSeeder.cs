@@ -136,7 +136,12 @@ public static class LanguageLocalizationSeeder
             ["gacha.action.choose_another"] = "Choose another",
             ["gacha.odds.heading"] = "Average chance per card slot",
             ["gacha.product.metadata"] = "{0} · {1} printings · {2}",
-            ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · Owned {3}"
+            ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · Owned {3}",
+            ["main_menu.action.gacha"] = "Gacha",
+            ["main_menu.action.collection"] = "Collection",
+            ["main_menu.action.content"] = "Content",
+            ["main_menu.action.settings"] = "Settings",
+            ["settings.title"] = "Settings"
         });
 
         Apply(chinese, new Dictionary<string, string>
@@ -247,7 +252,12 @@ public static class LanguageLocalizationSeeder
             ["gacha.action.choose_another"] = "选择其他卡包",
             ["gacha.odds.heading"] = "每个卡位的平均概率",
             ["gacha.product.metadata"] = "{0} 年 · {1} 个印刷版本 · {2}",
-            ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · 已拥有 {3}"
+            ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · 已拥有 {3}",
+            ["main_menu.action.gacha"] = "抽卡",
+            ["main_menu.action.collection"] = "收藏",
+            ["main_menu.action.content"] = "内容",
+            ["main_menu.action.settings"] = "设置",
+            ["settings.title"] = "设置"
         });
 
         EditorUtility.SetDirty(collection.SharedData);
