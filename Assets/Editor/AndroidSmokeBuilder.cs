@@ -10,6 +10,10 @@ namespace Gacha.EditorTools
     public static class AndroidSmokeBuilder
     {
         public const string OutputPath = "Builds/Android/UniversalGachaSimulator-smoke.apk";
+        public const BuildOptions SmokeBuildOptions =
+            BuildOptions.Development |
+            BuildOptions.CompressWithLz4 |
+            BuildOptions.CleanBuildCache;
 
         [MenuItem("Tools/Gacha/Build Android Smoke APK")]
         public static void Build()
@@ -30,7 +34,7 @@ namespace Gacha.EditorTools
                 scenes = scenes,
                 locationPathName = OutputPath,
                 target = BuildTarget.Android,
-                options = BuildOptions.Development | BuildOptions.CompressWithLz4
+                options = SmokeBuildOptions
             };
             BuildReport report = BuildPipeline.BuildPlayer(options);
             BuildSummary summary = report.summary;

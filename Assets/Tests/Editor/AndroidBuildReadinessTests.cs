@@ -35,5 +35,9 @@ public class AndroidBuildReadinessTests
         Assert.That(Directory.Exists("Assets/StreamingAssets/LocalContent"), Is.False);
         Assert.That(AndroidSmokeBuilder.OutputPath.Replace('\\', '/'), Does.StartWith("Builds/"),
             "Build artifacts must remain outside Assets so they cannot inflate the application package.");
+        Assert.That(
+            (AndroidSmokeBuilder.SmokeBuildOptions & BuildOptions.CleanBuildCache) != 0,
+            Is.True,
+            "Smoke builds must compact incremental Android archive tombstones before package-size verification.");
     }
 }
