@@ -110,6 +110,67 @@ public class PokemonHistoricalRuleProviderTests
     }
 
     [Test]
+    public void ExRubySapphire_BuildsSourcedNineCardProfile()
+    {
+        UniversalCatalog catalog = LoadInstalledCatalog();
+        ProductDefinition product = catalog.Products.Values.Single(value =>
+            value.SetId == PokemonHistoricalRuleProvider.ExRubySapphireSetId);
+
+        ProductRuleProfile profile = new PokemonHistoricalRuleProvider()
+            .GetProfile(catalog, product.Id, "en");
+
+        Assert.That(profile, Is.Not.Null);
+        Assert.That(profile.Id, Is.EqualTo(PokemonHistoricalRuleProvider.ExRubySapphireProfileId));
+        Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.HistoricallyVerified));
+        Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
+        Assert.That(profile.RegionId, Is.EqualTo(PokemonHistoricalRuleProvider.InternationalRegionId));
+        Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
+        Assert.That(profile.SourceReferences, Is.EqualTo(new[]
+        {
+            PokemonHistoricalRuleProvider.ExRubySapphireSourceUrl
+        }));
+        Assert.That(profile.GetDescription("en"), Does.Contain("1 Reverse Holo"));
+        Assert.That(profile.GetDescription("zh"), Does.Contain("1 反向闪"));
+        Assert.That(profile.Rules.Slots.Sum(slot => slot.DrawCount), Is.EqualTo(9));
+        Assert.That(profile.Rules.Slots.Select(slot => slot.DrawCount),
+            Is.EquivalentTo(new[] { 5, 2, 1, 1 }));
+        Assert.That(profile.Rules.Pools.Values.Select(pool => pool.Entries.Count),
+            Is.EquivalentTo(new[] { 40, 34, 101, 37 }));
+
+        WeightedPool reversePool = profile.Rules.Pools.Values.Single(pool =>
+            pool.Id.EndsWith(":pool:reverse", StringComparison.Ordinal));
+        Assert.That(reversePool.Entries.All(entry =>
+            HasTrait(catalog, entry.PrintingId, "reverse")), Is.True);
+
+        WeightedPool rarePool = profile.Rules.Pools.Values.Single(pool =>
+            pool.Id.EndsWith(":pool:rare", StringComparison.Ordinal));
+        WeightedPoolEntry[] exEntries = rarePool.Entries.Where(entry =>
+            IsPokemonEx(catalog, entry.PrintingId)).ToArray();
+        WeightedPoolEntry[] holoEntries = rarePool.Entries.Where(entry =>
+            HasTrait(catalog, entry.PrintingId, "holo") &&
+            !IsPokemonEx(catalog, entry.PrintingId)).ToArray();
+        WeightedPoolEntry[] nonHoloEntries = rarePool.Entries.Where(entry =>
+            HasTrait(catalog, entry.PrintingId, "normal")).ToArray();
+        Assert.That(exEntries, Has.Length.EqualTo(8));
+        Assert.That(holoEntries, Has.Length.EqualTo(16));
+        Assert.That(nonHoloEntries, Has.Length.EqualTo(13));
+        double totalWeight = rarePool.Entries.Sum(entry => entry.Weight);
+        Assert.That(exEntries.Sum(entry => entry.Weight) / totalWeight,
+            Is.EqualTo(3d / 36d).Within(0.000001d));
+        Assert.That(holoEntries.Sum(entry => entry.Weight) / totalWeight,
+            Is.EqualTo(6.5d / 36d).Within(0.000001d));
+
+        ProductDrawResult draw = new GachaEngine().Draw(
+            catalog,
+            profile.Rules,
+            0,
+            new SystemGachaRandomSource(2003));
+        Assert.That(draw.Printings, Has.Count.EqualTo(9));
+        Assert.That(draw.Printings.Count(entry => entry.SlotId.EndsWith(":slot:reverse")), Is.EqualTo(1));
+        Assert.That(draw.Printings.Count(entry => entry.SlotId.EndsWith(":slot:rare")), Is.EqualTo(1));
+    }
+
+    [Test]
     public void Provider_FallsBackForOtherSetsAndLanguages()
     {
         UniversalCatalog catalog = LoadInstalledCatalog();
@@ -118,6 +179,7 @@ public class PokemonHistoricalRuleProviderTests
             value.SetId == PokemonHistoricalRuleProvider.BaseSetId);
         ProductDefinition unsupportedProduct = catalog.Products.Values.First(value =>
             value.SetId != PokemonHistoricalRuleProvider.BaseSetId &&
+            value.SetId != PokemonHistoricalRuleProvider.ExRubySapphireSetId &&
             value.SetId != PokemonHistoricalRuleProvider.NeoGenesisSetId);
 
         Assert.That(historical.GetProfile(catalog, baseProduct.Id, "zh-CN"), Is.Null);
@@ -146,5 +208,12 @@ public class PokemonHistoricalRuleProviderTests
         PrintingDefinition printing = catalog.Printings[printingId];
         return catalog.Variants[printing.Identity.VariantId].Traits.Any(value =>
             string.Equals(value, trait, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsPokemonEx(UniversalCatalog catalog, string printingId)
+    {
+        PrintingDefinition printing = catalog.Printings[printingId];
+        return catalog.Items[printing.ItemId].Names.Values.Any(name =>
+            name.EndsWith(" ex", StringComparison.OrdinalIgnoreCase));
     }
 }

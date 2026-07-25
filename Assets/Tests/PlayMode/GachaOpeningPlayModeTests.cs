@@ -77,11 +77,21 @@ namespace Gacha.Tests.PlayMode
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
                 Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
 
+                int exIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .Single(pair => pair.product.SetId.EndsWith(":ex1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(exIndex);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "SelectedRuleProfileId"),
+                    Is.EqualTo("pokemon-ex1-psa-empirical-v1"));
+                Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(1));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-notice").text,
+                    Does.Contain("1 Reverse Holo"));
+
                 int simulatedIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
-                    .First(pair =>
-                        !pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal) &&
-                        !pair.product.SetId.EndsWith(":neo1", StringComparison.Ordinal))
+                    .Single(pair => pair.product.SetId.EndsWith(":swsh1", StringComparison.Ordinal))
                     .index;
                 productList.SetSelection(simulatedIndex);
                 yield return null;

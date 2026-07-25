@@ -40,12 +40,15 @@ public class GameplayPerformanceTests
         var stopwatch = Stopwatch.StartNew();
 
         const int packsPerProduct = 100;
+        int expectedTotalCards = 0;
         foreach (ProductDefinition product in loaded.Catalog.Products.Values)
         {
+            int expectedCardsPerPack = service.GetProfile(product.Id).Rules.Slots.Sum(slot => slot.DrawCount);
+            expectedTotalCards += expectedCardsPerPack * packsPerProduct;
             for (int pack = 0; pack < packsPerProduct; pack++)
             {
                 ProductOpeningOutcome outcome = service.Open(product.Id, random);
-                Assert.That(outcome.Draw.Printings, Has.Count.EqualTo(11));
+                Assert.That(outcome.Draw.Printings, Has.Count.EqualTo(expectedCardsPerPack));
             }
         }
 
@@ -58,7 +61,7 @@ public class GameplayPerformanceTests
             $"elapsed={stopwatch.Elapsed.TotalSeconds:0.000}s retained={retainedGrowth / 1024f / 1024f:0.000}MiB");
 
         Assert.That(inventory.TotalPacks, Is.EqualTo(loaded.Catalog.Products.Count * packsPerProduct));
-        Assert.That(inventory.TotalCards, Is.EqualTo(inventory.TotalPacks * 11));
+        Assert.That(inventory.TotalCards, Is.EqualTo(expectedTotalCards));
         Assert.That(inventory.DistinctCards, Is.LessThanOrEqualTo(loaded.Catalog.Printings.Count));
         Assert.That(inventory.TrackedProducts, Is.EqualTo(loaded.Catalog.Products.Count));
         Assert.That(retainedGrowth, Is.LessThan(32L * 1024L * 1024L),
