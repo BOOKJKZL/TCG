@@ -2,7 +2,7 @@
 
 最后更新：2026-07-25
 
-本次修改原因：继续把开包选择、撕包、逐张揭示和结果总结中的硬编码双语文案迁入 Unity `Card_UI` String Table，让运行中的开包流程可完整响应 `zh ↔ en` 切换；同时保留既有动画、音效、震动和规则可信度呈现。真实 R2 与真机仍是关键路径，等待外部参数和设备期间继续完成不依赖外部条件的全场景文本迁移。
+本次修改原因：完成主菜单、设置页及旧 Gacha/Collection UGUI 标题的 String Table 迁移，让所有现有场景的静态玩家文本进入统一语言边界；同时补齐“抽”字字体子集，并修复 Android 增量构建残留 ZIP tombstone 导致 APK 虚胖的问题。真实 R2 与真机仍是下一条关键路径。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -88,10 +88,10 @@ AccessibilitySettings
 - 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
 - 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
-- 51 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
+- 62.2 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；最新 APK 为 78,492,830 bytes（约 74.86 MiB），6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。ADB 脚本已同时准备本地内容直推和远程公开配置模式；阶段 5C 曾约 51.6 MiB，新增约 23.3 MiB 需继续结合 IL2CPP stripping 与构建生成设置做包体回归分析。
-- 抽卡、收藏、设置、内容管理、远程 catalog 和场景切换 PlayMode 测试为 6/6 通过。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,472,129 bytes（约 51.95 MiB），ZIP 空洞仅 77 KB。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
+- 抽卡、收藏、设置、旧 UGUI 本地化、内容管理、远程 catalog 和场景切换 PlayMode 测试为 7/7 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
 - ZIP 安装器会先核对下载字节数与 SHA-256，再在实时 Catalog 目录外解压；只有实际解压字节数也匹配后才原子替换系列目录并发布收据。
@@ -112,12 +112,11 @@ AccessibilitySettings
 尚未完成：
 
 - EX、Sword & Shield、Scarlet & Violet 等其余年代具有可引用来源的真实卡包配列规则；未验证产品继续明确使用等概率模拟规则。
-- 主菜单及旧 UGUI 场景的剩余静态文本尚未全部迁入 Unity Localization String Table；设置、内容管理、收藏、共享卡图状态与开包页已经完成，当前运行时双语文本与中文回退字体可用。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 78%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 79%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -153,7 +152,7 @@ AccessibilitySettings
 - 设置数据已支持 `reduceMotion`、`hapticsEnabled` 与 `uiAnimationSpeed`，接口已可供设置页绑定。
 - Unity 6000.0.73f1 编译成功；EditMode 7/7 通过；场景和 Prefab 文本未发现 `m_Script: {fileID: 0}`。
 - 阶段 5C 已补齐静音、减少动态、震动和动画速度控件；正式音效资产仍可在后续美术阶段替换当前低音量程序化反馈声。
-- 已知限制：`GachaViewController` 仍直接构造私人内容读取器，不满足 Presentation 只依赖 Application 接口的最终边界；该问题并入阶段 3 的语言与 Catalog 状态服务一起解决。
+- `GachaViewController` 已通过 Application `CatalogSession` 使用内容，不再直接构造私人内容读取器；阶段 3 的 Catalog 边界问题已经关闭。
 
 ### 阶段 1：通用数据模型
 
@@ -252,7 +251,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 3：双层语言系统
 
-状态：Application 语言核心、回退、持久化、设置界面、收藏页、共享卡图状态、开包页和 Android 桌面应用名已完成（更新于 2026-07-25）；主菜单及旧 UGUI 场景的剩余静态文本待继续。
+状态：已完成（2026-07-25）。Application 语言核心、回退、持久化、所有现有场景静态文本、运行时切换、中文字体和 Android 桌面应用名均已通过自动化验证。
 
 目标：区分应用界面语言与卡牌内容语言。
 
@@ -291,9 +290,10 @@ Content Language  卡名、卡图、系列和产品
 - `CardUiText` 在 Presentation 层统一从 `Card_UI` 读取并按 locale 缓存文本，缺表或初始化异常时使用英文兜底；收藏控制器、`AsyncCardImageView` 和 `GachaViewController` 不再保存中英成对文案。
 - 收藏/卡图新增 28 个中英文键；实际执行 Seeder 后，表完整性、中文字体和内容管理回归均通过，重复 Seed 不再覆盖卸载或离线 catalog 后续文案。
 - 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
+- `LegacySceneTextLocalizer` 以场景级映射覆盖主菜单四个入口及设置、开包、收藏三个旧 UGUI 标题，不改动旧场景序列化引用；动态面板中的空 TMP 文本会被安全忽略。新增 5 个菜单/设置键，开始场景没有静态文字，关闭按钮 `X` 不需要翻译。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 208/208、PlayMode 6/6 通过；Android/IL2CPP APK 为 78,492,830 bytes（约 74.86 MiB）、413 个条目且私人内容名称匹配为 0。
-- 已加入约 51 KB 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；主菜单及旧 UGUI 场景的剩余静态文本尚未全部迁入 String Table，后续新增中文后必须重新生成子集。
+- 截至本次补强，全项目 EditMode 208/208、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,472,129 bytes（约 51.95 MiB）、413 个条目且私人内容名称匹配为 0。
+- 已加入 62.2 KB、227 个 UI codepoint 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；新增中文后必须继续重新生成子集。
 
 ### 阶段 4：接入私人导入内容
 
@@ -402,7 +402,7 @@ Content Language  卡名、卡图、系列和产品
 - `ProductOpeningService` 缓存已经验证的规则 Profile；真实五系列连续开 500 包/5500 张卡约 0.138 秒，托管内存净增长约 0.059 MiB。
 - 1 万卡库存快照往返约 0.027 秒、JSON 约 464 KB；256 张卡图压力测试始终保持 32 张 LRU 上限。
 - 三轮开包/收藏/设置场景切换约 4.4 秒，热身后托管内存净增长约 0.137 MiB，旧场景 Controller 不会残留。
-- 中文 UI 使用 51 KB 修改字体子集，EditMode 会检查 String Table 与代码中文，PlayMode 强制切换中文并拒绝缺字日志。
+- 中文 UI 当前使用 62.2 KB 修改字体子集，EditMode 会检查 String Table 与代码中文，PlayMode 强制切换中文并拒绝缺字日志。
 - 全量 EditMode 60/60、PlayMode 4/4 通过；Android/IL2CPP 构建成功，APK 约 51.6 MiB，包内私人内容条目为 0。
 - 已提供 `Tools/Android/install_smoke_content.ps1`，但当前没有连接 Android 设备，因此触摸、真实震动、扬声器声音和 `persistentDataPath/Content` 读取仍需真机验收。
 
@@ -682,7 +682,7 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 原先的固定阶段顺序保留为职责编号，不再作为严格施工顺序。当前关键路径改为：
 
 ```text
-阶段 3：双层语言 + Application Catalog 边界（核心完成）
+阶段 3：双层语言 + Application Catalog 边界（完成）
 → 阶段 4：卡图异步加载 + 系列/卡牌浏览（完成）
 → 阶段 5A：单卡包可玩闭环（模拟规则、Base Set 与 Neo Genesis 历史规则完成）
 → 阶段 5B：库存、新卡、搜索与筛选体验（完成）
