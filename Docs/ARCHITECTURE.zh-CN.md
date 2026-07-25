@@ -15,7 +15,7 @@ Gacha.Domain
   不依赖 UI、Cloud Save、Addressables
 
 Gacha.Application
-  Catalog/语言/体验设置状态、开包用例、收藏进度、内容安装与卸载接口
+  Catalog/语言/体验设置状态、开包用例、规则证据 Profile、收藏进度、内容安装与卸载接口
 
 Gacha.Infrastructure
   ResourcesCatalog / AddressablesCatalog / LocalSave / UnityCloudSave
@@ -38,7 +38,7 @@ Gacha.Editor
 
 - `ICatalogProvider`：Catalog 可由私人 manifest、Addressables 或下载后的数据库提供。
 - `IContentImageSource`：卡图可由本机目录、Addressables 或远程缓存提供。
-- `IProductRuleProvider`：每个产品可替换模拟或历史配列 Profile。
+- `IProductRuleProvider`：每个产品可替换纯模拟、来源辅助模拟或历史配列 Profile；Profile 明确携带地区、可信度、核验日期与证据，不由 UI 猜测。
 - `IInventoryProgressStore` / `ICollectionProgressStore`：Application 用例不依赖 Inventory 单例。
 - `IExperienceSettingsStore` / `ILanguagePreferenceStore`：玩家设置的业务状态与 PlayerPrefs 分离。
 - `IGachaRandomSource`：可注入固定随机序列进行自动测试。
@@ -65,7 +65,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。下一步是带真实私人参数的 R2/Android 远程闭环。
+这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型：纯模拟不能声明已佐证，来源辅助模拟和历史规则必须携带 HTTPS 证据与可信度，Presentation 只负责本地化展示和打开来源。下一步仍是带真实私人参数的 R2/Android 远程闭环，同时可逐套补充五个年代的真实规则。
 
 ## 两阶段路线
 

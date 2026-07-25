@@ -2,7 +2,7 @@
 
 最后更新：2026-07-25
 
-本次修改原因：完成主菜单、设置页及旧 Gacha/Collection UGUI 标题的 String Table 迁移，让所有现有场景的静态玩家文本进入统一语言边界；同时补齐“抽”字字体子集，并修复 Android 增量构建残留 ZIP tombstone 导致 APK 虚胖的问题。真实 R2 与真机仍是下一条关键路径。
+本次修改原因：在真实 R2 与真机条件尚未提供时并行完成阶段 8A 规则证据基础层。所有规则 Profile 现在必须明确地区、可信度与核验资料边界，开包页会显示双语核验摘要和每一条可点击来源；真实 R2 与真机仍是外部关键路径。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 208/208 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 211/211 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目、12 种稀有度和 1278 个可分别计数的印刷版本。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -83,6 +83,7 @@ AccessibilitySettings
 - 收藏场景已接入真实库存数量、持久化 NEW 状态、名称/卡号搜索、稀有度筛选、仅拥有/仅新卡切换和空结果反馈；查看新卡详情会立即保存已查看状态。
 - 库存快照已升级为 v3，云端优先读取 `inventory_v3` 并保留 `inventory_v2` 回读；旧 v2 收藏不会在迁移后被误标为新卡。
 - 已建立可替换的 `IProductRuleProvider`、规则可信度标记、卡位平均概率摘要和原子库存提交；落盘失败会回滚本次开包。
+- `ProductRuleProfile` 已升级为通用证据模型：区分 `Simulated`、`SourceInformedSimulation` 与 `HistoricallyVerified`，记录地区、中英地区名、可信度、HTTPS 来源和核验日期；来源重复时采用最近核验记录，缺少证据的规则不能声明为已验证。
 - 抽卡场景已经支持五个系列/产品选择、模拟概率说明、准备卡包、撕包动画、逐张翻卡、新卡/持有数量和结果总结，并立即保存本地库存；开包流程的 29 个玩家文本键已迁入 String Table，选择、待翻卡、翻卡中和结果页均可在运行时切换中英文。
 - 英文 Base Set Unlimited 已接入第一份 `HistoricallyVerified` 配列：5 Common、2 Basic Energy、3 Uncommon、1 Rare，Holo 平均约三包一张；Machamp 和 First Edition 已按来源排除。
 - 英文 Neo Genesis First Edition 已接入第二份 `HistoricallyVerified` 配列：7 Common、3 Uncommon、1 Rare，Holo 平均约三包一张；只会抽出第一版 Printing。
@@ -90,7 +91,7 @@ AccessibilitySettings
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 62.2 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5500 张卡约 0.138 秒，测试后托管内存净增长约 0.059 MiB；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,472,129 bytes（约 51.95 MiB），ZIP 空洞仅 77 KB。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,493,081 bytes（约 51.97 MiB），ZIP 空洞仅 77 KB。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
 - 抽卡、收藏、设置、旧 UGUI 本地化、内容管理、远程 catalog 和场景切换 PlayMode 测试为 7/7 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -116,7 +117,7 @@ AccessibilitySettings
 - 宝可梦不同年代的真实卡包配列规则。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 79%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 80%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环。
 
 ## 四、阶段计划
 
@@ -202,7 +203,7 @@ Game + Set + CardNumber + Language + Variant
 
 ### 阶段 2：通用抽卡规则
 
-状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited 与 Neo Genesis First Edition 已成为两份附来源的历史规则（2026-07-23），其余年代待逐包验证。
+状态：通用规则引擎、可替换规则提供器、概率摘要和单包 UI 已完成；英文 Base Set Unlimited 与 Neo Genesis First Edition 已成为两份附地区、可信度、核验日期和来源的历史规则（2026-07-25），其余年代待逐包验证。
 
 目标：让抽卡引擎适用于不同游戏、产品和年代。
 
@@ -238,13 +239,13 @@ Game + Set + CardNumber + Language + Variant
 - 相同 Seed 会得到相同抽取结果；空池、错误引用和无法满足去重时会给出明确错误。
 - `GachaViewController` 已直接读取私人 Catalog 并调用新引擎；库存记录 Printing ID 和 Product ID。
 - `SimulatedProductRuleFactory` 只提供明确标记的均匀模拟卡包；真实 Pokémon 配列不会伪装成已验证概率。
-- `IProductRuleProvider` 返回规则可信度和来源引用；当前 `UniformSimulationRuleProvider` 标记为 `Simulated`，以后可以按产品替换成 `HistoricallyVerified` 配置。
+- `IProductRuleProvider` 返回完整 `ProductRuleProfile`；当前 `UniformSimulationRuleProvider` 明确使用 `Simulated + Unverified + unspecified`，有资料但仍需模拟的未来规则可使用 `SourceInformedSimulation`，只有具备核验资料与可信度的配置才能声明为 `HistoricallyVerified`。
 - `ProductOddsAnalyzer` 汇总多卡槽权重池的平均卡位概率；条件保底会单独标记，不与基础概率混淆。
 - 模拟卡池只包含当前 Content Language 的印刷版本，不会把不同语言卡面混入同一包。
 - `PokemonHistoricalRuleProvider` 为英文 Base Set Unlimited 提供 11 卡槽经验规则；规则来源、Machamp 例外和不能推断的工厂序列记录在 `RULE_SOURCES.zh-CN.md`。
 - Base Set Profile 只选择非 First Edition Printing；Rare 池排除 Starter Deck 专属 Machamp，Holo/非 Holo 总权重维持样本记录的约 1:3 比例。
 - Neo Genesis Profile 只选择 First Edition Printing，按来源使用 7 Common、3 Uncommon、1 Rare，并以类别权重维持 Holo 总概率约 1:3。
-- `ProductRuleProfile` 可携带中英规则说明；开包界面会直接显示版本、槽位和已验证平均比例，不需要通过宝可梦专用 UI 判断 Profile。
+- `ProductRuleProfile` 可携带中英规则说明和地区名，并为每个 HTTPS 证据保存标题与核验日期；开包界面会直接显示版本、槽位、可信度、核验日期和全部来源入口，不需要通过宝可梦专用 UI 判断 Profile。
 - Neo 来源只说明 7 张 Common，未说明独立能量槽，因此当前 Common 池包含基础能量但不保证每包能量；Unlimited 与精确印刷序列继续保持未验证。
 - 已知限制：引擎具备 `GuaranteeRule`，但均匀模拟配置没有历史保底、变体或真实配列；不能把“引擎支持保底”描述成“当前运行时卡包已配置保底”。
 - 下一条设备切片：连接 Android 真机运行已生成的 APK 与私人内容推送脚本。当前代码主线已经进入阶段 6；EX、Sword & Shield 与 Scarlet & Violet 继续保持模拟标记，等内容安装闭环稳定后再逐套调查。
@@ -292,7 +293,7 @@ Content Language  卡名、卡图、系列和产品
 - 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
 - `LegacySceneTextLocalizer` 以场景级映射覆盖主菜单四个入口及设置、开包、收藏三个旧 UGUI 标题，不改动旧场景序列化引用；动态面板中的空 TMP 文本会被安全忽略。新增 5 个菜单/设置键，开始场景没有静态文字，关闭按钮 `X` 不需要翻译。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 208/208、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,472,129 bytes（约 51.95 MiB）、413 个条目且私人内容名称匹配为 0。
+- 截至本次补强，全项目 EditMode 211/211、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,493,081 bytes（约 51.97 MiB）、413 个条目且私人内容名称匹配为 0。
 - 已加入 62.2 KB、227 个 UI codepoint 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；新增中文后必须继续重新生成子集。
 
 ### 阶段 4：接入私人导入内容
@@ -615,6 +616,8 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 8：宝可梦适配层
 
+状态：8A 规则证据基础层已完成（2026-07-25）；两个现有历史 Profile 已迁移并通过玩家界面验证，五个测试年代及其真实配列仍待逐套研究和实现。
+
 目标：在通用系统上提供不同年代和地区的宝可梦卡包。
 
 工作内容：
@@ -626,6 +629,14 @@ Content Language  卡名、卡图、系列和产品
 - 给每条规则记录来源、日期和可信度。
 - 无法确认时明确标记为模拟概率。
 - 为不同年代设计相应包装、开包动画和音效主题，但共用核心系统。
+
+8A 完成记录（2026-07-25）：
+
+- Application 新增通用 `ProductRuleEvidence`、`ProductRuleConfidence` 与三档 `ProductRuleTrust`；地区和中英地区名属于 Profile，不把国际版或日版判断写死在 Presentation。
+- `HistoricallyVerified` 与 `SourceInformedSimulation` 都必须提供 HTTPS 证据和非 `Unverified` 可信度；纯模拟规则不能冒充已佐证规则。
+- Base Set Unlimited 与 Neo Genesis First Edition 均标记为国际英文地区、`Corroborated`，并记录 2026-07-23 核验日期；现有来源属于佐证资料，因此没有升级为 `Authoritative`。
+- 开包页新增双语证据摘要和动态来源按钮；多来源会全部显示，按压动画与确认音效沿用统一反馈服务，模拟规则显示无来源的明确警告。
+- 规则/本地化/字体定向 EditMode 15/15、开包场景 PlayMode 1/1、全量 EditMode 211/211、PlayMode 7/7 通过；Android/IL2CPP 干净构建成功。
 
 验收：
 
@@ -694,9 +705,10 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 7C：私人 R2 安全上传工具（完成；真实写入等待私人参数）
 → 阶段 6C5：安全卸载、保留收藏与同页重装（完成）
 → 阶段 7D：已验证 catalog 离线缓存 + 跨重启续传（完成）
+→ 阶段 8A：地区、可信度、核验日期与多来源证据基础层（等待外部条件期间并行完成）
 → 当前：最小真实 R2 上传 + 手机真实下载
 → Android 真机下载/中断/离线缓存验收
-→ 阶段 8：宝可梦真实规则适配
+→ 阶段 8B：五个年代的宝可梦真实规则与年代主题适配
 → 阶段 9：最终 Android 验收
 ```
 
