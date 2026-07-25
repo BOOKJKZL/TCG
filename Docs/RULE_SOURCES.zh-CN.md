@@ -1,6 +1,6 @@
 # 卡包规则来源与可信度
 
-最后更新：2026-07-23
+最后更新：2026-07-25
 
 本文件记录每一份 `HistoricallyVerified` 规则的证据、实现边界和不能推断的内容。没有列在这里的产品必须继续标记为 `Simulated`。
 
@@ -62,3 +62,29 @@
 - Holo 的 1/3 是近似平均比例，不实现固定每三包必出。
 - 来源没有公布各张 Rare 的精确个体概率；当前用类别权重维持 Holo 总概率为 1/3，类别内部等权。
 - 本机 TCGdex 导入资料为每张卡提供第一版 Trait，但图片不单独表现实体卡的 Edition 1 印章；收藏身份仍按 Printing Variant 分开计数。
+
+## EX Ruby & Sapphire（国际英文版）
+
+规则 Profile：`pokemon-ex1-psa-empirical-v1`
+
+实现范围：
+
+- 每包 9 张：5 Common、2 Uncommon、1 Reverse Holo、1 Rare。
+- Rare 槽按整盒经验值分为 Non-Holo Rare 26.5/36、常规 Holo Rare 6.5/36、Pokémon-ex 3/36。
+- 只使用英文、非 `first-edition`、非 `w-promo` 的印刷版本。
+- 本机 manifest 的卡池边界为 40 Common、34 Uncommon、101 Reverse、13 Non-Holo Rare、16 常规 Holo Rare 和 8 Pokémon-ex。
+- 同一个卡槽池内不产生重复 Printing；Reverse 与 Rare 是两个独立卡槽。
+
+来源：
+
+1. PSA Set Registry 的 EX Ruby & Sapphire 档案：<https://www.psacard.com/articles/articleview/9800/psa-set-registry-collecting-2003-poke-mon-ex-ruby-sapphire-first-nintendo-card-issue>
+   - 记载每包一般包含 5 Common、2 Uncommon、1 Reverse Holo 和 1 Rare，共 9 张。
+   - 作者开盒观察到每盒 36 包约有 6–7 张常规 Holo，并约有 3 张 Pokémon-ex。
+   - 来源同时明确指出 Nintendo 没有公布 Pokémon-ex 的精确插入率。
+
+可信度说明：
+
+- 本 Profile 为 `HistoricallyVerified + Corroborated`：九张卡结构和经验整盒比例有可引用档案，但来源不是 Nintendo 官方配列表，因此不升级为 `Authoritative`。
+- 6.5/36 和 3/36 是对来源“6–7 张”与“约 3 张”的可重复模拟换算，不表示每盒固定命中这些数量。
+- 剩余 26.5/36 归入 Non-Holo Rare，使 Rare 槽类别权重合计为 36；类别内部仍按本机 manifest 中的 Printing 等权抽取。
+- 当前实现不复刻工厂印刷序列、整盒固定位置、Wrapper 映射或 Pokémon-ex 的官方插入算法；获得更多一手资料后应建立新版本 Profile，而不是静默改写本 Profile。
