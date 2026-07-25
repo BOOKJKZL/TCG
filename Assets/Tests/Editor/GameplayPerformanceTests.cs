@@ -25,7 +25,7 @@ public class GameplayPerformanceTests
 
         var inventory = new MemoryInventory();
         var rules = new FallbackProductRuleProvider(
-            new PokemonHistoricalRuleProvider(),
+            new PokemonRuleProvider(),
             new UniformSimulationRuleProvider(11, "en"));
         var service = new ProductOpeningService(
             loaded.Catalog,

@@ -51,6 +51,7 @@ namespace Gacha.Presentation
                 ["gacha.action.reveal_next"] = "Reveal next",
                 ["gacha.status.no_products"] = "No products are installed for this content language.",
                 ["gacha.rule.verified"] = "VERIFIED RULES",
+                ["gacha.rule.sourced_simulation"] = "SOURCED SIMULATION",
                 ["gacha.rule.simulation"] = "SIMULATION",
                 ["gacha.rule.simulation_notice"] = "Equal odds per installed printing. This is not historical pack collation.",
                 ["gacha.rule.evidence.checked"] = "{0} · Confidence: {1} · checked {2}",

@@ -356,6 +356,11 @@
     background-color: rgb(22, 111, 74);
 }
 
+.gacha-rule-badge.is-sourced {
+    color: rgb(211, 231, 255);
+    background-color: rgb(40, 83, 151);
+}
+
 .gacha-rule-notice {
     margin-top: 10px;
     color: rgb(255, 208, 137);

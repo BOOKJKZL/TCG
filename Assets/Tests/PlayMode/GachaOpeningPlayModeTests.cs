@@ -89,9 +89,28 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<Label>("rule-notice").text,
                     Does.Contain("1 Reverse Holo"));
 
-                int simulatedIndex = productList.itemsSource.Cast<ProductDefinition>()
+                int sourcedIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
                     .Single(pair => pair.product.SetId.EndsWith(":swsh1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(sourcedIndex);
+                yield return null;
+                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(),
+                    Is.EqualTo("SourceInformedSimulation"));
+                Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(),
+                    Is.EqualTo("Corroborated"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-badge").text,
+                    Is.EqualTo("SOURCED SIMULATION"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-notice").text,
+                    Does.Contain("5 Common").And.Contain("Basic Energy"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
+                    Does.Contain("Corroborated").And.Contain("2026-07-25"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
+                    Is.EqualTo(3));
+
+                int simulatedIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .Single(pair => pair.product.SetId.EndsWith(":sv01", StringComparison.Ordinal))
                     .index;
                 productList.SetSelection(simulatedIndex);
                 yield return null;

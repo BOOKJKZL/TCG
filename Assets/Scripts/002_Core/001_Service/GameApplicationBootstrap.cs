@@ -61,7 +61,7 @@ public static class GameApplicationBootstrap
             catalog,
             languages,
             images,
-            new PokemonHistoricalRuleProvider(),
+            new PokemonRuleProvider(),
             experienceSettings,
             contentPackages,
             contentPackageInstaller,

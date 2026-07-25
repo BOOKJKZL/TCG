@@ -511,13 +511,19 @@ public sealed class GachaViewController : MonoBehaviour
         SetDefinition set = catalog.Sets[product.SetId];
         selectedName.text = DisplayName(product);
         selectedMetadata.text = ProductMetadata(product, set);
-        ruleBadge.text = selectedProfile.IsHistoricallyVerified
-            ? CardUiText.Get("gacha.rule.verified")
-            : CardUiText.Get("gacha.rule.simulation");
-        ruleBadge.EnableInClassList("is-verified", selectedProfile.IsHistoricallyVerified);
-        ruleNotice.text = selectedProfile.IsHistoricallyVerified
-            ? selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId)
-            : CardUiText.Get("gacha.rule.simulation_notice");
+        bool isVerified = selectedProfile.Trust == ProductRuleTrust.HistoricallyVerified;
+        bool isSourcedSimulation = selectedProfile.Trust == ProductRuleTrust.SourceInformedSimulation;
+        string badgeKey = isVerified
+            ? "gacha.rule.verified"
+            : isSourcedSimulation
+                ? "gacha.rule.sourced_simulation"
+                : "gacha.rule.simulation";
+        ruleBadge.text = CardUiText.Get(badgeKey);
+        ruleBadge.EnableInClassList("is-verified", isVerified);
+        ruleBadge.EnableInClassList("is-sourced", isSourcedSimulation);
+        ruleNotice.text = selectedProfile.Trust == ProductRuleTrust.Simulated
+            ? CardUiText.Get("gacha.rule.simulation_notice")
+            : selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId);
         BuildRuleEvidence();
         prepareButton.SetEnabled(true);
         PrintingDefinition cover = CoverFor(product);

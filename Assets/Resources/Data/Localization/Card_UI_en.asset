@@ -540,6 +540,10 @@ MonoBehaviour:
     m_Localized: 'Source {0}: {1}'
     m_Metadata:
       m_Items: []
+  - m_Id: 167096080684199941
+    m_Localized: SOURCED SIMULATION
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
