@@ -20,7 +20,8 @@
                         <ui:Label name="selected-product-metadata" class="gacha-selected-product__metadata" />
                         <ui:Label name="rule-badge" class="gacha-rule-badge" />
                         <ui:Label name="rule-notice" class="gacha-rule-notice" />
-                        <ui:Button name="rule-source-button" class="gacha-source-button" style="display: none;" />
+                        <ui:Label name="rule-evidence-summary" class="gacha-rule-evidence" />
+                        <ui:VisualElement name="rule-source-list" class="gacha-source-list" style="display: none;" />
                         <ui:Label name="odds-heading" class="gacha-odds-heading" />
                         <ui:ScrollView class="gacha-odds-scroll" mode="Vertical">
                             <ui:VisualElement name="odds-list" class="gacha-odds-list" />

@@ -69,6 +69,10 @@ public class ProductOpeningApplicationTests
         ProductRuleProfile profile = new UniformSimulationRuleProvider(3, "en")
             .GetProfile(fixture.Catalog, fixture.Product.Id);
 
+        Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Unverified));
+        Assert.That(profile.RegionId, Is.EqualTo("unspecified"));
+        Assert.That(profile.Evidence, Is.Empty);
+        Assert.That(profile.LastCheckedOn, Is.Null);
         string[] printingIds = profile.Rules.Pools.Values
             .SelectMany(pool => pool.Entries)
             .Select(entry => entry.PrintingId)
@@ -76,6 +80,66 @@ public class ProductOpeningApplicationTests
         Assert.That(printingIds, Does.Not.Contain(fixture.Japanese.Id));
         Assert.That(printingIds.All(id =>
             fixture.Catalog.Printings[id].Identity.LanguageId == "en"), Is.True);
+    }
+
+    [Test]
+    public void VerifiedProfile_RejectsMissingEvidenceAndConfidence()
+    {
+        Fixture fixture = CreateFixture();
+        ProductRuleProfile simulation = new UniformSimulationRuleProvider(3, "en")
+            .GetProfile(fixture.Catalog, fixture.Product.Id);
+
+        Assert.Throws<ArgumentException>(() => new ProductRuleProfile(
+            "invalid-verified-profile",
+            simulation.Rules,
+            ProductRuleTrust.HistoricallyVerified,
+            ProductRuleConfidence.Unverified,
+            "test-region",
+            new Dictionary<string, string> { ["en"] = "Test region" },
+            Array.Empty<ProductRuleEvidence>(),
+            new Dictionary<string, string> { ["en"] = "Invalid" }));
+    }
+
+    [Test]
+    public void RuleEvidence_RequiresDatedHttpsSource()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new ProductRuleEvidence("Insecure", "http://example.test/rules", new DateTime(2026, 7, 25)));
+        Assert.Throws<ArgumentException>(() =>
+            new ProductRuleEvidence("Undated", "https://example.test/rules", default));
+
+        var evidence = new ProductRuleEvidence(
+            "Fixture source",
+            "https://example.test/rules",
+            new DateTime(2026, 7, 25, 14, 30, 0, DateTimeKind.Utc));
+        Assert.That(evidence.CheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
+        Assert.That(evidence.SourceReference, Is.EqualTo("https://example.test/rules"));
+    }
+
+    [Test]
+    public void SourceInformedProfile_DeduplicatesEvidenceUsingLatestCheck()
+    {
+        Fixture fixture = CreateFixture();
+        ProductRuleProfile simulation = new UniformSimulationRuleProvider(3, "en")
+            .GetProfile(fixture.Catalog, fixture.Product.Id);
+        var profile = new ProductRuleProfile(
+            "source-informed-fixture",
+            simulation.Rules,
+            ProductRuleTrust.SourceInformedSimulation,
+            ProductRuleConfidence.Corroborated,
+            "test-region",
+            new Dictionary<string, string> { ["en"] = "Test region" },
+            new[]
+            {
+                new ProductRuleEvidence("Older check", "https://example.test/rules", new DateTime(2026, 7, 20)),
+                new ProductRuleEvidence("Latest check", "https://example.test/rules", new DateTime(2026, 7, 25))
+            },
+            new Dictionary<string, string> { ["en"] = "Source-informed simulation" });
+
+        Assert.That(profile.IsSimulation, Is.True);
+        Assert.That(profile.Evidence, Has.Count.EqualTo(1));
+        Assert.That(profile.Evidence.Single().Title, Is.EqualTo("Latest check"));
+        Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
     }
 
     [Test]

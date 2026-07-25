@@ -362,10 +362,24 @@
     white-space: normal;
 }
 
+.gacha-rule-evidence {
+    margin-top: 7px;
+    color: rgb(188, 202, 230);
+    font-size: 14px;
+    white-space: normal;
+}
+
+.gacha-source-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
 .gacha-source-button {
     align-self: flex-start;
     height: 36px;
     margin-top: 8px;
+    margin-right: 8px;
     padding-left: 12px;
     padding-right: 12px;
     border-width: 1px;

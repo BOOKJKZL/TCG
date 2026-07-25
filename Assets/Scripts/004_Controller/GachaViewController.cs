@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Domain;
@@ -49,6 +50,7 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement openingPage;
     private VisualElement selectedArtSlot;
     private VisualElement oddsList;
+    private VisualElement ruleSourceList;
     private VisualElement packStage;
     private VisualElement packShell;
     private VisualElement packTearLine;
@@ -66,6 +68,7 @@ public sealed class GachaViewController : MonoBehaviour
     private Label selectedMetadata;
     private Label ruleBadge;
     private Label ruleNotice;
+    private Label ruleEvidenceSummary;
     private Label oddsHeading;
     private Label packTitle;
     private Label packHint;
@@ -77,7 +80,6 @@ public sealed class GachaViewController : MonoBehaviour
     private Label summaryMetadata;
     private Button menuButton;
     private Button prepareButton;
-    private Button ruleSourceButton;
     private Button tearButton;
     private Button revealButton;
     private Button revealAllButton;
@@ -98,7 +100,11 @@ public sealed class GachaViewController : MonoBehaviour
     public int ProductCount => products.Count;
     public string SelectedProductId => selectedProduct?.Id;
     public ProductRuleTrust SelectedRuleTrust => selectedProfile?.Trust ?? ProductRuleTrust.Simulated;
+    public ProductRuleConfidence SelectedRuleConfidence =>
+        selectedProfile?.Confidence ?? ProductRuleConfidence.Unverified;
     public string SelectedRuleProfileId => selectedProfile?.Id;
+    public string SelectedRuleRegionId => selectedProfile?.RegionId;
+    public int SelectedRuleEvidenceCount => selectedProfile?.Evidence.Count ?? 0;
     public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
@@ -326,6 +332,7 @@ public sealed class GachaViewController : MonoBehaviour
         openingPage = Required<VisualElement>("gacha-opening-page");
         selectedArtSlot = Required<VisualElement>("selected-art-slot");
         oddsList = Required<VisualElement>("odds-list");
+        ruleSourceList = Required<VisualElement>("rule-source-list");
         packStage = Required<VisualElement>("pack-stage");
         packShell = Required<VisualElement>("pack-shell");
         packTearLine = Required<VisualElement>("pack-tear-line");
@@ -343,6 +350,7 @@ public sealed class GachaViewController : MonoBehaviour
         selectedMetadata = Required<Label>("selected-product-metadata");
         ruleBadge = Required<Label>("rule-badge");
         ruleNotice = Required<Label>("rule-notice");
+        ruleEvidenceSummary = Required<Label>("rule-evidence-summary");
         oddsHeading = Required<Label>("odds-heading");
         packTitle = Required<Label>("pack-title");
         packHint = Required<Label>("pack-hint");
@@ -354,7 +362,6 @@ public sealed class GachaViewController : MonoBehaviour
         summaryMetadata = Required<Label>("summary-metadata");
         menuButton = Required<Button>("gacha-menu-button");
         prepareButton = Required<Button>("prepare-pack-button");
-        ruleSourceButton = Required<Button>("rule-source-button");
         tearButton = Required<Button>("tear-pack-button");
         revealButton = Required<Button>("reveal-next-button");
         revealAllButton = Required<Button>("reveal-all-button");
@@ -379,7 +386,6 @@ public sealed class GachaViewController : MonoBehaviour
     {
         menuButton.clicked += MenuBtnClick;
         prepareButton.clicked += () => PrepareSelectedProduct();
-        ruleSourceButton.clicked += OpenSelectedRuleSource;
         tearButton.clicked += () => TearPack();
         revealButton.clicked += () => RevealNextCard();
         revealAllButton.clicked += () => RevealAllCards();
@@ -512,9 +518,7 @@ public sealed class GachaViewController : MonoBehaviour
         ruleNotice.text = selectedProfile.IsHistoricallyVerified
             ? selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId)
             : CardUiText.Get("gacha.rule.simulation_notice");
-        ruleSourceButton.style.display = selectedProfile.SourceReferences.Count > 0 && selectedProfile.IsHistoricallyVerified
-            ? DisplayStyle.Flex
-            : DisplayStyle.None;
+        BuildRuleEvidence();
         prepareButton.SetEnabled(true);
         PrintingDefinition cover = CoverFor(product);
         if (cover != null)
@@ -712,7 +716,6 @@ public sealed class GachaViewController : MonoBehaviour
         subtitle.text = CardUiText.Get("gacha.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
         prepareButton.text = CardUiText.Get("gacha.action.prepare");
-        ruleSourceButton.text = CardUiText.Get("gacha.action.rule_source");
         tearButton.text = CardUiText.Get("gacha.action.tear");
         revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
         backToProductsButton.text = CardUiText.Get("gacha.action.all_products");
@@ -749,9 +752,63 @@ public sealed class GachaViewController : MonoBehaviour
         ShowSelectionPage();
     }
 
-    private void OpenSelectedRuleSource()
+    private void BuildRuleEvidence()
     {
-        string source = selectedProfile?.SourceReference;
+        ruleSourceList.Clear();
+        if (selectedProfile == null)
+        {
+            ruleEvidenceSummary.text = string.Empty;
+            ruleSourceList.style.display = DisplayStyle.None;
+            return;
+        }
+
+        string uiLanguage = ApplicationServices.Languages.UiLanguageId;
+        if (selectedProfile.LastCheckedOn.HasValue)
+        {
+            ruleEvidenceSummary.text = CardUiText.Format(
+                "gacha.rule.evidence.checked",
+                selectedProfile.GetRegionName(uiLanguage),
+                ConfidenceLabel(selectedProfile.Confidence),
+                selectedProfile.LastCheckedOn.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            ruleEvidenceSummary.text = CardUiText.Get("gacha.rule.evidence.unverified");
+        }
+
+        int sourceIndex = 0;
+        foreach (ProductRuleEvidence evidence in selectedProfile.Evidence)
+        {
+            sourceIndex++;
+            string source = evidence.SourceReference;
+            var button = new Button(() => OpenRuleSource(source))
+            {
+                text = CardUiText.Format("gacha.action.rule_source_number", sourceIndex, evidence.Title),
+                tooltip = source
+            };
+            button.AddToClassList("gacha-source-button");
+            ruleSourceList.Add(button);
+        }
+        ruleSourceList.style.display = ruleSourceList.childCount > 0
+            ? DisplayStyle.Flex
+            : DisplayStyle.None;
+    }
+
+    private static string ConfidenceLabel(ProductRuleConfidence confidence)
+    {
+        switch (confidence)
+        {
+            case ProductRuleConfidence.Authoritative:
+                return CardUiText.Get("gacha.rule.confidence.authoritative");
+            case ProductRuleConfidence.Corroborated:
+                return CardUiText.Get("gacha.rule.confidence.corroborated");
+            default:
+                return CardUiText.Get("gacha.rule.confidence.unverified");
+        }
+    }
+
+    private static void OpenRuleSource(string source)
+    {
         if (string.IsNullOrWhiteSpace(source))
             return;
         UIFeedbackService.Play(FeedbackCue.Confirm);

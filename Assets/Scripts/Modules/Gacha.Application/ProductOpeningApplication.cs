@@ -6,103 +6,6 @@ using Gacha.Domain;
 
 namespace Gacha.Application
 {
-    public enum ProductRuleTrust
-    {
-        Simulated,
-        HistoricallyVerified
-    }
-
-    public sealed class ProductRuleProfile
-    {
-        public ProductRuleProfile(
-            string id,
-            ProductDrawRules rules,
-            ProductRuleTrust trust,
-            string sourceReference)
-            : this(
-                id,
-                rules,
-                trust,
-                string.IsNullOrWhiteSpace(sourceReference) ? Array.Empty<string>() : new[] { sourceReference },
-                null)
-        {
-        }
-
-        public ProductRuleProfile(
-            string id,
-            ProductDrawRules rules,
-            ProductRuleTrust trust,
-            IEnumerable<string> sourceReferences)
-            : this(id, rules, trust, sourceReferences, null)
-        {
-        }
-
-        public ProductRuleProfile(
-            string id,
-            ProductDrawRules rules,
-            ProductRuleTrust trust,
-            IEnumerable<string> sourceReferences,
-            IReadOnlyDictionary<string, string> localizedDescriptions)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("A rule profile needs an id.", nameof(id));
-
-            Id = id.Trim();
-            Rules = rules ?? throw new ArgumentNullException(nameof(rules));
-            Trust = trust;
-            SourceReferences = new ReadOnlyCollection<string>((sourceReferences ?? Array.Empty<string>())
-                .Where(reference => !string.IsNullOrWhiteSpace(reference))
-                .Select(reference => reference.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray());
-            LocalizedDescriptions = CopyDescriptions(localizedDescriptions, Id);
-        }
-
-        public string Id { get; }
-        public ProductDrawRules Rules { get; }
-        public ProductRuleTrust Trust { get; }
-        public IReadOnlyList<string> SourceReferences { get; }
-        public IReadOnlyDictionary<string, string> LocalizedDescriptions { get; }
-        public string SourceReference => SourceReferences.FirstOrDefault();
-        public bool IsHistoricallyVerified => Trust == ProductRuleTrust.HistoricallyVerified;
-
-        public string GetDescription(string languageId, string fallbackLanguageId = "en")
-        {
-            if (!string.IsNullOrWhiteSpace(languageId) &&
-                LocalizedDescriptions.TryGetValue(languageId, out string localized))
-            {
-                return localized;
-            }
-
-            if (!string.IsNullOrWhiteSpace(fallbackLanguageId) &&
-                LocalizedDescriptions.TryGetValue(fallbackLanguageId, out string fallback))
-            {
-                return fallback;
-            }
-
-            return LocalizedDescriptions.Values.First();
-        }
-
-        private static IReadOnlyDictionary<string, string> CopyDescriptions(
-            IReadOnlyDictionary<string, string> source,
-            string fallback)
-        {
-            var copy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (source != null)
-            {
-                foreach (KeyValuePair<string, string> entry in source)
-                {
-                    if (!string.IsNullOrWhiteSpace(entry.Key) && !string.IsNullOrWhiteSpace(entry.Value))
-                        copy[entry.Key.Trim()] = entry.Value.Trim();
-                }
-            }
-
-            if (copy.Count == 0)
-                copy["en"] = fallback;
-            return new ReadOnlyDictionary<string, string>(copy);
-        }
-    }
-
     public interface IProductRuleProvider
     {
         ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string languageId = null);
@@ -135,7 +38,14 @@ namespace Gacha.Application
                 "uniform-simulation-v1",
                 rules,
                 ProductRuleTrust.Simulated,
-                new[] { "generated:uniform-simulation-v1" },
+                ProductRuleConfidence.Unverified,
+                "unspecified",
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["en"] = "Region unspecified",
+                    ["zh"] = "地区未指定"
+                },
+                Array.Empty<ProductRuleEvidence>(),
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["en"] = $"Uniform simulation · {cardsPerPack} cards · equal odds per installed printing",

@@ -15,6 +15,9 @@ namespace Gacha.Infrastructure.Rules
         public const string NeoGenesisSetId = "pokemon-tcg:set:neo1";
         public const string NeoGenesisProfileId = "pokemon-neo1-first-edition-psa-v1";
         public const string NeoGenesisSourceUrl = "https://www.psacard.com/articles/articleview/9409/public/locales";
+        public const string InternationalRegionId = "pokemon-international-en";
+
+        private static readonly DateTime EvidenceCheckedOn = new DateTime(2026, 7, 23);
 
         public ProductRuleProfile GetProfile(UniversalCatalog catalog, string productId, string languageId = null)
         {
@@ -84,7 +87,14 @@ namespace Gacha.Infrastructure.Rules
                 BaseSetProfileId,
                 rules,
                 ProductRuleTrust.HistoricallyVerified,
-                new[] { BaseSetStudyUrl, MachampSourceUrl },
+                ProductRuleConfidence.Corroborated,
+                InternationalRegionId,
+                Regions("International English market", "国际英文市场"),
+                new[]
+                {
+                    Evidence("SJSU Base Set empirical study", BaseSetStudyUrl),
+                    Evidence("PokéBeach Base Set theme deck reference", MachampSourceUrl)
+                },
                 Descriptions(
                     "Base Set Unlimited · 5 Common / 2 Energy / 3 Uncommon / 1 Rare · Holo ≈ 1 in 3",
                     "Base Set 无限版 · 5 普通 / 2 能量 / 3 非普通 / 1 稀有 · 闪卡约 3 包 1 张"));
@@ -135,7 +145,13 @@ namespace Gacha.Infrastructure.Rules
                 NeoGenesisProfileId,
                 rules,
                 ProductRuleTrust.HistoricallyVerified,
-                new[] { NeoGenesisSourceUrl },
+                ProductRuleConfidence.Corroborated,
+                InternationalRegionId,
+                Regions("International English market", "国际英文市场"),
+                new[]
+                {
+                    Evidence("PSA Neo Genesis guide", NeoGenesisSourceUrl)
+                },
                 Descriptions(
                     "Neo Genesis First Edition · 7 Common / 3 Uncommon / 1 Rare · Holo ≈ 1 in 3",
                     "Neo Genesis 第一版 · 7 普通 / 3 非普通 / 1 稀有 · 闪卡约 3 包 1 张"));
@@ -180,6 +196,20 @@ namespace Gacha.Infrastructure.Rules
                 ["en"] = english,
                 ["zh"] = chinese
             };
+        }
+
+        private static IReadOnlyDictionary<string, string> Regions(string english, string chinese)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["en"] = english,
+                ["zh"] = chinese
+            };
+        }
+
+        private static ProductRuleEvidence Evidence(string title, string sourceReference)
+        {
+            return new ProductRuleEvidence(title, sourceReference, EvidenceCheckedOn);
         }
 
         private static void RequireCount(

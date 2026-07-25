@@ -516,6 +516,30 @@ MonoBehaviour:
     m_Localized: Settings
     m_Metadata:
       m_Items: []
+  - m_Id: 167096080621285376
+    m_Localized: "{0} \xB7 Confidence: {1} \xB7 checked {2}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199936
+    m_Localized: Region and historical collation are unverified.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199937
+    m_Localized: Unverified
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199938
+    m_Localized: Corroborated
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199939
+    m_Localized: Authoritative
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199940
+    m_Localized: 'Source {0}: {1}'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

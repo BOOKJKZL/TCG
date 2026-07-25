@@ -21,6 +21,15 @@ public class PokemonHistoricalRuleProviderTests
 
         Assert.That(profile, Is.Not.Null);
         Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.HistoricallyVerified));
+        Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
+        Assert.That(profile.RegionId, Is.EqualTo(PokemonHistoricalRuleProvider.InternationalRegionId));
+        Assert.That(profile.GetRegionName("zh"), Is.EqualTo("国际英文市场"));
+        Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 23)));
+        Assert.That(profile.Evidence.Select(item => item.Title), Is.EquivalentTo(new[]
+        {
+            "SJSU Base Set empirical study",
+            "PokéBeach Base Set theme deck reference"
+        }));
         Assert.That(profile.SourceReferences, Has.Count.EqualTo(2));
         Assert.That(profile.GetDescription("zh"), Does.Contain("无限版"));
         Assert.That(profile.Rules.Slots.Sum(slot => slot.DrawCount), Is.EqualTo(11));
@@ -59,6 +68,10 @@ public class PokemonHistoricalRuleProviderTests
         Assert.That(profile, Is.Not.Null);
         Assert.That(profile.Id, Is.EqualTo(PokemonHistoricalRuleProvider.NeoGenesisProfileId));
         Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.HistoricallyVerified));
+        Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
+        Assert.That(profile.RegionId, Is.EqualTo(PokemonHistoricalRuleProvider.InternationalRegionId));
+        Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 23)));
+        Assert.That(profile.Evidence.Single().Title, Is.EqualTo("PSA Neo Genesis guide"));
         Assert.That(profile.SourceReferences, Is.EquivalentTo(new[]
         {
             PokemonHistoricalRuleProvider.NeoGenesisSourceUrl

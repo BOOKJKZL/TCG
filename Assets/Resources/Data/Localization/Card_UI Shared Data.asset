@@ -511,6 +511,30 @@ MonoBehaviour:
     m_Key: settings.title
     m_Metadata:
       m_Items: []
+  - m_Id: 167096080621285376
+    m_Key: gacha.rule.evidence.checked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199936
+    m_Key: gacha.rule.evidence.unverified
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199937
+    m_Key: gacha.rule.confidence.unverified
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199938
+    m_Key: gacha.rule.confidence.corroborated
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199939
+    m_Key: gacha.rule.confidence.authoritative
+    m_Metadata:
+      m_Items: []
+  - m_Id: 167096080684199940
+    m_Key: gacha.action.rule_source_number
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -48,6 +48,10 @@ namespace Gacha.Tests.PlayMode
                     GetProperty(controller, "InitializationError") as string);
                 Assert.That((int)GetProperty(controller, "ProductCount"), Is.EqualTo(5));
                 Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
+                Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(), Is.EqualTo("Corroborated"));
+                Assert.That((string)GetProperty(controller, "SelectedRuleRegionId"),
+                    Is.EqualTo("pokemon-international-en"));
+                Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(2));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
@@ -55,13 +59,49 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
                 Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("准备卡包"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
+                    Does.Contain("已佐证").And.Contain("2026-07-23"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
+                    Is.EqualTo(2));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
+                    .Children().OfType<Button>().First().text, Does.StartWith("来源 1："));
                 ApplicationServices.Languages.SelectUiLanguage("en");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("Open a Pack"));
                 Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("Prepare pack"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
+                    Does.Contain("Corroborated").And.Contain("2026-07-23"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
+                    .Children().OfType<Button>().First().text, Does.StartWith("Source 1:"));
 
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
                 Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+
+                int simulatedIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .First(pair =>
+                        !pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal) &&
+                        !pair.product.SetId.EndsWith(":neo1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(simulatedIndex);
+                yield return null;
+                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("Simulated"));
+                Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(), Is.EqualTo("Unverified"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-badge").text, Is.EqualTo("SIMULATION"));
+                Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
+                    Is.EqualTo("Region and historical collation are unverified."));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
+                    Is.EqualTo(0));
+
+                int baseIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .Single(pair => pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(baseIndex);
+                yield return null;
+                Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
+                    Is.EqualTo(2));
 
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-stage").resolvedStyle.display,
@@ -121,6 +161,9 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That((string)GetProperty(controller, "SelectedRuleProfileId"),
                     Is.EqualTo("pokemon-neo1-first-edition-psa-v1"));
+                Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(1));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
+                    Is.EqualTo(1));
                 string ruleNotice = document.rootVisualElement.Q<Label>("rule-notice").text;
                 Assert.That(ruleNotice.Contains("First Edition") || ruleNotice.Contains("第一版"), Is.True);
 
