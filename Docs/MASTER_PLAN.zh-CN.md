@@ -1,8 +1,8 @@
 # Universal Gacha Simulator 项目主计划
 
-最后更新：2026-07-25
+最后更新：2026-07-26
 
-本次修改原因：在真实 R2 与真机条件尚未提供时继续阶段 8B，并完成 Scarlet & Violet Base 的来源指导模拟与运行时 foil 形态补正。现有五个测试系列已有三套历史规则和两套已佐证来源模拟；通用均匀模拟仍作为未知内容的明确后备方案，不会把开包样本概率冒充官方配列。
+本次修改原因：阶段 8B 的五年代规则基线完成后，继续补齐可替换的开包主题表现框架。五个测试系列现在各自拥有独立配色、撕包/揭晓节奏和音效键；通用系统只定义主题契约与后备主题，宝可梦系列映射留在独立模块，后续可以用正式包装、美术和音频资源替换当前程序化基线。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -71,8 +71,8 @@ AccessibilitySettings
 - 已建立第一个独立程序集 `Gacha.Presentation`，作为后续模块化迁移基线。
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
-- 音效资源尚未配置时会使用低音量程序化点击声，后续可由正式音效无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器和内容管理 Presentation 均有自动化测试；当前项目 EditMode 测试为 215/215 通过。
+- 音效资源尚未配置时会使用低音量程序化点击声与短促合成提示音；按钮、下载、撕包、翻卡、稀有揭晓和五套年代主题均有可听见的后备反馈，正式音效仍可通过相同键无缝覆盖。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 221/221 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -90,11 +90,12 @@ AccessibilitySettings
 - 英文 EX Ruby & Sapphire 已接入第三份 `HistoricallyVerified + Corroborated` 配列：5 Common、2 Uncommon、1 Reverse Holo、1 Rare；Rare 槽使用可追溯的整盒经验比例，并明确不声称官方工厂序列。
 - 英文 Sword & Shield Base 已接入 `SourceInformedSimulation + Corroborated`：10 张可收藏系列卡、保证 Reverse 槽和六类 Rare 权重均有来源边界；实体 Basic Energy/code card 明确作为非收藏插入物省略。
 - 英文 Scarlet & Violet Base 已接入 `SourceInformedSimulation + Corroborated`：4 Common、3 Uncommon、两个独立 foil 槽与一个 Rare-or-higher 槽；官方包结构和超过 8,000 包样本分别限定槽位与权重，Basic Energy/code card 作为非收藏插入物省略。
+- 已建立通用 `ProductOpeningTheme` 契约和独立 `Gacha.Pokemon.Presentation` 模块；Base Set、Neo Genesis、EX Ruby & Sapphire、Sword & Shield Base、Scarlet & Violet Base 分别使用 vintage、forest、ruby、electric、gallery 主题，控制配色、撕包节奏、稀有揭晓光环与音效键，并遵守减少动态效果设置。
 - 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 62.2 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5100 张卡约 0.075 秒，本轮托管内存净增长约 0.063 MiB，低于 32 MiB 验收阈值；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,507,485 bytes（约 51.98 MiB），ZIP 容器开销为 77,410 bytes。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,522,308 bytes（约 52.00 MiB），ZIP 容器开销为 77,409 bytes。6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。先前约 74.86–88.69 MiB 的波动来自增量 APK 内残留的 archive tombstone，而不是卡图或字体资源。
 - 抽卡、收藏、设置、旧 UGUI 本地化、内容管理、远程 catalog 和场景切换 PlayMode 测试为 7/7 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -117,10 +118,10 @@ AccessibilitySettings
 
 - 已接入系列的来源模拟仍可在取得更权威资料后版本化精炼；未知产品继续明确使用等概率模拟规则。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
-- 宝可梦不同年代的包装、开包动画、光效与音效主题适配。
+- 宝可梦不同年代的正式包装美术、粒子/光效和录制音效资源；模块化主题、程序化视觉/音频基线与减少动态效果适配已经完成。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 84%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环，阶段 8 下一重点转向年代主题表现。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 86%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环，阶段 8 下一重点转向年代主题的正式美术与音频资产。
 
 ## 四、阶段计划
 
@@ -296,7 +297,7 @@ Content Language  卡名、卡图、系列和产品
 - 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
 - `LegacySceneTextLocalizer` 以场景级映射覆盖主菜单四个入口及设置、开包、收藏三个旧 UGUI 标题，不改动旧场景序列化引用；动态面板中的空 TMP 文本会被安全忽略。新增 5 个菜单/设置键，开始场景没有静态文字，关闭按钮 `X` 不需要翻译。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 215/215、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,507,485 bytes（约 51.98 MiB）、413 个条目且私人内容名称匹配为 0。
+- 截至本次补强，全项目 EditMode 221/221、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,522,308 bytes（约 52.00 MiB）、413 个条目且私人内容名称匹配为 0。
 - 已加入 62.2 KB、227 个 UI codepoint 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；新增中文后必须继续重新生成子集。
 
 ### 阶段 4：接入私人导入内容
@@ -619,7 +620,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 8：宝可梦适配层
 
-状态：8A 规则证据基础层已完成；8B 的 EX Ruby & Sapphire 历史规则、Sword & Shield Base 与 Scarlet & Violet Base 来源指导模拟均已完成（2026-07-25）。五个测试系列中三套为历史规则、两套为来源模拟，规则验收已覆盖全部现有系列；下一步为年代主题表现。
+状态：8A 规则证据基础层、8B 的五系列规则覆盖和年代主题表现框架均已完成（2026-07-26）。五个测试系列中三套为历史规则、两套为来源模拟；五套主题已经贯穿产品选择、撕包、稀有揭晓、音效键和减少动态效果，下一步是替换正式美术/音频资产与完成真实 R2/Android 闭环。
 
 目标：在通用系统上提供不同年代和地区的宝可梦卡包。
 
@@ -653,6 +654,10 @@ Content Language  卡名、卡图、系列和产品
 - Scarlet & Violet Base 按官方边界实现 4 Common、3 Uncommon、第一 Reverse、第二 foil 与 Rare-or-higher 共 10 张可收藏系列卡；第二 foil 槽和 Rare-or-higher 槽分别按超过 8,000 包研究归一，不把样本权重声明为官方插入率。
 - `PokemonImportedCardVariantPolicy` 在 Catalog 适配边界为 sv01 补正 normal/reverse/holo Printing，使产品由来源卡展开为 444 个可抽取 Printing；策略接口可替换，且不改写 TCGdex 私人原始 manifest。
 - Scarlet & Violet 规则定向 EditMode 3/3、开包场景 PlayMode 1/1、全量 EditMode 215/215、PlayMode 7/7 通过；500 包/5100 张性能回归约 0.075 秒、托管内存净增长约 0.063 MiB。Android/IL2CPP 干净 APK 为 54,507,485 bytes（51.98 MiB）、413 个条目、私人内容名称匹配 0。
+- 通用 `Gacha.Presentation` 新增 `IProductOpeningThemeProvider` 与验证过的默认主题；宝可梦映射放入独立 `Gacha.Pokemon.Presentation`，不会把系列 ID、年代配色或稀有度命名写进通用控制器。
+- 五个系列的主题 ID、USS class、撕包/揭晓节奏和音效键均不同；当前导入资料没有设置 `RarityDefinition.PresentationKey`，宝可梦主题因此在适配层用可配置稀有度 ID 片段补足稀有揭晓，未知游戏仍使用通用后备主题。
+- 稀有卡会显示主题光环并播放主题音效；减少动态效果会保留静态强调而跳过缩放动画。所有原本缺少素材的核心反馈与十个主题音效键都有低音量程序化后备，正式 `AudioClipConfig` 仍有优先权。
+- 主题契约定向 EditMode 4/4、程序化音频定向 EditMode 1/1、开包场景 PlayMode 1/1、全量 EditMode 221/221、PlayMode 7/7 通过。Android/IL2CPP 干净 APK 为 54,522,308 bytes（52.00 MiB）、413 个条目、私人内容名称匹配 0。
 
 验收：
 
@@ -691,7 +696,7 @@ Content Language  卡名、卡图、系列和产品
 - 阶段 8–9，宝可梦适配与真机验收：14–33 小时。
 - 完整项目：约 46–88 小时，不含外部等待和大量规则资料调查。
 
-以 2026-07-25 的当前完成度重新估算剩余工作：
+以 2026-07-26 的当前完成度重新估算剩余工作：
 
 - 第一个可玩的纵向切片：已完成。
 - 完成本地通用模拟器 MVP：代码和自动化已完成；连接手机后的安装、内容推送、触摸、声音和震动验收预计 1–2 小时。
@@ -725,9 +730,10 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 8B 第一套：EX Ruby & Sapphire 九张卡历史规则（完成）
 → 阶段 8B 第二套：Sword & Shield Base 来源指导模拟（完成）
 → 阶段 8B 第三套：Scarlet & Violet Base 来源指导模拟 + foil 形态补正（完成）
+→ 阶段 8B 第四套：五年代模块化开包主题、动画、光效与音效键基线（完成）
 → 当前外部关键路径：最小真实 R2 上传 + 手机真实下载
 → Android 真机下载/中断/离线缓存验收
-→ 阶段 8B 后续：不同年代包装、开包动画、光效与音效主题适配
+→ 阶段 8B 后续：年代包装、粒子/光效与录制音效正式资产替换和细化
 → 阶段 9：最终 Android 验收
 ```
 

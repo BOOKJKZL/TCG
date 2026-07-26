@@ -6,7 +6,7 @@
 
 ## 模块边界
 
-当前核心已经整理为以下四个运行时程序集；旧场景适配脚本暂留在 `Assembly-CSharp`，但通过接口调用核心，不允许 Presentation 反向依赖 Infrastructure。
+当前核心已经整理为以下五个运行时程序集；旧场景适配脚本与组合根暂留在 `Assembly-CSharp`，但通过接口调用核心，不允许 Presentation 反向依赖 Infrastructure。
 
 ```text
 Gacha.Domain
@@ -22,9 +22,14 @@ Gacha.Infrastructure
   将外部 API 数据转换为领域模型的 Adapter
 
 Gacha.Presentation
-  UI Toolkit / UGUI 控制器、下载进度、开包动画、收藏界面
+  通用反馈、本地化、产品开包主题契约与 UI 状态
 
-Gacha.Editor
+Gacha.Pokemon.Presentation
+  宝可梦系列到通用开包主题的映射
+  只依赖 Domain + Presentation，不进入通用业务模块
+
+Assembly-CSharp / Editor-only code
+  场景控制器、启动组合根
   内容导入、确定性 ZIP/catalog 发布、字体子集、概率校验、Android/Addressables 构建工具
 ```
 
@@ -34,6 +39,9 @@ Gacha.Editor
 - `Gacha.Infrastructure`：读取私人 manifest，并把外部数据转换成 `UniversalCatalog`。
 - `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
 - `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果、`CardUiText` String Table 解析与英文兜底，以及只观察 Application 快照的内容管理页面；收藏、共享卡图状态和开包流程共用该文本边界，并能在当前页面状态中即时刷新语言。`LegacySceneTextLocalizer` 通过场景级映射接管仍使用 TMP/UGUI 的静态标题和菜单入口，避免把本地化职责重新塞回导航控制器。
+- `IProductOpeningThemeProvider`：通用 Presentation 只定义主题 ID、USS class、音效键、动画参数和稀有强调判断；`Gacha.Pokemon.Presentation` 负责五个宝可梦系列的具体映射，`GameApplicationBootstrap` 只在组合根注入实现。未知游戏或未知产品使用已验证参数范围内的通用后备主题。
+- 主题音频沿用 `UIFeedbackService` 的语义事件，但允许把实际播放键替换为产品主题键；因此统计/震动仍识别 `PackOpen` 与 `RareReveal`，音频素材则可按年代替换。`AudioClipConfig` 优先于程序化后备音，缺少正式素材时不会静默。
+- 当前 TCGdex 运行时导入没有填充 `RarityDefinition.PresentationKey`；宝可梦主题在自身适配层用可配置的稀有度 ID 片段补足强调判断，避免把 `rare`、V、VMAX 或 Illustration Rare 写死进通用控制器。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
 
 - `ICatalogProvider`：Catalog 可由私人 manifest、Addressables 或下载后的数据库提供。
@@ -65,7 +73,7 @@ Gacha.Editor
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1278 个 Printing、模拟规则和两套历史规则。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型：纯模拟不能声明已佐证，来源辅助模拟和历史规则必须携带 HTTPS 证据与可信度，Presentation 只负责本地化展示和打开来源。下一步仍是带真实私人参数的 R2/Android 远程闭环，同时可逐套补充五个年代的真实规则。
+这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则和独立开包主题。下一步仍是带真实私人参数的 R2/Android 远程闭环，以及把当前年代主题的程序化基线替换为正式包装、美术和音频资产。
 
 ## 两阶段路线
 
