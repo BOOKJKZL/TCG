@@ -497,6 +497,21 @@
     background-color: rgb(219, 127, 255);
 }
 
+.gacha-pack-shell__theme-artwork {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 18px;
+    bottom: 14px;
+    border-radius: 18px;
+    opacity: 0;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.gacha-pack-shell__theme-artwork.is-visible {
+    opacity: 1;
+}
+
 .gacha-pack-shell__art .async-card-image {
     width: 270px;
     height: 390px;

@@ -2,6 +2,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -16,6 +17,7 @@ public class GachaOpeningPresentationTests
         TemplateContainer root = asset.CloneTree();
         Assert.That(root.Q<ListView>("product-list"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-stage"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("pack-theme-artwork"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-theme-band"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-tear-line"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-stage"), Is.Not.Null);
@@ -27,6 +29,36 @@ public class GachaOpeningPresentationTests
         Assert.That(root.Q<Label>("rule-evidence-summary"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("rule-source-list"), Is.Not.Null);
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void PokemonThemePackArtwork_IsPresentAndMobileSized()
+    {
+        string[] paths =
+        {
+            "Assets/Resources/Gacha/Themes/vintage-pack.png",
+            "Assets/Resources/Gacha/Themes/forest-pack.png",
+            "Assets/Resources/Gacha/Themes/ruby-pack.png",
+            "Assets/Resources/Gacha/Themes/electric-pack.png",
+            "Assets/Resources/Gacha/Themes/gallery-pack.png"
+        };
+
+        foreach (string path in paths)
+        {
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            Assert.That(texture, Is.Not.Null, path);
+            Assert.That(importer, Is.Not.Null, path);
+            Assert.That(texture.width, Is.LessThanOrEqualTo(512), path);
+            Assert.That(texture.height, Is.LessThanOrEqualTo(512), path);
+            Assert.That(importer.maxTextureSize, Is.EqualTo(512), path);
+            Assert.That(importer.mipmapEnabled, Is.False, path);
+            Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp), path);
+            TextureImporterPlatformSettings android = importer.GetPlatformTextureSettings("Android");
+            Assert.That(android.overridden, Is.True, path);
+            Assert.That(android.maxTextureSize, Is.EqualTo(512), path);
+            Assert.That(android.format, Is.EqualTo(TextureImporterFormat.ASTC_6x6), path);
+        }
     }
 
     [Test]

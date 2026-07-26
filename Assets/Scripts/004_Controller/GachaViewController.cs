@@ -47,6 +47,7 @@ public sealed class GachaViewController : MonoBehaviour
     private bool revealAnimating;
     private bool currentRevealHighlighted;
     private string appliedThemeClass;
+    private Texture2D selectedThemeArtwork;
 
     private VisualElement root;
     private VisualElement selectionPage;
@@ -56,6 +57,7 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement ruleSourceList;
     private VisualElement packStage;
     private VisualElement packShell;
+    private VisualElement packThemeArtwork;
     private VisualElement packThemeBand;
     private VisualElement packTearLine;
     private VisualElement packArtSlot;
@@ -114,6 +116,8 @@ public sealed class GachaViewController : MonoBehaviour
     public string SelectedThemeStyleClass => selectedTheme?.StyleClass;
     public string SelectedThemePackAudioKey => selectedTheme?.PackOpenAudioKey;
     public string SelectedThemeRareAudioKey => selectedTheme?.RareRevealAudioKey;
+    public string SelectedThemeArtworkResourcePath => selectedTheme?.PackArtworkResourcePath;
+    public bool HasSelectedThemeArtwork => selectedThemeArtwork != null;
     public bool IsCurrentRevealHighlighted => currentRevealHighlighted;
     public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
     public int RevealedCount => revealIndex + 1;
@@ -245,11 +249,17 @@ public sealed class GachaViewController : MonoBehaviour
         tearButton.SetEnabled(true);
         packTitle.text = DisplayName(selectedProduct);
         packHint.text = CardUiText.Get("gacha.pack.hint");
-        PrintingDefinition cover = CoverFor(selectedProduct);
-        if (cover != null)
-            packImage.Bind(cover);
-        else
+        if (selectedThemeArtwork != null)
             packImage.Unbind();
+        else
+        {
+            PrintingDefinition cover = CoverFor(selectedProduct);
+            if (cover != null)
+                packImage.Bind(cover);
+            else
+                packImage.Unbind();
+        }
+        AnimatePackReady();
         return true;
     }
 
@@ -351,6 +361,7 @@ public sealed class GachaViewController : MonoBehaviour
         ruleSourceList = Required<VisualElement>("rule-source-list");
         packStage = Required<VisualElement>("pack-stage");
         packShell = Required<VisualElement>("pack-shell");
+        packThemeArtwork = Required<VisualElement>("pack-theme-artwork");
         packThemeBand = Required<VisualElement>("pack-theme-band");
         packTearLine = Required<VisualElement>("pack-tear-line");
         packArtSlot = Required<VisualElement>("pack-art-slot");
@@ -563,6 +574,13 @@ public sealed class GachaViewController : MonoBehaviour
             root.RemoveFromClassList(appliedThemeClass);
         appliedThemeClass = selectedTheme.StyleClass;
         root.AddToClassList(appliedThemeClass);
+        selectedThemeArtwork = string.IsNullOrWhiteSpace(selectedTheme.PackArtworkResourcePath)
+            ? null
+            : Resources.Load<Texture2D>(selectedTheme.PackArtworkResourcePath);
+        packThemeArtwork.style.backgroundImage = selectedThemeArtwork == null
+            ? new StyleBackground(StyleKeyword.None)
+            : new StyleBackground(selectedThemeArtwork);
+        packThemeArtwork.EnableInClassList("is-visible", selectedThemeArtwork != null);
         if (packThemeBand != null)
             packThemeBand.userData = selectedTheme.Id;
     }
@@ -722,6 +740,41 @@ public sealed class GachaViewController : MonoBehaviour
             packAnimation?.Pause();
             packAnimation = null;
             completed();
+        }).Every(16);
+    }
+
+    private void AnimatePackReady()
+    {
+        packAnimation?.Pause();
+        if (UIFeedbackService.ReduceMotion)
+        {
+            packShell.style.opacity = 1f;
+            packShell.style.scale = new Scale(Vector3.one);
+            packThemeArtwork.style.opacity = 1f;
+            return;
+        }
+
+        packShell.style.opacity = 0f;
+        packShell.style.scale = new Scale(new Vector3(0.94f, 0.94f, 1f));
+        packThemeArtwork.style.opacity = selectedThemeArtwork == null ? 0f : 0.35f;
+        float startedAt = Time.realtimeSinceStartup;
+        float duration = 0.24f / UIFeedbackService.AnimationSpeed;
+        packAnimation = packShell.schedule.Execute(() =>
+        {
+            float progress = Mathf.SmoothStep(
+                0f,
+                1f,
+                Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
+            packShell.style.opacity = progress;
+            float scale = Mathf.Lerp(0.94f, 1f, progress);
+            packShell.style.scale = new Scale(new Vector3(scale, scale, 1f));
+            packThemeArtwork.style.opacity = selectedThemeArtwork == null
+                ? 0f
+                : Mathf.Lerp(0.35f, 1f, progress);
+            if (progress < 1f)
+                return;
+            packAnimation?.Pause();
+            packAnimation = null;
         }).Every(16);
     }
 

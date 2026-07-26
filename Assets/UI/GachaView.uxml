@@ -38,8 +38,9 @@
                     <ui:Label name="pack-title" class="gacha-stage__title" />
                     <ui:Label name="pack-hint" class="gacha-stage__hint" />
                     <ui:VisualElement name="pack-shell" class="gacha-pack-shell">
-                        <ui:VisualElement name="pack-theme-band" class="gacha-pack-shell__theme-band" />
+                        <ui:VisualElement name="pack-theme-artwork" class="gacha-pack-shell__theme-artwork" />
                         <ui:VisualElement name="pack-art-slot" class="gacha-pack-shell__art" />
+                        <ui:VisualElement name="pack-theme-band" class="gacha-pack-shell__theme-band" />
                         <ui:VisualElement name="pack-tear-line" class="gacha-pack-shell__tear" />
                     </ui:VisualElement>
                     <ui:Button name="tear-pack-button" class="gacha-button gacha-button--primary" />

@@ -39,7 +39,8 @@ namespace Gacha.Presentation
             float revealDurationSeconds,
             float revealStartScale,
             float rarePulseScale,
-            IEnumerable<string> highlightedRarityIdFragments = null)
+            IEnumerable<string> highlightedRarityIdFragments = null,
+            string packArtworkResourcePath = null)
         {
             Id = Required(id, nameof(id));
             StyleClass = Required(styleClass, nameof(styleClass));
@@ -53,6 +54,9 @@ namespace Gacha.Presentation
                 revealDurationSeconds, 0.08f, 1f, nameof(revealDurationSeconds));
             RevealStartScale = InRange(revealStartScale, 0.4f, 1f, nameof(revealStartScale));
             RarePulseScale = InRange(rarePulseScale, 1f, 1.4f, nameof(rarePulseScale));
+            PackArtworkResourcePath = string.IsNullOrWhiteSpace(packArtworkResourcePath)
+                ? null
+                : packArtworkResourcePath.Trim();
             HighlightedRarityIdFragments = new ReadOnlyCollection<string>(
                 (highlightedRarityIdFragments ?? Array.Empty<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -71,6 +75,7 @@ namespace Gacha.Presentation
         public float RevealDurationSeconds { get; }
         public float RevealStartScale { get; }
         public float RarePulseScale { get; }
+        public string PackArtworkResourcePath { get; }
         public IReadOnlyList<string> HighlightedRarityIdFragments { get; }
 
         public bool Highlights(RarityDefinition rarity)

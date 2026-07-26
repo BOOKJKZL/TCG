@@ -12,6 +12,11 @@ namespace Gacha.Pokemon.Presentation
         public const string ExRubySapphireSetId = "pokemon-tcg:set:ex1";
         public const string SwordShieldSetId = "pokemon-tcg:set:swsh1";
         public const string ScarletVioletSetId = "pokemon-tcg:set:sv01";
+        public const string VintagePackArtwork = "Gacha/Themes/vintage-pack";
+        public const string ForestPackArtwork = "Gacha/Themes/forest-pack";
+        public const string RubyPackArtwork = "Gacha/Themes/ruby-pack";
+        public const string ElectricPackArtwork = "Gacha/Themes/electric-pack";
+        public const string GalleryPackArtwork = "Gacha/Themes/gallery-pack";
 
         private static readonly string[] RareFragments = { "rare" };
 
@@ -22,27 +27,32 @@ namespace Gacha.Pokemon.Presentation
                     "pokemon-base1-vintage", "gacha-theme--vintage",
                     ProductOpeningThemeAudioKeys.VintagePackOpen,
                     ProductOpeningThemeAudioKeys.VintageRareReveal,
-                    0.56f, 1.035f, 1.5f, 0.26f, 0.70f, 1.08f),
+                    0.56f, 1.035f, 1.5f, 0.26f, 0.70f, 1.08f,
+                    VintagePackArtwork),
                 [NeoGenesisSetId] = Theme(
                     "pokemon-neo1-forest", "gacha-theme--forest",
                     ProductOpeningThemeAudioKeys.ForestPackOpen,
                     ProductOpeningThemeAudioKeys.ForestRareReveal,
-                    0.52f, 1.045f, 2f, 0.24f, 0.68f, 1.10f),
+                    0.52f, 1.045f, 2f, 0.24f, 0.68f, 1.10f,
+                    ForestPackArtwork),
                 [ExRubySapphireSetId] = Theme(
                     "pokemon-ex1-ruby", "gacha-theme--ruby",
                     ProductOpeningThemeAudioKeys.RubyPackOpen,
                     ProductOpeningThemeAudioKeys.RubyRareReveal,
-                    0.43f, 1.065f, 3f, 0.20f, 0.66f, 1.13f),
+                    0.43f, 1.065f, 3f, 0.20f, 0.66f, 1.13f,
+                    RubyPackArtwork),
                 [SwordShieldSetId] = Theme(
                     "pokemon-swsh1-electric", "gacha-theme--electric",
                     ProductOpeningThemeAudioKeys.ElectricPackOpen,
                     ProductOpeningThemeAudioKeys.ElectricRareReveal,
-                    0.36f, 1.08f, 4f, 0.18f, 0.62f, 1.15f),
+                    0.36f, 1.08f, 4f, 0.18f, 0.62f, 1.15f,
+                    ElectricPackArtwork),
                 [ScarletVioletSetId] = Theme(
                     "pokemon-sv01-gallery", "gacha-theme--gallery",
                     ProductOpeningThemeAudioKeys.GalleryPackOpen,
                     ProductOpeningThemeAudioKeys.GalleryRareReveal,
-                    0.40f, 1.06f, 3.5f, 0.23f, 0.64f, 1.18f)
+                    0.40f, 1.06f, 3.5f, 0.23f, 0.64f, 1.18f,
+                    GalleryPackArtwork)
             };
 
         public ProductOpeningTheme Resolve(ProductDefinition product)
@@ -62,7 +72,8 @@ namespace Gacha.Pokemon.Presentation
             float packPulseCycles,
             float revealDuration,
             float revealStartScale,
-            float rarePulseScale)
+            float rarePulseScale,
+            string packArtworkResourcePath)
         {
             return new ProductOpeningTheme(
                 id,
@@ -75,7 +86,8 @@ namespace Gacha.Pokemon.Presentation
                 revealDuration,
                 revealStartScale,
                 rarePulseScale,
-                RareFragments);
+                RareFragments,
+                packArtworkResourcePath);
         }
     }
 }

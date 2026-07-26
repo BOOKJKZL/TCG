@@ -58,6 +58,9 @@ namespace Gacha.Tests.PlayMode
                     Is.EqualTo("pokemon-base1-vintage"));
                 Assert.That((string)GetProperty(controller, "SelectedThemePackAudioKey"),
                     Is.EqualTo("pack.open.vintage"));
+                Assert.That((string)GetProperty(controller, "SelectedThemeArtworkResourcePath"),
+                    Is.EqualTo("Gacha/Themes/vintage-pack"));
+                Assert.That((bool)GetProperty(controller, "HasSelectedThemeArtwork"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
                     .ClassListContains("gacha-theme--vintage"), Is.True);
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
@@ -119,6 +122,9 @@ namespace Gacha.Tests.PlayMode
                     Is.EqualTo(3));
                 Assert.That((string)GetProperty(controller, "SelectedThemeId"),
                     Is.EqualTo("pokemon-swsh1-electric"));
+                Assert.That((string)GetProperty(controller, "SelectedThemeArtworkResourcePath"),
+                    Is.EqualTo("Gacha/Themes/electric-pack"));
+                Assert.That((bool)GetProperty(controller, "HasSelectedThemeArtwork"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
                     .ClassListContains("gacha-theme--electric"), Is.True);
 
@@ -166,6 +172,8 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-stage").resolvedStyle.display,
                     Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("pack-theme-artwork")
+                    .ClassListContains("is-visible"), Is.True);
                 Assert.That(InvokeBool(controller, "TearPack"), Is.True);
 
                 deadline = Time.realtimeSinceStartup + 3f;
