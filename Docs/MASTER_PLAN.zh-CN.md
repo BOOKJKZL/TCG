@@ -2,7 +2,7 @@
 
 最后更新：2026-07-26
 
-本次修改原因：在阶段 8B 的模块化主题框架上补齐第一批正式视觉资产。五个测试系列现在各自拥有一张原创、无品牌元素的年代包装图；主题契约负责可选资源路径，宝可梦模块负责映射，开包页在资源缺失时仍安全回退到系列卡图。图片导入和 Android 压缩参数已自动化，五张包装与接入代码仅增加约 0.29 MiB APK。
+本次修改原因：继续完成阶段 8B 的主题演出层。通用主题契约现在包含有界的粒子参数，复用式 `ThemeParticleField` 负责开包环境粒子与稀有卡爆发粒子；五个测试系列只在宝可梦适配模块声明各自节奏和密度。减少动态效果会完全停用粒子并保留静态稀有强调，功能只增加约 0.02 MiB APK。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 音效资源尚未配置时会使用低音量程序化点击声与短促合成提示音；按钮、下载、撕包、翻卡、稀有揭晓和五套年代主题均有可听见的后备反馈，正式音效仍可通过相同键无缝覆盖。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 222/222 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 224/224 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -92,11 +92,12 @@ AccessibilitySettings
 - 英文 Scarlet & Violet Base 已接入 `SourceInformedSimulation + Corroborated`：4 Common、3 Uncommon、两个独立 foil 槽与一个 Rare-or-higher 槽；官方包结构和超过 8,000 包样本分别限定槽位与权重，Basic Energy/code card 作为非收藏插入物省略。
 - 已建立通用 `ProductOpeningTheme` 契约和独立 `Gacha.Pokemon.Presentation` 模块；Base Set、Neo Genesis、EX Ruby & Sapphire、Sword & Shield Base、Scarlet & Violet Base 分别使用 vintage、forest、ruby、electric、gallery 主题，控制配色、撕包节奏、稀有揭晓光环与音效键，并遵守减少动态效果设置。
 - 五个年代主题已接入 1024 × 1536 的原创抽象包装图；运行时导入最长边限制为 512px、关闭 mipmap，Android 使用 ASTC 6×6。准备卡包时播放淡入/缩放动画，减少动态效果时直接显示静态包装；缺图则回退到原系列卡图。
+- 通用 `ProductOpeningParticleTheme` 和复用式 `ThemeParticleField` 已接入开包环境粒子与稀有卡爆发光效；五套主题分别控制粒子数量、漂移、周期、爆发半径与脉冲，单层最多复用 12 个 UI 元素并以 30 FPS 更新，不进行逐帧对象分配。
 - 设置页已提供静音、减少动态、震动和 0.5x–2.0x 动画速度控件，修改会原子保存并立即预览；保存失败不会发布错误状态。
 - 开包页已提供 `Reveal All / 查看全部`，可以取消正在播放的逐张揭晓动画并直接进入完整总结。
 - 62.2 KB 的 Noto Sans SC 修改子集已作为全局 TMP 中文回退字体；自动化会同时检查 String Table 与代码内中文，不再出现缺字方框。
 - 连续开 500 包/5100 张卡约 0.075 秒，本轮托管内存净增长约 0.063 MiB，低于 32 MiB 验收阈值；三轮核心场景切换净增长约 0.137 MiB；1 万卡存档 JSON 约 464 KB。
-- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,826,948 bytes（约 52.29 MiB），ZIP 容器开销为 77,410 bytes。五张年代包装和接入代码相对上一版本增加 304,640 bytes（约 0.29 MiB）；6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。
+- Android/IL2CPP 开发 APK 已成功构建，包名 `com.personal.universalgacha`；smoke builder 现在强制清理旧构建缓存，最新 APK 为 54,852,963 bytes（约 52.31 MiB），ZIP 容器开销为 77,409 bytes。主题粒子模块相对上一版本增加 26,015 bytes（约 0.02 MiB）；6 个场景、413 个 ZIP 条目中私人内容、`remote-content.json` 和 catalog 缓存匹配均为 0。Gradle 已生成 `values-b+en` / `values-b+zh` 应用名资源，Manifest 使用 `@string/app_name`，`Android App Info` 缺失警告为 0。
 - 抽卡、收藏、设置、旧 UGUI 本地化、内容管理、远程 catalog 和场景切换 PlayMode 测试为 7/7 通过。
 - 通用 `ContentPackagePlanner` 已能判断新装、更新、Hash 修复、无需操作、空间不足和存储不可用；不会用旧 catalog 降级有效的新版本。
 - 本地 `.packages/<package-id>.json` 安装收据读取器已阻止路径逃逸、串包和损坏收据；Android 使用 `StatFs`、编辑器/桌面使用卷信息检查剩余空间。
@@ -119,10 +120,10 @@ AccessibilitySettings
 
 - 已接入系列的来源模拟仍可在取得更权威资料后版本化精炼；未知产品继续明确使用等概率模拟规则。
 - 真实 R2 参数、最小上传与手机真实下载闭环；上传代码已完成，外部写入尚未授权/执行。
-- 宝可梦不同年代的粒子/光效和录制音效资源；原创年代包装、模块化主题、程序化音频基线与减少动态效果适配已经完成。
+- 宝可梦不同年代的正式录制音效资源；原创年代包装、模块化主题、程序化音频基线、主题粒子/光效与减少动态效果适配已经完成。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 87%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环，阶段 8 下一重点转向粒子光效与正式录制音频。
+按验收条件而不是代码数量估算，当前技术底座约完成 99%，本地通用模拟器 MVP 约完成 96%，完整计划约完成 88%。本地 MVP 剩余 4% 是必须在连接 Android 真机后完成的设备验收；阶段 7 的本机自动化边界已经补齐，仍需真实 R2 发布及首次下载、中断续传和断网真机闭环，阶段 8 下一重点转向正式录制音频。
 
 ## 四、阶段计划
 
@@ -298,7 +299,7 @@ Content Language  卡名、卡图、系列和产品
 - 开包流程新增 29 个中英文键；PlayMode 在同一次真实 11 张开包中验证选择页、待翻卡状态和结果页的 `zh ↔ en` 即时切换，同时继续验证历史规则、揭示顺序、`Reveal All`、音效与震动提示事件。
 - `LegacySceneTextLocalizer` 以场景级映射覆盖主菜单四个入口及设置、开包、收藏三个旧 UGUI 标题，不改动旧场景序列化引用；动态面板中的空 TMP 文本会被安全忽略。新增 5 个菜单/设置键，开始场景没有静态文字，关闭按钮 `X` 不需要翻译。
 - 截至 2026-07-24，全量 EditMode 60/60 与 PlayMode 4/4 通过，其中包含设置场景强制切换中文和零缺字日志回归。
-- 截至本次补强，全项目 EditMode 222/222、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,826,948 bytes（约 52.29 MiB）、413 个条目且私人内容名称匹配为 0。
+- 截至本次补强，全项目 EditMode 224/224、PlayMode 7/7 通过；Android/IL2CPP 干净 APK 为 54,852,963 bytes（约 52.31 MiB）、413 个条目且私人内容名称匹配为 0。
 - 已加入 62.2 KB、227 个 UI codepoint 的可重建 Noto Sans SC 修改子集作为 TMP 全局回退，并检查当前 String Table 与代码内全部中文字符；新增中文后必须继续重新生成子集。
 
 ### 阶段 4：接入私人导入内容
@@ -621,7 +622,7 @@ Content Language  卡名、卡图、系列和产品
 
 ### 阶段 8：宝可梦适配层
 
-状态：8A 规则证据基础层、8B 的五系列规则覆盖、年代主题表现框架与五张原创包装视觉均已完成（2026-07-26）。五个测试系列中三套为历史规则、两套为来源模拟；五套主题已经贯穿产品选择、包装、撕包、稀有揭晓、音效键和减少动态效果，下一步是粒子/光效、正式录制音频与真实 R2/Android 闭环。
+状态：8A 规则证据基础层、8B 的五系列规则覆盖、年代主题表现框架、五张原创包装视觉与主题粒子光效均已完成（2026-07-26）。五个测试系列中三套为历史规则、两套为来源模拟；五套主题已经贯穿产品选择、包装、环境粒子、撕包、稀有揭晓、爆发粒子、音效键和减少动态效果，下一步是正式录制音频与真实 R2/Android 闭环。
 
 目标：在通用系统上提供不同年代和地区的宝可梦卡包。
 
@@ -662,6 +663,9 @@ Content Language  卡名、卡图、系列和产品
 - 五张原创包装分别使用 vintage、forest、ruby、electric、gallery 抽象视觉，不包含 Pokémon 名称、角色或官方包装元素；生成提示词和替换规则记录在 `ERA_THEME_ART.zh-CN.md`。
 - `ThemeArtworkImportProcessor` 将五张源图限制在移动端合适的 512px、无 mipmap、Clamp 与 Android ASTC 6×6；Editor 测试同时验证实际导入尺寸和平台覆盖设置。
 - 包装资源/导入设置定向 EditMode 3/3、主题映射 EditMode 4/4、开包场景 PlayMode 1/1、全量 EditMode 222/222、PlayMode 7/7 通过。Android/IL2CPP 干净 APK 为 54,826,948 bytes（52.29 MiB），相对上版增加约 0.29 MiB，413 个条目、私人内容名称匹配 0。
+- `ProductOpeningParticleTheme` 在通用 Presentation 层验证环境/爆发粒子数量、周期、漂移、持续时间、半径和脉冲范围；宝可梦模块为五个系列提供不同参数，通用控制器不判断系列 ID。
+- `ThemeParticleField` 预建并循环复用最多 12 个 UI 元素，以约 30 FPS 更新；准备卡包时播放环境漂浮，稀有卡揭示时播放径向爆发，切换阶段、查看结果或返回选择页都会停止并隐藏。减少动态效果开启时不会启动调度器。
+- 粒子/主题/界面定向 EditMode 9/9、开包场景 PlayMode 1/1、全量 EditMode 224/224、PlayMode 7/7 通过。Android/IL2CPP 干净 APK 为 54,852,963 bytes（52.31 MiB），相对上版增加 26,015 bytes（约 0.02 MiB），413 个条目、私人内容名称匹配 0。
 
 验收：
 
@@ -736,9 +740,10 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 8B 第三套：Scarlet & Violet Base 来源指导模拟 + foil 形态补正（完成）
 → 阶段 8B 第四套：五年代模块化开包主题、动画、光效与音效键基线（完成）
 → 阶段 8B 第五套：五张原创年代包装、移动端纹理导入与准备动画（完成）
+→ 阶段 8B 第六套：通用主题粒子场、五年代环境/爆发光效与减少动态适配（完成）
 → 当前外部关键路径：最小真实 R2 上传 + 手机真实下载
 → Android 真机下载/中断/离线缓存验收
-→ 阶段 8B 后续：粒子/光效与录制音效正式资产替换和细化
+→ 阶段 8B 后续：正式录制音效资产替换和细化
 → 阶段 9：最终 Android 验收
 ```
 
