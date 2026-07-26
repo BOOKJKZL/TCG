@@ -43,7 +43,7 @@ Assembly-CSharp / Editor-only code
 - `ProductOpeningParticleTheme` / `ThemeParticleField`：主题数据只声明经过范围验证的环境与爆发参数；运行时粒子场预建最多 12 个 `VisualElement` 并循环复用，以约 30 FPS 驱动漂浮和径向爆发。控制器只按开包状态启动/停止，不识别宝可梦系列；减少动态效果开启时不会启动调度器，并继续保留静态包装和稀有光环。
 - `ProductOpeningTheme.PackArtworkResourcePath` 是可选的轻量包装皮肤引用；控制器只读取主题声明并通过 `Resources` 加载，加载失败时回退到原有系列卡图，不根据宝可梦系列 ID 分支。当前五张核心皮肤的 APK 总增量约 0.29 MiB，大量卡图仍属于安装后下载内容；若主题数量显著增长，再把包装资产迁入内容包。
 - `ThemeArtworkImportProcessor` 只处理 `Assets/Resources/Gacha/Themes/`，固定最长边 512px、无 mipmap、Clamp 和 Android ASTC 6×6，避免源图分辨率或人工导入设置扩大移动端包体。
-- 主题音频沿用 `UIFeedbackService` 的语义事件，但允许把实际播放键替换为产品主题键；因此统计/震动仍识别 `PackOpen` 与 `RareReveal`，音频素材则可按年代替换。`AudioClipConfig` 优先于程序化后备音，缺少正式素材时不会静默。
+- 主题音频沿用 `UIFeedbackService` 的语义事件，但允许把实际播放键替换为产品主题键；因此统计/震动仍识别 `PackOpen` 与 `RareReveal`。`ThemeAudioAssetGenerator` 以固定参数和种子烘焙五套撕包/稀有揭晓 WAV，`AudioClipConfig` 在 `AudioManager.Awake` 时先注册正式资源，程序化音只补足缺失键。所有主题 WAV 使用单声道 44.1 kHz、ADPCM、`DecompressOnLoad` 和预加载；播放源明确为 2D。
 - 当前 TCGdex 运行时导入没有填充 `RarityDefinition.PresentationKey`；宝可梦主题在自身适配层用可配置的稀有度 ID 片段补足强调判断，避免把 `rare`、V、VMAX 或 Illustration Rare 写死进通用控制器。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
 
@@ -76,7 +76,7 @@ Assembly-CSharp / Editor-only code
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则、独立开包主题、原创包装视觉与有界粒子光效。下一步仍是带真实私人参数的 R2/Android 远程闭环，以及为年代主题补齐正式录制音频。
+这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效。本机实施已完成，下一步只剩带真实私人参数的 R2/Android 发布验收。
 
 ## 两阶段路线
 

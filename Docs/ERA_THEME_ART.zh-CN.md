@@ -99,4 +99,4 @@ Materials/textures: pearlescent rainbow foil with subtle creases and selective h
 2. 新主题通过 `ProductOpeningTheme.PackArtworkResourcePath` 指定资源，不在通用控制器中判断游戏或系列 ID。
 3. 若将来包装图数量明显增加，应迁入可下载内容包；当前五张合计 APK 增量只有约 0.29 MiB，因此保留为离线可用的核心皮肤。
 4. 粒子光效已经由通用 `ProductOpeningParticleTheme` 与复用式 `ThemeParticleField` 驱动，不属于这些位图资产；新主题只应声明参数和 USS 配色，不在控制器中写系列分支。
-5. 正式录制音效仍是后续工作；减少动态效果必须继续保留静态包装与稀有强调。
+5. 十个正式原创主题 WAV 已完成，来源和重建规则见 `THEME_AUDIO.zh-CN.md`；减少动态效果继续保留静态包装与稀有强调，静音设置仍控制所有反馈音。
