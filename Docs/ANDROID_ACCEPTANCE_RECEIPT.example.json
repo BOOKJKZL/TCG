@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "packageId": "com.personal.universalgacha",
+  "testedAtUtc": "2026-07-27T00:00:00Z",
+  "device": {
+    "manufacturer": "replace-after-test",
+    "model": "replace-after-test",
+    "androidVersion": "replace-after-test"
+  },
+  "checks": {
+    "installAndLaunch": false,
+    "touchNavigation": false,
+    "localContentLoad": false,
+    "remoteFirstDownload": false,
+    "interruptedDownloadResume": false,
+    "offlineRestart": false,
+    "wifiMobileSwitch": false,
+    "storageFailureSafety": false,
+    "speakerAudio": false,
+    "audioFocusAndBackgroundResume": false,
+    "haptics": false,
+    "reduceMotion": false,
+    "collectionPreservedAfterReinstall": false,
+    "cloudConflictResolution": false
+  },
+  "notes": "Set a check to true only after observing it on the physical device."
+}
