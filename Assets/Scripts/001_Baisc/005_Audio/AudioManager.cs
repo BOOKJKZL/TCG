@@ -316,6 +316,7 @@ public class AudioManager : MonoBehaviour, IAudioFeedbackSink
         AudioSource source = sourceObject.AddComponent<AudioSource>();
         source.playOnAwake = false;
         source.loop = false;
+        source.spatialBlend = 0f;
         source.volume = effectsVolume * masterVolume;
         effectsSources.RemoveAll(item => item == null);
         effectsSources.Insert(0, source);

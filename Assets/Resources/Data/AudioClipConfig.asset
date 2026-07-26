@@ -12,4 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e975c835e0ff024e9828f5695f71b65, type: 3}
   m_Name: AudioClipConfig
   m_EditorClassIdentifier: 
-  audioEntries: []
+  audioEntries:
+  - key: pack.open.vintage
+    clip: {fileID: 8300000, guid: dad064a982eed4144a5e6246774c2085, type: 3}
+  - key: card.rare.vintage
+    clip: {fileID: 8300000, guid: 731a1348aa706404c8a814f0b403ed4b, type: 3}
+  - key: pack.open.forest
+    clip: {fileID: 8300000, guid: 14f4b191f1aecc6429f32f55765a0206, type: 3}
+  - key: card.rare.forest
+    clip: {fileID: 8300000, guid: af78a8908c6e7ae42a18e9123759428e, type: 3}
+  - key: pack.open.ruby
+    clip: {fileID: 8300000, guid: 1f26da8882c07cb40b559f4409bc9531, type: 3}
+  - key: card.rare.ruby
+    clip: {fileID: 8300000, guid: 2c83e1502ef40ff45bf2bccb2fdb88b1, type: 3}
+  - key: pack.open.electric
+    clip: {fileID: 8300000, guid: fe46f17e1ab79a447b3482c62d5f4c94, type: 3}
+  - key: card.rare.electric
+    clip: {fileID: 8300000, guid: 5f0a8c0c292985e4e913195c180c18b4, type: 3}
+  - key: pack.open.gallery
+    clip: {fileID: 8300000, guid: a768286bcd98824469ce8b5cc2c04ebb, type: 3}
+  - key: card.rare.gallery
+    clip: {fileID: 8300000, guid: 8ff82c22af9ff264f89b54183062830b, type: 3}
