@@ -40,6 +40,8 @@ Assembly-CSharp / Editor-only code
 - `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
 - `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果、`CardUiText` String Table 解析与英文兜底，以及只观察 Application 快照的内容管理页面；收藏、共享卡图状态和开包流程共用该文本边界，并能在当前页面状态中即时刷新语言。`LegacySceneTextLocalizer` 通过场景级映射接管仍使用 TMP/UGUI 的静态标题和菜单入口，避免把本地化职责重新塞回导航控制器。
 - `IProductOpeningThemeProvider`：通用 Presentation 只定义主题 ID、USS class、音效键、动画参数和稀有强调判断；`Gacha.Pokemon.Presentation` 负责五个宝可梦系列的具体映射，`GameApplicationBootstrap` 只在组合根注入实现。未知游戏或未知产品使用已验证参数范围内的通用后备主题。
+- `ProductOpeningTheme.PackArtworkResourcePath` 是可选的轻量包装皮肤引用；控制器只读取主题声明并通过 `Resources` 加载，加载失败时回退到原有系列卡图，不根据宝可梦系列 ID 分支。当前五张核心皮肤的 APK 总增量约 0.29 MiB，大量卡图仍属于安装后下载内容；若主题数量显著增长，再把包装资产迁入内容包。
+- `ThemeArtworkImportProcessor` 只处理 `Assets/Resources/Gacha/Themes/`，固定最长边 512px、无 mipmap、Clamp 和 Android ASTC 6×6，避免源图分辨率或人工导入设置扩大移动端包体。
 - 主题音频沿用 `UIFeedbackService` 的语义事件，但允许把实际播放键替换为产品主题键；因此统计/震动仍识别 `PackOpen` 与 `RareReveal`，音频素材则可按年代替换。`AudioClipConfig` 优先于程序化后备音，缺少正式素材时不会静默。
 - 当前 TCGdex 运行时导入没有填充 `RarityDefinition.PresentationKey`；宝可梦主题在自身适配层用可配置的稀有度 ID 片段补足强调判断，避免把 `rare`、V、VMAX 或 Illustration Rare 写死进通用控制器。
 - 旧 `Card`、`CardDatabase`、`PackDefinition`、固定 `Rarity` enum 和 `GachaService` 已退役，不再保留兼容层。
@@ -73,7 +75,7 @@ Assembly-CSharp / Editor-only code
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则和独立开包主题。下一步仍是带真实私人参数的 R2/Android 远程闭环，以及把当前年代主题的程序化基线替换为正式包装、美术和音频资产。
+这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨协调器重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则、独立开包主题与原创包装视觉。下一步仍是带真实私人参数的 R2/Android 远程闭环，以及为年代主题补齐粒子光效和正式录制音频。
 
 ## 两阶段路线
 
