@@ -108,4 +108,3 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - R2 发布器生成了已验证的 HTTPS 运行配置。
 - ADB 只有一台授权设备、APK 与远程配置已安装。
 - 十四项实体设备收据全部为 `true`。
-

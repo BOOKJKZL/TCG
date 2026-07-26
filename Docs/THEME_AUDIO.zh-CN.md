@@ -63,4 +63,3 @@ Tools/Gacha/Generate Original Theme Audio
 2. 明确记录素材来源与使用权限，不加入官方包装、角色或游戏音频。
 3. 保持短音效、单声道和移动端合适的导入设置。
 4. 重跑音质测试、完整 EditMode/PlayMode 和 Android 构建。
-
