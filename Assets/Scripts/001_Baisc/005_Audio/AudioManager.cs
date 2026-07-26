@@ -338,6 +338,31 @@ public class AudioManager : MonoBehaviour, IAudioFeedbackSink
         {
             AddAudioClip(FeedbackCueKeys.Back, CreateProceduralClick("Runtime UI Back", 650f, 0.045f));
         }
+
+        EnsureProceduralTone(FeedbackCueKeys.Error, "Runtime UI Error", 260f, 150f, 0.11f);
+        EnsureProceduralTone(FeedbackCueKeys.DownloadStart, "Runtime Download Start", 420f, 720f, 0.12f);
+        EnsureProceduralTone(FeedbackCueKeys.DownloadComplete, "Runtime Download Complete", 620f, 980f, 0.15f);
+        EnsureProceduralTone(FeedbackCueKeys.PackOpen, "Runtime Pack Open", 520f, 210f, 0.14f);
+        EnsureProceduralTone(FeedbackCueKeys.CardFlip, "Runtime Card Flip", 980f, 700f, 0.055f);
+        EnsureProceduralTone(FeedbackCueKeys.RareReveal, "Runtime Rare Reveal", 620f, 1240f, 0.19f);
+        EnsureProceduralTone(FeedbackCueKeys.CollectionNew, "Runtime Collection New", 740f, 1110f, 0.14f);
+
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.VintagePackOpen, "Vintage Pack Open", 360f, 170f, 0.17f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.VintageRareReveal, "Vintage Rare Reveal", 540f, 880f, 0.22f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.ForestPackOpen, "Forest Pack Open", 440f, 210f, 0.18f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.ForestRareReveal, "Forest Rare Reveal", 480f, 1040f, 0.23f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.RubyPackOpen, "Ruby Pack Open", 540f, 240f, 0.15f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.RubyRareReveal, "Ruby Rare Reveal", 720f, 1380f, 0.21f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.ElectricPackOpen, "Electric Pack Open", 760f, 310f, 0.12f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.ElectricRareReveal, "Electric Rare Reveal", 920f, 1480f, 0.18f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.GalleryPackOpen, "Gallery Pack Open", 680f, 280f, 0.14f);
+        EnsureProceduralTone(ProductOpeningThemeAudioKeys.GalleryRareReveal, "Gallery Rare Reveal", 660f, 1580f, 0.24f);
+    }
+
+    private void EnsureProceduralTone(string key, string clipName, float startFrequency, float endFrequency, float duration)
+    {
+        if (GetAudioClip(key) == null)
+            AddAudioClip(key, CreateProceduralSweep(clipName, startFrequency, endFrequency, duration));
     }
 
     private static AudioClip CreateProceduralClick(string clipName, float frequency, float duration)
@@ -351,6 +376,33 @@ public class AudioManager : MonoBehaviour, IAudioFeedbackSink
             float progress = (float)i / sampleCount;
             float envelope = (1f - progress) * (1f - progress);
             samples[i] = Mathf.Sin(2f * Mathf.PI * frequency * i / sampleRate) * envelope * 0.18f;
+        }
+
+        AudioClip clip = AudioClip.Create(clipName, sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    private static AudioClip CreateProceduralSweep(
+        string clipName,
+        float startFrequency,
+        float endFrequency,
+        float duration)
+    {
+        const int sampleRate = 44100;
+        int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+        float frequencyDeltaPerSecond = (endFrequency - startFrequency) / duration;
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float time = (float)i / sampleRate;
+            float progress = (float)i / sampleCount;
+            float phase = 2f * Mathf.PI *
+                (startFrequency * time + 0.5f * frequencyDeltaPerSecond * time * time);
+            float attack = Mathf.Clamp01(progress / 0.08f);
+            float release = (1f - progress) * (1f - progress);
+            samples[i] = Mathf.Sin(phase) * attack * release * 0.16f;
         }
 
         AudioClip clip = AudioClip.Create(clipName, sampleCount, 1, sampleRate, false);

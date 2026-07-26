@@ -54,6 +54,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(2));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-base1-vintage"));
+                Assert.That((string)GetProperty(controller, "SelectedThemePackAudioKey"),
+                    Is.EqualTo("pack.open.vintage"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--vintage"), Is.True);
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
@@ -88,6 +94,10 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(1));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-notice").text,
                     Does.Contain("1 Reverse Holo"));
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-ex1-ruby"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--ruby"), Is.True);
 
                 int sourcedIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
@@ -107,6 +117,10 @@ namespace Gacha.Tests.PlayMode
                     Does.Contain("Corroborated").And.Contain("2026-07-25"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
                     Is.EqualTo(3));
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-swsh1-electric"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--electric"), Is.True);
 
                 int scarletVioletIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
@@ -128,6 +142,10 @@ namespace Gacha.Tests.PlayMode
                     Does.Contain("Corroborated").And.Contain("2026-07-25"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
                     Is.EqualTo(2));
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-sv01-gallery"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--gallery"), Is.True);
 
                 int baseIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
@@ -138,6 +156,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
                     Is.EqualTo(2));
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-base1-vintage"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--vintage"), Is.True);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--gallery"), Is.False);
 
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-stage").resolvedStyle.display,
@@ -174,7 +198,11 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(openedCardCount));
                 Assert.That((int)GetProperty(controller, "CachedTextureCount"), Is.GreaterThan(0));
+                Assert.That((bool)GetProperty(controller, "IsCurrentRevealHighlighted"), Is.True);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("reveal-aura")
+                    .ClassListContains("is-highlighted"), Is.True);
                 Assert.That(cues.Count(cue => cue == FeedbackCue.CardFlip), Is.EqualTo(openedCardCount));
+                Assert.That(cues, Does.Contain(FeedbackCue.RareReveal));
 
                 Assert.That(InvokeBool(controller, "RevealNextCard"), Is.True);
                 yield return null;
@@ -202,6 +230,10 @@ namespace Gacha.Tests.PlayMode
                     Is.EqualTo(1));
                 string ruleNotice = document.rootVisualElement.Q<Label>("rule-notice").text;
                 Assert.That(ruleNotice.Contains("First Edition") || ruleNotice.Contains("第一版"), Is.True);
+                Assert.That((string)GetProperty(controller, "SelectedThemeId"),
+                    Is.EqualTo("pokemon-neo1-forest"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("gacha-theme--forest"), Is.True);
 
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
                 Assert.That(InvokeBool(controller, "TearPack"), Is.True);

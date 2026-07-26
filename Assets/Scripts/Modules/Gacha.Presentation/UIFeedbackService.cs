@@ -79,7 +79,15 @@ namespace Gacha.Presentation
 
         public static bool Play(FeedbackCue cue, bool requestHaptic = false)
         {
-            bool playedAudio = SoundEnabled && audioSink != null && audioSink.TryPlay(FeedbackCueKeys.FromCue(cue));
+            return Play(cue, FeedbackCueKeys.FromCue(cue), requestHaptic);
+        }
+
+        public static bool Play(FeedbackCue cue, string audioKey, bool requestHaptic = false)
+        {
+            string resolvedAudioKey = string.IsNullOrWhiteSpace(audioKey)
+                ? FeedbackCueKeys.FromCue(cue)
+                : audioKey.Trim();
+            bool playedAudio = SoundEnabled && audioSink != null && audioSink.TryPlay(resolvedAudioKey);
 
             if (requestHaptic && HapticsEnabled)
             {

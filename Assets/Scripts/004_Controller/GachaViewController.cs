@@ -39,11 +39,14 @@ public sealed class GachaViewController : MonoBehaviour
     private ProductDefinition selectedProduct;
     private ProductRuleProfile selectedProfile;
     private ProductOddsSummary selectedOdds;
+    private ProductOpeningTheme selectedTheme = ProductOpeningThemeService.DefaultTheme;
     private ProductOpeningOutcome currentOutcome;
     private CardTextureCache textureCache;
     private int revealIndex = -1;
     private bool packAnimating;
     private bool revealAnimating;
+    private bool currentRevealHighlighted;
+    private string appliedThemeClass;
 
     private VisualElement root;
     private VisualElement selectionPage;
@@ -53,10 +56,12 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement ruleSourceList;
     private VisualElement packStage;
     private VisualElement packShell;
+    private VisualElement packThemeBand;
     private VisualElement packTearLine;
     private VisualElement packArtSlot;
     private VisualElement revealStage;
     private VisualElement revealCard;
+    private VisualElement revealAura;
     private VisualElement revealArtSlot;
     private VisualElement summaryStage;
     private ListView productList;
@@ -105,6 +110,11 @@ public sealed class GachaViewController : MonoBehaviour
     public string SelectedRuleProfileId => selectedProfile?.Id;
     public string SelectedRuleRegionId => selectedProfile?.RegionId;
     public int SelectedRuleEvidenceCount => selectedProfile?.Evidence.Count ?? 0;
+    public string SelectedThemeId => selectedTheme?.Id;
+    public string SelectedThemeStyleClass => selectedTheme?.StyleClass;
+    public string SelectedThemePackAudioKey => selectedTheme?.PackOpenAudioKey;
+    public string SelectedThemeRareAudioKey => selectedTheme?.RareRevealAudioKey;
+    public bool IsCurrentRevealHighlighted => currentRevealHighlighted;
     public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
@@ -229,6 +239,9 @@ public sealed class GachaViewController : MonoBehaviour
         packShell.style.opacity = 1f;
         packShell.style.scale = new Scale(Vector3.one);
         packTearLine.style.width = Length.Percent(0f);
+        revealAura.RemoveFromClassList("is-highlighted");
+        revealAura.style.opacity = 0f;
+        currentRevealHighlighted = false;
         tearButton.SetEnabled(true);
         packTitle.text = DisplayName(selectedProduct);
         packHint.text = CardUiText.Get("gacha.pack.hint");
@@ -252,7 +265,7 @@ public sealed class GachaViewController : MonoBehaviour
             PackOpened?.Invoke(currentOutcome.Draw);
             tearButton.SetEnabled(false);
             packAnimating = true;
-            UIFeedbackService.Play(FeedbackCue.PackOpen, true);
+            UIFeedbackService.Play(FeedbackCue.PackOpen, selectedTheme.PackOpenAudioKey, true);
             AnimatePackTear(BeginRevealStage);
             return true;
         }
@@ -294,13 +307,16 @@ public sealed class GachaViewController : MonoBehaviour
             ? CardUiText.Get("gacha.action.view_results")
             : CardUiText.Get("gacha.action.reveal_next");
 
+        currentRevealHighlighted = catalog.Rarities.TryGetValue(
+            entry.Printing.RarityId,
+            out RarityDefinition rarity) && selectedTheme.Highlights(rarity);
+        revealAura.EnableInClassList("is-highlighted", currentRevealHighlighted);
         UIFeedbackService.Play(FeedbackCue.CardFlip, true);
-        if (catalog.Rarities.TryGetValue(entry.Printing.RarityId, out RarityDefinition rarity) &&
-            !string.IsNullOrWhiteSpace(rarity.PresentationKey))
+        if (currentRevealHighlighted)
         {
-            UIFeedbackService.Play(FeedbackCue.RareReveal, true);
+            UIFeedbackService.Play(FeedbackCue.RareReveal, selectedTheme.RareRevealAudioKey, true);
         }
-        AnimateRevealCard();
+        AnimateRevealCard(currentRevealHighlighted);
         return true;
     }
 
@@ -335,10 +351,12 @@ public sealed class GachaViewController : MonoBehaviour
         ruleSourceList = Required<VisualElement>("rule-source-list");
         packStage = Required<VisualElement>("pack-stage");
         packShell = Required<VisualElement>("pack-shell");
+        packThemeBand = Required<VisualElement>("pack-theme-band");
         packTearLine = Required<VisualElement>("pack-tear-line");
         packArtSlot = Required<VisualElement>("pack-art-slot");
         revealStage = Required<VisualElement>("reveal-stage");
         revealCard = Required<VisualElement>("reveal-card");
+        revealAura = Required<VisualElement>("reveal-aura");
         revealArtSlot = Required<VisualElement>("reveal-art-slot");
         summaryStage = Required<VisualElement>("summary-stage");
         productList = Required<ListView>("product-list");
@@ -506,6 +524,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         selectedProduct = product;
         productId = product.Id;
+        ApplyTheme(ProductOpeningThemeService.Resolve(product));
         selectedProfile = openingService.GetProfile(product.Id);
         selectedOdds = ProductOddsAnalyzer.Analyze(catalog, selectedProfile.Rules);
         SetDefinition set = catalog.Sets[product.SetId];
@@ -533,6 +552,19 @@ public sealed class GachaViewController : MonoBehaviour
             selectedImage.Unbind();
         BuildOddsList();
         SetStatus(string.Empty, false);
+    }
+
+    private void ApplyTheme(ProductOpeningTheme theme)
+    {
+        selectedTheme = theme ?? ProductOpeningThemeService.DefaultTheme;
+        if (root == null)
+            return;
+        if (!string.IsNullOrWhiteSpace(appliedThemeClass))
+            root.RemoveFromClassList(appliedThemeClass);
+        appliedThemeClass = selectedTheme.StyleClass;
+        root.AddToClassList(appliedThemeClass);
+        if (packThemeBand != null)
+            packThemeBand.userData = selectedTheme.Id;
     }
 
     private void BuildOddsList()
@@ -584,6 +616,10 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage.style.display = DisplayStyle.None;
         revealIndex = -1;
         revealImage.Unbind();
+        revealAura.RemoveFromClassList("is-highlighted");
+        revealAura.style.opacity = 0f;
+        revealAura.style.scale = new Scale(Vector3.one);
+        currentRevealHighlighted = false;
         revealName.text = CardUiText.Get("gacha.reveal.ready");
         revealMetadata.text = CardUiText.Get("gacha.reveal.one_at_time");
         revealNewBadge.text = string.Empty;
@@ -644,6 +680,7 @@ public sealed class GachaViewController : MonoBehaviour
         currentOutcome = null;
         revealEntries.Clear();
         revealIndex = -1;
+        currentRevealHighlighted = false;
         openingPage.style.display = DisplayStyle.None;
         selectionPage.style.display = DisplayStyle.Flex;
         packStage.style.display = DisplayStyle.None;
@@ -651,6 +688,12 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage.style.display = DisplayStyle.None;
         packImage?.Unbind();
         revealImage?.Unbind();
+        if (revealAura != null)
+        {
+            revealAura.RemoveFromClassList("is-highlighted");
+            revealAura.style.opacity = 0f;
+            revealAura.style.scale = new Scale(Vector3.one);
+        }
     }
 
     private void AnimatePackTear(Action completed)
@@ -664,13 +707,14 @@ public sealed class GachaViewController : MonoBehaviour
         }
 
         float startedAt = Time.realtimeSinceStartup;
-        float duration = 0.46f / UIFeedbackService.AnimationSpeed;
+        float duration = selectedTheme.PackTearDurationSeconds / UIFeedbackService.AnimationSpeed;
         packAnimation = packShell.schedule.Execute(() =>
         {
             float progress = Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration);
             float eased = Mathf.SmoothStep(0f, 1f, progress);
             packTearLine.style.width = Length.Percent(eased * 100f);
-            float pulse = 1f + Mathf.Sin(progress * Mathf.PI * 3f) * 0.035f * (1f - progress);
+            float pulse = 1f + Mathf.Sin(progress * Mathf.PI * selectedTheme.PackPulseCycles) *
+                (selectedTheme.PackPulseScale - 1f) * (1f - progress);
             packShell.style.scale = new Scale(new Vector3(pulse, pulse, 1f));
             packShell.style.opacity = 1f - Mathf.Max(0f, (progress - 0.72f) / 0.28f);
             if (progress < 1f)
@@ -681,13 +725,15 @@ public sealed class GachaViewController : MonoBehaviour
         }).Every(16);
     }
 
-    private void AnimateRevealCard()
+    private void AnimateRevealCard(bool highlighted)
     {
         revealAnimation?.Pause();
         if (UIFeedbackService.ReduceMotion)
         {
             revealCard.style.opacity = 1f;
             revealCard.style.scale = new Scale(Vector3.one);
+            revealAura.style.opacity = highlighted ? 0.42f : 0f;
+            revealAura.style.scale = new Scale(Vector3.one);
             revealAnimating = false;
             revealButton.SetEnabled(true);
             return;
@@ -696,20 +742,36 @@ public sealed class GachaViewController : MonoBehaviour
         revealAnimating = true;
         revealButton.SetEnabled(false);
         revealCard.style.opacity = 0f;
-        revealCard.style.scale = new Scale(new Vector3(0.72f, 0.72f, 1f));
+        revealCard.style.scale = new Scale(new Vector3(
+            selectedTheme.RevealStartScale,
+            selectedTheme.RevealStartScale,
+            1f));
+        revealAura.style.opacity = 0f;
+        revealAura.style.scale = new Scale(new Vector3(0.72f, 0.72f, 1f));
         float startedAt = Time.realtimeSinceStartup;
-        float duration = 0.22f / UIFeedbackService.AnimationSpeed;
+        float duration = selectedTheme.RevealDurationSeconds / UIFeedbackService.AnimationSpeed;
         revealAnimation = revealCard.schedule.Execute(() =>
         {
             float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
             revealCard.style.opacity = progress;
-            float scale = Mathf.Lerp(0.72f, 1f, progress);
+            float rareWave = highlighted ? Mathf.Sin(progress * Mathf.PI) : 0f;
+            float scale = Mathf.Lerp(selectedTheme.RevealStartScale, 1f, progress) +
+                rareWave * (selectedTheme.RarePulseScale - 1f);
             revealCard.style.scale = new Scale(new Vector3(scale, scale, 1f));
+            if (highlighted)
+            {
+                float auraScale = Mathf.Lerp(0.72f, 1f, progress) +
+                    rareWave * (selectedTheme.RarePulseScale - 1f);
+                revealAura.style.opacity = Mathf.Clamp01(0.42f * progress + 0.38f * rareWave);
+                revealAura.style.scale = new Scale(new Vector3(auraScale, auraScale, 1f));
+            }
             if (progress < 1f)
                 return;
             revealAnimation?.Pause();
             revealAnimation = null;
             revealAnimating = false;
+            revealAura.style.opacity = highlighted ? 0.42f : 0f;
+            revealAura.style.scale = new Scale(Vector3.one);
             revealButton.SetEnabled(true);
         }).Every(16);
     }
@@ -718,6 +780,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         if (root == null)
             return;
+        root.EnableInClassList("reduce-motion", UIFeedbackService.ReduceMotion);
         title.text = CardUiText.Get("gacha.title");
         subtitle.text = CardUiText.Get("gacha.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");

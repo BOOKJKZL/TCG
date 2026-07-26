@@ -38,6 +38,7 @@
                     <ui:Label name="pack-title" class="gacha-stage__title" />
                     <ui:Label name="pack-hint" class="gacha-stage__hint" />
                     <ui:VisualElement name="pack-shell" class="gacha-pack-shell">
+                        <ui:VisualElement name="pack-theme-band" class="gacha-pack-shell__theme-band" />
                         <ui:VisualElement name="pack-art-slot" class="gacha-pack-shell__art" />
                         <ui:VisualElement name="pack-tear-line" class="gacha-pack-shell__tear" />
                     </ui:VisualElement>
@@ -47,6 +48,7 @@
                 <ui:VisualElement name="reveal-stage" class="gacha-stage" style="display: none;">
                     <ui:Label name="reveal-progress" class="gacha-reveal-progress" />
                     <ui:VisualElement name="reveal-card" class="gacha-reveal-card">
+                        <ui:VisualElement name="reveal-aura" class="gacha-reveal-aura" />
                         <ui:VisualElement name="reveal-art-slot" class="gacha-reveal-card__art" />
                         <ui:Label name="reveal-new-badge" class="gacha-reveal-card__badge" />
                     </ui:VisualElement>

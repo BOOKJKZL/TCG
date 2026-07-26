@@ -3,6 +3,7 @@ using System.IO;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
 using Gacha.Infrastructure.Rules;
+using Gacha.Pokemon.Presentation;
 using Gacha.Presentation;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -28,6 +29,7 @@ public static class GameApplicationBootstrap
     {
         configured = false;
         ApplicationServices.Reset();
+        ProductOpeningThemeService.Reset();
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -70,6 +72,7 @@ public static class GameApplicationBootstrap
             contentPackageOperations,
             contentPackageCatalogs,
             contentPackageLifecycle);
+        ProductOpeningThemeService.Configure(new PokemonProductOpeningThemeProvider());
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
         ApplyExperienceSettings(experienceSettings.Current);

@@ -488,6 +488,15 @@
     background-color: rgb(79, 37, 108);
 }
 
+.gacha-pack-shell__theme-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 30px;
+    background-color: rgb(219, 127, 255);
+}
+
 .gacha-pack-shell__art .async-card-image {
     width: 270px;
     height: 390px;
@@ -509,6 +518,21 @@
     margin-bottom: 16px;
     align-items: center;
     justify-content: center;
+}
+
+.gacha-reveal-aura {
+    position: absolute;
+    width: 324px;
+    height: 324px;
+    border-width: 4px;
+    border-radius: 162px;
+    border-color: rgba(255, 226, 136, 0.72);
+    background-color: rgba(255, 207, 91, 0.20);
+    opacity: 0;
+}
+
+.gacha-reveal-aura.is-highlighted {
+    opacity: 0.42;
 }
 
 .gacha-reveal-card__art .async-card-image {
@@ -577,6 +601,124 @@
 
 .gacha-summary__actions {
     justify-content: center;
+}
+
+.gacha-theme--vintage .gacha-opening__shell,
+.gacha-theme--vintage .gacha-selected-product {
+    border-color: rgba(212, 168, 91, 0.84);
+    background-color: rgba(45, 36, 42, 0.98);
+}
+
+.gacha-theme--vintage .gacha-pack-shell {
+    border-color: rgb(218, 170, 91);
+    background-color: rgb(83, 53, 48);
+}
+
+.gacha-theme--vintage .gacha-pack-shell__theme-band,
+.gacha-theme--vintage .gacha-pack-shell__tear {
+    background-color: rgb(239, 205, 126);
+}
+
+.gacha-theme--vintage .gacha-reveal-aura {
+    border-color: rgba(255, 222, 139, 0.78);
+    background-color: rgba(210, 151, 72, 0.24);
+}
+
+.gacha-theme--forest .gacha-opening__shell,
+.gacha-theme--forest .gacha-selected-product {
+    border-color: rgba(100, 190, 126, 0.82);
+    background-color: rgba(27, 51, 43, 0.98);
+}
+
+.gacha-theme--forest .gacha-pack-shell {
+    border-color: rgb(135, 213, 143);
+    background-color: rgb(35, 82, 61);
+}
+
+.gacha-theme--forest .gacha-pack-shell__theme-band,
+.gacha-theme--forest .gacha-pack-shell__tear {
+    background-color: rgb(220, 214, 103);
+}
+
+.gacha-theme--forest .gacha-reveal-aura {
+    border-color: rgba(186, 247, 139, 0.78);
+    background-color: rgba(87, 202, 118, 0.22);
+}
+
+.gacha-theme--ruby .gacha-opening__shell,
+.gacha-theme--ruby .gacha-selected-product {
+    border-color: rgba(235, 96, 115, 0.88);
+    background-color: rgba(61, 29, 44, 0.98);
+}
+
+.gacha-theme--ruby .gacha-pack-shell {
+    border-color: rgb(255, 117, 128);
+    background-color: rgb(121, 34, 54);
+}
+
+.gacha-theme--ruby .gacha-pack-shell__theme-band,
+.gacha-theme--ruby .gacha-pack-shell__tear {
+    background-color: rgb(236, 226, 222);
+}
+
+.gacha-theme--ruby .gacha-reveal-aura {
+    border-color: rgba(255, 129, 140, 0.82);
+    background-color: rgba(229, 61, 88, 0.24);
+}
+
+.gacha-theme--electric .gacha-opening__shell,
+.gacha-theme--electric .gacha-selected-product {
+    border-color: rgba(80, 184, 255, 0.86);
+    background-color: rgba(24, 39, 74, 0.98);
+}
+
+.gacha-theme--electric .gacha-pack-shell {
+    border-color: rgb(83, 207, 255);
+    background-color: rgb(38, 64, 142);
+}
+
+.gacha-theme--electric .gacha-pack-shell__theme-band,
+.gacha-theme--electric .gacha-pack-shell__tear {
+    background-color: rgb(255, 92, 184);
+}
+
+.gacha-theme--electric .gacha-reveal-aura {
+    border-color: rgba(101, 220, 255, 0.86);
+    background-color: rgba(80, 137, 255, 0.26);
+}
+
+.gacha-theme--gallery .gacha-opening__shell,
+.gacha-theme--gallery .gacha-selected-product {
+    border-color: rgba(192, 119, 255, 0.90);
+    background-color: rgba(52, 27, 72, 0.98);
+}
+
+.gacha-theme--gallery .gacha-pack-shell {
+    border-color: rgb(220, 129, 255);
+    background-color: rgb(92, 42, 120);
+}
+
+.gacha-theme--gallery .gacha-pack-shell__theme-band {
+    background-color: rgb(255, 102, 91);
+}
+
+.gacha-theme--gallery .gacha-pack-shell__tear {
+    background-color: rgb(111, 224, 255);
+}
+
+.gacha-theme--gallery .gacha-reveal-aura {
+    border-color: rgba(239, 145, 255, 0.88);
+    background-color: rgba(255, 88, 157, 0.25);
+}
+
+.reduce-motion .gacha-button,
+.reduce-motion .gacha-product-row {
+    transition-duration: 0s;
+}
+
+.reduce-motion .gacha-button:active,
+.reduce-motion .gacha-product-row:hover {
+    scale: 1 1;
 }
 
 .gacha-summary__actions .gacha-button {

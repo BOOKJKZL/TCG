@@ -60,6 +60,31 @@ public class UIFeedbackServiceTests
     }
 
     [Test]
+    public void Play_UsesThemeAudioKeyAndPublishesSemanticCue()
+    {
+        FeedbackCue? published = null;
+        System.Action<FeedbackCue> handler = cue => published = cue;
+        UIFeedbackService.FeedbackPlayed += handler;
+
+        try
+        {
+            bool played = UIFeedbackService.Play(
+                FeedbackCue.PackOpen,
+                ProductOpeningThemeAudioKeys.RubyPackOpen,
+                true);
+
+            Assert.That(played, Is.True);
+            Assert.That(audio.LastKey, Is.EqualTo(ProductOpeningThemeAudioKeys.RubyPackOpen));
+            Assert.That(published, Is.EqualTo(FeedbackCue.PackOpen));
+            Assert.That(haptic.PulseCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            UIFeedbackService.FeedbackPlayed -= handler;
+        }
+    }
+
+    [Test]
     public void Play_OnlyPulsesWhenRequestedAndEnabled()
     {
         UIFeedbackService.Play(FeedbackCue.RareReveal, true);
