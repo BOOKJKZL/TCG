@@ -35,6 +35,7 @@
                 <ui:Button name="back-to-products-button" class="gacha-button gacha-button--quiet" />
 
                 <ui:VisualElement name="pack-stage" class="gacha-stage gacha-pack-stage">
+                    <ui:VisualElement name="pack-particle-layer" class="gacha-theme-particles gacha-theme-particles--pack" />
                     <ui:Label name="pack-title" class="gacha-stage__title" />
                     <ui:Label name="pack-hint" class="gacha-stage__hint" />
                     <ui:VisualElement name="pack-shell" class="gacha-pack-shell">
@@ -47,6 +48,7 @@
                 </ui:VisualElement>
 
                 <ui:VisualElement name="reveal-stage" class="gacha-stage" style="display: none;">
+                    <ui:VisualElement name="reveal-particle-layer" class="gacha-theme-particles gacha-theme-particles--reveal" />
                     <ui:Label name="reveal-progress" class="gacha-reveal-progress" />
                     <ui:VisualElement name="reveal-card" class="gacha-reveal-card">
                         <ui:VisualElement name="reveal-aura" class="gacha-reveal-aura" />

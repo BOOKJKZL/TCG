@@ -17,10 +17,12 @@ public class GachaOpeningPresentationTests
         TemplateContainer root = asset.CloneTree();
         Assert.That(root.Q<ListView>("product-list"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-stage"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("pack-particle-layer"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-theme-artwork"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-theme-band"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-tear-line"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-stage"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("reveal-particle-layer"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-aura"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-art-slot"), Is.Not.Null);
         Assert.That(root.Q<ScrollView>("summary-list"), Is.Not.Null);

@@ -26,6 +26,59 @@ namespace Gacha.Presentation
         public const string GalleryRareReveal = "card.rare.gallery";
     }
 
+    public sealed class ProductOpeningParticleTheme
+    {
+        public ProductOpeningParticleTheme(
+            int ambientParticleCount,
+            int burstParticleCount,
+            float ambientCycleSeconds,
+            float ambientDriftPercent,
+            float burstDurationSeconds,
+            float burstRadiusPercent,
+            float burstPulseScale)
+        {
+            AmbientParticleCount = InRange(
+                ambientParticleCount, 1, 12, nameof(ambientParticleCount));
+            BurstParticleCount = InRange(
+                burstParticleCount, 1, 12, nameof(burstParticleCount));
+            AmbientCycleSeconds = InRange(
+                ambientCycleSeconds, 0.8f, 8f, nameof(ambientCycleSeconds));
+            AmbientDriftPercent = InRange(
+                ambientDriftPercent, 0f, 30f, nameof(ambientDriftPercent));
+            BurstDurationSeconds = InRange(
+                burstDurationSeconds, 0.15f, 1.5f, nameof(burstDurationSeconds));
+            BurstRadiusPercent = InRange(
+                burstRadiusPercent, 10f, 55f, nameof(burstRadiusPercent));
+            BurstPulseScale = InRange(
+                burstPulseScale, 1f, 2f, nameof(burstPulseScale));
+        }
+
+        public static ProductOpeningParticleTheme Default { get; } =
+            new ProductOpeningParticleTheme(6, 10, 3.8f, 8f, 0.68f, 36f, 1.28f);
+
+        public int AmbientParticleCount { get; }
+        public int BurstParticleCount { get; }
+        public float AmbientCycleSeconds { get; }
+        public float AmbientDriftPercent { get; }
+        public float BurstDurationSeconds { get; }
+        public float BurstRadiusPercent { get; }
+        public float BurstPulseScale { get; }
+
+        private static int InRange(int value, int minimum, int maximum, string parameterName)
+        {
+            if (value < minimum || value > maximum)
+                throw new ArgumentOutOfRangeException(parameterName);
+            return value;
+        }
+
+        private static float InRange(float value, float minimum, float maximum, string parameterName)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < minimum || value > maximum)
+                throw new ArgumentOutOfRangeException(parameterName);
+            return value;
+        }
+    }
+
     public sealed class ProductOpeningTheme
     {
         public ProductOpeningTheme(
@@ -40,7 +93,8 @@ namespace Gacha.Presentation
             float revealStartScale,
             float rarePulseScale,
             IEnumerable<string> highlightedRarityIdFragments = null,
-            string packArtworkResourcePath = null)
+            string packArtworkResourcePath = null,
+            ProductOpeningParticleTheme particleTheme = null)
         {
             Id = Required(id, nameof(id));
             StyleClass = Required(styleClass, nameof(styleClass));
@@ -57,6 +111,7 @@ namespace Gacha.Presentation
             PackArtworkResourcePath = string.IsNullOrWhiteSpace(packArtworkResourcePath)
                 ? null
                 : packArtworkResourcePath.Trim();
+            ParticleTheme = particleTheme ?? ProductOpeningParticleTheme.Default;
             HighlightedRarityIdFragments = new ReadOnlyCollection<string>(
                 (highlightedRarityIdFragments ?? Array.Empty<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -76,6 +131,7 @@ namespace Gacha.Presentation
         public float RevealStartScale { get; }
         public float RarePulseScale { get; }
         public string PackArtworkResourcePath { get; }
+        public ProductOpeningParticleTheme ParticleTheme { get; }
         public IReadOnlyList<string> HighlightedRarityIdFragments { get; }
 
         public bool Highlights(RarityDefinition rarity)

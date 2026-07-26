@@ -473,6 +473,52 @@
     justify-content: center;
 }
 
+.gacha-theme-particles {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.gacha-theme-particles--reveal {
+    left: 8%;
+    right: 8%;
+    top: 4%;
+    bottom: 4%;
+}
+
+.theme-particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: rgb(224, 159, 255);
+}
+
+.theme-particle--diamond {
+    width: 9px;
+    height: 9px;
+    border-radius: 1px;
+    rotate: 45deg;
+}
+
+.theme-particle--dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+}
+
+.theme-particle--shard {
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    rotate: -18deg;
+    background-color: rgb(112, 224, 255);
+}
+
 .gacha-pack-shell {
     width: 330px;
     height: 470px;
@@ -639,6 +685,14 @@
     background-color: rgba(210, 151, 72, 0.24);
 }
 
+.gacha-theme--vintage .theme-particle {
+    background-color: rgb(244, 208, 132);
+}
+
+.gacha-theme--vintage .theme-particle--shard {
+    background-color: rgb(202, 133, 76);
+}
+
 .gacha-theme--forest .gacha-opening__shell,
 .gacha-theme--forest .gacha-selected-product {
     border-color: rgba(100, 190, 126, 0.82);
@@ -658,6 +712,14 @@
 .gacha-theme--forest .gacha-reveal-aura {
     border-color: rgba(186, 247, 139, 0.78);
     background-color: rgba(87, 202, 118, 0.22);
+}
+
+.gacha-theme--forest .theme-particle {
+    background-color: rgb(176, 238, 120);
+}
+
+.gacha-theme--forest .theme-particle--shard {
+    background-color: rgb(246, 223, 104);
 }
 
 .gacha-theme--ruby .gacha-opening__shell,
@@ -681,6 +743,14 @@
     background-color: rgba(229, 61, 88, 0.24);
 }
 
+.gacha-theme--ruby .theme-particle {
+    background-color: rgb(255, 113, 128);
+}
+
+.gacha-theme--ruby .theme-particle--shard {
+    background-color: rgb(255, 192, 105);
+}
+
 .gacha-theme--electric .gacha-opening__shell,
 .gacha-theme--electric .gacha-selected-product {
     border-color: rgba(80, 184, 255, 0.86);
@@ -700,6 +770,14 @@
 .gacha-theme--electric .gacha-reveal-aura {
     border-color: rgba(101, 220, 255, 0.86);
     background-color: rgba(80, 137, 255, 0.26);
+}
+
+.gacha-theme--electric .theme-particle {
+    background-color: rgb(83, 221, 255);
+}
+
+.gacha-theme--electric .theme-particle--shard {
+    background-color: rgb(255, 92, 184);
 }
 
 .gacha-theme--gallery .gacha-opening__shell,
@@ -726,9 +804,21 @@
     background-color: rgba(255, 88, 157, 0.25);
 }
 
+.gacha-theme--gallery .theme-particle {
+    background-color: rgb(230, 137, 255);
+}
+
+.gacha-theme--gallery .theme-particle--shard {
+    background-color: rgb(255, 107, 113);
+}
+
 .reduce-motion .gacha-button,
 .reduce-motion .gacha-product-row {
     transition-duration: 0s;
+}
+
+.reduce-motion .gacha-theme-particles {
+    display: none;
 }
 
 .reduce-motion .gacha-button:active,

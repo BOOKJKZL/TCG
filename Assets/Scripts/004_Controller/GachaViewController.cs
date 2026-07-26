@@ -56,12 +56,14 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement oddsList;
     private VisualElement ruleSourceList;
     private VisualElement packStage;
+    private VisualElement packParticleLayer;
     private VisualElement packShell;
     private VisualElement packThemeArtwork;
     private VisualElement packThemeBand;
     private VisualElement packTearLine;
     private VisualElement packArtSlot;
     private VisualElement revealStage;
+    private VisualElement revealParticleLayer;
     private VisualElement revealCard;
     private VisualElement revealAura;
     private VisualElement revealArtSlot;
@@ -99,6 +101,8 @@ public sealed class GachaViewController : MonoBehaviour
     private AsyncCardImageView revealImage;
     private IVisualElementScheduledItem packAnimation;
     private IVisualElementScheduledItem revealAnimation;
+    private ThemeParticleField packParticles;
+    private ThemeParticleField revealParticles;
 
     public static IInventoryProgressStore InventoryStoreOverride { private get; set; }
 
@@ -119,6 +123,10 @@ public sealed class GachaViewController : MonoBehaviour
     public string SelectedThemeArtworkResourcePath => selectedTheme?.PackArtworkResourcePath;
     public bool HasSelectedThemeArtwork => selectedThemeArtwork != null;
     public bool IsCurrentRevealHighlighted => currentRevealHighlighted;
+    public int PackParticleCount => packParticles?.ActiveParticleCount ?? 0;
+    public int RevealParticleCount => revealParticles?.ActiveParticleCount ?? 0;
+    public bool ArePackParticlesRunning => packParticles?.IsRunning ?? false;
+    public bool AreRevealParticlesRunning => revealParticles?.IsRunning ?? false;
     public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
@@ -153,6 +161,10 @@ public sealed class GachaViewController : MonoBehaviour
 
         packAnimation?.Pause();
         revealAnimation?.Pause();
+        packParticles?.Dispose();
+        revealParticles?.Dispose();
+        packParticles = null;
+        revealParticles = null;
         foreach (AsyncCardImageView imageView in imageViews.ToArray())
             imageView.Dispose();
         imageViews.Clear();
@@ -246,6 +258,8 @@ public sealed class GachaViewController : MonoBehaviour
         revealAura.RemoveFromClassList("is-highlighted");
         revealAura.style.opacity = 0f;
         currentRevealHighlighted = false;
+        revealParticles.Stop();
+        packParticles.PlayAmbient(selectedTheme.ParticleTheme);
         tearButton.SetEnabled(true);
         packTitle.text = DisplayName(selectedProduct);
         packHint.text = CardUiText.Get("gacha.pack.hint");
@@ -321,6 +335,10 @@ public sealed class GachaViewController : MonoBehaviour
             entry.Printing.RarityId,
             out RarityDefinition rarity) && selectedTheme.Highlights(rarity);
         revealAura.EnableInClassList("is-highlighted", currentRevealHighlighted);
+        if (currentRevealHighlighted)
+            revealParticles.PlayBurst(selectedTheme.ParticleTheme);
+        else
+            revealParticles.Stop();
         UIFeedbackService.Play(FeedbackCue.CardFlip, true);
         if (currentRevealHighlighted)
         {
@@ -360,12 +378,14 @@ public sealed class GachaViewController : MonoBehaviour
         oddsList = Required<VisualElement>("odds-list");
         ruleSourceList = Required<VisualElement>("rule-source-list");
         packStage = Required<VisualElement>("pack-stage");
+        packParticleLayer = Required<VisualElement>("pack-particle-layer");
         packShell = Required<VisualElement>("pack-shell");
         packThemeArtwork = Required<VisualElement>("pack-theme-artwork");
         packThemeBand = Required<VisualElement>("pack-theme-band");
         packTearLine = Required<VisualElement>("pack-tear-line");
         packArtSlot = Required<VisualElement>("pack-art-slot");
         revealStage = Required<VisualElement>("reveal-stage");
+        revealParticleLayer = Required<VisualElement>("reveal-particle-layer");
         revealCard = Required<VisualElement>("reveal-card");
         revealAura = Required<VisualElement>("reveal-aura");
         revealArtSlot = Required<VisualElement>("reveal-art-slot");
@@ -397,6 +417,10 @@ public sealed class GachaViewController : MonoBehaviour
         backToProductsButton = Required<Button>("back-to-products-button");
         openAgainButton = Required<Button>("open-again-button");
         summaryProductsButton = Required<Button>("summary-products-button");
+        packParticles?.Dispose();
+        revealParticles?.Dispose();
+        packParticles = new ThemeParticleField(packParticleLayer);
+        revealParticles = new ThemeParticleField(revealParticleLayer);
     }
 
     private void ConfigureProductList()
@@ -628,6 +652,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void BeginRevealStage()
     {
+        packParticles.Stop();
+        revealParticles.Stop();
         packAnimating = false;
         packStage.style.display = DisplayStyle.None;
         revealStage.style.display = DisplayStyle.Flex;
@@ -650,6 +676,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ShowSummary()
     {
+        packParticles.Stop();
+        revealParticles.Stop();
         revealAnimation?.Pause();
         revealAnimation = null;
         revealAnimating = false;
@@ -691,6 +719,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ShowSelectionPage()
     {
+        packParticles?.Stop();
+        revealParticles?.Stop();
         packAnimation?.Pause();
         revealAnimation?.Pause();
         packAnimating = false;

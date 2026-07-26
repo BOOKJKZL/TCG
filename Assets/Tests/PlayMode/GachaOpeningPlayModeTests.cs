@@ -174,12 +174,17 @@ namespace Gacha.Tests.PlayMode
                     Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-theme-artwork")
                     .ClassListContains("is-visible"), Is.True);
+                Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.True);
+                Assert.That((int)GetProperty(controller, "PackParticleCount"), Is.EqualTo(6));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("pack-particle-layer").childCount,
+                    Is.EqualTo(ThemeParticleField.MaximumParticleCount));
                 Assert.That(InvokeBool(controller, "TearPack"), Is.True);
 
                 deadline = Time.realtimeSinceStartup + 3f;
                 VisualElement revealStage = document.rootVisualElement.Q<VisualElement>("reveal-stage");
                 while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
                     yield return null;
+                Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.False);
 
                 int openedCardCount = (int)GetProperty(controller, "LastOpenedCardCount");
                 Assert.That(openedCardCount, Is.EqualTo(11));
@@ -207,6 +212,8 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(openedCardCount));
                 Assert.That((int)GetProperty(controller, "CachedTextureCount"), Is.GreaterThan(0));
                 Assert.That((bool)GetProperty(controller, "IsCurrentRevealHighlighted"), Is.True);
+                Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.True);
+                Assert.That((int)GetProperty(controller, "RevealParticleCount"), Is.EqualTo(10));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("reveal-aura")
                     .ClassListContains("is-highlighted"), Is.True);
                 Assert.That(cues.Count(cue => cue == FeedbackCue.CardFlip), Is.EqualTo(openedCardCount));
@@ -215,6 +222,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(InvokeBool(controller, "RevealNextCard"), Is.True);
                 yield return null;
                 Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
+                Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.False);
                 Assert.That(cues, Does.Contain(FeedbackCue.CollectionNew));
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;

@@ -37,10 +37,15 @@ public class ProductOpeningThemeTests
         Assert.That(themes.Select(theme => theme.PackOpenAudioKey).Distinct().Count(), Is.EqualTo(5));
         Assert.That(themes.Select(theme => theme.RareRevealAudioKey).Distinct().Count(), Is.EqualTo(5));
         Assert.That(themes.Select(theme => theme.PackArtworkResourcePath).Distinct().Count(), Is.EqualTo(5));
+        Assert.That(themes.Select(theme => theme.ParticleTheme.AmbientCycleSeconds)
+            .Distinct().Count(), Is.EqualTo(5));
         Assert.That(themes.All(theme =>
             !string.IsNullOrWhiteSpace(theme.PackArtworkResourcePath)), Is.True);
         Assert.That(themes.All(theme => theme.PackTearDurationSeconds > 0f), Is.True);
         Assert.That(themes.All(theme => theme.RevealDurationSeconds > 0f), Is.True);
+        Assert.That(themes.All(theme =>
+            theme.ParticleTheme.AmbientParticleCount <= ThemeParticleField.MaximumParticleCount &&
+            theme.ParticleTheme.BurstParticleCount <= ThemeParticleField.MaximumParticleCount), Is.True);
     }
 
     [Test]
@@ -75,6 +80,7 @@ public class ProductOpeningThemeTests
         Assert.That(pokemon.Id, Is.EqualTo("pokemon-ex1-ruby"));
         Assert.That(unknown, Is.SameAs(ProductOpeningThemeService.DefaultTheme));
         Assert.That(unknown.PackArtworkResourcePath, Is.Null);
+        Assert.That(unknown.ParticleTheme, Is.SameAs(ProductOpeningParticleTheme.Default));
     }
 
     [Test]
@@ -91,6 +97,14 @@ public class ProductOpeningThemeTests
             0.2f,
             0.7f,
             1.1f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ProductOpeningParticleTheme(
+            13,
+            10,
+            3f,
+            8f,
+            0.6f,
+            36f,
+            1.2f));
     }
 
     private static ProductDefinition Product(string setId)

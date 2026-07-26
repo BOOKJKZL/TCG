@@ -28,31 +28,36 @@ namespace Gacha.Pokemon.Presentation
                     ProductOpeningThemeAudioKeys.VintagePackOpen,
                     ProductOpeningThemeAudioKeys.VintageRareReveal,
                     0.56f, 1.035f, 1.5f, 0.26f, 0.70f, 1.08f,
-                    VintagePackArtwork),
+                    VintagePackArtwork,
+                    new ProductOpeningParticleTheme(6, 10, 4.1f, 7f, 0.72f, 34f, 1.22f)),
                 [NeoGenesisSetId] = Theme(
                     "pokemon-neo1-forest", "gacha-theme--forest",
                     ProductOpeningThemeAudioKeys.ForestPackOpen,
                     ProductOpeningThemeAudioKeys.ForestRareReveal,
                     0.52f, 1.045f, 2f, 0.24f, 0.68f, 1.10f,
-                    ForestPackArtwork),
+                    ForestPackArtwork,
+                    new ProductOpeningParticleTheme(8, 10, 3.6f, 10f, 0.68f, 37f, 1.28f)),
                 [ExRubySapphireSetId] = Theme(
                     "pokemon-ex1-ruby", "gacha-theme--ruby",
                     ProductOpeningThemeAudioKeys.RubyPackOpen,
                     ProductOpeningThemeAudioKeys.RubyRareReveal,
                     0.43f, 1.065f, 3f, 0.20f, 0.66f, 1.13f,
-                    RubyPackArtwork),
+                    RubyPackArtwork,
+                    new ProductOpeningParticleTheme(7, 12, 2.9f, 12f, 0.62f, 41f, 1.36f)),
                 [SwordShieldSetId] = Theme(
                     "pokemon-swsh1-electric", "gacha-theme--electric",
                     ProductOpeningThemeAudioKeys.ElectricPackOpen,
                     ProductOpeningThemeAudioKeys.ElectricRareReveal,
                     0.36f, 1.08f, 4f, 0.18f, 0.62f, 1.15f,
-                    ElectricPackArtwork),
+                    ElectricPackArtwork,
+                    new ProductOpeningParticleTheme(9, 12, 2.2f, 15f, 0.54f, 45f, 1.45f)),
                 [ScarletVioletSetId] = Theme(
                     "pokemon-sv01-gallery", "gacha-theme--gallery",
                     ProductOpeningThemeAudioKeys.GalleryPackOpen,
                     ProductOpeningThemeAudioKeys.GalleryRareReveal,
                     0.40f, 1.06f, 3.5f, 0.23f, 0.64f, 1.18f,
-                    GalleryPackArtwork)
+                    GalleryPackArtwork,
+                    new ProductOpeningParticleTheme(8, 12, 3.1f, 11f, 0.70f, 43f, 1.38f))
             };
 
         public ProductOpeningTheme Resolve(ProductDefinition product)
@@ -73,7 +78,8 @@ namespace Gacha.Pokemon.Presentation
             float revealDuration,
             float revealStartScale,
             float rarePulseScale,
-            string packArtworkResourcePath)
+            string packArtworkResourcePath,
+            ProductOpeningParticleTheme particleTheme)
         {
             return new ProductOpeningTheme(
                 id,
@@ -87,7 +93,8 @@ namespace Gacha.Pokemon.Presentation
                 revealStartScale,
                 rarePulseScale,
                 RareFragments,
-                packArtworkResourcePath);
+                packArtworkResourcePath,
+                particleTheme);
         }
     }
 }
