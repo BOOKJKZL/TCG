@@ -69,9 +69,9 @@ Tools/Universal Gacha/Private R2 Publisher
 
 最小发布范围保持为 `en.base1`、`en.neo1` 和 catalog，不先上传全部历史系列。
 
-## 三、安装到一台实体 Android
+## 三、安装到一个 Android 验收目标
 
-连接且只连接一台已授权设备：
+连接且只连接一个已授权目标；可以是实体 Android，也可以是 `ro.kernel.qemu=1` 的 Android 模拟器：
 
 ```powershell
 & "Tools/Android/install_smoke_content.ps1" `
@@ -81,7 +81,7 @@ Tools/Universal Gacha/Private R2 Publisher
 
 脚本会安装最新 APK、验证手机配置不含凭据、推送 `remote-content.json` 并启动应用。
 
-## 四、完成十四项人工验收
+## 四、完成十四项有证据验收
 
 复制 `Docs/ANDROID_ACCEPTANCE_RECEIPT.example.json` 到：
 
@@ -89,21 +89,21 @@ Tools/Universal Gacha/Private R2 Publisher
 LocalContent/FinalAcceptance/android-device.json
 ```
 
-只有亲自在实体设备观察通过后，才把对应值改为 `true`：
+收据使用 schema v2，必须声明 `environmentType`、设备/模拟器身份，并为每个 `true` 检查填写不少于 8 个字符的实际证据。模拟器可以完成软件验收，但必须保留 `physicalHaptics`、`physicalSpeakerQuality`、`cellularHandover` 三项硬件限制，不能把宿主机或模拟行为描述为实体体验：
 
 | 收据字段 | 必须观察的结果 |
 |---|---|
 | `installAndLaunch` | APK 安装并冷启动成功 |
-| `touchNavigation` | 主要页面、按钮和滚动触摸正常 |
+| `touchNavigation` | 主要页面、按钮和滚动输入正常；模拟器记录为指针/模拟触控 |
 | `localContentLoad` | 推送到本机的私人内容可以读取 |
 | `remoteFirstDownload` | 从 R2 首次下载、安装和显示成功 |
 | `interruptedDownloadResume` | 下载中断后按实际 offset 继续 |
 | `offlineRestart` | 已缓存内容在断网重启后可用 |
-| `wifiMobileSwitch` | 网络切换不损坏下载或收藏 |
+| `wifiMobileSwitch` | 网络断开/恢复不损坏下载或收藏；实体蜂窝切换另行补测 |
 | `storageFailureSafety` | 空间不足时失败友好且不覆盖旧内容 |
-| `speakerAudio` | 按钮、撕包、翻卡和五套主题音效可听且音量适中 |
+| `speakerAudio` | 音频事件、映射和 Android 音频服务正常；实体扬声器音质另行补测 |
 | `audioFocusAndBackgroundResume` | 来电/后台切换后音频和页面恢复合理 |
-| `haptics` | 开包、稀有卡等震动可用且可关闭 |
+| `haptics` | 震动 API/开关逻辑正常；实体触感另行补测 |
 | `reduceMotion` | 开启后跳过动态演出并保留静态信息 |
 | `collectionPreservedAfterReinstall` | 内容卸载/重装不删除收藏存档 |
 | `cloudConflictResolution` | 本地/云端冲突按预期合并或选择 |
@@ -123,5 +123,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - 十个年代 WAV 和配置映射完整。
 - 两个本机发布包的大小与 SHA-256 匹配 catalog。
 - Site 或后续 R2 发布流程生成了已验证的 HTTPS 运行配置。
-- ADB 只有一台授权设备、APK 与远程配置已安装。
-- 十四项实体设备收据全部为 `true`。
+- ADB 只有一个授权 Android 目标、APK 与远程配置已安装。
+- 十四项验收全部为 `true`、逐项证据完整，且收据环境与当前连接目标一致。
+
+模拟器满足这里的“软件完成度 100%”；三项已声明硬件限制仍属于未来实体设备的体验补测，不会被表述为已经验证。

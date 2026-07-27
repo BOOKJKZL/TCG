@@ -1,11 +1,15 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "packageId": "com.personal.universalgacha",
   "testedAtUtc": "2026-07-27T00:00:00Z",
+  "environmentType": "emulator",
   "device": {
+    "serial": "replace-after-test",
     "manufacturer": "replace-after-test",
     "model": "replace-after-test",
-    "androidVersion": "replace-after-test"
+    "androidVersion": "replace-after-test",
+    "apiLevel": "replace-after-test",
+    "isEmulator": true
   },
   "checks": {
     "installAndLaunch": false,
@@ -23,5 +27,26 @@
     "collectionPreservedAfterReinstall": false,
     "cloudConflictResolution": false
   },
-  "notes": "Set a check to true only after observing it on the physical device."
+  "evidence": {
+    "installAndLaunch": "replace-after-test",
+    "touchNavigation": "replace-after-test",
+    "localContentLoad": "replace-after-test",
+    "remoteFirstDownload": "replace-after-test",
+    "interruptedDownloadResume": "replace-after-test",
+    "offlineRestart": "replace-after-test",
+    "wifiMobileSwitch": "replace-after-test",
+    "storageFailureSafety": "replace-after-test",
+    "speakerAudio": "replace-after-test",
+    "audioFocusAndBackgroundResume": "replace-after-test",
+    "haptics": "replace-after-test",
+    "reduceMotion": "replace-after-test",
+    "collectionPreservedAfterReinstall": "replace-after-test",
+    "cloudConflictResolution": "replace-after-test"
+  },
+  "limitations": [
+    "physicalHaptics",
+    "physicalSpeakerQuality",
+    "cellularHandover"
+  ],
+  "notes": "For an emulator, checks verify software behavior only; recorded limitations remain physical-device follow-ups."
 }

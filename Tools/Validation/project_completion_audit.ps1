@@ -144,14 +144,39 @@ function Test-RemoteConfigurationJson {
 }
 
 function Test-AndroidReceiptJson {
-    param([string]$Json)
+    param(
+        [string]$Json,
+        [string]$ExpectedSerial = "",
+        [string]$ExpectedEnvironmentType = ""
+    )
     try {
         $receipt = $Json | ConvertFrom-Json -ErrorAction Stop
-        if ([int]$receipt.schemaVersion -ne 1) {
-            throw "Android acceptance receipt schemaVersion must be 1."
+        if ([int]$receipt.schemaVersion -ne 2) {
+            throw "Android acceptance receipt schemaVersion must be 2."
         }
         if ([string]$receipt.packageId -ne $PackageId) {
             throw "Android acceptance receipt packageId does not match $PackageId."
+        }
+        $environmentType = ([string]$receipt.environmentType).Trim().ToLowerInvariant()
+        if ($environmentType -notin @("emulator", "physical")) {
+            throw "Android acceptance receipt environmentType must be emulator or physical."
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedEnvironmentType) -and
+            $environmentType -ne $ExpectedEnvironmentType.Trim().ToLowerInvariant()) {
+            throw "Android acceptance receipt environmentType does not match the connected target."
+        }
+        foreach ($name in @("serial", "manufacturer", "model", "androidVersion", "apiLevel")) {
+            if ([string]::IsNullOrWhiteSpace([string]$receipt.device.$name)) {
+                throw "Android acceptance receipt device.$name is required."
+            }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedSerial) -and
+            [string]$receipt.device.serial -ne $ExpectedSerial) {
+            throw "Android acceptance receipt device serial does not match the connected target."
+        }
+        $declaredEmulator = $receipt.device.isEmulator -eq $true
+        if (($environmentType -eq "emulator") -ne $declaredEmulator) {
+            throw "Android acceptance receipt emulator declaration is inconsistent."
         }
         $date = [DateTimeOffset]::MinValue
         if (-not [DateTimeOffset]::TryParse([string]$receipt.testedAtUtc, [ref]$date)) {
@@ -162,11 +187,28 @@ function Test-AndroidReceiptJson {
             if ($null -eq $property -or $property.Value -ne $true) {
                 throw "Android manual acceptance is incomplete: $name."
             }
+            $evidence = [string]$receipt.evidence.$name
+            if ([string]::IsNullOrWhiteSpace($evidence) -or $evidence.Trim().Length -lt 8) {
+                throw "Android acceptance evidence is missing or too short: $name."
+            }
         }
-        return [pscustomobject]@{ Passed = $true; Detail = "All $($requiredDeviceChecks.Count) device checks recorded at $date." }
+        if ($environmentType -eq "emulator") {
+            $limitations = @($receipt.limitations | ForEach-Object { [string]$_ })
+            foreach ($required in @("physicalHaptics", "physicalSpeakerQuality", "cellularHandover")) {
+                if ($limitations -notcontains $required) {
+                    throw "Emulator acceptance must record hardware limitation: $required."
+                }
+            }
+        }
+        $scope = if ($environmentType -eq "emulator") { "emulator software" } else { "physical-device" }
+        return [pscustomobject]@{
+            Passed = $true
+            Detail = "All $($requiredDeviceChecks.Count) $scope checks recorded with evidence at $date."
+            EnvironmentType = $environmentType
+        }
     }
     catch {
-        return [pscustomobject]@{ Passed = $false; Detail = $_.Exception.Message }
+        return [pscustomobject]@{ Passed = $false; Detail = $_.Exception.Message; EnvironmentType = $null }
     }
 }
 
@@ -236,21 +278,48 @@ function Invoke-SelfTest {
     foreach ($name in $requiredDeviceChecks) {
         $checks[$name] = $true
     }
+    $evidence = @{}
+    foreach ($name in $requiredDeviceChecks) {
+        $evidence[$name] = "Verified evidence for $name."
+    }
     $receipt = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         packageId = $PackageId
         testedAtUtc = "2026-07-27T00:00:00Z"
+        environmentType = "emulator"
+        device = [ordered]@{
+            serial = "emulator-5554"
+            manufacturer = "Google"
+            model = "sdk_gphone64_x86_64"
+            androidVersion = "14"
+            apiLevel = "34"
+            isEmulator = $true
+        }
         checks = $checks
+        evidence = $evidence
+        limitations = @("physicalHaptics", "physicalSpeakerQuality", "cellularHandover")
     } | ConvertTo-Json -Depth 4
-    if (-not (Test-AndroidReceiptJson $receipt).Passed) {
+    if (-not (Test-AndroidReceiptJson -Json $receipt -ExpectedSerial "emulator-5554" `
+        -ExpectedEnvironmentType "emulator").Passed) {
         throw "Self-test failed: valid Android receipt."
     }
     $checks.haptics = $false
     $invalidReceipt = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         packageId = $PackageId
         testedAtUtc = "2026-07-27T00:00:00Z"
+        environmentType = "emulator"
+        device = [ordered]@{
+            serial = "emulator-5554"
+            manufacturer = "Google"
+            model = "sdk_gphone64_x86_64"
+            androidVersion = "14"
+            apiLevel = "34"
+            isEmulator = $true
+        }
         checks = $checks
+        evidence = $evidence
+        limitations = @("physicalHaptics", "physicalSpeakerQuality", "cellularHandover")
     } | ConvertTo-Json -Depth 4
     if ((Test-AndroidReceiptJson $invalidReceipt).Passed) {
         throw "Self-test failed: incomplete Android receipt was accepted."
@@ -360,8 +429,26 @@ if ($null -ne $adb) {
         $serials = @(Get-AuthorizedDeviceSerials $deviceQuery.Output)
     }
 }
-$deviceDetail = if ($null -eq $adb) { "ADB was not found." } else { "Authorized devices=$($serials.Count)." }
-$results.Add((New-AuditResult -Name "One authorized Android device" -Scope "Device" `
+$connectedEnvironmentType = ""
+if ($serials.Count -eq 1) {
+    $qemuQuery = Invoke-AdbCommand $adb @("-s", $serials[0], "shell", "getprop", "ro.kernel.qemu")
+    if ($qemuQuery.ExitCode -eq 0 -and ($qemuQuery.Output -join "").Trim() -eq "1") {
+        $connectedEnvironmentType = "emulator"
+    }
+    else {
+        $connectedEnvironmentType = "physical"
+    }
+}
+$deviceDetail = if ($null -eq $adb) {
+    "ADB was not found."
+}
+elseif ($serials.Count -eq 1) {
+    "Authorized target=$($serials[0]); environment=$connectedEnvironmentType."
+}
+else {
+    "Authorized targets=$($serials.Count)."
+}
+$results.Add((New-AuditResult -Name "One authorized Android target" -Scope "Device" `
     -Passed ($serials.Count -eq 1) -Detail $deviceDetail))
 
 $installed = $false
@@ -382,11 +469,14 @@ $results.Add((New-AuditResult -Name "Remote config installed on device" -Scope "
     -Passed $deviceConfig -Detail $deviceConfigDetail))
 
 if (Test-Path -LiteralPath $receiptFullPath) {
-    $receipt = Test-AndroidReceiptJson (Get-Content -LiteralPath $receiptFullPath -Raw -Encoding utf8)
+    $receipt = Test-AndroidReceiptJson `
+        -Json (Get-Content -LiteralPath $receiptFullPath -Raw -Encoding utf8) `
+        -ExpectedSerial $(if ($serials.Count -eq 1) { $serials[0] } else { "" }) `
+        -ExpectedEnvironmentType $connectedEnvironmentType
     $results.Add((New-AuditResult "Android manual acceptance receipt" "Device" $receipt.Passed $receipt.Detail))
 }
 else {
-    $receiptDetail = "Missing $receiptFullPath; record all $($requiredDeviceChecks.Count) physical-device checks after testing."
+    $receiptDetail = "Missing $receiptFullPath; record all $($requiredDeviceChecks.Count) Android target checks after testing."
     $results.Add((New-AuditResult -Name "Android manual acceptance receipt" -Scope "Device" `
         -Passed $false -Detail $receiptDetail))
 }
