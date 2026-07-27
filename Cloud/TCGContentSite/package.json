@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run typecheck && npm run build && node --test tests/rendered-html.test.mjs && node --experimental-strip-types --test tests/content-contract.test.ts tests/content-store.test.ts tests/owner-access.test.ts",
+    "test": "npm run typecheck && npm run build && node --test tests/rendered-html.test.mjs && node --experimental-strip-types --test tests/content-contract.test.ts tests/content-store.test.ts tests/owner-access.test.ts tests/publisher-credential.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit"
   },

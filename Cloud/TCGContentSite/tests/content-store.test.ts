@@ -59,6 +59,10 @@ class FakeBucket implements ContentBucket {
         : new Uint8Array(value.slice(0));
     this.objects.set(key, { bytes, customMetadata: options?.customMetadata });
   }
+
+  async delete(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
 }
 
 async function fixture(): Promise<{ bytes: ArrayBuffer; sha256: string; catalog: ContentCatalog }> {
@@ -125,6 +129,7 @@ test("publishes the catalog only after every verified archive exists", async () 
   const published = await publishCatalog(bucket, data.catalog);
   assert.equal(published.catalog.revision, 1);
   assert.equal(bucket.objects.has(catalogObjectKey), true);
+  assert.match(bucket.objects.get(catalogObjectKey)?.customMetadata?.sha256 ?? "", /^[a-f0-9]{64}$/);
 });
 
 test("serves exact 200, 206, HEAD, and 416 download semantics", async () => {

@@ -34,6 +34,7 @@ export interface ContentBucket {
       customMetadata?: Record<string, string>;
     },
   ): Promise<unknown>;
+  delete(key: string): Promise<void>;
 }
 
 export type PublishArchiveInput = {
@@ -122,6 +123,7 @@ export async function publishCatalog(
       schemaVersion: String(catalog.schemaVersion),
       revision: String(catalog.revision),
       packageCount: String(catalog.packages.length),
+      sha256: await sha256Hex(encoded.buffer as ArrayBuffer),
     },
   });
   return { catalog, bytes: encoded.byteLength };
