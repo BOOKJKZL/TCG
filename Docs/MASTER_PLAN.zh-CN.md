@@ -616,13 +616,14 @@ Content Language  卡名、卡图、系列和产品
 7E 完成记录（2026-07-27）：
 
 - 新增独立 vinext Site 与 Sites R2 `FILES` binding；不依赖 Unity、不使用 D1，公开读取 API 与 owner-only 发布 API 分离。
-- `/admin` 使用 Sign in with ChatGPT 身份头并在服务端核对 `TCG_CONTENT_OWNER_EMAIL`；匿名和错误账号写操作分别拒绝为 401/403。
+- `/admin` 使用与小说云端相同的唯一管理员邮箱策略：Sign in with ChatGPT 身份头在服务端核对 `TCG_CONTENT_OWNER_EMAIL`；匿名和错误账号写操作分别拒绝为 401/403，生产缺配置时关闭后台。
 - 服务端严格读取 schema v1，拒绝未知字段、路径穿越、可变 archive URL、重复包、错误字节和错误 Hash；ZIP 全部验证后才允许切换 catalog。
 - ZIP API 提供精确 `Content-Length`、identity、不可变缓存、`Accept-Ranges: bytes` 与开放式 `206 Content-Range`；不支持的 Range 返回带总长度的 416。
-- 自动测试 9/9、lint、生产构建与依赖审计 0 漏洞通过；两个真实卡包在本机 Site R2 完成 200/206/416 与全量 SHA-256 读回。
+- 自动测试 14/14、lint、生产构建与依赖审计 0 漏洞通过；两个真实卡包在本机 Site R2 完成 200/206/416 与全量 SHA-256 读回。
+- Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，唯一 owner 邮箱环境配置存在且已规范化。公网对两条游戏资源路由共执行 8 个写方法探测，全部返回 `405 Allow: GET, HEAD`；匿名管理写入与伪造身份头均返回 `401`。
 - 协议与对象键已经固定；未来把对象复制到独立 Cloudflare R2 并更换 `catalogUrl` 即可，不修改 Unity 下载、安装、收藏或收据身份。
 
-下一切片：把 `Cloud/TCGContentSite` 部署为可被 Android 匿名读取的公开 Site，配置 owner 邮箱，只上传 `en.base1`、`en.neo1` 与 catalog；验证公开 HTTPS 读回后生成 `LocalContent/remote-content.json`，再安装到 Android 私人持久目录完成首次下载、中断续传、离线重启和真机卸载/重装。独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
+下一切片：在已部署 Site 的 `/admin` 只上传 `en.base1`、`en.neo1` 与 catalog；当前公网 catalog 按预期为 `404`，不会让手机误读半成品。验证公开 HTTPS 读回后生成 `LocalContent/remote-content.json`，再安装到 Android 私人持久目录完成首次下载、中断续传、离线重启和真机卸载/重装。独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
 验收：
 

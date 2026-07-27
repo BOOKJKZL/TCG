@@ -108,13 +108,15 @@ content/releases/packages/{package-id}/{sha256}.zip
 - 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
 - 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
 
-2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。生产部署完成前，这些只能算本机证据。
+2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。
+
+同日 Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`。生产环境已经确认唯一 owner 邮箱配置存在；公网对 catalog 与 package 路由执行的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`，匿名管理写入和外部伪造 `oai-authenticated-user-email` 均得到 `401`。当前尚未上传两个 ZIP 与 catalog，因此公开 catalog 返回 `404`，也尚未生成 `LocalContent/remote-content.json`。
 
 部署后手机配置只需：
 
 ```json
 {
-  "catalogUrl": "https://<site-host>/api/content/catalog.json",
+  "catalogUrl": "https://universal-gacha-content.jiejingleek.chatgpt.site/api/content/catalog.json",
   "timeoutSeconds": 15,
   "maxCatalogBytes": 1048576
 }
