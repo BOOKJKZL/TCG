@@ -6,7 +6,7 @@
 
 仓库实现、本机内容 fixture、自动测试、正式主题音效和 Android 干净构建已经达到本机可完成范围的 100%。完整发布计划当前为 92%，剩余部分必须由真实外部状态证明：
 
-- 真实 Cloudflare R2 发布与已验证的公开 HTTPS catalog：4%。
+- 真实 Site 发布与已验证的公开 HTTPS catalog：4%。
 - 实体 Android 安装、远程下载和十四项人工体验验收：4%。
 
 `Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。
@@ -31,7 +31,19 @@ $unity = "C:\Program Files\Unity\Hub\Editor\6000.0.73f1\Editor\Unity.exe"
 
 `TestResults/` 已被 Git 忽略，只保存本机证据。
 
-## 二、完成真实 R2 发布
+## 二、完成真实 Site 发布
+
+当前先部署 `Cloud/TCGContentSite`，并在托管环境配置 `TCG_CONTENT_OWNER_EMAIL`。由于 Android 必须在没有 ChatGPT 浏览器会话的情况下读取内容，Site 需要允许公网访问；写入 API 仍由 owner 邮箱在服务端保护。
+
+在 Site `/admin` 只选择以下最小范围：
+
+- `LocalContent/Releases/android/catalog.json`
+- `en.base1` 内容寻址 ZIP
+- `en.neo1` 内容寻址 ZIP
+
+后台会先验证/上传 ZIP，最后发布 catalog。完成后用公开 HTTPS 地址建立 Git 忽略的 `LocalContent/remote-content.json`，并重新读回 catalog、完整 ZIP、Range 片段和 SHA-256。
+
+以下独立 Cloudflare R2 流程保留为后续迁移方案，不阻塞当前 Site 版本：
 
 在 Cloudflare 建立仅限目标 bucket 的 Object Read & Write Token，并准备：
 
@@ -105,6 +117,6 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - APK 比运行时代码/资产新，且包内没有私人内容名称。
 - 十个年代 WAV 和配置映射完整。
 - 两个本机发布包的大小与 SHA-256 匹配 catalog。
-- R2 发布器生成了已验证的 HTTPS 运行配置。
+- Site 或后续 R2 发布流程生成了已验证的 HTTPS 运行配置。
 - ADB 只有一台授权设备、APK 与远程配置已安装。
 - 十四项实体设备收据全部为 `true`。

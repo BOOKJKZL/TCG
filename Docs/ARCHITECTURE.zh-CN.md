@@ -31,6 +31,10 @@ Gacha.Pokemon.Presentation
 Assembly-CSharp / Editor-only code
   场景控制器、启动组合根
   内容导入、确定性 ZIP/catalog 发布、字体子集、概率校验、Android/Addressables 构建工具
+
+Cloud/TCGContentSite（独立部署模块）
+  Sites R2 内容适配器、owner-only 发布台、公开 catalog/Range API
+  不依赖 Unity；未来可整体替换为独立 Cloudflare R2
 ```
 
 当前已加入的替换点：
@@ -76,7 +80,7 @@ Assembly-CSharp / Editor-only code
 - `VariantRule`：普通、闪卡、反向闪、异画等版本规则。
 - `CollationRule`：需要模拟真实卡包配列时使用，而不是假设每一张都独立随机。
 
-这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入凭据仅存电脑端、ZIP-first/catalog-last、origin/公开 URL 双重校验的私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨重启续传。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效。本机实施已完成，下一步只剩带真实私人参数的 R2/Android 发布验收。
+这些模型已经支撑五个本机系列、1462 个运行时 Printing、三套历史规则和两套来源指导模拟。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A 已加入受限 HTTPS catalog 与私人配置，7B 已加入确定性 ZIP/catalog 发布和运行时安装自验证，7C 已加入私人 R2 上传边界，7D 已加入来源绑定的已验证 catalog 离线缓存和跨重启续传，7E 已加入不依赖 Unity 的临时 Site R2 中继并用两个真实卡包验证同一网络契约。阶段 8A 已将规则来源升级为 Application 证据模型；8B 已让五个系列分别使用可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效。下一步是 Site 公网部署与 Android 真机验收，独立 Cloudflare R2 延后为存储适配器迁移。
 
 ## 两阶段路线
 
@@ -85,8 +89,8 @@ Assembly-CSharp / Editor-only code
 1. 数据驱动模型、核心 asmdef、抽卡、收藏、设置与本机内容浏览已经完成。
 2. 连接 Android 真机完成本地 MVP 设备验收。
 3. 内容包管理页已支持下载、暂停、取消、重试、修复、更新、安全卸载和同页重装；收藏隔离已由真实文件 fixture 验证。
-4. 首次下载、中断续传和断网重启的本机自动化已完成；连接真实 R2 和 Android 真机补齐设备验收。
-5. 接入 HTTPS catalog、确定性 ZIP 与私人 R2；Addressables 只用于确实需要 Unity AssetBundle 的共用资源，不让托管实现渗透到 UI。
+4. 首次下载、中断续传和断网重启的本机自动化已完成；连接公开 Site 与 Android 真机补齐设备验收。
+5. HTTPS catalog、确定性 ZIP 与 Site R2 中继已接入；未来迁移独立 Cloudflare R2 只替换托管适配器。Addressables 只用于确实需要 Unity AssetBundle 的共用资源。
 
 ### 第二阶段：宝可梦内容适配器
 

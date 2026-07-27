@@ -4,12 +4,12 @@
 
 不建议把 Google Drive 当作正式的游戏内容服务器。它适合个人备份和早期手动测试，但它是文件协作产品，不是稳定的静态资源 CDN；API 有配额，下载链接和共享权限也比对象存储复杂。
 
-这个个人项目优先推荐：
+这个个人项目当前采用：
 
-1. **Cloudflare R2 + 版本化内容包**：当前首选。R2 可公开提供 HTTPS 对象；截至 2026-07，其 Standard 免费额度包含每月 10 GB-month 存储、100 万 Class A、1000 万 Class B 请求，直接从 R2 出网不收流量费。正式使用应绑定自有域名；`r2.dev` 官方说明仅适合非生产流量并会限速。卡牌数据/图片使用本项目已有的 ZIP、SHA-256、schema catalog 和原子安装链路。
-2. **Unity CCD + Addressables**：Unity 集成最省事，适合不想维护上传脚本和 URL 的情况；费用和额度应在实际启用前再次确认。
-3. **Firebase Storage**：鉴权和移动端生态完善，但公开大文件分发的费用模型通常不如 R2 简单；2026 年新 bucket 的免费额度与区域有关。
-4. **Google Drive**：仅用于你自己的一两台设备测试，不作为发布架构。
+1. **Sites R2 + 版本化内容包**：当前过渡方案。代码、owner-only 上传台和公开读取 API 位于 `Cloud/TCGContentSite`；卡图仍以内容寻址 ZIP 保存，不进入 APK、Git 或 Site 源码。
+2. **独立 Cloudflare R2**：容量、成本或域名需要优化时的下一存储适配器。对象键、catalog、SHA-256 和 Range 契约保持不变，迁移不重写游戏。
+3. **Unity CCD + Addressables**：保留给确实需要 Unity AssetBundle 的通用特效、声音或平台资产，不重复承载卡牌 JSON/图片 ZIP。
+4. **Google Drive**：只做个人备份，不作为游戏运行时资源服务器。
 
 这里的“没有服务器”不构成阻碍。对象存储本身就是静态 HTTPS 文件主机；本项目不需要运行后端程序，手机只需要读取远程 catalog、hash 和不可变归档。
 
@@ -31,11 +31,11 @@ product/{game}/{id}     卡包包装、概率与配列规则
 language/{code}         可选语言内容
 ```
 
-对象存储建议布局：
+当前 Site 与未来独立 R2 共用对象布局：
 
 ```text
-content/releases/android/catalog.json
-content/packages/{package-id}/{sha256}.zip
+content/releases/catalog.json
+content/releases/packages/{package-id}/{sha256}.zip
 ```
 
 卡牌 JSON/图片 ZIP 在格式一致时可跨平台复用；只有通用卡背、特效、声音或其他 Unity 序列化资产需要 Addressables，并按 Android、iOS、Windows 分别构建。这样不会让卡牌内容同时维护 ZIP 与 AssetBundle 两套版本/缓存状态。
@@ -97,7 +97,29 @@ content/packages/{package-id}/{sha256}.zip
 
 连续构建时两个 ZIP 与 catalog 共 3 个文件全部保持相同 Hash。它们只存在于 Git 忽略的本机目录，尚未上传 R2。
 
-## 私人 R2 上传器
+## 临时 Site 内容中继
+
+`Cloud/TCGContentSite` 是当前发布入口：
+
+- `/admin` 只允许与 `TCG_CONTENT_OWNER_EMAIL` 相同的 ChatGPT 登录账号。
+- `POST /api/admin/content/packages` 在服务端重新核对真实字节和 SHA-256，内容寻址对象不允许被不同内容覆盖。
+- `POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。
+- `GET /api/content/catalog.json` 与相对的 `packages/{packageId}/{sha}.zip` 允许手机匿名读取；ZIP 支持严格开放式 Range。
+- 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
+
+2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。生产部署完成前，这些只能算本机证据。
+
+部署后手机配置只需：
+
+```json
+{
+  "catalogUrl": "https://<site-host>/api/content/catalog.json",
+  "timeoutSeconds": 15,
+  "maxCatalogBytes": 1048576
+}
+```
+
+## 私人 R2 上传器（后续迁移）
 
 阶段 7C 已加入 `Tools > Universal Gacha > Private R2 Publisher`。`Offline preflight` 不访问网络，先用正式 schema reader 读取本机 catalog，逐个核对 ZIP 路径、大小与 SHA-256，并显示最终对象键。正式发布需要以下值：
 

@@ -347,7 +347,7 @@ if (Test-Path -LiteralPath $remoteFullPath) {
     $results.Add((New-AuditResult "Verified remote runtime config" "Remote" $remote.Passed $remote.Detail))
 }
 else {
-    $remoteDetail = "Missing $remoteFullPath; the R2 publisher writes it only after origin and public verification."
+    $remoteDetail = "Missing $remoteFullPath; create it only after the Site or R2 catalog passes public HTTPS verification."
     $results.Add((New-AuditResult -Name "Verified remote runtime config" -Scope "Remote" `
         -Passed $false -Detail $remoteDetail))
 }
@@ -407,7 +407,7 @@ $percent = $localPercent
 if ($remotePassed) { $percent += 4 }
 if ($devicePassed) { $percent += 4 }
 $complete = $percent -eq 100 -and @($results | Where-Object { $_.RequiredFor100 -and -not $_.Passed }).Count -eq 0
-Write-Output "Completion audit: $percent% (local ceiling 92%, verified R2 +4%, verified Android acceptance +4%)."
+Write-Output "Completion audit: $percent% (local ceiling 92%, verified remote HTTPS release +4%, verified Android acceptance +4%)."
 
 if ($complete) {
     Write-Output "PROJECT COMPLETION VERIFIED: 100%."
