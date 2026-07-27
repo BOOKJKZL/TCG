@@ -22,7 +22,7 @@ export default function Home() {
           手机只读取经过大小与 SHA-256 验证的 catalog；未来迁往 Cloudflare R2 时，抽卡逻辑无需改写。
         </p>
         <div className="hero-actions">
-          <Link className="primary-action" href="/admin">进入私人发布台</Link>
+          <Link className="primary-action" href="/admin">管理电脑发布器</Link>
           <a className="secondary-action" href="/api/content/catalog.json">查看公开 Catalog</a>
         </div>
       </section>
@@ -31,7 +31,7 @@ export default function Home() {
         <article>
           <span className="card-number">01</span>
           <h2>电脑发布</h2>
-          <p>先上传内容寻址 ZIP，核对真实字节与 Hash，最后才切换 catalog。</p>
+          <p>电脑端导入器直接上传内容寻址 ZIP，核对真实字节与 Hash，最后才切换 catalog。</p>
         </article>
         <article>
           <span className="card-number">02</span>

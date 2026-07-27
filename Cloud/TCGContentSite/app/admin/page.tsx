@@ -3,6 +3,7 @@ import { requireChatGPTUser, chatGPTSignOutPath } from "@/app/chatgpt-auth";
 import { getContentBucket } from "@/lib/content/bindings";
 import { readPublishedStatus } from "@/lib/content/content-store";
 import { getOwnerAccess } from "@/lib/content/owner-access";
+import { getPublisherCredentialStatus } from "@/lib/content/publisher-credential";
 import ReleasePublisher from "./release-publisher";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,16 @@ export default async function AdminPage() {
   }
 
   let status: { published: boolean; revision?: number; packageCount?: number };
+  let credential: { configured: boolean; fingerprint?: string; boundAt?: string };
   try {
-    status = await readPublishedStatus(getContentBucket());
+    const bucket = getContentBucket();
+    [status, credential] = await Promise.all([
+      readPublishedStatus(bucket),
+      getPublisherCredentialStatus(bucket),
+    ]);
   } catch {
     status = { published: false };
+    credential = { configured: false };
   }
 
   return (
@@ -30,10 +37,10 @@ export default async function AdminPage() {
       <p className="admin-kicker">OWNER RELEASE CONSOLE</p>
       <h1 className="admin-title">不可变内容发布台</h1>
       <p className="admin-intro">
-        选择本机生成的 catalog 与 ZIP。系统会逐包核对字节数和 SHA-256，全部进入 R2 后才发布 catalog。
-        发布途中失败不会破坏手机当前可见的版本。
+        这里只负责授权电脑端私人发布器，不再读取本机卡包。Unity 会逐包核对字节数和 SHA-256，
+        全部进入 R2 并完成公开读回验证后才发布 catalog。
       </p>
-      <ReleasePublisher initialStatus={status} />
+      <ReleasePublisher initialStatus={status} initialCredential={credential} />
     </main>
   );
 }

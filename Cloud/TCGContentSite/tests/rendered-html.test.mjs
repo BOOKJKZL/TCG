@@ -54,7 +54,7 @@ test("server-renders the content relay landing page", async () => {
   assert.match(html, /Universal Gacha Content Relay/);
   assert.match(html, /卡包离开 APK/);
   assert.match(html, /\/api\/content\/catalog\.json/);
-  assert.match(html, /进入私人发布台/);
+  assert.match(html, /管理电脑发布器/);
   assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
 });
 
@@ -111,6 +111,33 @@ test("protects publisher APIs by identity, origin, and media type", async () => 
     body: "{}",
   });
   assert.equal(wrongMediaType.status, 415);
+
+  const anonymousCredential = await fetch(`${origin}/api/admin/publisher/credential`);
+  assert.equal(anonymousCredential.status, 401);
+
+  const anonymousCredentialWrite = await fetch(`${origin}/api/admin/publisher/credential`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenSha256: "0".repeat(64) }),
+  });
+  assert.equal(anonymousCredentialWrite.status, 401);
+
+  const crossOriginCredentialWrite = await fetch(`${origin}/api/admin/publisher/credential`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://attacker.example",
+      "oai-authenticated-user-email": "owner@example.test",
+    },
+    body: JSON.stringify({ tokenSha256: "0".repeat(64) }),
+  });
+  assert.equal(crossOriginCredentialWrite.status, 403);
+});
+
+test("removes browser file upload controls from the owner console", async () => {
+  const publisherSource = await readFile(new URL("../app/admin/release-publisher.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(publisherSource, /type="file"|archiveFiles|catalogFile/);
+  assert.match(publisherSource, /Binding SHA-256|绑定电脑发布器/);
 });
 
 test("keeps every public game content route strictly read-only", async () => {
