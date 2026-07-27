@@ -35,6 +35,9 @@ public class AndroidBuildReadinessTests
         Assert.That(Directory.Exists("Assets/StreamingAssets/LocalContent"), Is.False);
         Assert.That(AndroidSmokeBuilder.OutputPath.Replace('\\', '/'), Does.StartWith("Builds/"),
             "Build artifacts must remain outside Assets so they cannot inflate the application package.");
+        Assert.That(AndroidSmokeBuilder.EmulatorOutputPath.Replace('\\', '/'), Does.StartWith("Builds/"));
+        Assert.That(AndroidSmokeBuilder.EmulatorOutputPath, Does.Contain("x86_64"),
+            "The emulator acceptance artifact must state its non-production ABI explicitly.");
         Assert.That(
             (AndroidSmokeBuilder.SmokeBuildOptions & BuildOptions.CleanBuildCache) != 0,
             Is.True,
