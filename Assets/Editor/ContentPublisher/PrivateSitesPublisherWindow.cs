@@ -309,18 +309,22 @@ public static class PrivateSitesPublisherBatch
     {
         SitesPublisherCredential credential = ResolveCredential();
         R2ReleaseUploadPlan plan = CreatePlan(credential.SiteBaseUri);
-        using (var store = new SitesContentApiObjectStore(
-                   new SitesContentApiCredentials(credential.SiteBaseUri, credential.PublisherToken),
-                   TimeSpan.FromMinutes(5)))
-        {
-            R2ReleasePublishResult result = new R2ReleasePublisher(store)
-                .PublishAsync(plan)
-                .GetAwaiter()
-                .GetResult();
-            Debug.Log(
-                "Sites batch publication passed: uploaded=" + result.UploadedArchives +
-                ", reused=" + result.ReusedArchives + ", catalog='" + result.CatalogUri + "'.");
-        }
+        R2ReleasePublishResult result = System.Threading.Tasks.Task.Run(async () =>
+            {
+                using (var store = new SitesContentApiObjectStore(
+                           new SitesContentApiCredentials(credential.SiteBaseUri, credential.PublisherToken),
+                           TimeSpan.FromMinutes(5)))
+                {
+                    return await new R2ReleasePublisher(store)
+                        .PublishAsync(plan)
+                        .ConfigureAwait(false);
+                }
+            })
+            .GetAwaiter()
+            .GetResult();
+        Debug.Log(
+            "Sites batch publication passed: uploaded=" + result.UploadedArchives +
+            ", reused=" + result.ReusedArchives + ", catalog='" + result.CatalogUri + "'.");
     }
 
     private static R2ReleaseUploadPlan CreatePlan(Uri siteBaseUri)
