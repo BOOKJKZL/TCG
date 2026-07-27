@@ -7,6 +7,7 @@ using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.Localization.Tables;
+using UnityEngine.UIElements;
 
 public class ContentManagementPresentationTests
 {
@@ -89,6 +90,21 @@ public class ContentManagementPresentationTests
 
         Assert.That(result.PrimaryAction, Is.EqualTo(expected));
         Assert.That(result.PrimaryActionKey, Is.EqualTo(key));
+    }
+
+    [Test]
+    public void SharedRuntimePanel_UsesPortraitScreenScaling()
+    {
+        PanelSettings settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(
+            "Assets/Resources/UI/Collection Panel Settings.asset");
+
+        Assert.That(settings, Is.Not.Null);
+        Assert.That(settings.scaleMode, Is.EqualTo(PanelScaleMode.ScaleWithScreenSize));
+        Assert.That(settings.referenceResolution.x, Is.EqualTo(1000f));
+        Assert.That(settings.referenceResolution.y, Is.EqualTo(2000f));
+        Assert.That(settings.screenMatchMode, Is.EqualTo(PanelScreenMatchMode.MatchWidthOrHeight));
+        Assert.That(settings.match, Is.EqualTo(0f),
+            "Portrait UI must match width so tall Android screens gain vertical room instead of oversized controls.");
     }
 
     [Test]
