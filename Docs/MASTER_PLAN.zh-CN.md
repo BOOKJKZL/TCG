@@ -516,7 +516,7 @@ Content Language  卡名、卡图、系列和产品
 - `Card_UI` 新增 32 组英/中文内容管理文案；运行时切换中文后页面和动态行会同步刷新。
 - 页面 PlayMode fixture 从后台线程加载两个包，覆盖成功安装、失败一次、错误只提示一次、重试成功、完成震动、中文切换和主线程更新。
 - 全量 EditMode 164/164、PlayMode 5/5 通过；Android/IL2CPP 构建成功，6 个场景，APK 74.83 MiB，413 个条目中私人内容匹配为 0。
-- 当前正式运行时尚未配置远程 catalog 地址，因此页面会显示“尚未配置远程内容”；这不是静默假成功，下一切片必须提供已公开验证的 Site HTTPS catalog 配置后才进行手机真实下载。
+- 正式 Site HTTPS catalog 已由电脑发布器验证并生成 Git 忽略的 `LocalContent/remote-content.json`；APK 仍不内置私有卡图或发布凭据，真机安装时再把只读运行配置放入应用私人目录。
 
 6C5 完成记录（2026-07-24）：
 
@@ -527,7 +527,7 @@ Content Language  卡名、卡图、系列和产品
 - 删除成功会丢弃旧下载归档状态、重载本地 catalog，并允许同一个页面/协调器立即重新安装；收藏存档在实际 ZIP 安装→删除→重装期间保持逐字节不变。
 - 卸载定向测试 6/6、全量 EditMode 197/197、PlayMode 6/6 通过；Android/IL2CPP 构建成功，APK 74.85 MiB，413 个条目中私人内容名称匹配为 0。
 
-下一切片：进入阶段 7 的最小真实远程闭环。使用已经完成的上传工具发布 `en.base1`、`en.neo1` 与 catalog；随后让 Android 完成真实首次下载、中断续传、离线重启和卸载/重装真机验收。不要先批量上传全部卡图。
+下一切片：`en.base1`、`en.neo1` 与 catalog 的公网远程闭环已经完成；随后让 Android 完成真实首次下载、中断续传、离线重启和卸载/重装真机验收。不要先批量上传全部卡图。
 
 验收：
 
@@ -625,7 +625,7 @@ Content Language  卡名、卡图、系列和产品
 - 发布入口已升级为电脑直传：Unity 新增 Sites API 存储适配器、本机随机凭据和 Batch 入口；`/admin` 只绑定/轮换/撤销令牌 SHA-256，不再读取 ZIP。服务器只保存 Hash，明文只在 Git 忽略的 `LocalContent`，APK 继续完全只读。
 - 新增配对认证与适配器定向测试：Site 当前 19/19、Unity Sites Publisher 4/4、Unity 完整 EditMode 233/233 通过；错误/撤销令牌、跨来源 owner、令牌目标域名、公开请求不带凭据和浏览器文件控件退役均有覆盖。批处理可安全生成并自动读取 Git 忽略的本机凭据，不在命令行或日志暴露令牌。
 
-下一切片：部署电脑直传版本，在 `/admin` 绑定本机发布器 SHA-256，再由 Unity 直接发布 `en.base1`、`en.neo1` 与 catalog；当前公网 catalog 按预期为 `404`，不会让手机误读半成品。验证公开 HTTPS 读回后生成 `LocalContent/remote-content.json`，再安装到 Android 私人持久目录完成首次下载、中断续传、离线重启和真机卸载/重装。独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
+7E 公网收尾（2026-07-27）：电脑直传版本已部署并绑定本机发布器；Unity 成功上传两个 ZIP 后最后切换 catalog。独立客户端再次验证两包完整字节数、SHA-256、中点 `206 Content-Range` 与 8/8 只读方法边界，远程运行配置通过 Android 安装器的无设备预检，项目审计提升到 96%。下一切片只安装到 Android 私人持久目录，完成首次下载、中断续传、离线重启和真机卸载/重装；独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
 验收：
 

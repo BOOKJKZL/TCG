@@ -95,7 +95,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 | `en.base1` | 14,906,006 | 15,189,695 | `2522292c…beceac` |
 | `en.neo1` | 16,437,718 | 16,754,096 | `f353fe80…7a861b` |
 
-连续构建时两个 ZIP 与 catalog 共 3 个文件全部保持相同 Hash。它们只存在于 Git 忽略的本机目录，尚未上传 R2。
+连续构建时两个 ZIP 与 catalog 共 3 个文件全部保持相同 Hash。本机源文件继续位于 Git 忽略目录；同一内容寻址版本已经由电脑发布器上传到私人 Site R2。
 
 ## 临时 Site 内容中继
 
@@ -111,7 +111,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。
 
-同日 Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`。生产环境已经确认唯一 owner 邮箱配置存在；公网对 catalog 与 package 路由执行的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`，匿名管理写入和外部伪造 `oai-authenticated-user-email` 均得到 `401`。当前源码已升级为电脑直传，但该版本仍待部署、绑定本机凭据和首次公网发布；在此之前 catalog 继续返回 `404`，不会让手机误读半成品。
+同日电脑直传版本已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，本机随机凭据已由唯一 owner 邮箱绑定。`en.base1`、`en.neo1` 与 catalog 已由 Unity 直接发布；独立公网客户端完整读回 14,906,006 / 16,437,718 bytes 并得到预期 SHA-256，两包中点续传均返回精确 `206 Content-Range`。catalog 与 package 路由的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`；Git 忽略的 `LocalContent/remote-content.json` 已由验证成功的发布器原子生成。
 
 部署后手机配置只需：
 

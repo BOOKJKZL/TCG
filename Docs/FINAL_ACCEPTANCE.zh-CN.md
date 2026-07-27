@@ -37,7 +37,7 @@ $unity = "C:\Program Files\Unity\Hub\Editor\6000.0.73f1\Editor\Unity.exe"
 
 邮箱保护沿用小说云端的唯一管理员模型：ChatGPT 登录邮箱必须在服务器端精确匹配 `TCG_CONTENT_OWNER_EMAIL`，生产缺配置即关闭后台。管理员只负责绑定电脑发布器的 SHA-256；明文令牌留在 Git 忽略的本机文件。游戏端不登录、不携带邮箱或令牌，只能对公开 catalog/ZIP 执行 `GET` 与 `HEAD`；四种写方法统一返回 `405`，匿名管理写请求返回 `401`。
 
-公网已验证两条游戏资源路由的 8 个写方法请求全部为 `405 Allow: GET, HEAD`；匿名管理写请求和外部伪造身份头都为 `401`。当前 catalog 仍为 `404`，表示真实 ZIP/catalog 尚未发布，不应开始 Android 远程下载验收。
+电脑直传版本已上线并完成 owner 配对。公网 catalog 当前包含 `en.base1` 与 `en.neo1`；独立客户端完整读回两包并核对 14,906,006 / 16,437,718 bytes 与预期 SHA-256，中点 Range 均为精确 `206`。两条游戏资源路由的 8 个写方法请求全部为 `405 Allow: GET, HEAD`；现在可以开始 Android 远程下载验收。
 
 首次发布按以下最小范围执行：
 
