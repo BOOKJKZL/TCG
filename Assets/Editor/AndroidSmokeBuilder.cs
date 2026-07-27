@@ -15,11 +15,14 @@ namespace Gacha.EditorTools
             BuildOptions.Development |
             BuildOptions.CompressWithLz4 |
             BuildOptions.CleanBuildCache;
+        public const BuildOptions EmulatorBuildOptions =
+            BuildOptions.Development |
+            BuildOptions.CompressWithLz4;
 
         [MenuItem("Tools/Gacha/Build Android Smoke APK")]
         public static void Build()
         {
-            BuildAtPath(OutputPath);
+            BuildAtPath(OutputPath, SmokeBuildOptions);
         }
 
         [MenuItem("Tools/Gacha/Build Android Emulator Acceptance APK")]
@@ -31,7 +34,7 @@ namespace Gacha.EditorTools
                 // The production smoke APK remains ARM64. This isolated artifact avoids
                 // relying on Android Emulator's ARM translation during acceptance runs.
                 PlayerSettings.Android.targetArchitectures = AndroidArchitecture.X86_64;
-                BuildAtPath(EmulatorOutputPath);
+                BuildAtPath(EmulatorOutputPath, EmulatorBuildOptions);
             }
             finally
             {
@@ -39,7 +42,7 @@ namespace Gacha.EditorTools
             }
         }
 
-        private static void BuildAtPath(string outputPath)
+        private static void BuildAtPath(string outputPath, BuildOptions buildOptions)
         {
             string[] scenes = EditorBuildSettings.scenes
                 .Where(scene => scene.enabled)
@@ -57,7 +60,7 @@ namespace Gacha.EditorTools
                 scenes = scenes,
                 locationPathName = outputPath,
                 target = BuildTarget.Android,
-                options = SmokeBuildOptions
+                options = buildOptions
             };
             BuildReport report = BuildPipeline.BuildPlayer(options);
             BuildSummary summary = report.summary;

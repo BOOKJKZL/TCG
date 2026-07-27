@@ -42,5 +42,9 @@ public class AndroidBuildReadinessTests
             (AndroidSmokeBuilder.SmokeBuildOptions & BuildOptions.CleanBuildCache) != 0,
             Is.True,
             "Smoke builds must compact incremental Android archive tombstones before package-size verification.");
+        Assert.That(
+            (AndroidSmokeBuilder.EmulatorBuildOptions & BuildOptions.CleanBuildCache) == 0,
+            Is.True,
+            "Repeated emulator UI acceptance builds should reuse the native x86_64 cache.");
     }
 }
