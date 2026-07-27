@@ -58,13 +58,17 @@ test("server-renders the content relay landing page", async () => {
   assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
 });
 
-test("removes disposable starter assets and declares R2 binding", async () => {
+test("removes disposable starter assets and declares the Sites project and R2 binding", async () => {
   const [packageJson, hostingJson] = await Promise.all([
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
-  assert.deepEqual(JSON.parse(hostingJson), { d1: null, r2: "FILES" });
+  const hosting = JSON.parse(hostingJson);
+  assert.deepEqual(Object.keys(hosting).sort(), ["d1", "project_id", "r2"]);
+  assert.match(hosting.project_id, /^appgprj_[a-f0-9]+$/);
+  assert.equal(hosting.d1, null);
+  assert.equal(hosting.r2, "FILES");
   await assert.rejects(access(new URL("../public/favicon.svg", import.meta.url)));
   await access(new URL("../dist/server/index.js", import.meta.url));
   await access(projectRoot);
@@ -78,6 +82,13 @@ test("protects publisher APIs by identity, origin, and media type", async () => 
     headers: { "oai-authenticated-user-email": "other@example.test" },
   });
   assert.equal(wrongAccount.status, 403);
+
+  const anonymousWrite = await fetch(`${origin}/api/admin/content/catalog`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(anonymousWrite.status, 401);
 
   const crossOrigin = await fetch(`${origin}/api/admin/content/catalog`, {
     method: "POST",
@@ -100,4 +111,22 @@ test("protects publisher APIs by identity, origin, and media type", async () => 
     body: "{}",
   });
   assert.equal(wrongMediaType.status, 415);
+});
+
+test("keeps every public game content route strictly read-only", async () => {
+  const routes = [
+    "/api/content/catalog.json",
+    `/api/content/packages/en.base1/${"0".repeat(64)}.zip`,
+  ];
+
+  for (const pathname of routes) {
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      const response = await fetch(`${origin}${pathname}`, { method });
+      assert.equal(response.status, 405, `${method} ${pathname}`);
+      assert.equal(response.headers.get("allow"), "GET, HEAD");
+      assert.deepEqual(await response.json(), {
+        error: "游戏内容接口仅允许只读访问。",
+      });
+    }
+  }
 });

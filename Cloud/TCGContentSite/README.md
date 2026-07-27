@@ -12,6 +12,19 @@
 
 Site 不保存 R2 管理密钥，不使用 D1，也不包含卡图或发布 ZIP。发布输入仍位于仓库根目录下 Git 忽略的 `LocalContent/Releases/android`。
 
+## 权限模型
+
+邮箱授权沿用小说云端的唯一管理员模式：ChatGPT 登录只负责确认当前身份，服务器再把 `oai-authenticated-user-email` 与环境变量 `TCG_CONTENT_OWNER_EMAIL` 做规范化后的精确比较。生产环境没有配置唯一邮箱时返回 `503`，其他账号返回 `403`；这些判断全部在服务器执行，不能由前端按钮绕过。
+
+| 身份 | 客户端持有的资料 | 允许 | 明确拒绝 |
+|---|---|---|---|
+| 手机游戏 | 公开 `catalogUrl` | `GET` / `HEAD` 读取 catalog 和 ZIP | `POST` / `PUT` / `PATCH` / `DELETE` 均返回 `405` |
+| 未登录浏览器 | 无 | 与手机相同的公开读取 | 所有 `/api/admin/**` 写操作返回 `401` |
+| 错误 ChatGPT 账号 | 登录身份 | 与手机相同的公开读取 | 管理接口返回 `403` |
+| 唯一发布者账号 | ChatGPT 登录会话 | 进入 `/admin`，发布验证后的 ZIP 与 catalog | 跨来源写请求仍返回 `403` |
+
+因此 APK 中只有公开 URL、超时和 catalog 大小上限；没有邮箱、ChatGPT 会话、R2 Token、Access Key、Secret 或管理 API 地址。公开读取不等于获得 R2 权限，R2 binding 只存在于 Site 的服务器进程。
+
 ## 本机运行与验证
 
 要求 Node.js `>=22.13.0`。

@@ -1,21 +1,17 @@
 import Link from "next/link";
 import { requireChatGPTUser, chatGPTSignOutPath } from "@/app/chatgpt-auth";
-import { getConfiguredOwnerEmail, getContentBucket } from "@/lib/content/bindings";
+import { getContentBucket } from "@/lib/content/bindings";
 import { readPublishedStatus } from "@/lib/content/content-store";
+import { getOwnerAccess } from "@/lib/content/owner-access";
 import ReleasePublisher from "./release-publisher";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const user = await requireChatGPTUser("/admin");
-  let ownerEmail: string;
-  try {
-    ownerEmail = getConfiguredOwnerEmail();
-  } catch {
-    return <AccessDenied message="Site 尚未配置发布者邮箱。" />;
-  }
-  if (user.email.trim().toLowerCase() !== ownerEmail) {
-    return <AccessDenied message="当前 ChatGPT 账号没有内容发布权限。" />;
+  const access = getOwnerAccess(user.email);
+  if (!access.allowed) {
+    return <AccessDenied message={access.message} />;
   }
 
   let status: { published: boolean; revision?: number; packageCount?: number };

@@ -35,6 +35,8 @@ $unity = "C:\Program Files\Unity\Hub\Editor\6000.0.73f1\Editor\Unity.exe"
 
 当前先部署 `Cloud/TCGContentSite`，并在托管环境配置 `TCG_CONTENT_OWNER_EMAIL`。由于 Android 必须在没有 ChatGPT 浏览器会话的情况下读取内容，Site 需要允许公网访问；写入 API 仍由 owner 邮箱在服务端保护。
 
+邮箱保护沿用小说云端的唯一管理员模型：ChatGPT 登录邮箱必须在服务器端精确匹配 `TCG_CONTENT_OWNER_EMAIL`，生产缺配置即关闭后台。游戏端不登录、不携带邮箱或令牌，只能对公开 catalog/ZIP 执行 `GET` 与 `HEAD`；四种写方法统一返回 `405`，匿名管理写请求返回 `401`。
+
 在 Site `/admin` 只选择以下最小范围：
 
 - `LocalContent/Releases/android/catalog.json`

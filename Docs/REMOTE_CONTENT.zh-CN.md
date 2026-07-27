@@ -101,10 +101,11 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 `Cloud/TCGContentSite` 是当前发布入口：
 
-- `/admin` 只允许与 `TCG_CONTENT_OWNER_EMAIL` 相同的 ChatGPT 登录账号。
+- `/admin` 采用与小说云端相同的唯一管理员邮箱策略：ChatGPT 身份头在服务器端与 `TCG_CONTENT_OWNER_EMAIL` 规范化后精确比较；生产缺少配置时关闭后台，错误账号也不能进入。
 - `POST /api/admin/content/packages` 在服务端重新核对真实字节和 SHA-256，内容寻址对象不允许被不同内容覆盖。
 - `POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。
 - `GET /api/content/catalog.json` 与相对的 `packages/{packageId}/{sha}.zip` 允许手机匿名读取；ZIP 支持严格开放式 Range。
+- 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
 - 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
 
 2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。生产部署完成前，这些只能算本机证据。
