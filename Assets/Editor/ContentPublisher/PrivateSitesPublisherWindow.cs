@@ -275,6 +275,28 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
 
 public static class PrivateSitesPublisherBatch
 {
+    private const string DefaultSiteBaseUrl = "https://universal-gacha-content.jiejingleek.chatgpt.site";
+    private const string SiteBaseUrlVariable = "GACHA_SITE_BASE_URL";
+    private const string PublisherTokenVariable = "GACHA_SITE_PUBLISH_TOKEN";
+    private const string CredentialPathVariable = "GACHA_SITE_CREDENTIAL_PATH";
+
+    public static void GenerateCredentialFromEnvironment()
+    {
+        string credentialPath = ResolveCredentialPath();
+        if (File.Exists(credentialPath))
+        {
+            throw new InvalidOperationException(
+                "Refusing to replace the existing Sites publisher credential: " + credentialPath);
+        }
+
+        SitesPublisherCredential credential = SitesPublisherCredentialStore.GenerateAndSave(
+            credentialPath,
+            ResolveConfiguredSiteBaseUri());
+        Debug.Log(
+            "Sites batch credential generated at the ignored local credential path. " +
+            "Bind this SHA-256 in the owner console: " + credential.TokenSha256 + ".");
+    }
+
     public static void PreflightFromEnvironment()
     {
         R2ReleaseUploadPlan plan = CreatePlan(ResolveSiteBaseUri());
@@ -285,11 +307,10 @@ public static class PrivateSitesPublisherBatch
 
     public static void PublishFromEnvironment()
     {
-        Uri siteBaseUri = ResolveSiteBaseUri();
-        string token = Required("GACHA_SITE_PUBLISH_TOKEN");
-        R2ReleaseUploadPlan plan = CreatePlan(siteBaseUri);
+        SitesPublisherCredential credential = ResolveCredential();
+        R2ReleaseUploadPlan plan = CreatePlan(credential.SiteBaseUri);
         using (var store = new SitesContentApiObjectStore(
-                   new SitesContentApiCredentials(siteBaseUri, token),
+                   new SitesContentApiCredentials(credential.SiteBaseUri, credential.PublisherToken),
                    TimeSpan.FromMinutes(5)))
         {
             R2ReleasePublishResult result = new R2ReleasePublisher(store)
@@ -304,8 +325,7 @@ public static class PrivateSitesPublisherBatch
 
     private static R2ReleaseUploadPlan CreatePlan(Uri siteBaseUri)
     {
-        string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-        string runtimeConfig = Path.Combine(projectRoot, "LocalContent", "remote-content.json");
+        string runtimeConfig = Path.Combine(ResolveProjectRoot(), "LocalContent", "remote-content.json");
         return R2ReleasePublisher.CreatePlan(new R2ReleasePublishRequest(
             ContentPackagePublisherBatch.DefaultReleaseRoot,
             new Uri(siteBaseUri, "api/content/"),
@@ -315,17 +335,47 @@ public static class PrivateSitesPublisherBatch
 
     private static Uri ResolveSiteBaseUri()
     {
-        string value = Environment.GetEnvironmentVariable("GACHA_SITE_BASE_URL") ??
-                       "https://universal-gacha-content.jiejingleek.chatgpt.site";
+        string configuredSiteBaseUrl = Environment.GetEnvironmentVariable(SiteBaseUrlVariable);
+        if (!string.IsNullOrWhiteSpace(configuredSiteBaseUrl))
+            return ValidateSiteBaseUri(configuredSiteBaseUrl.Trim());
+
+        string credentialPath = ResolveCredentialPath();
+        if (File.Exists(credentialPath))
+            return SitesPublisherCredentialStore.Load(credentialPath).SiteBaseUri;
+
+        return ValidateSiteBaseUri(DefaultSiteBaseUrl);
+    }
+
+    private static Uri ResolveConfiguredSiteBaseUri()
+    {
+        string value = Environment.GetEnvironmentVariable(SiteBaseUrlVariable) ?? DefaultSiteBaseUrl;
+        return ValidateSiteBaseUri(value.Trim());
+    }
+
+    private static Uri ValidateSiteBaseUri(string value)
+    {
         string placeholderToken = new string('A', 43);
         return new SitesContentApiCredentials(new Uri(value), placeholderToken).SiteBaseUri;
     }
 
-    private static string Required(string name)
+    private static SitesPublisherCredential ResolveCredential()
     {
-        string value = Environment.GetEnvironmentVariable(name);
-        if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException("Required environment variable is missing: " + name);
-        return value.Trim();
+        string token = Environment.GetEnvironmentVariable(PublisherTokenVariable);
+        if (!string.IsNullOrWhiteSpace(token))
+            return new SitesPublisherCredential(ResolveConfiguredSiteBaseUri(), token.Trim());
+        return SitesPublisherCredentialStore.Load(ResolveCredentialPath());
+    }
+
+    private static string ResolveCredentialPath()
+    {
+        string configuredPath = Environment.GetEnvironmentVariable(CredentialPathVariable);
+        return string.IsNullOrWhiteSpace(configuredPath)
+            ? Path.Combine(ResolveProjectRoot(), "LocalContent", "site-publisher-credential.json")
+            : Path.GetFullPath(configuredPath.Trim());
+    }
+
+    private static string ResolveProjectRoot()
+    {
+        return Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
     }
 }
