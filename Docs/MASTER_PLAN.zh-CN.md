@@ -622,8 +622,10 @@ Content Language  卡名、卡图、系列和产品
 - 自动测试 14/14、lint、生产构建与依赖审计 0 漏洞通过；两个真实卡包在本机 Site R2 完成 200/206/416 与全量 SHA-256 读回。
 - Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，唯一 owner 邮箱环境配置存在且已规范化。公网对两条游戏资源路由共执行 8 个写方法探测，全部返回 `405 Allow: GET, HEAD`；匿名管理写入与伪造身份头均返回 `401`。
 - 协议与对象键已经固定；未来把对象复制到独立 Cloudflare R2 并更换 `catalogUrl` 即可，不修改 Unity 下载、安装、收藏或收据身份。
+- 发布入口已升级为电脑直传：Unity 新增 Sites API 存储适配器、本机随机凭据和 Batch 入口；`/admin` 只绑定/轮换/撤销令牌 SHA-256，不再读取 ZIP。服务器只保存 Hash，明文只在 Git 忽略的 `LocalContent`，APK 继续完全只读。
+- 新增配对认证与适配器定向测试：Site 当前 19/19、Unity Sites Publisher 4/4、Unity 完整 EditMode 233/233 通过；错误/撤销令牌、跨来源 owner、令牌目标域名、公开请求不带凭据和浏览器文件控件退役均有覆盖。批处理可安全生成并自动读取 Git 忽略的本机凭据，不在命令行或日志暴露令牌。
 
-下一切片：在已部署 Site 的 `/admin` 只上传 `en.base1`、`en.neo1` 与 catalog；当前公网 catalog 按预期为 `404`，不会让手机误读半成品。验证公开 HTTPS 读回后生成 `LocalContent/remote-content.json`，再安装到 Android 私人持久目录完成首次下载、中断续传、离线重启和真机卸载/重装。独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
+下一切片：部署电脑直传版本，在 `/admin` 绑定本机发布器 SHA-256，再由 Unity 直接发布 `en.base1`、`en.neo1` 与 catalog；当前公网 catalog 按预期为 `404`，不会让手机误读半成品。验证公开 HTTPS 读回后生成 `LocalContent/remote-content.json`，再安装到 Android 私人持久目录完成首次下载、中断续传、离线重启和真机卸载/重装。独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
 验收：
 

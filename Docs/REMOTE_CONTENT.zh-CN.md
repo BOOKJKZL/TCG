@@ -6,12 +6,12 @@
 
 这个个人项目当前采用：
 
-1. **Sites R2 + 版本化内容包**：当前过渡方案。代码、owner-only 上传台和公开读取 API 位于 `Cloud/TCGContentSite`；卡图仍以内容寻址 ZIP 保存，不进入 APK、Git 或 Site 源码。
+1. **Sites R2 + 版本化内容包**：当前过渡方案。代码、owner-only 电脑配对台、私人发布 API 和公开读取 API 位于 `Cloud/TCGContentSite`；卡图仍以内容寻址 ZIP 保存，不进入 APK、Git 或 Site 源码。
 2. **独立 Cloudflare R2**：容量、成本或域名需要优化时的下一存储适配器。对象键、catalog、SHA-256 和 Range 契约保持不变，迁移不重写游戏。
 3. **Unity CCD + Addressables**：保留给确实需要 Unity AssetBundle 的通用特效、声音或平台资产，不重复承载卡牌 JSON/图片 ZIP。
 4. **Google Drive**：只做个人备份，不作为游戏运行时资源服务器。
 
-这里的“没有服务器”不构成阻碍。对象存储本身就是静态 HTTPS 文件主机；本项目不需要运行后端程序，手机只需要读取远程 catalog、hash 和不可变归档。
+这里的“没有服务器”不构成阻碍。Sites Worker 提供免运维的私人发布 API，Sites R2 提供持久对象存储和公开只读下载；不需要自己租用或维护传统服务器。手机只读取远程 catalog、Hash 和不可变归档，永远不调用发布 API。
 
 ## 推荐资源划分
 
@@ -99,18 +99,19 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 ## 临时 Site 内容中继
 
-`Cloud/TCGContentSite` 是当前发布入口：
+`Cloud/TCGContentSite` 是当前存储中继，文件发布入口已经从网页选择器改为 Unity 电脑端：
 
-- `/admin` 采用与小说云端相同的唯一管理员邮箱策略：ChatGPT 身份头在服务器端与 `TCG_CONTENT_OWNER_EMAIL` 规范化后精确比较；生产缺少配置时关闭后台，错误账号也不能进入。
-- `POST /api/admin/content/packages` 在服务端重新核对真实字节和 SHA-256，内容寻址对象不允许被不同内容覆盖。
-- `POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。
+- `/admin` 采用与小说云端相同的唯一管理员邮箱策略：ChatGPT 身份头在服务器端与 `TCG_CONTENT_OWNER_EMAIL` 规范化后精确比较；后台只绑定/轮换/撤销电脑发布器，不读取本机 ZIP。
+- `Tools > Universal Gacha > Sites Content Publisher` 在本机生成 256-bit 随机令牌，明文只保存到 Git 忽略的 `LocalContent/site-publisher-credential.json`；管理员只把 SHA-256 绑定到 Site，服务器不保存明文。
+- 已绑定电脑通过 Bearer 凭据调用 `HEAD|POST /api/admin/content/packages`；服务端仍重新核对真实字节和 SHA-256，内容寻址对象不允许被不同内容覆盖。
+- `HEAD|POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。电脑发布器还会完整读回公开 ZIP/catalog 并复算 Hash，成功后才生成运行配置。
 - `GET /api/content/catalog.json` 与相对的 `packages/{packageId}/{sha}.zip` 允许手机匿名读取；ZIP 支持严格开放式 Range。
-- 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
+- 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。电脑令牌不能管理 owner 身份，只能发布内容；游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
 - 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
 
 2026-07-27 已在本机 Sites R2 用 `en.base1`、`en.neo1` 完成实际文件验证：两个完整下载分别为 14,906,006 / 16,437,718 bytes，SHA-256 与 catalog 一致；中点续传返回精确 206/Content-Range，受限 Range 返回 416。
 
-同日 Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`。生产环境已经确认唯一 owner 邮箱配置存在；公网对 catalog 与 package 路由执行的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`，匿名管理写入和外部伪造 `oai-authenticated-user-email` 均得到 `401`。当前尚未上传两个 ZIP 与 catalog，因此公开 catalog 返回 `404`，也尚未生成 `LocalContent/remote-content.json`。
+同日 Site 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`。生产环境已经确认唯一 owner 邮箱配置存在；公网对 catalog 与 package 路由执行的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`，匿名管理写入和外部伪造 `oai-authenticated-user-email` 均得到 `401`。当前源码已升级为电脑直传，但该版本仍待部署、绑定本机凭据和首次公网发布；在此之前 catalog 继续返回 `404`，不会让手机误读半成品。
 
 部署后手机配置只需：
 

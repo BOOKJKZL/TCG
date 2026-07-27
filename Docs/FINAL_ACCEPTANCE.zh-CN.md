@@ -35,17 +35,18 @@ $unity = "C:\Program Files\Unity\Hub\Editor\6000.0.73f1\Editor\Unity.exe"
 
 `Cloud/TCGContentSite` 已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，托管环境已经配置 `TCG_CONTENT_OWNER_EMAIL`。由于 Android 必须在没有 ChatGPT 浏览器会话的情况下读取内容，Site 允许公网读取；写入 API 仍由 owner 邮箱在服务端保护。
 
-邮箱保护沿用小说云端的唯一管理员模型：ChatGPT 登录邮箱必须在服务器端精确匹配 `TCG_CONTENT_OWNER_EMAIL`，生产缺配置即关闭后台。游戏端不登录、不携带邮箱或令牌，只能对公开 catalog/ZIP 执行 `GET` 与 `HEAD`；四种写方法统一返回 `405`，匿名管理写请求返回 `401`。
+邮箱保护沿用小说云端的唯一管理员模型：ChatGPT 登录邮箱必须在服务器端精确匹配 `TCG_CONTENT_OWNER_EMAIL`，生产缺配置即关闭后台。管理员只负责绑定电脑发布器的 SHA-256；明文令牌留在 Git 忽略的本机文件。游戏端不登录、不携带邮箱或令牌，只能对公开 catalog/ZIP 执行 `GET` 与 `HEAD`；四种写方法统一返回 `405`，匿名管理写请求返回 `401`。
 
 公网已验证两条游戏资源路由的 8 个写方法请求全部为 `405 Allow: GET, HEAD`；匿名管理写请求和外部伪造身份头都为 `401`。当前 catalog 仍为 `404`，表示真实 ZIP/catalog 尚未发布，不应开始 Android 远程下载验收。
 
-在 Site `/admin` 只选择以下最小范围：
+首次发布按以下最小范围执行：
 
-- `LocalContent/Releases/android/catalog.json`
-- `en.base1` 内容寻址 ZIP
-- `en.neo1` 内容寻址 ZIP
+1. Unity 打开 `Tools > Universal Gacha > Sites Content Publisher`，生成本机凭据并复制 Binding SHA-256。
+2. Site `/admin` 只绑定该 SHA-256；网页不选择或读取任何卡包文件。
+3. Unity 离线预检 `LocalContent/Releases/android` 后直接发布 `en.base1`、`en.neo1` 和 catalog。
+4. 发布器先验证/上传 ZIP，从公开 HTTPS 完整读回复算 SHA-256，最后发布并读回 catalog，再原子生成 Git 忽略的 `LocalContent/remote-content.json`。
 
-后台会先验证/上传 ZIP，最后发布 catalog。完成后用公开 HTTPS 地址建立 Git 忽略的 `LocalContent/remote-content.json`，并重新读回 catalog、完整 ZIP、Range 片段和 SHA-256。
+批处理首次使用 `PrivateSitesPublisherBatch.GenerateCredentialFromEnvironment` 生成 Git 忽略的本机凭据，之后 `PrivateSitesPublisherBatch.PublishFromEnvironment` 会自动读取它，令牌不会出现在命令行或日志。CI 仍可用 `GACHA_SITE_PUBLISH_TOKEN` 临时覆盖；Site URL 与凭据路径分别可由 `GACHA_SITE_BASE_URL`、`GACHA_SITE_CREDENTIAL_PATH` 指定。这些值都不能进入 APK。
 
 以下独立 Cloudflare R2 流程保留为后续迁移方案，不阻塞当前 Site 版本：
 
