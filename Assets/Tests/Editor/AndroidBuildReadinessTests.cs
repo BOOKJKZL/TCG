@@ -43,8 +43,10 @@ public class AndroidBuildReadinessTests
             Is.True,
             "Smoke builds must compact incremental Android archive tombstones before package-size verification.");
         Assert.That(
-            (AndroidSmokeBuilder.EmulatorBuildOptions & BuildOptions.CleanBuildCache) == 0,
+            (AndroidSmokeBuilder.EmulatorBuildOptions & BuildOptions.CleanBuildCache) != 0,
             Is.True,
-            "Repeated emulator UI acceptance builds should reuse the native x86_64 cache.");
+            "Emulator acceptance builds must also compact incremental archive tombstones before size verification.");
+        Assert.That(AndroidSmokeBuilder.EmulatorUsesBuiltInRenderPipeline, Is.True,
+            "The x86_64 emulator artifact must isolate SwiftShader URP failures from software acceptance.");
     }
 }
