@@ -25,16 +25,16 @@
 
 当前阻塞问题（尚未通过）：
 
-- 内容行现已使用四个永久渲染节点与固定绝对槽位，状态变化只切换 `enabledSelf`；PlayMode 已检查 actions 高度、四个按钮的 `layout/worldBound`、互不重叠、跨状态几何不变与中英文标签。仍需在 OpenGLES3 模拟器加载两个远端包后，实际点击下载、暂停、继续、取消和删除确认，才能把 Android 文字/背景/热区问题判定为通过。
+- 旧 x86_64 APK 已复现 Android UI Toolkit 的 disabled 状态渲染缺陷：`en.base1` 开始下载后，绿色 Download 背景消失，文字脱离按钮并移动到内容行左上角；证据为 `TestResults/gles-download-current-20260729014053.png`。新源码不再隐藏、复用或禁用四个操作按钮，节点、标签与固定绝对槽位保持不变，可用性由控制器守卫；无效点击不会执行操作或播放反馈。定向 PlayMode 1/1、完整 PlayMode 7/7 已验证节点/几何稳定、下载→暂停→继续→失败→重试→删除、无效操作无副作用和中英文切换。Android 最终结论仍须留给下一次统一候选 APK，不能用旧 APK 或 PlayMode 冒充通过。
 - 十四项收据尚未生成；离线重启、网络断开/恢复、存储失败保护、后台/音频焦点、减少动态、内容卸载重装保留收藏和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
 - 最新源码的完整 EditMode 为 234/234、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
 
 工作区与下次执行顺序：
 
-1. 保留并检查真正的未提交源码：`ContentManagementController.cs`、`ContentManagementPlayModeTests.cs`、`Styles.uss` 与下载按钮本地化资产；字体、主题 meta、URP/ProjectSettings 和 Addressables 生成文件仍是构建噪声，最终必须用补丁方式清理，不能误提交。
-2. 使用现有 x86_64 APK 与 `install_smoke_content.ps1 -SkipInstall -ContentMode Remote`，让模拟器自动用 OpenGLES3 启动；实际点击下载、暂停、继续、取消与删除确认，截图证明文字、背景和热区始终位于同一行。不要为这一步重新构建。
-3. 只有源码继续变化时，才先运行定向 PlayMode 与完整 PlayMode，再制作一次候选 APK；布局通过后按主题提交“内容操作布局”与 Android 验收证据，不夹带 Unity 自动生成噪声。
-4. 继续十四项收据、生产 ARM64 干净构建、APK 隐私检查和最终 100% 审计；最后再把结果写回本文件和主计划。
+1. 内容操作稳定化源码已通过定向 PlayMode 1/1、完整 PlayMode 7/7 与完整 EditMode 234/234；按主题提交源码、样式、本地化、测试和本记录，不夹带字体、主题 meta、URP/ProjectSettings 或 Addressables 生成噪声。
+2. 在源码不再变化后只制作一次新的 x86_64 候选 APK；通过 `install_smoke_content.ps1 -ContentMode Remote` 让模拟器用 OpenGLES3 启动，实际点击下载、暂停、继续、取消与删除确认，并截图证明文字、背景、热区和状态始终位于正确内容行。
+3. 候选 APK 通过后复用同一 APK 和 `-SkipInstall` 补齐可由模拟器证明的 Android 收据；不因重复测试重新构建。
+4. 继续实体设备限定收据、生产 ARM64 干净构建、APK 隐私检查和最终 100% 审计；最后再把结果写回本文件和主计划。
 
 ## 一、保留最终自动测试证据
 

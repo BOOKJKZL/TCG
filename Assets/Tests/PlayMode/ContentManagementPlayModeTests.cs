@@ -93,7 +93,7 @@ namespace Gacha.Tests.PlayMode
                 IProgress<long> persistedBytesProgress,
                 CancellationToken cancellationToken)
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (FailNext)
@@ -104,6 +104,7 @@ namespace Gacha.Tests.PlayMode
 
                     bytes = Math.Max(offset, package.DownloadBytes / 2);
                     persistedBytesProgress?.Report(bytes);
+                    await Task.Delay(300, cancellationToken);
                     bytes = package.DownloadBytes;
                     persistedBytesProgress?.Report(bytes);
                 }, cancellationToken);
@@ -195,6 +196,12 @@ namespace Gacha.Tests.PlayMode
             string originalLanguage = null;
             try
             {
+                if (ApplicationServices.Languages != null)
+                {
+                    originalLanguage = ApplicationServices.Languages.UiLanguageId;
+                    ApplicationServices.Languages.SelectUiLanguage("en");
+                    yield return null;
+                }
                 LogAssert.Expect(LogType.Warning, "Content package catalog warning: fixture network offline");
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
                 yield return load;
@@ -214,11 +221,42 @@ namespace Gacha.Tests.PlayMode
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
                 Assert.That(document.visualTreeAsset, Is.Not.Null);
+                VisualElement contentShell = document.rootVisualElement.Q<VisualElement>("content-shell");
+                AssertNoInlineVisibilityTransform(contentShell);
+                Assert.That(contentShell.resolvedStyle.opacity,
+                    Is.EqualTo(1f).Within(0.01f),
+                    "Entrance motion must never make the content controls unreadable.");
+                yield return new WaitForSecondsRealtime(0.4f);
+                Assert.That(contentShell.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(contentShell.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible));
+                Assert.That(contentShell.layout.width, Is.GreaterThan(0f));
+                Assert.That(contentShell.layout.height, Is.GreaterThan(0f));
+                Assert.That(contentShell.resolvedStyle.opacity,
+                    Is.EqualTo(1f).Within(0.01f),
+                    "The attached content shell must repaint visible without a resize or app resume.");
+                AssertNoInlineVisibilityTransform(contentShell);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + SuccessId), Is.Not.Null);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + RetryId), Is.Not.Null);
                 Label catalogStatus = document.rootVisualElement.Q<Label>("catalog-status");
                 Assert.That(catalogStatus.text, Does.StartWith("Offline"));
                 Assert.That(catalogStatus.ClassListContains("is-warning"), Is.True);
+                VisualElement successRow = document.rootVisualElement.Q<VisualElement>("package-" + SuccessId);
+                Button download = successRow.Q<Button>("download-button");
+                Button pause = successRow.Q<Button>("pause-button");
+                Button remove = successRow.Q<Button>("remove-button");
+                Button cancel = successRow.Q<Button>("cancel-button");
+                VisualElement actions = download.parent;
+                AssertPersistentActionBar(actions, download, pause, remove, cancel);
+                Assert.That(download.enabledSelf, Is.True);
+                Assert.That(pause.enabledSelf, Is.True);
+                Assert.That(remove.enabledSelf, Is.True);
+                Assert.That(cancel.enabledSelf, Is.True);
+                int initialCueCount = cues.Count;
+                Assert.That(controller.PausePackage(SuccessId), Is.False);
+                Assert.That(controller.CancelPackage(SuccessId), Is.False);
+                Assert.That(controller.RequestRemovePackage(SuccessId), Is.False);
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle));
+                Assert.That(cues.Count, Is.EqualTo(initialCueCount), "Unavailable actions must have no feedback side effects.");
 
                 originalExperience = ApplicationServices.ExperienceSettings?.Current;
                 if (ApplicationServices.ExperienceSettings != null)
@@ -230,9 +268,35 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(document.rootVisualElement.Q<VisualElement>("content-shell").resolvedStyle.opacity,
                         Is.EqualTo(1f).Within(0.01f));
                 }
+                yield return new WaitForSecondsRealtime(0.35f);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel);
+                Rect[] persistentGeometry = CaptureActionGeometry(actions, download, pause, remove, cancel);
 
                 Assert.That(controller.StartOrRetryPackage(SuccessId), Is.True);
                 deadline = Time.realtimeSinceStartup + 5f;
+                while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Downloading &&
+                       controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Downloading));
+                Assert.That(cancel.enabledSelf, Is.True);
+                Assert.That(download.enabledSelf, Is.True);
+                Assert.That(remove.enabledSelf, Is.True);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel,
+                    expectedGeometry: persistentGeometry);
+                Assert.That(controller.StartOrRetryPackage(SuccessId), Is.False);
+                Assert.That(controller.RequestRemovePackage(SuccessId), Is.False);
+                Assert.That(controller.PausePackage(SuccessId), Is.True);
+                while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Paused &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Paused));
+                Assert.That(download.enabledSelf, Is.True);
+                Assert.That(pause.enabledSelf, Is.True);
+                Assert.That(cancel.enabledSelf, Is.True);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel,
+                    expectedGeometry: persistentGeometry);
+                Assert.That(controller.StartOrRetryPackage(SuccessId), Is.True);
                 while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
@@ -259,14 +323,33 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.LastAppliedThreadId, Is.EqualTo(mainThreadId));
 
                 Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
-                Button remove = document.rootVisualElement
-                    .Q<VisualElement>("package-" + SuccessId)
-                    .Q<Button>("remove-button");
                 Assert.That(remove, Is.Not.Null);
-                Assert.That(remove.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(remove.text, Is.EqualTo("Remove"));
+                Assert.That(download.enabledSelf, Is.True);
+                Assert.That(pause.enabledSelf, Is.True);
+                Assert.That(remove.enabledSelf, Is.True);
+                Assert.That(cancel.enabledSelf, Is.True);
+                Assert.That(actions.ClassListContains("content-package-row__actions"), Is.True);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel,
+                    expectedGeometry: persistentGeometry);
+                Assert.That(controller.StartOrRetryPackage(SuccessId), Is.False);
+                Assert.That(controller.PausePackage(SuccessId), Is.False);
+                Assert.That(controller.CancelPackage(SuccessId), Is.False);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
                 yield return null;
-                Assert.That(remove.text, Is.EqualTo("Confirm remove"));
+                Assert.That(remove.text, Is.EqualTo("Remove"));
+                Assert.That(remove.enabledSelf, Is.True);
+                Assert.That(cancel.enabledSelf, Is.True);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel,
+                    expectedGeometry: persistentGeometry);
+                Assert.That(controller.CancelPackage(SuccessId), Is.True);
+                yield return null;
+                Assert.That(remove.enabledSelf, Is.True);
+                Assert.That(cancel.enabledSelf, Is.True);
+                AssertPersistentActionBar(actions, download, pause, remove, cancel,
+                    expectedGeometry: persistentGeometry);
+                Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
+                yield return null;
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while ((controller.IsPackageInstalled(SuccessId) ||
@@ -287,7 +370,6 @@ namespace Gacha.Tests.PlayMode
 
                 if (ApplicationServices.Languages != null)
                 {
-                    originalLanguage = ApplicationServices.Languages.UiLanguageId;
                     ApplicationServices.Languages.SelectUiLanguage("zh");
                     Label title = document.rootVisualElement.Q<Label>("content-title");
                     deadline = Time.realtimeSinceStartup + 5f;
@@ -295,6 +377,8 @@ namespace Gacha.Tests.PlayMode
                         yield return null;
                     Assert.That(title.text, Is.EqualTo("内容库"));
                     Assert.That(catalogStatus.text, Does.StartWith("离线模式"));
+                    Assert.That(download.text, Is.EqualTo("下载"));
+                    AssertPersistentActionBar(actions, download, pause, remove, cancel, false, persistentGeometry);
                 }
 
                 LogAssert.NoUnexpectedReceived();
@@ -317,6 +401,102 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
             }
+        }
+
+        private static void AssertPersistentActionBar(
+            VisualElement actions,
+            Button download,
+            Button pause,
+            Button remove,
+            Button cancel,
+            bool assertEnglishLabels = true,
+            Rect[] expectedGeometry = null)
+        {
+            Assert.That(actions.childCount, Is.EqualTo(4),
+                "The Android action bar must keep exactly four permanent render nodes.");
+            Button[] buttons = { download, pause, remove, cancel };
+            foreach (Button button in buttons)
+            {
+                Assert.That(button, Is.Not.Null);
+                Assert.That(button.enabledSelf, Is.True,
+                    button.name + " must stay enabled to avoid the Android disabled-state render path.");
+                Assert.That(button.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), button.name);
+                Assert.That(button.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible), button.name);
+                Assert.That(button.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), button.name);
+                Assert.That(button.pickingMode, Is.EqualTo(PickingMode.Position), button.name);
+            }
+            if (assertEnglishLabels)
+            {
+                Assert.That(download.text, Is.EqualTo("Download"));
+                Assert.That(pause.text, Is.EqualTo("Pause"));
+                Assert.That(remove.text, Is.EqualTo("Remove"));
+                Assert.That(cancel.text, Is.EqualTo("Cancel"));
+            }
+            AssertStableActionGeometry(actions, cancel);
+            AssertStableActionGeometry(actions, remove);
+            AssertStableActionGeometry(actions, pause);
+            AssertStableActionGeometry(actions, download);
+            Assert.That(cancel.worldBound.xMax, Is.LessThanOrEqualTo(remove.worldBound.xMin + 2f));
+            Assert.That(remove.worldBound.xMax, Is.LessThanOrEqualTo(pause.worldBound.xMin + 2f));
+            Assert.That(pause.worldBound.xMax, Is.LessThanOrEqualTo(download.worldBound.xMin + 2f));
+
+            if (expectedGeometry != null)
+            {
+                Rect[] actual = CaptureActionGeometry(actions, download, pause, remove, cancel);
+                Assert.That(actual.Length, Is.EqualTo(expectedGeometry.Length));
+                for (int index = 0; index < actual.Length; index++)
+                {
+                    Assert.That(actual[index].x, Is.EqualTo(expectedGeometry[index].x).Within(2f), buttons[index].name);
+                    Assert.That(actual[index].y, Is.EqualTo(expectedGeometry[index].y).Within(2f), buttons[index].name);
+                    Assert.That(actual[index].width, Is.EqualTo(expectedGeometry[index].width).Within(2f), buttons[index].name);
+                    Assert.That(actual[index].height, Is.EqualTo(expectedGeometry[index].height).Within(2f), buttons[index].name);
+                }
+            }
+        }
+
+        private static void AssertNoInlineVisibilityTransform(VisualElement shell)
+        {
+            Assert.That(
+                shell.style.opacity.keyword,
+                Is.EqualTo(StyleKeyword.Null).Or.EqualTo(StyleKeyword.Undefined),
+                "Page entrance feedback must not write opacity on the Android shell.");
+            Assert.That(
+                shell.style.scale.keyword,
+                Is.EqualTo(StyleKeyword.Null).Or.EqualTo(StyleKeyword.Undefined),
+                "Page entrance feedback must not write a render transform on the Android shell.");
+        }
+
+        private static Rect[] CaptureActionGeometry(
+            VisualElement actions,
+            Button download,
+            Button pause,
+            Button remove,
+            Button cancel)
+        {
+            Button[] buttons = { download, pause, remove, cancel };
+            return buttons.Select(button => new Rect(
+                button.worldBound.xMin - actions.worldBound.xMin,
+                button.worldBound.yMin - actions.worldBound.yMin,
+                button.worldBound.width,
+                button.worldBound.height)).ToArray();
+        }
+
+        private static void AssertStableActionGeometry(
+            VisualElement actions,
+            Button button)
+        {
+            Assert.That(button.resolvedStyle.position, Is.EqualTo(Position.Absolute));
+            Assert.That(button.resolvedStyle.top, Is.EqualTo(0f).Within(2f));
+            Assert.That(button.worldBound.width, Is.InRange(80f, 170f));
+            Assert.That(button.worldBound.xMin, Is.GreaterThanOrEqualTo(actions.worldBound.xMin - 2f));
+            Assert.That(
+                button.worldBound.xMax,
+                Is.LessThanOrEqualTo(actions.worldBound.xMax + 2f),
+                $"{button.name}: actions={actions.worldBound} layout={button.layout} " +
+                $"world={button.worldBound} local={button.localBound} resolvedWidth={button.resolvedStyle.width} " +
+                $"padding={button.resolvedStyle.paddingLeft}/{button.resolvedStyle.paddingRight}");
+            Assert.That(button.worldBound.yMin, Is.EqualTo(actions.worldBound.yMin).Within(2f));
+            Assert.That(button.worldBound.yMax, Is.LessThanOrEqualTo(actions.worldBound.yMax + 2f));
         }
 
         private static ContentPackageCatalog CreateCatalog()

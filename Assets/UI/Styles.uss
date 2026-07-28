@@ -36,6 +36,10 @@
     flex-grow: 1;
 }
 
+.content-package-row__copy {
+    min-width: 0;
+}
+
 .content-management__title {
     color: white;
     font-size: 34px;
@@ -127,6 +131,8 @@
 
 .content-package-row__controls {
     width: 500px;
+    min-width: 500px;
+    flex-shrink: 0;
     margin-left: 18px;
 }
 
@@ -136,12 +142,51 @@
 }
 
 .content-package-row__actions {
-    justify-content: flex-end;
-    flex-wrap: wrap;
+    position: relative;
+    height: 48px;
+    overflow: hidden;
 }
 
 .content-package-row__actions .content-button {
     min-width: 102px;
+    position: absolute;
+    top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.content-package-row__actions .content-package-row__download-action {
+    left: 368px;
+    min-width: 132px;
+    width: 132px;
+    max-width: 132px;
+    padding-left: 8px;
+    padding-right: 8px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.content-package-row__actions .content-package-row__cancel-action {
+    left: 0;
+    min-width: 112px;
+    width: 112px;
+    max-width: 112px;
+}
+
+.content-package-row__actions .content-package-row__remove-action {
+    left: 120px;
+    min-width: 120px;
+    width: 120px;
+    max-width: 120px;
+}
+
+.content-package-row__actions .content-package-row__pause-action {
+    left: 248px;
+    min-width: 112px;
+    width: 112px;
+    max-width: 112px;
 }
 
 .content-button {

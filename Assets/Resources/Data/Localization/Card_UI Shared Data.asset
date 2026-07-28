@@ -539,6 +539,10 @@ MonoBehaviour:
     m_Key: gacha.rule.sourced_simulation
     m_Metadata:
       m_Items: []
+  - m_Id: 167096080684199942
+    m_Key: content.action.download
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

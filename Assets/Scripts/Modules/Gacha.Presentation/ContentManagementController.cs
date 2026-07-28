@@ -30,6 +30,7 @@ namespace Gacha.Presentation
                 ["content.action.retry"] = "Retry",
                 ["content.action.pause"] = "Pause",
                 ["content.action.cancel"] = "Cancel",
+                ["content.action.download"] = "Download",
                 ["content.action.remove"] = "Remove",
                 ["content.action.confirm_remove"] = "Confirm remove",
                 ["content.catalog.loading"] = "Checking available content...",
@@ -94,18 +95,23 @@ namespace Gacha.Presentation
                 Progress.AddToClassList("content-package-row__progress");
                 var actions = new VisualElement();
                 actions.AddToClassList("content-package-row__actions");
-                Primary = Button("primary", () => primary(entry.Package.PackageId));
-                Pause = Button("pause", () => pause(entry.Package.PackageId));
-                Cancel = Button("cancel", () => cancel(entry.Package.PackageId));
-                Remove = Button("remove", () => remove(entry.Package.PackageId));
-                Primary.AddToClassList("content-button--primary");
+                Actions = actions;
+                Download = Button("download", () => InvokeWhenAllowed(DownloadAllowed, primary));
+                Pause = Button("pause", () => InvokeWhenAllowed(PauseAllowed, pause));
+                Remove = Button("remove", () => InvokeWhenAllowed(RemoveAllowed, remove));
+                Cancel = Button("cancel", () => InvokeWhenAllowed(CancelAllowed, cancel));
+                Download.AddToClassList("content-button--primary");
                 Pause.AddToClassList("content-button--quiet");
-                Cancel.AddToClassList("content-button--danger");
                 Remove.AddToClassList("content-button--danger");
-                actions.Add(Primary);
-                actions.Add(Pause);
+                Cancel.AddToClassList("content-button--quiet");
+                Download.AddToClassList("content-package-row__download-action");
+                Pause.AddToClassList("content-package-row__pause-action");
+                Remove.AddToClassList("content-package-row__remove-action");
+                Cancel.AddToClassList("content-package-row__cancel-action");
                 actions.Add(Cancel);
                 actions.Add(Remove);
+                actions.Add(Pause);
+                actions.Add(Download);
                 controls.Add(Progress);
                 controls.Add(actions);
                 Root.Add(copy);
@@ -118,10 +124,11 @@ namespace Gacha.Presentation
             public Label Metadata { get; }
             public Label Status { get; }
             public ProgressBar Progress { get; }
-            public Button Primary { get; }
+            public VisualElement Actions { get; }
+            public Button Download { get; }
             public Button Pause { get; }
-            public Button Cancel { get; }
             public Button Remove { get; }
+            public Button Cancel { get; }
             public InstalledContentPackage Installed { get; set; }
             public string LifecycleError { get; set; }
             public bool AwaitingRemovalConfirmation { get; set; }
@@ -129,12 +136,22 @@ namespace Gacha.Presentation
             public IVisualElementScheduledItem RemovalConfirmationTimeout { get; set; }
             public ContentPackageOperationState? LastState { get; set; }
             public IVisualElementScheduledItem Animation { get; set; }
+            public bool DownloadAllowed { get; set; }
+            public bool PauseAllowed { get; set; }
+            public bool RemoveAllowed { get; set; }
+            public bool CancelAllowed { get; set; }
 
             private static Button Button(string name, Action clicked)
             {
                 var button = new Button(clicked) { name = name + "-button" };
                 button.AddToClassList("content-button");
                 return button;
+            }
+
+            private void InvokeWhenAllowed(bool allowed, Action<string> action)
+            {
+                if (allowed)
+                    action(Entry.Package.PackageId);
             }
         }
 
@@ -168,7 +185,7 @@ namespace Gacha.Presentation
         private ContentPackageCatalog catalog;
         private CancellationTokenSource loadCancellation;
         private Coroutine localizationRoutine;
-        private IVisualElementScheduledItem entranceAnimation;
+        private Coroutine entranceAnimation;
         private int loadGeneration;
         private bool destroyed;
         private bool catalogUsedCache;
@@ -193,7 +210,10 @@ namespace Gacha.Presentation
 
         public bool StartOrRetryPackage(string packageId)
         {
-            if (packageId == null || !operations.ContainsKey(packageId))
+            if (packageId == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                !row.DownloadAllowed ||
+                !operations.ContainsKey(packageId))
                 return false;
             PrimaryClicked(packageId);
             return true;
@@ -201,7 +221,10 @@ namespace Gacha.Presentation
 
         public bool PausePackage(string packageId)
         {
-            if (packageId == null || !operations.ContainsKey(packageId))
+            if (packageId == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                !row.PauseAllowed ||
+                !operations.ContainsKey(packageId))
                 return false;
             PauseClicked(packageId);
             return true;
@@ -209,7 +232,10 @@ namespace Gacha.Presentation
 
         public bool CancelPackage(string packageId)
         {
-            if (packageId == null || !operations.ContainsKey(packageId))
+            if (packageId == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                !row.CancelAllowed ||
+                !operations.ContainsKey(packageId))
                 return false;
             CancelClicked(packageId);
             return true;
@@ -217,7 +243,9 @@ namespace Gacha.Presentation
 
         public bool RequestRemovePackage(string packageId)
         {
-            if (packageId == null || !rows.ContainsKey(packageId))
+            if (packageId == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                !row.RemoveAllowed)
                 return false;
             RemoveClicked(packageId);
             return true;
@@ -280,8 +308,7 @@ namespace Gacha.Presentation
             if (localizationRoutine != null)
                 StopCoroutine(localizationRoutine);
             localizationRoutine = null;
-            entranceAnimation?.Pause();
-            entranceAnimation = null;
+            StopEntranceAnimation();
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
             if (experienceSettings != null)
                 experienceSettings.Changed -= OnExperienceSettingsChanged;
@@ -476,29 +503,21 @@ namespace Gacha.Presentation
             bool hasPrimary = item.UiState.PrimaryAction != ContentPackagePrimaryAction.None;
             if (snapshot.State == ContentPackageOperationState.Idle && installedCurrent)
                 hasPrimary = false;
-            row.Primary.style.display = hasPrimary ? DisplayStyle.Flex : DisplayStyle.None;
-            string primaryKey = snapshot.State == ContentPackageOperationState.Idle && row.Installed != null
-                ? "content.action.update"
-                : item.UiState.PrimaryActionKey;
-            row.Primary.text = hasPrimary ? L(primaryKey) : string.Empty;
-            row.Primary.SetEnabled(hasPrimary && !item.UiState.IsBusy && !row.Removing && !row.AwaitingRemovalConfirmation);
-            row.Pause.style.display = item.CanPause ? DisplayStyle.Flex : DisplayStyle.None;
-            row.Pause.text = L("content.action.pause");
             bool canCancel = CanShowCancel(snapshot.State);
-            row.Cancel.style.display = canCancel ? DisplayStyle.Flex : DisplayStyle.None;
-            row.Cancel.text = L("content.action.cancel");
             bool canRemove = row.Installed != null && !item.UiState.IsBusy && !canCancel;
-            row.Remove.style.display = canRemove ? DisplayStyle.Flex : DisplayStyle.None;
-            row.Remove.text = L(row.AwaitingRemovalConfirmation
-                ? "content.action.confirm_remove"
-                : "content.action.remove");
-            row.Remove.SetEnabled(canRemove && !row.Removing);
             if (row.Removing)
             {
-                row.Primary.style.display = DisplayStyle.None;
-                row.Pause.style.display = DisplayStyle.None;
-                row.Cancel.style.display = DisplayStyle.None;
+                hasPrimary = false;
+                canCancel = false;
+                canRemove = false;
             }
+
+            ConfigurePersistentActions(
+                row,
+                hasPrimary && !item.UiState.IsBusy && !row.Removing && !row.AwaitingRemovalConfirmation,
+                item.CanPause && !row.Removing,
+                canRemove && !row.Removing,
+                (canCancel || row.AwaitingRemovalConfirmation) && !row.Removing);
 
             if (previous.HasValue && previous.Value != snapshot.State)
                 AnimateRow(row, snapshot.State == ContentPackageOperationState.Failed);
@@ -548,6 +567,17 @@ namespace Gacha.Presentation
 
         private async void CancelClicked(string packageId)
         {
+            if (rows.TryGetValue(packageId, out PackageRow row) && row.AwaitingRemovalConfirmation)
+            {
+                row.AwaitingRemovalConfirmation = false;
+                row.RemovalConfirmationTimeout?.Pause();
+                row.RemovalConfirmationTimeout = null;
+                if (operations.TryGetValue(packageId, out ContentPackageInstallCoordinator current))
+                    ApplyOperation(packageId, current.Current);
+                UIFeedbackService.Play(FeedbackCue.Back);
+                AnimateRow(row, false);
+                return;
+            }
             if (!operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
             UIFeedbackService.Play(FeedbackCue.Back);
@@ -693,13 +723,9 @@ namespace Gacha.Presentation
             if (!reduceMotion)
                 return;
 
-            entranceAnimation?.Pause();
-            entranceAnimation = null;
+            StopEntranceAnimation();
             if (shell != null)
-            {
-                shell.style.opacity = 1f;
-                shell.style.scale = new Scale(Vector3.one);
-            }
+                ResetShellEntranceStyle();
             foreach (PackageRow row in rows.Values)
             {
                 row.Animation?.Pause();
@@ -793,34 +819,68 @@ namespace Gacha.Presentation
 
         private void PlayEntrance()
         {
-            entranceAnimation?.Pause();
-            if (shell == null || UIFeedbackService.ReduceMotion)
-            {
-                if (shell != null)
-                {
-                    shell.style.opacity = 1f;
-                    shell.style.scale = new Scale(Vector3.one);
-                }
+            StopEntranceAnimation();
+            if (shell == null)
                 return;
-            }
 
-            float startedAt = Time.realtimeSinceStartup;
+            ResetShellEntranceStyle();
+            if (UIFeedbackService.ReduceMotion)
+                return;
+
             float duration = 0.28f / UIFeedbackService.AnimationSpeed;
-            shell.style.opacity = 0f;
-            shell.style.scale = new Scale(new Vector3(0.97f, 0.97f, 1f));
-            entranceAnimation = shell.schedule.Execute(() =>
+            entranceAnimation = StartCoroutine(AnimateEntrance(duration));
+        }
+
+        private IEnumerator AnimateEntrance(float duration)
+        {
+            // Android UI Toolkit can retain a stale render transform for a large parent element
+            // until the native surface is resized. Never animate opacity or scale on the page
+            // shell: a border glow gives entrance feedback without risking the entire interactive
+            // subtree becoming visually blank while its hit-test geometry remains active.
+            Color target = new Color(66f / 255f, 196f / 255f, 213f / 255f, 0.7f);
+            Color start = new Color(target.r, target.g, target.b, 0.16f);
+            float startedAt = Time.realtimeSinceStartup;
+            while (!destroyed && shell != null && !UIFeedbackService.ReduceMotion)
             {
                 float progress = Mathf.SmoothStep(0f, 1f,
                     Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
-                shell.style.opacity = progress;
-                float scale = Mathf.Lerp(0.97f, 1f, progress);
-                shell.style.scale = new Scale(new Vector3(scale, scale, 1f));
+                SetShellBorderColor(Color.Lerp(start, target, progress));
                 if (progress >= 1f)
-                {
-                    entranceAnimation?.Pause();
-                    entranceAnimation = null;
-                }
-            }).Every(16);
+                    break;
+                yield return null;
+            }
+
+            if (!destroyed && shell != null)
+                ResetShellEntranceStyle();
+            entranceAnimation = null;
+        }
+
+        private void SetShellBorderColor(Color color)
+        {
+            shell.style.borderTopColor = color;
+            shell.style.borderRightColor = color;
+            shell.style.borderBottomColor = color;
+            shell.style.borderLeftColor = color;
+            shell.MarkDirtyRepaint();
+        }
+
+        private void ResetShellEntranceStyle()
+        {
+            if (shell == null)
+                return;
+            shell.style.borderTopColor = StyleKeyword.Null;
+            shell.style.borderRightColor = StyleKeyword.Null;
+            shell.style.borderBottomColor = StyleKeyword.Null;
+            shell.style.borderLeftColor = StyleKeyword.Null;
+            shell.MarkDirtyRepaint();
+        }
+
+        private void StopEntranceAnimation()
+        {
+            if (entranceAnimation == null)
+                return;
+            StopCoroutine(entranceAnimation);
+            entranceAnimation = null;
         }
 
         private static void AnimateRow(PackageRow row, bool error)
@@ -881,6 +941,46 @@ namespace Gacha.Presentation
                    state == ContentPackageOperationState.Paused ||
                    state == ContentPackageOperationState.Installing ||
                    state == ContentPackageOperationState.Failed;
+        }
+
+        private void ConfigurePersistentActions(
+            PackageRow row,
+            bool downloadEnabled,
+            bool pauseEnabled,
+            bool removeEnabled,
+            bool cancelEnabled)
+        {
+            // Android UI Toolkit can retain stale TextElement geometry after a Button is hidden,
+            // disabled, shown, moved, or repurposed. These four controls are therefore permanent:
+            // hierarchy, enabled state, display, visibility, label, class and geometry stay fixed.
+            // Controller guards enforce availability without mutating the render node.
+            SetLabel(row.Download, L("content.action.download"));
+            SetLabel(row.Pause, L("content.action.pause"));
+            SetLabel(row.Remove, L("content.action.remove"));
+            SetLabel(row.Cancel, L("content.action.cancel"));
+            row.DownloadAllowed = downloadEnabled;
+            row.PauseAllowed = pauseEnabled;
+            row.RemoveAllowed = removeEnabled;
+            row.CancelAllowed = cancelEnabled;
+            KeepRenderNodeStable(row.Download);
+            KeepRenderNodeStable(row.Pause);
+            KeepRenderNodeStable(row.Remove);
+            KeepRenderNodeStable(row.Cancel);
+        }
+
+        private static void SetLabel(Button button, string label)
+        {
+            if (!string.Equals(button.text, label, StringComparison.Ordinal))
+                button.text = label;
+        }
+
+        private static void KeepRenderNodeStable(Button button)
+        {
+            button.style.visibility = Visibility.Visible;
+            button.style.display = DisplayStyle.Flex;
+            button.style.opacity = 1f;
+            button.pickingMode = PickingMode.Position;
+            button.SetEnabled(true);
         }
 
         private void RefreshInstalledState(PackageRow row)
