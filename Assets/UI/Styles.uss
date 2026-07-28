@@ -190,6 +190,8 @@
 }
 
 .content-button {
+    align-items: center;
+    justify-content: center;
     min-width: 128px;
     height: 48px;
     margin-left: 8px;
@@ -206,11 +208,18 @@
     transition-duration: 0.12s;
 }
 
+.content-button__label {
+    color: white;
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
 .content-button:hover {
     background-color: rgb(32, 151, 169);
 }
 
-.content-button:active {
+.content-button.is-pressed {
     border-color: rgb(211, 247, 250);
     background-color: rgb(18, 92, 108);
 }

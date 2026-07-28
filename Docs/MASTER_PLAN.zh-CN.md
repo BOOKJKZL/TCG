@@ -1,8 +1,8 @@
 # Universal Gacha Simulator 项目主计划
 
-最后更新：2026-07-27
+最后更新：2026-07-29
 
-本次修改原因：确认“先用 Site，稳定后迁移 Cloudflare R2”的发布节奏，并完成阶段 7E 的独立内容中继 Site。Site 自带 R2 已实现私人发布、公开读取、ZIP-first/catalog-last、SHA-256 与严格 Range；两个真实历史卡包已通过本机端到端读回。最终审计器仍保留本机 92% 上限，只有真实公开 HTTPS 运行配置和十四项 Android 真机收据都通过才允许报告 100%。
+本次修改原因：Site-first 远程内容闭环已经完成，当前关键路径转为阶段 7F/9 的 Android 验收。验证节奏固定为 Play Mode 优先；两份 Android 候选把内容页错位定位到 UI Toolkit 原生 Button 按压渲染路径，最新实现以稳定 `VisualElement + Label` action control 完全绕过该路径。项目审计当前为 96%，只有十四项 Android 有证据收据、最终生产 ARM64 构建与审计都通过才允许报告 100%。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -34,7 +34,7 @@
 
 | 交互 | 动画 | 音效/反馈 |
 |---|---|---|
-| 普通按钮 | 按下缩放、回弹、禁用状态 | 通用点击音效 |
+| 普通按钮 | 按压颜色/边框或安全缩放、回弹、禁用状态 | 通用点击音效 |
 | 页面切换 | 淡入淡出或滑动 | 页面切换音效 |
 | 下载开始/完成 | 进度变化、完成高亮 | 开始、完成、失败音效 |
 | 选择系列/卡包 | 卡包抬起、聚焦或发光 | 选择音效 |
@@ -72,7 +72,7 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 通用按钮、下载和缺失资源路径仍有低音量程序化后备音；五套年代主题已经由 `AudioClipConfig` 优先加载十个正式原创 WAV，分别覆盖撕包与稀有揭晓，缺失时才回退到原程序化声音。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 229/229 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 235/235 通过。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -118,7 +118,7 @@ AccessibilitySettings
 - Site 本机 R2 已用 `en.base1`、`en.neo1` 完成真实端到端验证：14,906,006 / 16,437,718 bytes 的全量 `200`、开放式 Range `206`、非法 Range `416`、Content-Range 和 SHA-256 均正确；错误账号分别返回 `401/403`。
 - 远程 catalog 在线验证成功后会原子保存为来源绑定的本地缓存；断网重启仍能列出内容包并显示双语离线警告，来源改变、损坏、超限或链接缓存不会被采用。
 - 真实 ZIP/HTTP fixture 已验证下载截断后销毁旧协调器，重建协调器会从 `.part` 实际长度发送精确 Range、完成安装并清理下载缓存。
-- `project_completion_audit.ps1` 已把最终 EditMode/PlayMode 证据、APK 新鲜度/隐私边界、正式音频、本机发布包 Hash、R2 运行配置、ADB 状态和十四项真机收据统一成一个 100% 判定；当前自审计为 92%，`-RequireComplete` 会以退出码 2 拒绝不完整发布。
+- `project_completion_audit.ps1` 已把最终 EditMode/PlayMode 证据、APK 新鲜度/隐私边界、正式音频、本机发布包 Hash、远程运行配置、ADB 状态和十四项真机收据统一成一个 100% 判定；当前自审计为 96%，`-RequireComplete` 会以退出码 2 拒绝不完整发布。
 
 尚未完成：
 
@@ -126,7 +126,7 @@ AccessibilitySettings
 - 真实 Site 部署、owner 环境变量、公开访问策略、最小上传与手机真实下载闭环；本机 Site/R2 已验证，外部发布尚未执行。
 - Android 真机验证。
 
-按验收条件而不是代码数量估算，当前技术底座与本机可执行实现均已完成，完整发布计划经审计为 92%。剩余 4% 是真实 Site HTTPS 发布与运行配置，另 4% 是实体 Android 安装、远程下载和十四项人工体验验收；没有外部证据时不得把本机自动化描述为 100%。迁移到独立 Cloudflare R2 属于后续容量/成本优化，不再阻塞当前 Site 版本的设备验收。
+按验收条件而不是代码数量估算，当前技术底座、公开 Site HTTPS 发布与本机可执行实现均已完成，完整发布计划经审计为 96%。剩余 4% 是 Android 安装、远程下载和十四项有证据体验验收，以及随后基于同一已验证源码制作生产 ARM64 包；没有设备证据时不得把本机自动化描述为 100%。迁移到独立 Cloudflare R2 属于后续容量/成本优化，不再阻塞当前 Site 版本的设备验收。
 
 ## 四、阶段计划
 
@@ -627,7 +627,7 @@ Content Language  卡名、卡图、系列和产品
 
 7E 公网收尾（2026-07-27）：电脑直传版本已部署并绑定本机发布器；Unity 成功上传两个 ZIP 后最后切换 catalog。独立客户端再次验证两包完整字节数、SHA-256、中点 `206 Content-Range` 与 8/8 只读方法边界，远程运行配置通过 Android 安装器的无设备预检，项目审计提升到 96%。下一切片只安装到 Android 私人持久目录，完成首次下载、中断续传、离线重启和真机卸载/重装；独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
-7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界才制作候选 APK。首轮把 Download/Pause/Remove/Cancel 改为永久稳定节点并由控制器守卫无效操作；第一份候选 APK 随后用“无效 Pause 不改变状态但文字/背景错位”的证据，把 Android 根因进一步锁定为 `.content-button:active` 的 scale transform。第二轮源码改用颜色/边框点击反馈并加入 USS 契约，定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过；下一步只构建一次修复候选 APK完成 Android 远程状态流验收。
+7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界才制作候选 APK。首轮把 Download/Pause/Remove/Cancel 改为永久节点并由控制器守卫无效操作；第一份候选证明无效 Pause 不改变状态但仍会使文字/背景错位。第二份候选移除 scale 后仍会让原生 Button 背景消失，因而排除 scale 是单一根因。第三轮从内容页彻底移除原生 `Button` 与 `:active`，页头和内容操作统一使用稳定 `VisualElement + Label`、手动 pointer/keyboard、`.is-pressed` 颜色/边框动画与既有音效守卫；静态契约与运行时 UI 树都拒绝原生 Button 回归，合成手指点击会真实启动下载。定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过；下一步只构建一份新候选 APK 完成 Android 远程状态流验收。
 
 验收：
 

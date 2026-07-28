@@ -16,6 +16,7 @@
 
 - 验收目标为 Android 14 / API 34 的 `Pixel_3a_API_34_extension_level_7_x86_64`，ADB 序列号为 `emulator-5554`；使用独立的 `TestResults/Emulator` 数据盘，不污染默认 AVD。
 - 第一份内容按钮候选 x86_64 干净构建成功，APK 大小 53,379,005 bytes，SHA-256 为 `790c8e7f2cb6cd37171509561efc523bab1a27cbcf6c0d7f379dd507eb418377`；Unity 日志明确记录 `Build Finished, Result: Success`、6 个场景与批处理返回码 0，构建日志在 `TestResults/android-emulator-candidate-20260729015231.log`。该候选用于发现点击缩放问题，不能作为最终修复包。
+- 第二份“移除按压 scale”候选大小为 53,379,185 bytes，SHA-256 为 `ab9e60a89da8f3f8e7c376f548469ef6025ea47561d6f936b16eaf1acd8b7d4c`；构建日志为 `TestResults/android-emulator-no-scale-candidate-20260729025127.log`。`TestResults/android14-no-scale-loaded.png` 与 `TestResults/android14-no-scale-invalid-pause.png` 证明：即使没有 transform，无效 Pause 仍会让原生 Button 背景消失。因此 scale 只是放大因素，真正不稳定边界是 Android 上的 UI Toolkit 原生 Button 按压渲染路径；该包同样不能作为最终修复包。
 - 模拟器包会先构建 Addressables Player Content，并只在 x86_64 软件渲染验收包中临时使用 Built-in Render Pipeline；生产 ARM64 构建仍保留 URP。正常启动日志没有 `Unable to load runtime data`、`No Locales`、`UniversalRenderPipeline..ctor` 或致命异常；AVD 极慢启动造成的系统/应用 ANR 限制另见下文。
 - APK 已通过 `adb install -r` 覆盖安装并进入启动页、主菜单和内容管理页；主菜单和纵向内容页的 1080×2220 布局可完整显示。
 - 同一个 APK 在 Android Emulator Vulkan/SwiftShader 路径上曾出现 UI Toolkit 完全不绘制但按钮仍可点击、改变窗口尺寸后恢复；不改代码、不重建，仅用 `--es unity -force-gles30` 启动后，首次进入内容页即完整显示，证据为 `TestResults/gles-content-first-attach-2-202607290117.png`。因此该黑屏判定为模拟器图形路径限制，不再通过修改游戏 UI 逻辑规避。Unity 官方也记录过 Vulkan 驱动下 UI Toolkit 黑屏类问题：<https://issuetracker.unity3d.com/issues/ui-toolkit-draws-black-screen-on-adreno-740>。
@@ -25,14 +26,14 @@
 
 当前阻塞问题（尚未通过）：
 
-- Android 诊断进一步锁定根因不是 disabled 或下载状态机，而是 `.content-button:active { scale: 0.96 }`：第一份候选加载两包后四按钮初始正确，点击一个由控制器守卫拒绝的无效 Pause，没有状态或反馈变化，却立即让 Pause 背景消失、文字移动到内容行左上角，同时重新绘制此前裁切的页头；前后证据为 `TestResults/android14-candidate-catalog.png` 与 `TestResults/android14-candidate-invalid-pause.png`。新源码已彻底移除内容按钮的 scale transition，以颜色/边框保留点击反馈，并新增精确 USS 契约测试；定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过。Android 最终结论仍须留给下一次修复候选 APK，不能用第一份候选或 PlayMode 冒充通过。
+- Android 诊断已经排除下载状态机、disabled 与 scale 是单一根因：第一份候选的无效 Pause 没有改变状态却使文字/背景错位；第二份无 scale 候选仍能让背景消失。最新源码因此不再使用任何 UI Toolkit 原生 `Button` 或 `:active`，页头与内容行全部改为永久的 `VisualElement + Label`，由手动 pointer/keyboard 事件、控制器守卫和 `.is-pressed` 颜色/边框反馈处理交互。静态契约会拒绝内容页重新出现原生 Button；合成玩家点击的内容 PlayMode 1/1、定向 EditMode 18/18、完整 PlayMode 7/7、完整 EditMode 235/235 全部通过，证据分别为 `content-stable-actions-pointer-playmode-20260729040500.xml`、`content-stable-actions-editmode-20260729035500.xml`、`full-playmode-stable-actions-20260729041000.xml` 与 `full-editmode-stable-actions-20260729041500.xml`。Android 最终结论仍须留给下一份候选 APK，不能用 PlayMode 冒充设备通过。
 - 十四项收据尚未生成；离线重启、网络断开/恢复、存储失败保护、后台/音频焦点、减少动态、内容卸载重装保留收藏和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
 - 最新源码的完整 EditMode 为 235/235、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
 
 工作区与下次执行顺序：
 
-1. 内容操作稳定化与点击 transform 修复已分别通过对应定向测试；按主题提交 USS、契约测试和本记录，不夹带字体、主题 meta、URP/ProjectSettings 或 Addressables 生成噪声。
-2. 在源码不再变化后只制作一次修复后的 x86_64 候选 APK；通过 `install_smoke_content.ps1 -ContentMode Remote` 让模拟器用 OpenGLES3 启动，实际点击无效操作、下载、暂停、继续、取消与删除确认，并截图证明文字、背景、热区和状态始终位于正确内容行。
+1. 内容页稳定 action control、手指输入、按压反馈、下载状态流与完整回归已经通过；按本主题提交控制器、UXML、USS、测试和本记录，不夹带字体、主题 meta、URP/ProjectSettings 或 Addressables 生成噪声。
+2. 只制作一份包含稳定 action control 的新 x86_64 候选 APK；通过 `install_smoke_content.ps1 -ContentMode Remote` 让模拟器用 OpenGLES3 启动，实际点击无效操作、下载、暂停、继续、取消与删除确认，并截图证明文字、背景、热区和状态始终位于正确内容行。
 3. 候选 APK 通过后复用同一 APK 和 `-SkipInstall` 补齐可由模拟器证明的 Android 收据；不因重复测试重新构建。
 4. 继续实体设备限定收据、生产 ARM64 干净构建、APK 隐私检查和最终 100% 审计；最后再把结果写回本文件和主计划。
 

@@ -8,8 +8,12 @@
                     <ui:Label name="content-subtitle" class="content-management__subtitle" />
                 </ui:VisualElement>
                 <ui:VisualElement class="content-management__header-actions">
-                    <ui:Button name="refresh-button" class="content-button content-button--quiet" />
-                    <ui:Button name="back-button" class="content-button" />
+                    <ui:VisualElement name="refresh-button" class="content-button content-button--quiet" focusable="true">
+                        <ui:Label name="refresh-button-label" class="content-button__label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="back-button" class="content-button" focusable="true">
+                        <ui:Label name="back-button-label" class="content-button__label" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="catalog-status" class="content-management__catalog-status" />

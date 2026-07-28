@@ -64,6 +64,133 @@ namespace Gacha.Presentation
                 ["content.progress"] = "{0}% · {1} / {2}"
             };
 
+        /// <summary>
+        /// UI Toolkit's Android Button render path can retain corrupted text/background geometry
+        /// after native :active or disabled state changes. This control keeps a plain, immutable
+        /// VisualElement + Label hierarchy and implements pointer/keyboard activation itself.
+        /// </summary>
+        private sealed class StableActionControl
+        {
+            private readonly Action clicked;
+            private int pressedPointerId = -1;
+            private bool keyboardPressed;
+
+            public StableActionControl(VisualElement root, Action clicked)
+            {
+                Root = root ?? throw new ArgumentNullException(nameof(root));
+                this.clicked = clicked ?? throw new ArgumentNullException(nameof(clicked));
+                Label = Root.Q<Label>();
+                if (Label == null)
+                {
+                    Label = new Label();
+                    Label.AddToClassList("content-button__label");
+                    Root.Add(Label);
+                }
+                Label.pickingMode = PickingMode.Ignore;
+                Root.focusable = true;
+                Root.pickingMode = PickingMode.Position;
+                Root.RegisterCallback<PointerDownEvent>(OnPointerDown);
+                Root.RegisterCallback<PointerUpEvent>(OnPointerUp);
+                Root.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
+                Root.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+                Root.RegisterCallback<KeyDownEvent>(OnKeyDown);
+                Root.RegisterCallback<KeyUpEvent>(OnKeyUp);
+                Root.RegisterCallback<BlurEvent>(OnBlur);
+            }
+
+            public VisualElement Root { get; }
+            public Label Label { get; }
+            public bool Allowed { get; set; } = true;
+
+            public void SetLabel(string value)
+            {
+                if (!string.Equals(Label.text, value, StringComparison.Ordinal))
+                    Label.text = value;
+            }
+
+            private void OnPointerDown(PointerDownEvent evt)
+            {
+                if (evt.button != 0 || pressedPointerId >= 0)
+                    return;
+                pressedPointerId = evt.pointerId;
+                Root.CapturePointer(evt.pointerId);
+                Root.Focus();
+                SetPressed(true);
+                evt.StopPropagation();
+            }
+
+            private void OnPointerUp(PointerUpEvent evt)
+            {
+                if (evt.pointerId != pressedPointerId)
+                    return;
+                bool activate = Root.worldBound.Contains(evt.position);
+                ResetPointer(evt.pointerId);
+                if (activate && Allowed)
+                    clicked();
+                evt.StopPropagation();
+            }
+
+            private void OnPointerCancel(PointerCancelEvent evt)
+            {
+                ResetPointer(evt.pointerId);
+            }
+
+            private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
+            {
+                if (evt.pointerId == pressedPointerId)
+                {
+                    pressedPointerId = -1;
+                    SetPressed(false);
+                }
+            }
+
+            private void OnKeyDown(KeyDownEvent evt)
+            {
+                if (!IsActivationKey(evt.keyCode) || keyboardPressed)
+                    return;
+                keyboardPressed = true;
+                SetPressed(true);
+                evt.StopPropagation();
+            }
+
+            private void OnKeyUp(KeyUpEvent evt)
+            {
+                if (!IsActivationKey(evt.keyCode) || !keyboardPressed)
+                    return;
+                keyboardPressed = false;
+                SetPressed(false);
+                if (Allowed)
+                    clicked();
+                evt.StopPropagation();
+            }
+
+            private void OnBlur(BlurEvent evt)
+            {
+                keyboardPressed = false;
+                SetPressed(false);
+            }
+
+            private void ResetPointer(int pointerId)
+            {
+                if (pointerId != pressedPointerId)
+                    return;
+                pressedPointerId = -1;
+                if (Root.HasPointerCapture(pointerId))
+                    Root.ReleasePointer(pointerId);
+                SetPressed(false);
+            }
+
+            private void SetPressed(bool value)
+            {
+                Root.EnableInClassList("is-pressed", value);
+            }
+
+            private static bool IsActivationKey(KeyCode key)
+            {
+                return key == KeyCode.Return || key == KeyCode.KeypadEnter || key == KeyCode.Space;
+            }
+        }
+
         private sealed class PackageRow
         {
             public PackageRow(
@@ -96,22 +223,22 @@ namespace Gacha.Presentation
                 var actions = new VisualElement();
                 actions.AddToClassList("content-package-row__actions");
                 Actions = actions;
-                Download = Button("download", () => InvokeWhenAllowed(DownloadAllowed, primary));
-                Pause = Button("pause", () => InvokeWhenAllowed(PauseAllowed, pause));
-                Remove = Button("remove", () => InvokeWhenAllowed(RemoveAllowed, remove));
-                Cancel = Button("cancel", () => InvokeWhenAllowed(CancelAllowed, cancel));
-                Download.AddToClassList("content-button--primary");
-                Pause.AddToClassList("content-button--quiet");
-                Remove.AddToClassList("content-button--danger");
-                Cancel.AddToClassList("content-button--quiet");
-                Download.AddToClassList("content-package-row__download-action");
-                Pause.AddToClassList("content-package-row__pause-action");
-                Remove.AddToClassList("content-package-row__remove-action");
-                Cancel.AddToClassList("content-package-row__cancel-action");
-                actions.Add(Cancel);
-                actions.Add(Remove);
-                actions.Add(Pause);
-                actions.Add(Download);
+                Download = ActionControl("download", () => primary(entry.Package.PackageId));
+                Pause = ActionControl("pause", () => pause(entry.Package.PackageId));
+                Remove = ActionControl("remove", () => remove(entry.Package.PackageId));
+                Cancel = ActionControl("cancel", () => cancel(entry.Package.PackageId));
+                Download.Root.AddToClassList("content-button--primary");
+                Pause.Root.AddToClassList("content-button--quiet");
+                Remove.Root.AddToClassList("content-button--danger");
+                Cancel.Root.AddToClassList("content-button--quiet");
+                Download.Root.AddToClassList("content-package-row__download-action");
+                Pause.Root.AddToClassList("content-package-row__pause-action");
+                Remove.Root.AddToClassList("content-package-row__remove-action");
+                Cancel.Root.AddToClassList("content-package-row__cancel-action");
+                actions.Add(Cancel.Root);
+                actions.Add(Remove.Root);
+                actions.Add(Pause.Root);
+                actions.Add(Download.Root);
                 controls.Add(Progress);
                 controls.Add(actions);
                 Root.Add(copy);
@@ -125,10 +252,10 @@ namespace Gacha.Presentation
             public Label Status { get; }
             public ProgressBar Progress { get; }
             public VisualElement Actions { get; }
-            public Button Download { get; }
-            public Button Pause { get; }
-            public Button Remove { get; }
-            public Button Cancel { get; }
+            public StableActionControl Download { get; }
+            public StableActionControl Pause { get; }
+            public StableActionControl Remove { get; }
+            public StableActionControl Cancel { get; }
             public InstalledContentPackage Installed { get; set; }
             public string LifecycleError { get; set; }
             public bool AwaitingRemovalConfirmation { get; set; }
@@ -136,22 +263,19 @@ namespace Gacha.Presentation
             public IVisualElementScheduledItem RemovalConfirmationTimeout { get; set; }
             public ContentPackageOperationState? LastState { get; set; }
             public IVisualElementScheduledItem Animation { get; set; }
-            public bool DownloadAllowed { get; set; }
-            public bool PauseAllowed { get; set; }
-            public bool RemoveAllowed { get; set; }
-            public bool CancelAllowed { get; set; }
+            public bool DownloadAllowed { get => Download.Allowed; set => Download.Allowed = value; }
+            public bool PauseAllowed { get => Pause.Allowed; set => Pause.Allowed = value; }
+            public bool RemoveAllowed { get => Remove.Allowed; set => Remove.Allowed = value; }
+            public bool CancelAllowed { get => Cancel.Allowed; set => Cancel.Allowed = value; }
 
-            private static Button Button(string name, Action clicked)
+            private static StableActionControl ActionControl(string name, Action clicked)
             {
-                var button = new Button(clicked) { name = name + "-button" };
-                button.AddToClassList("content-button");
-                return button;
-            }
-
-            private void InvokeWhenAllowed(bool allowed, Action<string> action)
-            {
-                if (allowed)
-                    action(Entry.Package.PackageId);
+                var root = new VisualElement { name = name + "-button" };
+                root.AddToClassList("content-button");
+                var label = new Label { name = name + "-button-label" };
+                label.AddToClassList("content-button__label");
+                root.Add(label);
+                return new StableActionControl(root, clicked);
             }
         }
 
@@ -180,8 +304,8 @@ namespace Gacha.Presentation
         private Label subtitle;
         private Label catalogStatus;
         private Label emptyState;
-        private Button backButton;
-        private Button refreshButton;
+        private StableActionControl backAction;
+        private StableActionControl refreshAction;
         private ContentPackageCatalog catalog;
         private CancellationTokenSource loadCancellation;
         private Coroutine localizationRoutine;
@@ -329,14 +453,14 @@ namespace Gacha.Presentation
             subtitle = pageRoot.Q<Label>("content-subtitle");
             catalogStatus = pageRoot.Q<Label>("catalog-status");
             emptyState = pageRoot.Q<Label>("content-empty");
-            backButton = pageRoot.Q<Button>("back-button");
-            refreshButton = pageRoot.Q<Button>("refresh-button");
+            VisualElement backRoot = pageRoot.Q<VisualElement>("back-button");
+            VisualElement refreshRoot = pageRoot.Q<VisualElement>("refresh-button");
             if (shell == null || packageList == null || title == null || subtitle == null ||
-                catalogStatus == null || emptyState == null || backButton == null || refreshButton == null)
+                catalogStatus == null || emptyState == null || backRoot == null || refreshRoot == null)
                 throw new InvalidOperationException("Content management view is missing required named elements.");
 
-            backButton.clicked += BackToMenu;
-            refreshButton.clicked += RefreshClicked;
+            backAction = new StableActionControl(backRoot, BackToMenu);
+            refreshAction = new StableActionControl(refreshRoot, RefreshClicked);
             ApplyLocalizedChrome();
         }
 
@@ -350,7 +474,8 @@ namespace Gacha.Presentation
             IsReady = false;
             InitializationError = null;
             SetCatalogStatus(L("content.catalog.loading"), false);
-            refreshButton?.SetEnabled(false);
+            if (refreshAction != null)
+                refreshAction.Allowed = false;
 
             if (catalogProvider == null || operationFactory == null)
             {
@@ -427,7 +552,7 @@ namespace Gacha.Presentation
                 IsReady = true;
                 InitializationError = null;
                 ApplyReadyCatalogStatus();
-                refreshButton.SetEnabled(true);
+                refreshAction.Allowed = true;
             }
             catch (Exception exception)
             {
@@ -450,7 +575,8 @@ namespace Gacha.Presentation
             emptyState.text = string.Format(L("content.catalog.unavailable"), InitializationError);
             packageList.style.display = DisplayStyle.None;
             SetCatalogStatus(emptyState.text, true);
-            refreshButton?.SetEnabled(true);
+            if (refreshAction != null)
+                refreshAction.Allowed = true;
         }
 
         private void ApplyOperation(string packageId, ContentPackageOperationSnapshot snapshot)
@@ -769,8 +895,8 @@ namespace Gacha.Presentation
                 return;
             title.text = L("content.title");
             subtitle.text = L("content.subtitle");
-            backButton.text = L("content.action.back");
-            refreshButton.text = L("content.action.refresh");
+            backAction.SetLabel(L("content.action.back"));
+            refreshAction.SetLabel(L("content.action.refresh"));
             emptyState.text = L("content.catalog.empty");
         }
 
@@ -954,10 +1080,10 @@ namespace Gacha.Presentation
             // disabled, shown, moved, or repurposed. These four controls are therefore permanent:
             // hierarchy, enabled state, display, visibility, label, class and geometry stay fixed.
             // Controller guards enforce availability without mutating the render node.
-            SetLabel(row.Download, L("content.action.download"));
-            SetLabel(row.Pause, L("content.action.pause"));
-            SetLabel(row.Remove, L("content.action.remove"));
-            SetLabel(row.Cancel, L("content.action.cancel"));
+            row.Download.SetLabel(L("content.action.download"));
+            row.Pause.SetLabel(L("content.action.pause"));
+            row.Remove.SetLabel(L("content.action.remove"));
+            row.Cancel.SetLabel(L("content.action.cancel"));
             row.DownloadAllowed = downloadEnabled;
             row.PauseAllowed = pauseEnabled;
             row.RemoveAllowed = removeEnabled;
@@ -968,19 +1094,12 @@ namespace Gacha.Presentation
             KeepRenderNodeStable(row.Cancel);
         }
 
-        private static void SetLabel(Button button, string label)
+        private static void KeepRenderNodeStable(StableActionControl action)
         {
-            if (!string.Equals(button.text, label, StringComparison.Ordinal))
-                button.text = label;
-        }
-
-        private static void KeepRenderNodeStable(Button button)
-        {
-            button.style.visibility = Visibility.Visible;
-            button.style.display = DisplayStyle.Flex;
-            button.style.opacity = 1f;
-            button.pickingMode = PickingMode.Position;
-            button.SetEnabled(true);
+            action.Root.style.visibility = Visibility.Visible;
+            action.Root.style.display = DisplayStyle.Flex;
+            action.Root.style.opacity = 1f;
+            action.Root.pickingMode = PickingMode.Position;
         }
 
         private void RefreshInstalledState(PackageRow row)

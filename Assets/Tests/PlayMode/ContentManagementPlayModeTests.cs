@@ -240,11 +240,15 @@ namespace Gacha.Tests.PlayMode
                 Label catalogStatus = document.rootVisualElement.Q<Label>("catalog-status");
                 Assert.That(catalogStatus.text, Does.StartWith("Offline"));
                 Assert.That(catalogStatus.ClassListContains("is-warning"), Is.True);
+                Assert.That(document.rootVisualElement.Query<Button>().ToList(), Is.Empty,
+                    "The content page must not enter UI Toolkit's unstable native Button render path on Android.");
+                AssertStableActionControl(document.rootVisualElement.Q<VisualElement>("refresh-button"));
+                AssertStableActionControl(document.rootVisualElement.Q<VisualElement>("back-button"));
                 VisualElement successRow = document.rootVisualElement.Q<VisualElement>("package-" + SuccessId);
-                Button download = successRow.Q<Button>("download-button");
-                Button pause = successRow.Q<Button>("pause-button");
-                Button remove = successRow.Q<Button>("remove-button");
-                Button cancel = successRow.Q<Button>("cancel-button");
+                VisualElement download = successRow.Q<VisualElement>("download-button");
+                VisualElement pause = successRow.Q<VisualElement>("pause-button");
+                VisualElement remove = successRow.Q<VisualElement>("remove-button");
+                VisualElement cancel = successRow.Q<VisualElement>("cancel-button");
                 VisualElement actions = download.parent;
                 AssertPersistentActionBar(actions, download, pause, remove, cancel);
                 Assert.That(download.enabledSelf, Is.True);
@@ -252,7 +256,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(remove.enabledSelf, Is.True);
                 Assert.That(cancel.enabledSelf, Is.True);
                 int initialCueCount = cues.Count;
-                Assert.That(controller.PausePackage(SuccessId), Is.False);
+                SendPointerDown(pause);
+                Assert.That(pause.ClassListContains("is-pressed"), Is.True,
+                    "Manual pointer feedback should be visible without native :active state.");
+                SendPointerUp(pause);
+                Assert.That(pause.ClassListContains("is-pressed"), Is.False);
+                yield return null;
                 Assert.That(controller.CancelPackage(SuccessId), Is.False);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.False);
                 Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle));
@@ -272,7 +281,10 @@ namespace Gacha.Tests.PlayMode
                 AssertPersistentActionBar(actions, download, pause, remove, cancel);
                 Rect[] persistentGeometry = CaptureActionGeometry(actions, download, pause, remove, cancel);
 
-                Assert.That(controller.StartOrRetryPackage(SuccessId), Is.True);
+                SendPointerDown(download);
+                Assert.That(download.ClassListContains("is-pressed"), Is.True);
+                SendPointerUp(download);
+                Assert.That(download.ClassListContains("is-pressed"), Is.False);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Downloading &&
                        controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
@@ -324,7 +336,7 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
                 Assert.That(remove, Is.Not.Null);
-                Assert.That(remove.text, Is.EqualTo("Remove"));
+                Assert.That(ActionText(remove), Is.EqualTo("Remove"));
                 Assert.That(download.enabledSelf, Is.True);
                 Assert.That(pause.enabledSelf, Is.True);
                 Assert.That(remove.enabledSelf, Is.True);
@@ -337,7 +349,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.CancelPackage(SuccessId), Is.False);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
                 yield return null;
-                Assert.That(remove.text, Is.EqualTo("Remove"));
+                Assert.That(ActionText(remove), Is.EqualTo("Remove"));
                 Assert.That(remove.enabledSelf, Is.True);
                 Assert.That(cancel.enabledSelf, Is.True);
                 AssertPersistentActionBar(actions, download, pause, remove, cancel,
@@ -377,7 +389,7 @@ namespace Gacha.Tests.PlayMode
                         yield return null;
                     Assert.That(title.text, Is.EqualTo("内容库"));
                     Assert.That(catalogStatus.text, Does.StartWith("离线模式"));
-                    Assert.That(download.text, Is.EqualTo("下载"));
+                    Assert.That(ActionText(download), Is.EqualTo("下载"));
                     AssertPersistentActionBar(actions, download, pause, remove, cancel, false, persistentGeometry);
                 }
 
@@ -405,32 +417,26 @@ namespace Gacha.Tests.PlayMode
 
         private static void AssertPersistentActionBar(
             VisualElement actions,
-            Button download,
-            Button pause,
-            Button remove,
-            Button cancel,
+            VisualElement download,
+            VisualElement pause,
+            VisualElement remove,
+            VisualElement cancel,
             bool assertEnglishLabels = true,
             Rect[] expectedGeometry = null)
         {
             Assert.That(actions.childCount, Is.EqualTo(4),
                 "The Android action bar must keep exactly four permanent render nodes.");
-            Button[] buttons = { download, pause, remove, cancel };
-            foreach (Button button in buttons)
+            VisualElement[] controls = { download, pause, remove, cancel };
+            foreach (VisualElement control in controls)
             {
-                Assert.That(button, Is.Not.Null);
-                Assert.That(button.enabledSelf, Is.True,
-                    button.name + " must stay enabled to avoid the Android disabled-state render path.");
-                Assert.That(button.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), button.name);
-                Assert.That(button.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible), button.name);
-                Assert.That(button.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), button.name);
-                Assert.That(button.pickingMode, Is.EqualTo(PickingMode.Position), button.name);
+                AssertStableActionControl(control);
             }
             if (assertEnglishLabels)
             {
-                Assert.That(download.text, Is.EqualTo("Download"));
-                Assert.That(pause.text, Is.EqualTo("Pause"));
-                Assert.That(remove.text, Is.EqualTo("Remove"));
-                Assert.That(cancel.text, Is.EqualTo("Cancel"));
+                Assert.That(ActionText(download), Is.EqualTo("Download"));
+                Assert.That(ActionText(pause), Is.EqualTo("Pause"));
+                Assert.That(ActionText(remove), Is.EqualTo("Remove"));
+                Assert.That(ActionText(cancel), Is.EqualTo("Cancel"));
             }
             AssertStableActionGeometry(actions, cancel);
             AssertStableActionGeometry(actions, remove);
@@ -446,11 +452,58 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(actual.Length, Is.EqualTo(expectedGeometry.Length));
                 for (int index = 0; index < actual.Length; index++)
                 {
-                    Assert.That(actual[index].x, Is.EqualTo(expectedGeometry[index].x).Within(2f), buttons[index].name);
-                    Assert.That(actual[index].y, Is.EqualTo(expectedGeometry[index].y).Within(2f), buttons[index].name);
-                    Assert.That(actual[index].width, Is.EqualTo(expectedGeometry[index].width).Within(2f), buttons[index].name);
-                    Assert.That(actual[index].height, Is.EqualTo(expectedGeometry[index].height).Within(2f), buttons[index].name);
+                    Assert.That(actual[index].x, Is.EqualTo(expectedGeometry[index].x).Within(2f), controls[index].name);
+                    Assert.That(actual[index].y, Is.EqualTo(expectedGeometry[index].y).Within(2f), controls[index].name);
+                    Assert.That(actual[index].width, Is.EqualTo(expectedGeometry[index].width).Within(2f), controls[index].name);
+                    Assert.That(actual[index].height, Is.EqualTo(expectedGeometry[index].height).Within(2f), controls[index].name);
                 }
+            }
+        }
+
+        private static void AssertStableActionControl(VisualElement control)
+        {
+            Assert.That(control, Is.Not.Null);
+            Assert.That(control, Is.Not.TypeOf<Button>(),
+                control?.name + " must be a plain VisualElement, not a native Button.");
+            Assert.That(control.enabledSelf, Is.True,
+                control.name + " must never enter the Android disabled-state render path.");
+            Assert.That(control.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), control.name);
+            Assert.That(control.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible), control.name);
+            Assert.That(control.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), control.name);
+            Assert.That(control.pickingMode, Is.EqualTo(PickingMode.Position), control.name);
+            Label label = control.Q<Label>();
+            Assert.That(label, Is.Not.Null, control.name);
+            Assert.That(label.pickingMode, Is.EqualTo(PickingMode.Ignore), control.name);
+        }
+
+        private static string ActionText(VisualElement control)
+        {
+            return control?.Q<Label>()?.text;
+        }
+
+        private static void SendPointerDown(VisualElement control)
+        {
+            using (PointerDownEvent evt = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+            {
+                control.SendEvent(evt);
+            }
+        }
+
+        private static void SendPointerUp(VisualElement control)
+        {
+            using (PointerUpEvent evt = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+            {
+                control.SendEvent(evt);
             }
         }
 
@@ -468,35 +521,35 @@ namespace Gacha.Tests.PlayMode
 
         private static Rect[] CaptureActionGeometry(
             VisualElement actions,
-            Button download,
-            Button pause,
-            Button remove,
-            Button cancel)
+            VisualElement download,
+            VisualElement pause,
+            VisualElement remove,
+            VisualElement cancel)
         {
-            Button[] buttons = { download, pause, remove, cancel };
-            return buttons.Select(button => new Rect(
-                button.worldBound.xMin - actions.worldBound.xMin,
-                button.worldBound.yMin - actions.worldBound.yMin,
-                button.worldBound.width,
-                button.worldBound.height)).ToArray();
+            VisualElement[] controls = { download, pause, remove, cancel };
+            return controls.Select(control => new Rect(
+                control.worldBound.xMin - actions.worldBound.xMin,
+                control.worldBound.yMin - actions.worldBound.yMin,
+                control.worldBound.width,
+                control.worldBound.height)).ToArray();
         }
 
         private static void AssertStableActionGeometry(
             VisualElement actions,
-            Button button)
+            VisualElement control)
         {
-            Assert.That(button.resolvedStyle.position, Is.EqualTo(Position.Absolute));
-            Assert.That(button.resolvedStyle.top, Is.EqualTo(0f).Within(2f));
-            Assert.That(button.worldBound.width, Is.InRange(80f, 170f));
-            Assert.That(button.worldBound.xMin, Is.GreaterThanOrEqualTo(actions.worldBound.xMin - 2f));
+            Assert.That(control.resolvedStyle.position, Is.EqualTo(Position.Absolute));
+            Assert.That(control.resolvedStyle.top, Is.EqualTo(0f).Within(2f));
+            Assert.That(control.worldBound.width, Is.InRange(80f, 170f));
+            Assert.That(control.worldBound.xMin, Is.GreaterThanOrEqualTo(actions.worldBound.xMin - 2f));
             Assert.That(
-                button.worldBound.xMax,
+                control.worldBound.xMax,
                 Is.LessThanOrEqualTo(actions.worldBound.xMax + 2f),
-                $"{button.name}: actions={actions.worldBound} layout={button.layout} " +
-                $"world={button.worldBound} local={button.localBound} resolvedWidth={button.resolvedStyle.width} " +
-                $"padding={button.resolvedStyle.paddingLeft}/{button.resolvedStyle.paddingRight}");
-            Assert.That(button.worldBound.yMin, Is.EqualTo(actions.worldBound.yMin).Within(2f));
-            Assert.That(button.worldBound.yMax, Is.LessThanOrEqualTo(actions.worldBound.yMax + 2f));
+                $"{control.name}: actions={actions.worldBound} layout={control.layout} " +
+                $"world={control.worldBound} local={control.localBound} resolvedWidth={control.resolvedStyle.width} " +
+                $"padding={control.resolvedStyle.paddingLeft}/{control.resolvedStyle.paddingRight}");
+            Assert.That(control.worldBound.yMin, Is.EqualTo(actions.worldBound.yMin).Within(2f));
+            Assert.That(control.worldBound.yMax, Is.LessThanOrEqualTo(actions.worldBound.yMax + 2f));
         }
 
         private static ContentPackageCatalog CreateCatalog()

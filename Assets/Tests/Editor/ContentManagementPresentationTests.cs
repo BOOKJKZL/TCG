@@ -110,22 +110,27 @@ public class ContentManagementPresentationTests
     }
 
     [Test]
-    public void ContentButtons_AvoidAndroidRenderTransformOnPress()
+    public void ContentActions_AvoidNativeAndroidButtonRenderPath()
     {
         string styles = File.ReadAllText("Assets/UI/Styles.uss").Replace("\r\n", "\n");
+        string view = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
         Match normalRule = Regex.Match(styles, @"(?ms)^\.content-button\s*\{(?<body>.*?)\}");
-        Match activeRule = Regex.Match(styles, @"(?ms)^\.content-button:active\s*\{(?<body>.*?)\}");
+        Match pressedRule = Regex.Match(styles, @"(?ms)^\.content-button\.is-pressed\s*\{(?<body>.*?)\}");
 
         Assert.That(normalRule.Success, Is.True);
-        Assert.That(activeRule.Success, Is.True);
+        Assert.That(pressedRule.Success, Is.True);
+        Assert.That(view, Does.Not.Contain("<ui:Button"),
+            "The Android content page must use stable VisualElement + Label action controls.");
+        Assert.That(styles, Does.Not.Contain(".content-button:active"),
+            "Native :active state has reproduced stale Android text/background geometry.");
         Assert.That(normalRule.Groups["body"].Value, Does.Not.Contain("scale"),
             "Android UI Toolkit can retain stale button text geometry after a scale transition.");
-        Assert.That(activeRule.Groups["body"].Value, Does.Not.Contain("scale"),
+        Assert.That(pressedRule.Groups["body"].Value, Does.Not.Contain("scale"),
             "Content button press feedback must not use a render transform on Android.");
         Assert.That(normalRule.Groups["body"].Value,
             Does.Contain("transition-property: background-color, border-color;"));
-        Assert.That(activeRule.Groups["body"].Value, Does.Contain("border-color:"),
-            "Safe color feedback should replace the removed press-scale animation.");
+        Assert.That(pressedRule.Groups["body"].Value, Does.Contain("border-color:"),
+            "Manual pressed-state color feedback should replace native Button pseudo state.");
     }
 
     [Test]
