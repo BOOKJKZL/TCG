@@ -4,7 +4,7 @@
 
 ## 当前判定
 
-仓库实现、本机内容 fixture、自动测试、正式主题音效、Site 发布与 Android 干净构建已经完成。公开 HTTPS catalog 与两个最小卡包已经过完整读取、Range 和 SHA-256 验证；最近一次正式项目审计为 96%。剩余 4% 是 Android 十四项有证据验收，不能因为模拟器能够启动或个别下载成功而提前计为 100%。
+仓库实现、本机内容 fixture、自动测试、正式主题音效、Site 发布与 Android 模拟器软件验收已经完成。公开 HTTPS catalog 与两个最小卡包已经过完整读取、Range 和 SHA-256 验证；十四项软件收据已写入 Git 忽略的 `LocalContent/FinalAcceptance/android-device.json`。当前仍保持 96%，只剩最终生产 ARM64 构建、静态审计与 `project_completion_audit.ps1 -RequireComplete`，在这些证据产生前不提前计为 100%。
 
 `Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。
 
@@ -22,7 +22,8 @@
 - 第四候选还完成了一次真实 `en.base1` 远端生命周期验收：`android14-download-progress.png`、`android14-download-paused.png`、`android14-download-resumed.png` 和 `android14-download-cancelled.png` 分别证明下载进度、14% 暂停、断点恢复与取消；重新下载随后达到 100% / 14.2 MiB 并显示 `Installed`，证据为 `android14-download-complete-check.png`。设备安装收据记录 15,189,695 bytes、revision 1 与 SHA-256 `2522292cb3d2db4a782ef065800acf0349285e63434ead6237d72efa27beceac`。
 - 删除生命周期也在同一 APK、同一模拟器上完成：第一次 Remove 只显示“收藏进度仍保留”的确认信息，Cancel 会撤销且安装收据仍存在；再次确认后 `Content/en/base1` 与 `Content/.packages/en.base1.json` 均消失，但 `save.json` 保留。证据为 `android14-remove-confirm.png`、`android14-remove-confirm-cancelled.png` 与 `android14-remove-complete.png`。
 - 同一 APK 在飞行模式下强制停止并重启后，启动日志明确记录 `Unity Services is unavailable; continuing offline` 与 `Game data initialized in offline mode`；进入内容页仍从最后验证的缓存 catalog 列出两个卡包，并显示离线警告，证据为 `android14-offline-cached-catalog.png`。恢复网络并刷新后在线状态恢复，证据为 `android14-network-restored.png`。
-- 网络恢复验收同时暴露了 Unity Input System 内部持续空引用：堆栈位于 `InputManager.FireStateChangeNotifications` / `InputActionState.OnBeforeInitialUpdate`。项目没有使用旧 `UnityEngine.Input` API，却把 `Active Input Handling` 设为 Android 不支持的 `Both`；源码已收敛为仅 New Input System，并新增 Android 构建契约。定向 EditMode 3/3、完整 PlayMode 7/7、完整 EditMode 236/236 通过，证据为 `input-backend-editmode-20260729055000.xml`、`full-playmode-input-backend-20260729055500.xml` 与 `full-editmode-input-backend-20260729060000.xml`；Android 平台复验留给最终 ARM64 构建，不为此再制作中间 APK。
+- 网络恢复验收同时暴露了 Unity Input System 内部持续空引用：堆栈位于 `InputManager.FireStateChangeNotifications` / `InputActionState.OnBeforeInitialUpdate`。项目没有使用旧 `UnityEngine.Input` API，却把 `Active Input Handling` 设为 Android 不支持的 `Both`；源码已收敛为仅 New Input System，并新增 Android 构建契约。定向 EditMode 3/3、完整 PlayMode 7/7、完整 EditMode 236/236 通过，证据为 `input-backend-editmode-20260729055000.xml`、`full-playmode-input-backend-20260729055500.xml` 与 `full-editmode-input-backend-20260729060000.xml`。
+- New Input only 的最终 x86_64 验收包为 53,365,156 bytes（50.89 MiB），SHA-256 为 `77e4a3c1838a9723190aac06b2c1b0938e27a9b5f3ab714b696c9c8ff91c25f7`，包含 414 个 ZIP 条目、仅 x86_64 ABI、敏感名称匹配 0；构建日志为 `TestResults/android-emulator-input-backend-final-20260729062000.log`。同一包完成离线启动、恢复网络与刷新，`android14-input-final-network-unity.log` 对 `InputManager.FireStateChangeNotifications`、`InputActionState.OnBeforeInitialUpdate` 和 `NullReferenceException` 的精确匹配均为 0。
 - 模拟器包会先构建 Addressables Player Content，并只在 x86_64 软件渲染验收包中临时使用 Built-in Render Pipeline；生产 ARM64 构建仍保留 URP。正常启动日志没有 `Unable to load runtime data`、`No Locales`、`UniversalRenderPipeline..ctor` 或致命异常；AVD 极慢启动造成的系统/应用 ANR 限制另见下文。
 - APK 已通过 `adb install -r` 覆盖安装并进入启动页、主菜单和内容管理页；主菜单和纵向内容页的 1080×2220 布局可完整显示。
 - 同一个 APK 在 Android Emulator Vulkan/SwiftShader 路径上曾出现 UI Toolkit 完全不绘制但按钮仍可点击、改变窗口尺寸后恢复；不改代码、不重建，仅用 `--es unity -force-gles30` 启动后，首次进入内容页即完整显示，证据为 `TestResults/gles-content-first-attach-2-202607290117.png`。因此该黑屏判定为模拟器图形路径限制，不再通过修改游戏 UI 逻辑规避。Unity 官方也记录过 Vulkan 驱动下 UI Toolkit 黑屏类问题：<https://issuetracker.unity3d.com/issues/ui-toolkit-draws-black-screen-on-adreno-740>。
@@ -30,19 +31,22 @@
 - 模拟器冷启动偶尔出现 `System UI isn't responding`、`Process system isn't responding`，极慢启动时也可能触发应用 ANR；选择 `Wait` 并在系统稳定后重新启动游戏可正常运行。该现象属于当前 AVD 系统层限制，不能表述为游戏通过了实体设备稳定性验证。
 - `persistentDataPath` 位于 `/sdcard/Android/data/com.personal.universalgacha/files`。早期 root ADB 诊断曾因 owner/group 与 SELinux context 错误导致应用不能读取，该方式只保留为问题证据，不再作为正式安装流程；当前非 root 安装脚本验证见下一项。
 - 干净 Android 14 首装证明 adb shell 不能在应用首次启动前创建 `/sdcard/Android/data/<package>/files`。`install_smoke_content.ps1` 已改为安装后先启动一次应用，由 Unity 以应用身份创建专属目录，再停止、推送公开只读配置并正式启动；脚本自测 12/12、Remote 预检以及同一 APK 的 `-SkipInstall` 实机路径均通过。目录 owner/context 为应用 UID + `ext_data_rw` + `u:object_r:fuse:s0`，配置只含公开 catalog URL、timeout 与大小上限。
+- 设置页已在 Android 上验证静音、减少动态、震动与 1.5x 动画速度，PlayerPrefs 分别记录 `0/1/1/1.5`；强制停止并重启后界面和数值保持一致，最后恢复默认值。证据包括 `android14-settings-persisted.png`、`android14-settings-restored-defaults.png` 与本次最终 EditMode 的设置/粒子测试。
+- 后台生命周期已取得 `onPause`、`APP_CMD_PAUSE/STOP/SAVE_STATE`、`onResume`、`APP_CMD_RESUME/GAINED_FOCUS` 与音频状态证据，恢复后游戏画面正常且未变更存档。`vibrator_manager` 同时记录到 `com.personal.universalgacha` 的 `TOUCH` 震动请求；这只证明软件请求链路，不宣称模拟器能够替代实体触感或扬声器音质。
+- 在同一 New Input only 包中真实开启一包并保存 11 张卡后，`save.json` 为 1317 bytes、SHA-256 `f191003eb5a709a149653b5983ecb076fac30475454794b3678c6203302a4246`。移除 `en.base1` 后资源目录和安装凭据消失但哈希不变；从 Site 重新下载后资源与凭据恢复，收藏页显示 `1 installed sets · 11/204 collected · 11 new` 并加载卡图，哈希仍完全相同。核心证据为 `android14-collection-remove-success.png`、`android14-collection-redownload-installed.png` 与 `android14-collection-after-reinstall.png`。
+- 最终自动回归为 `TestResults/final-playmode.xml` 的 7/7 与 `TestResults/final-editmode.xml` 的 236/236。空间失败使用 `Plan_StorageFailure_IsReturnedAsStateInsteadOfEscaping`、损坏收据与事务回滚测试证明不会覆盖旧内容；云冲突只引用 `ConflictResolver_PrefersMostRecentlyModifiedProgress` 的确定性测试，不虚构真实云账号冲突。
 
-当前阻塞问题（尚未通过）：
+当前剩余收尾：
 
-- Android 按钮根背景不可变方案已经通过设备边界验证；PlayMode 合成点击与 Android 实际触控所得结论一致。后续普通逻辑、UI 状态、动画与语言修改继续只走“定向 PlayMode → 完整 PlayMode”，不再为同一源码重建 APK；只有生产包或新的平台边界变化才允许构建 Android。
-- 十四项收据尚未全部生成；安装启动、触控导航、远端首次下载、暂停/恢复/取消、离线重启与缓存 catalog、网络断开/恢复、内容卸载且存档保留已经取得模拟器证据。新输入后端设置仍须随最终 ARM64 包做一次 Android 平台复验；存储失败保护、后台/音频焦点、减少动态、内容重装后的收藏核对和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
-- 最新源码的完整 EditMode 为 235/235、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
+- Android 按钮、触控、输入后端、设置、后台、远程资源与收藏重装的软件收据已经闭环。后续普通逻辑、UI 状态、动画与语言修改固定走“定向 PlayMode → 完整 PlayMode → 必要 EditMode”；不再为同一源码重复构建 APK。
+- 模拟器无法证明实体震动手感、实体扬声器音质与真实蜂窝切换，收据以 `physicalHaptics`、`physicalSpeakerQuality`、`cellularHandover` 明确保留限制；这些限制不冒充实体体验。
+- 最新源码的完整 EditMode 为 236/236、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
 
 工作区与下次执行顺序：
 
-1. 内容页根背景不可变、Label 按压反馈、手指输入、下载/暂停/恢复/取消/删除状态流以及完整自动回归均已通过；第四候选的 Android 实际触控证据已经闭环。
-2. 复用同一候选 APK 与现有模拟器，补齐离线、网络恢复、失败保护、后台、减少动态、收藏重装和云冲突等软件收据；不因重复测试重新构建。
-3. 软件收据完成后只构建一次生产 ARM64 干净包，执行 ABI、隐私、体积和配置审计。
-4. 保留实体设备限定的触觉、扬声器音质与蜂窝切换限制，运行最终 `project_completion_audit.ps1 -RequireComplete`，并把可证明范围与硬件限制如实写回本文件和主计划。
+1. 以已经通过的最终 PlayMode 7/7 与 EditMode 236/236 作为源码基线。
+2. 只构建一次生产 ARM64 干净包，执行 ABI、权限、隐私、体积和配置审计。
+3. 重新连接同一模拟器以让审计核对已安装软件与十四项收据，运行 `project_completion_audit.ps1 -RequireComplete`；实体硬件限制继续如实保留。
 
 ## 一、保留最终自动测试证据
 
