@@ -21,6 +21,8 @@
 - 第四份“根背景不可变”候选构建成功，APK 大小为 53,363,788 bytes（50.89 MiB），SHA-256 为 `65637a90f53c02544b788c6968fbaa1158cbfb592e8786b02ebdcaab42532a87`；414 个 ZIP 条目、仅 x86_64 ABI、私人资源名称匹配 0，构建日志为 `TestResults/android-emulator-immutable-background-candidate-20260729051000.log`。Android 14 / OpenGLES3 上的 `android14-immutable-content-before.png` 与 `android14-immutable-invalid-pause.png` 证明无效 Pause 点击后，按钮背景、边框、文字和所在内容行全部保持正确；第四候选是本轮最终 Android 修复包。
 - 第四候选还完成了一次真实 `en.base1` 远端生命周期验收：`android14-download-progress.png`、`android14-download-paused.png`、`android14-download-resumed.png` 和 `android14-download-cancelled.png` 分别证明下载进度、14% 暂停、断点恢复与取消；重新下载随后达到 100% / 14.2 MiB 并显示 `Installed`，证据为 `android14-download-complete-check.png`。设备安装收据记录 15,189,695 bytes、revision 1 与 SHA-256 `2522292cb3d2db4a782ef065800acf0349285e63434ead6237d72efa27beceac`。
 - 删除生命周期也在同一 APK、同一模拟器上完成：第一次 Remove 只显示“收藏进度仍保留”的确认信息，Cancel 会撤销且安装收据仍存在；再次确认后 `Content/en/base1` 与 `Content/.packages/en.base1.json` 均消失，但 `save.json` 保留。证据为 `android14-remove-confirm.png`、`android14-remove-confirm-cancelled.png` 与 `android14-remove-complete.png`。
+- 同一 APK 在飞行模式下强制停止并重启后，启动日志明确记录 `Unity Services is unavailable; continuing offline` 与 `Game data initialized in offline mode`；进入内容页仍从最后验证的缓存 catalog 列出两个卡包，并显示离线警告，证据为 `android14-offline-cached-catalog.png`。恢复网络并刷新后在线状态恢复，证据为 `android14-network-restored.png`。
+- 网络恢复验收同时暴露了 Unity Input System 内部持续空引用：堆栈位于 `InputManager.FireStateChangeNotifications` / `InputActionState.OnBeforeInitialUpdate`。项目没有使用旧 `UnityEngine.Input` API，却把 `Active Input Handling` 设为 Android 不支持的 `Both`；源码已收敛为仅 New Input System，并新增 Android 构建契约。定向 EditMode 3/3、完整 PlayMode 7/7、完整 EditMode 236/236 通过，证据为 `input-backend-editmode-20260729055000.xml`、`full-playmode-input-backend-20260729055500.xml` 与 `full-editmode-input-backend-20260729060000.xml`；Android 平台复验留给最终 ARM64 构建，不为此再制作中间 APK。
 - 模拟器包会先构建 Addressables Player Content，并只在 x86_64 软件渲染验收包中临时使用 Built-in Render Pipeline；生产 ARM64 构建仍保留 URP。正常启动日志没有 `Unable to load runtime data`、`No Locales`、`UniversalRenderPipeline..ctor` 或致命异常；AVD 极慢启动造成的系统/应用 ANR 限制另见下文。
 - APK 已通过 `adb install -r` 覆盖安装并进入启动页、主菜单和内容管理页；主菜单和纵向内容页的 1080×2220 布局可完整显示。
 - 同一个 APK 在 Android Emulator Vulkan/SwiftShader 路径上曾出现 UI Toolkit 完全不绘制但按钮仍可点击、改变窗口尺寸后恢复；不改代码、不重建，仅用 `--es unity -force-gles30` 启动后，首次进入内容页即完整显示，证据为 `TestResults/gles-content-first-attach-2-202607290117.png`。因此该黑屏判定为模拟器图形路径限制，不再通过修改游戏 UI 逻辑规避。Unity 官方也记录过 Vulkan 驱动下 UI Toolkit 黑屏类问题：<https://issuetracker.unity3d.com/issues/ui-toolkit-draws-black-screen-on-adreno-740>。
@@ -32,7 +34,7 @@
 当前阻塞问题（尚未通过）：
 
 - Android 按钮根背景不可变方案已经通过设备边界验证；PlayMode 合成点击与 Android 实际触控所得结论一致。后续普通逻辑、UI 状态、动画与语言修改继续只走“定向 PlayMode → 完整 PlayMode”，不再为同一源码重建 APK；只有生产包或新的平台边界变化才允许构建 Android。
-- 十四项收据尚未全部生成；安装启动、触控导航、远端首次下载、暂停/恢复/取消、内容卸载且存档保留已经取得模拟器证据。离线重启、网络断开/恢复、存储失败保护、后台/音频焦点、减少动态、内容重装后的收藏核对和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
+- 十四项收据尚未全部生成；安装启动、触控导航、远端首次下载、暂停/恢复/取消、离线重启与缓存 catalog、网络断开/恢复、内容卸载且存档保留已经取得模拟器证据。新输入后端设置仍须随最终 ARM64 包做一次 Android 平台复验；存储失败保护、后台/音频焦点、减少动态、内容重装后的收藏核对和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
 - 最新源码的完整 EditMode 为 235/235、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
 
 工作区与下次执行顺序：

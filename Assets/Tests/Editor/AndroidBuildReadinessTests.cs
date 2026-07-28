@@ -49,4 +49,16 @@ public class AndroidBuildReadinessTests
         Assert.That(AndroidSmokeBuilder.EmulatorUsesBuiltInRenderPipeline, Is.True,
             "The x86_64 emulator artifact must isolate SwiftShader URP failures from software acceptance.");
     }
+
+    [Test]
+    public void AndroidBuild_UsesOnlyTheNewInputSystem()
+    {
+        const string settingsPath = "ProjectSettings/ProjectSettings.asset";
+        string settings = File.ReadAllText(settingsPath);
+
+        Assert.That(settings, Does.Contain("  activeInputHandler: 1"),
+            "Android does not support Active Input Handling = Both in Unity 6. " +
+            "The project uses InputSystemUIInputModule and must keep only the new Input System enabled.");
+        Assert.That(settings, Does.Not.Contain("  activeInputHandler: 2"));
+    }
 }
