@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Presentation;
@@ -9,11 +10,15 @@ using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 namespace Gacha.Tests.PlayMode
 {
     public class LanguageSettingsPanelPlayModeTests
     {
+        private readonly List<string> unexpectedHeadlessErrors = new List<string>();
+        private bool captureHeadlessErrors;
+
         private sealed class AudioSink : IAudioFeedbackSink
         {
             public int PlayCount { get; private set; }
@@ -25,12 +30,65 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        [SetUp]
+        public void SetUpHeadlessLogIsolation()
+        {
+            unexpectedHeadlessErrors.Clear();
+            captureHeadlessErrors = System.Environment.GetCommandLineArgs()
+                .Any(argument => string.Equals(
+                    argument,
+                    "-nographics",
+                    System.StringComparison.OrdinalIgnoreCase));
+            if (!captureHeadlessErrors)
+                return;
+
+            // The legacy background VideoPlayer cannot create its render target under
+            // Unity's -nographics runner. Capture logs ourselves so only those two known
+            // graphics errors are tolerated and every game error still fails the test.
+            LogAssert.ignoreFailingMessages = true;
+            UnityEngine.Application.logMessageReceived += CaptureHeadlessError;
+        }
+
+        [TearDown]
+        public void TearDownHeadlessLogIsolation()
+        {
+            if (!captureHeadlessErrors)
+                return;
+
+            UnityEngine.Application.logMessageReceived -= CaptureHeadlessError;
+            LogAssert.ignoreFailingMessages = false;
+            captureHeadlessErrors = false;
+            Assert.That(unexpectedHeadlessErrors, Is.Empty,
+                "Unexpected error logs escaped the headless VideoPlayer allowance:\n" +
+                string.Join("\n", unexpectedHeadlessErrors));
+        }
+
+        private void CaptureHeadlessError(string condition, string stackTrace, LogType type)
+        {
+            if (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
+                return;
+            if (condition == "RenderTexture.Create failed" ||
+                condition == "Failed to set the active render target, ensure that it is a valid render target.")
+                return;
+            unexpectedHeadlessErrors.Add(condition + "\n" + stackTrace);
+        }
+
         [UnityTest]
         public IEnumerator SettingsScene_InstallsPanelAndChangesOnlyUiLanguage()
         {
             AsyncOperation load = SceneManager.LoadSceneAsync("005_SettingScene", LoadSceneMode.Single);
             yield return load;
             yield return null;
+            if (captureHeadlessErrors)
+            {
+                foreach (VideoPlayer player in Object.FindObjectsByType<VideoPlayer>(
+                             FindObjectsInactive.Include,
+                             FindObjectsSortMode.None))
+                {
+                    player.Stop();
+                    player.enabled = false;
+                }
+            }
 
             LanguageSettingsPanel panel = Object.FindFirstObjectByType<LanguageSettingsPanel>(FindObjectsInactive.Include);
             ExperienceSettingsPanel experiencePanel = Object.FindFirstObjectByType<ExperienceSettingsPanel>(FindObjectsInactive.Include);
@@ -121,7 +179,8 @@ namespace Gacha.Tests.PlayMode
             Assert.That(UIFeedbackService.ReduceMotion, Is.EqualTo(original.ReduceMotion));
             Assert.That(UIFeedbackService.HapticsEnabled, Is.EqualTo(original.HapticsEnabled));
             Assert.That(UIFeedbackService.AnimationSpeed, Is.EqualTo(original.AnimationSpeed));
-            LogAssert.NoUnexpectedReceived();
+            if (!captureHeadlessErrors)
+                LogAssert.NoUnexpectedReceived();
         }
 
     }
