@@ -182,7 +182,10 @@ namespace Gacha.Presentation
 
             private void SetPressed(bool value)
             {
-                Root.EnableInClassList("is-pressed", value);
+                // Keep the Android background/border render node immutable. Only the
+                // child label changes color while pressed; root color transitions have
+                // reproduced stale or missing backgrounds under SwiftShader/GLES.
+                Label.EnableInClassList("is-pressed", value);
             }
 
             private static bool IsActivationKey(KeyCode key)

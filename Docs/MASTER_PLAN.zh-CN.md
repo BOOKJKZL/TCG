@@ -2,7 +2,7 @@
 
 最后更新：2026-07-29
 
-本次修改原因：Site-first 远程内容闭环已经完成，当前关键路径转为阶段 7F/9 的 Android 验收。验证节奏固定为 Play Mode 优先；两份 Android 候选把内容页错位定位到 UI Toolkit 原生 Button 按压渲染路径，最新实现以稳定 `VisualElement + Label` action control 完全绕过该路径。项目审计当前为 96%，只有十四项 Android 有证据收据、最终生产 ARM64 构建与审计都通过才允许报告 100%。
+本次修改原因：Site-first 远程内容闭环已经完成，当前关键路径转为阶段 7F/9 的 Android 验收。验证节奏固定为 Play Mode 优先；三份 Android 候选已把内容页错位从原生 Button 进一步定位到 action 根节点的 background/border transition，最新实现让根背景完全不可变、按压仅改变子 Label。项目审计当前为 96%，只有十四项 Android 有证据收据、最终生产 ARM64 构建与审计都通过才允许报告 100%。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
 
@@ -627,7 +627,7 @@ Content Language  卡名、卡图、系列和产品
 
 7E 公网收尾（2026-07-27）：电脑直传版本已部署并绑定本机发布器；Unity 成功上传两个 ZIP 后最后切换 catalog。独立客户端再次验证两包完整字节数、SHA-256、中点 `206 Content-Range` 与 8/8 只读方法边界，远程运行配置通过 Android 安装器的无设备预检，项目审计提升到 96%。下一切片只安装到 Android 私人持久目录，完成首次下载、中断续传、离线重启和真机卸载/重装；独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
-7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界才制作候选 APK。首轮把 Download/Pause/Remove/Cancel 改为永久节点并由控制器守卫无效操作；第一份候选证明无效 Pause 不改变状态但仍会使文字/背景错位。第二份候选移除 scale 后仍会让原生 Button 背景消失，因而排除 scale 是单一根因。第三轮从内容页彻底移除原生 `Button` 与 `:active`，页头和内容操作统一使用稳定 `VisualElement + Label`、手动 pointer/keyboard、`.is-pressed` 颜色/边框动画与既有音效守卫；静态契约与运行时 UI 树都拒绝原生 Button 回归，合成手指点击会真实启动下载。定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过；下一步只构建一份新候选 APK 完成 Android 远程状态流验收。
+7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界才制作候选 APK。首轮把四个操作改为永久节点并以控制器守卫无效操作；第一份候选仍会使文字/背景错位。第二份移除 scale 后仍丢失原生 Button 背景。第三轮彻底移除原生 `Button` 与 `:active`，纯 `VisualElement + Label` 的文字/热区保持正确，但无效 Pause 仍让根背景消失；因此真正共同边界是根 action 节点 background/border transition。第四轮让页头和内容 action 的根节点 class、背景、边框在运行时完全不可变，手动 pointer/keyboard 的按压反馈只改变 Label 颜色，有效操作继续使用统一音效；契约拒绝根 transition、根 pressed class、原生 Button 与 `:active` 回归，合成点击仍会真实启动下载。定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过。干净 Android 14 同时发现并修复“首次启动前 adb 无权创建 app external files root”的安装器问题，脚本现在先启动一次应用创建目录再推送公开配置，12/12 自测和真实 `-SkipInstall` 路径通过；下一步只构建一份根背景不可变候选完成 Android 远程状态流验收。
 
 验收：
 

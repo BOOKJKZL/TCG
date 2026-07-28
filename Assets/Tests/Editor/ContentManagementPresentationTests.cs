@@ -114,8 +114,10 @@ public class ContentManagementPresentationTests
     {
         string styles = File.ReadAllText("Assets/UI/Styles.uss").Replace("\r\n", "\n");
         string view = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
+        string controller = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
         Match normalRule = Regex.Match(styles, @"(?ms)^\.content-button\s*\{(?<body>.*?)\}");
-        Match pressedRule = Regex.Match(styles, @"(?ms)^\.content-button\.is-pressed\s*\{(?<body>.*?)\}");
+        Match pressedRule = Regex.Match(styles, @"(?ms)^\.content-button__label\.is-pressed\s*\{(?<body>.*?)\}");
 
         Assert.That(normalRule.Success, Is.True);
         Assert.That(pressedRule.Success, Is.True);
@@ -125,12 +127,17 @@ public class ContentManagementPresentationTests
             "Native :active state has reproduced stale Android text/background geometry.");
         Assert.That(normalRule.Groups["body"].Value, Does.Not.Contain("scale"),
             "Android UI Toolkit can retain stale button text geometry after a scale transition.");
+        Assert.That(normalRule.Groups["body"].Value, Does.Not.Contain("transition"),
+            "Android content action backgrounds and borders must remain immutable after attachment.");
         Assert.That(pressedRule.Groups["body"].Value, Does.Not.Contain("scale"),
             "Content button press feedback must not use a render transform on Android.");
-        Assert.That(normalRule.Groups["body"].Value,
-            Does.Contain("transition-property: background-color, border-color;"));
-        Assert.That(pressedRule.Groups["body"].Value, Does.Contain("border-color:"),
-            "Manual pressed-state color feedback should replace native Button pseudo state.");
+        Assert.That(pressedRule.Groups["body"].Value, Does.Not.Contain("background-color:"));
+        Assert.That(pressedRule.Groups["body"].Value, Does.Not.Contain("border-color:"));
+        Assert.That(pressedRule.Groups["body"].Value, Does.Contain("color:"),
+            "Manual pressed feedback should repaint only the child label.");
+        Assert.That(controller, Does.Contain("Label.EnableInClassList(\"is-pressed\", value);"));
+        Assert.That(controller, Does.Not.Contain("Root.EnableInClassList(\"is-pressed\", value);"),
+            "Pointer input must never mutate the Android background render node.");
     }
 
     [Test]

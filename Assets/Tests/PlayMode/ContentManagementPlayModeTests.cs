@@ -257,10 +257,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(cancel.enabledSelf, Is.True);
                 int initialCueCount = cues.Count;
                 SendPointerDown(pause);
-                Assert.That(pause.ClassListContains("is-pressed"), Is.True,
-                    "Manual pointer feedback should be visible without native :active state.");
+                Assert.That(pause.ClassListContains("is-pressed"), Is.False,
+                    "The Android background render node must remain immutable while pressed.");
+                Assert.That(ActionLabel(pause).ClassListContains("is-pressed"), Is.True,
+                    "Manual pointer feedback should be isolated to the label without native :active state.");
                 SendPointerUp(pause);
-                Assert.That(pause.ClassListContains("is-pressed"), Is.False);
+                Assert.That(ActionLabel(pause).ClassListContains("is-pressed"), Is.False);
                 yield return null;
                 Assert.That(controller.CancelPackage(SuccessId), Is.False);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.False);
@@ -282,9 +284,10 @@ namespace Gacha.Tests.PlayMode
                 Rect[] persistentGeometry = CaptureActionGeometry(actions, download, pause, remove, cancel);
 
                 SendPointerDown(download);
-                Assert.That(download.ClassListContains("is-pressed"), Is.True);
-                SendPointerUp(download);
                 Assert.That(download.ClassListContains("is-pressed"), Is.False);
+                Assert.That(ActionLabel(download).ClassListContains("is-pressed"), Is.True);
+                SendPointerUp(download);
+                Assert.That(ActionLabel(download).ClassListContains("is-pressed"), Is.False);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Downloading &&
                        controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
@@ -478,7 +481,12 @@ namespace Gacha.Tests.PlayMode
 
         private static string ActionText(VisualElement control)
         {
-            return control?.Q<Label>()?.text;
+            return ActionLabel(control)?.text;
+        }
+
+        private static Label ActionLabel(VisualElement control)
+        {
+            return control?.Q<Label>();
         }
 
         private static void SendPointerDown(VisualElement control)

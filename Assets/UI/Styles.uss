@@ -204,8 +204,6 @@
     background-color: rgb(24, 119, 137);
     font-size: 16px;
     -unity-font-style: bold;
-    transition-property: background-color, border-color;
-    transition-duration: 0.12s;
 }
 
 .content-button__label {
@@ -215,17 +213,12 @@
     -unity-text-align: middle-center;
 }
 
-.content-button:hover {
-    background-color: rgb(32, 151, 169);
+.content-button:hover .content-button__label {
+    color: rgb(211, 247, 250);
 }
 
-.content-button.is-pressed {
-    border-color: rgb(211, 247, 250);
-    background-color: rgb(18, 92, 108);
-}
-
-.reduce-motion .content-button {
-    transition-duration: 0s;
+.content-button__label.is-pressed {
+    color: rgb(132, 239, 247);
 }
 
 .content-button--primary {
