@@ -45,6 +45,42 @@ function Get-UnityGraphicsArgument {
     }
 }
 
+function Start-SmokeApp {
+    param(
+        [string]$Adb,
+        [string]$PackageId,
+        [AllowNull()]
+        [string]$GraphicsArgument
+    )
+
+    if ($null -ne $GraphicsArgument) {
+        $activity = "$PackageId/com.unity3d.player.UnityPlayerGameActivity"
+        & $Adb shell am start -n $activity --es unity $GraphicsArgument
+    }
+    else {
+        & $Adb shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
+    }
+    Assert-LastExitCode -Message "The smoke app could not be launched."
+}
+
+function Wait-ForDeviceDirectory {
+    param(
+        [string]$Adb,
+        [string]$Path,
+        [int]$TimeoutSeconds = 45
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        & $Adb shell test -d $Path 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    return $false
+}
+
 function Read-RemoteContentConfiguration {
     param(
         [string]$Json,
@@ -276,9 +312,22 @@ else {
     Assert-LastExitCode -Message "APK installation failed."
 }
 
+$isEmulator = ((& $adb shell getprop ro.kernel.qemu).Trim() -eq "1")
+Assert-LastExitCode -Message "Could not identify whether the Android target is an emulator."
+$graphicsArgument = Get-UnityGraphicsArgument -Mode $GraphicsApi -IsEmulator $isEmulator
 $deviceRoot = "/sdcard/Android/data/$PackageId/files"
-& $adb shell mkdir -p $deviceRoot
-Assert-LastExitCode -Message "Could not create the app persistent data directory."
+& $adb shell test -d $deviceRoot 2>$null
+if ($LASTEXITCODE -ne 0) {
+    # Android 11+ prevents adb shell from creating another app's external files root.
+    # Launch once so Unity calls getExternalFilesDir() in the app identity, then stop
+    # before installing the selected local/remote content configuration.
+    Start-SmokeApp -Adb $adb -PackageId $PackageId -GraphicsArgument $graphicsArgument
+    if (-not (Wait-ForDeviceDirectory -Adb $adb -Path $deviceRoot)) {
+        throw "The app did not create its persistent data directory after first launch: $deviceRoot"
+    }
+    & $adb shell am force-stop $PackageId
+    Assert-LastExitCode -Message "Could not stop the app after initializing its persistent data directory."
+}
 
 if ($ResetDownloadedContent) {
     & $adb shell rm -rf "$deviceRoot/Content" "$deviceRoot/ContentDownloads"
@@ -298,17 +347,8 @@ else {
 }
 
 & $adb shell am force-stop $PackageId
-$isEmulator = ((& $adb shell getprop ro.kernel.qemu).Trim() -eq "1")
-Assert-LastExitCode -Message "Could not identify whether the Android target is an emulator."
-$graphicsArgument = Get-UnityGraphicsArgument -Mode $GraphicsApi -IsEmulator $isEmulator
-if ($null -ne $graphicsArgument) {
-    $activity = "$PackageId/com.unity3d.player.UnityPlayerGameActivity"
-    & $adb shell am start -n $activity --es unity $graphicsArgument
-}
-else {
-    & $adb shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
-}
-Assert-LastExitCode -Message "The smoke app could not be launched."
+Assert-LastExitCode -Message "Could not stop the app before its configured launch."
+Start-SmokeApp -Adb $adb -PackageId $PackageId -GraphicsArgument $graphicsArgument
 
 $modeSummary = if ($ContentMode -eq "Local") {
     "copied private local content"
