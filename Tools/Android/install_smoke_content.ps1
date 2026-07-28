@@ -5,6 +5,9 @@ param(
     [ValidateSet("Local", "Remote")]
     [string]$ContentMode = "Local",
     [string]$RemoteConfigPath = "LocalContent/remote-content.json",
+    [ValidateSet("Auto", "Default", "OpenGLES3", "Vulkan")]
+    [string]$GraphicsApi = "Auto",
+    [switch]$SkipInstall,
     [switch]$ResetDownloadedContent,
     [switch]$ValidateOnly,
     [switch]$SelfTest
@@ -19,6 +22,26 @@ function Assert-PackageId {
 
     if ($Value -notmatch '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$') {
         throw "PackageId must be a dotted Android application id containing only letters, digits, and underscores."
+    }
+}
+
+function Get-UnityGraphicsArgument {
+    param(
+        [string]$Mode,
+        [bool]$IsEmulator
+    )
+
+    switch ($Mode) {
+        "Auto" {
+            if ($IsEmulator) {
+                return "-force-gles30"
+            }
+            return $null
+        }
+        "Default" { return $null }
+        "OpenGLES3" { return "-force-gles30" }
+        "Vulkan" { return "-force-vulkan" }
+        default { throw "Unsupported graphics API mode '$Mode'." }
     }
 }
 
@@ -86,8 +109,8 @@ function Read-RemoteContentConfiguration {
 
 function Resolve-AdbPath {
     $candidates = @(
-        "C:\Program Files\Unity\Hub\Editor\$UnityVersion\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe",
-        (Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools\adb.exe")
+        (Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools\adb.exe"),
+        "C:\Program Files\Unity\Hub\Editor\$UnityVersion\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe"
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate) {
@@ -184,7 +207,24 @@ function Invoke-SelfTest {
     }
     $passed++
 
-    $total = $cases.Count + 4
+    if ((Get-UnityGraphicsArgument -Mode "Auto" -IsEmulator $true) -ne "-force-gles30") {
+        throw "Self-test failed: emulator Auto mode must avoid the SwiftShader Vulkan UI Toolkit path."
+    }
+    $passed++
+    if ($null -ne (Get-UnityGraphicsArgument -Mode "Auto" -IsEmulator $false)) {
+        throw "Self-test failed: physical devices must keep the PlayerSettings graphics API order."
+    }
+    $passed++
+    if ((Get-UnityGraphicsArgument -Mode "OpenGLES3" -IsEmulator $false) -ne "-force-gles30") {
+        throw "Self-test failed: explicit OpenGLES3 mode."
+    }
+    $passed++
+    if ((Get-UnityGraphicsArgument -Mode "Vulkan" -IsEmulator $true) -ne "-force-vulkan") {
+        throw "Self-test failed: explicit Vulkan mode."
+    }
+    $passed++
+
+    $total = $cases.Count + 8
     Write-Output "Android smoke installer self-test passed: $passed/$total."
 }
 
@@ -194,7 +234,10 @@ if ($SelfTest) {
 }
 
 Assert-PackageId -Value $PackageId
-$resolvedApk = (Resolve-Path (Join-Path $repoRoot $ApkPath)).Path
+$resolvedApk = $null
+if (-not $SkipInstall) {
+    $resolvedApk = (Resolve-Path (Join-Path $repoRoot $ApkPath)).Path
+}
 $contentSource = $null
 $remoteConfiguration = $null
 
@@ -208,7 +251,8 @@ else {
 }
 
 if ($ValidateOnly) {
-    Write-Output "Validation succeeded for $ContentMode mode. APK and selected content source exist; no device changes were made."
+    $apkSummary = if ($SkipInstall) { "APK reuse selected" } else { "APK and selected content source exist" }
+    Write-Output "Validation succeeded for $ContentMode mode. $apkSummary; no device changes were made."
     exit 0
 }
 
@@ -220,8 +264,17 @@ if ($connected.Count -ne 1) {
     throw "Connect exactly one authorized Android device before running this smoke installer. Found $($connected.Count)."
 }
 
-& $adb install -r $resolvedApk
-Assert-LastExitCode -Message "APK installation failed."
+if ($SkipInstall) {
+    $installedPackage = & $adb shell pm path $PackageId
+    Assert-LastExitCode -Message "Could not query the installed Android package."
+    if (@($installedPackage | Where-Object { $_ -match '^package:' }).Count -eq 0) {
+        throw "SkipInstall requires $PackageId to be installed on the selected Android target."
+    }
+}
+else {
+    & $adb install -r $resolvedApk
+    Assert-LastExitCode -Message "APK installation failed."
+}
 
 $deviceRoot = "/sdcard/Android/data/$PackageId/files"
 & $adb shell mkdir -p $deviceRoot
@@ -245,7 +298,16 @@ else {
 }
 
 & $adb shell am force-stop $PackageId
-& $adb shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
+$isEmulator = ((& $adb shell getprop ro.kernel.qemu).Trim() -eq "1")
+Assert-LastExitCode -Message "Could not identify whether the Android target is an emulator."
+$graphicsArgument = Get-UnityGraphicsArgument -Mode $GraphicsApi -IsEmulator $isEmulator
+if ($null -ne $graphicsArgument) {
+    $activity = "$PackageId/com.unity3d.player.UnityPlayerGameActivity"
+    & $adb shell am start -n $activity --es unity $graphicsArgument
+}
+else {
+    & $adb shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
+}
 Assert-LastExitCode -Message "The smoke app could not be launched."
 
 $modeSummary = if ($ContentMode -eq "Local") {
@@ -254,4 +316,6 @@ $modeSummary = if ($ContentMode -eq "Local") {
 else {
     "installed the public remote catalog configuration"
 }
-Write-Output "Installed the APK, $modeSummary, and launched $PackageId."
+$graphicsSummary = if ($null -eq $graphicsArgument) { "default graphics API" } else { $graphicsArgument }
+$installSummary = if ($SkipInstall) { "Reused the installed APK" } else { "Installed the APK" }
+Write-Output "$installSummary, $modeSummary, and launched $PackageId with $graphicsSummary."

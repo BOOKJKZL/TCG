@@ -1,6 +1,6 @@
 # 100% 最终验收说明
 
-最后更新：2026-07-27
+最后更新：2026-07-29
 
 ## 当前判定
 
@@ -8,37 +8,37 @@
 
 `Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。
 
-## 2026-07-27 暂停点记录
+## 2026-07-29 续作检查点
 
-本轮按用户要求暂停，不再继续修改代码或执行后续验收。下次收到“继续”后从本节的未完成项接手，不应重新开展已经证明的 Site、构建和首次下载工作。
+验证顺序改为 Unity Play Mode 优先：逻辑、UI 状态、动画、语言与下载状态机必须先通过 PlayMode；只有 Android 权限、存储路径、图形驱动、触觉和音频焦点等平台边界才使用现有 APK 验收。源码未变化时不得重复构建，已安装同版 APK 可通过安装脚本的 `-SkipInstall` 复用。
 
 已经取得的 Android 模拟器证据：
 
 - 验收目标为 Android 14 / API 34 的 `Pixel_3a_API_34_extension_level_7_x86_64`，ADB 序列号为 `emulator-5554`；使用独立的 `TestResults/Emulator` 数据盘，不污染默认 AVD。
-- 最终一次 x86_64 干净构建成功，APK 为 `Builds/Android/UniversalGachaSimulator-emulator-x86_64.apk`，大小 53,357,089 bytes，Unity 退出码为 0；构建日志在 `TestResults/android-emulator-addressables-build.log`。
-- 模拟器包会先构建 Addressables Player Content，并只在 x86_64 软件渲染验收包中临时使用 Built-in Render Pipeline；生产 ARM64 构建仍保留 URP。重启后的应用日志没有 `Unable to load runtime data`、`No Locales`、`UniversalRenderPipeline..ctor`、应用 ANR 或致命异常。
+- 最终一次 x86_64 干净构建成功，APK 为 `Builds/Android/UniversalGachaSimulator-emulator-x86_64.apk`，大小 53,361,879 bytes，SHA-256 为 `9a1c7d6ff3d0d96479a48a35f7ca08510de3c3bcd691df677f996ddd56479fd8`，Unity 退出码为 0；构建日志在 `TestResults/android-emulator-final-ui-clean-build-20260729003600.log`。
+- 模拟器包会先构建 Addressables Player Content，并只在 x86_64 软件渲染验收包中临时使用 Built-in Render Pipeline；生产 ARM64 构建仍保留 URP。正常启动日志没有 `Unable to load runtime data`、`No Locales`、`UniversalRenderPipeline..ctor` 或致命异常；AVD 极慢启动造成的系统/应用 ANR 限制另见下文。
 - APK 已通过 `adb install -r` 覆盖安装并进入启动页、主菜单和内容管理页；主菜单和纵向内容页的 1080×2220 布局可完整显示。
+- 同一个 APK 在 Android Emulator Vulkan/SwiftShader 路径上曾出现 UI Toolkit 完全不绘制但按钮仍可点击、改变窗口尺寸后恢复；不改代码、不重建，仅用 `--es unity -force-gles30` 启动后，首次进入内容页即完整显示，证据为 `TestResults/gles-content-first-attach-2-202607290117.png`。因此该黑屏判定为模拟器图形路径限制，不再通过修改游戏 UI 逻辑规避。Unity 官方也记录过 Vulkan 驱动下 UI Toolkit 黑屏类问题：<https://issuetracker.unity3d.com/issues/ui-toolkit-draws-black-screen-on-adreno-740>。
 - Site catalog 在应用中列出 `en.base1` 与 `en.neo1`。`en.base1` 的已安装状态跨覆盖安装保留；`en.neo1.part` 以 10,402,432 bytes 的旧 offset 进入 64% 续传，之后下载至 100% 并显示 `Installed`。这证明远程读取和断点续传主链路可工作，但尚未代替其余十四项收据。
-- 模拟器冷启动偶尔出现 Android 自身的 `System UI isn't responding`。选择 `Wait` 后重新启动游戏可正常运行；应用进程没有对应 ANR。该现象属于当前 AVD 系统层限制，不能表述为游戏通过了实体设备稳定性验证。
+- 模拟器冷启动偶尔出现 `System UI isn't responding`、`Process system isn't responding`，极慢启动时也可能触发应用 ANR；选择 `Wait` 并在系统稳定后重新启动游戏可正常运行。该现象属于当前 AVD 系统层限制，不能表述为游戏通过了实体设备稳定性验证。
 - `persistentDataPath` 位于 `/sdcard/Android/data/com.personal.universalgacha/files`。本轮通过 root ADB 放入 `remote-content.json` 后，必须把 owner/group 与 SELinux context 修正为同目录已有文件一致，应用才能读取；正式安装脚本仍需在最终验收时单独复核非 root 流程。
 
 当前阻塞问题（尚未通过）：
 
-- Android UI Toolkit 在下载状态变化后仍会把第二行动态操作文字绘制到第一行左上角。真机截图中先出现错位的 `Pause`，下载完成后又出现错位的 `Remove`；实际按钮背景/热区没有跟随文字。因此“固定两个按钮槽位”的当前未提交实现不合格，不能提交为已修复，也不能生成 100% 收据。
-- 编辑器内定向 PlayMode 测试只断言了层级、文字和可见性，未检查按钮的实际几何位置，所以曾出现测试通过而 Android 仍失败。下一版必须增加 actions 容器高度、按钮绝对定位/固定槽位及 `layout/worldBound` 几何断言，再重新构建到模拟器验证。
+- 内容行现已使用四个永久渲染节点与固定绝对槽位，状态变化只切换 `enabledSelf`；PlayMode 已检查 actions 高度、四个按钮的 `layout/worldBound`、互不重叠、跨状态几何不变与中英文标签。仍需在 OpenGLES3 模拟器加载两个远端包后，实际点击下载、暂停、继续、取消和删除确认，才能把 Android 文字/背景/热区问题判定为通过。
 - 十四项收据尚未生成；离线重启、网络断开/恢复、存储失败保护、后台/音频焦点、减少动态、内容卸载重装保留收藏和云冲突仍需逐项取得证据。震动、实体扬声器音质与蜂窝切换只能记录模拟器软件证据和硬件限制，不能冒充实体体验。
-- 当前完整 EditMode/PlayMode、生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 都尚未在最新源码上重跑，因此当前结论仍是 96%，不是 100%。
+- 最新源码的完整 EditMode 为 234/234、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
 
 工作区与下次执行顺序：
 
-1. 保留并检查四个真正的未提交源码文件：`AndroidSmokeBuilder.cs`、`AndroidBuildReadinessTests.cs`、`ContentManagementController.cs`、`ContentManagementPlayModeTests.cs`；当前还包含 Unity 构建产生的字体、主题 meta、URP/ProjectSettings 和 Addressables 生成文件噪声，最终必须用补丁方式清理，不能误提交。
-2. 先修复内容行按钮的 Android 几何布局并补测试；运行定向 PlayMode/EditMode 后，重新制作模拟器 APK，实际点击安装、暂停、继续、取消与删除确认，截图证明文字、背景和热区始终位于同一行。
-3. 布局通过后，分别按主题提交“内容操作布局”和“完整 Android 验收构建”；不要把 Unity 自动生成噪声混入提交。
-4. 继续十四项收据、完整 EditMode/PlayMode、生产 ARM64 干净构建、APK 隐私检查和最终 100% 审计；最后再把结果写回本文件和主计划。
+1. 保留并检查真正的未提交源码：`ContentManagementController.cs`、`ContentManagementPlayModeTests.cs`、`Styles.uss` 与下载按钮本地化资产；字体、主题 meta、URP/ProjectSettings 和 Addressables 生成文件仍是构建噪声，最终必须用补丁方式清理，不能误提交。
+2. 使用现有 x86_64 APK 与 `install_smoke_content.ps1 -SkipInstall -ContentMode Remote`，让模拟器自动用 OpenGLES3 启动；实际点击下载、暂停、继续、取消与删除确认，截图证明文字、背景和热区始终位于同一行。不要为这一步重新构建。
+3. 只有源码继续变化时，才先运行定向 PlayMode 与完整 PlayMode，再制作一次候选 APK；布局通过后按主题提交“内容操作布局”与 Android 验收证据，不夹带 Unity 自动生成噪声。
+4. 继续十四项收据、生产 ARM64 干净构建、APK 隐私检查和最终 100% 审计；最后再把结果写回本文件和主计划。
 
 ## 一、保留最终自动测试证据
 
-测试结果必须写到 `TestResults/`，不能写到 Unity 会在下次启动时清理的 `Temp/`：
+测试结果必须写到 `TestResults/`，不能写到 Unity 会在下次启动时清理的 `Temp/`。功能开发先跑定向 PlayMode，再跑完整 PlayMode；不得用一次 APK 构建代替 PlayMode 回归：
 
 ```powershell
 $unity = "C:\Program Files\Unity\Hub\Editor\6000.0.73f1\Editor\Unity.exe"
