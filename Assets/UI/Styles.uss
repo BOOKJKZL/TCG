@@ -202,7 +202,7 @@
     background-color: rgb(24, 119, 137);
     font-size: 16px;
     -unity-font-style: bold;
-    transition-property: scale, background-color;
+    transition-property: background-color, border-color;
     transition-duration: 0.12s;
 }
 
@@ -211,15 +211,12 @@
 }
 
 .content-button:active {
-    scale: 0.96 0.96;
+    border-color: rgb(211, 247, 250);
+    background-color: rgb(18, 92, 108);
 }
 
 .reduce-motion .content-button {
     transition-duration: 0s;
-}
-
-.reduce-motion .content-button:active {
-    scale: 1 1;
 }
 
 .content-button--primary {

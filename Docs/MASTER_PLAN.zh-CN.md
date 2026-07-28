@@ -627,7 +627,7 @@ Content Language  卡名、卡图、系列和产品
 
 7E 公网收尾（2026-07-27）：电脑直传版本已部署并绑定本机发布器；Unity 成功上传两个 ZIP 后最后切换 catalog。独立客户端再次验证两包完整字节数、SHA-256、中点 `206 Content-Range` 与 8/8 只读方法边界，远程运行配置通过 Android 安装器的无设备预检，项目审计提升到 96%。下一切片只安装到 Android 私人持久目录，完成首次下载、中断续传、离线重启和真机卸载/重装；独立 Cloudflare bucket、Token 与自定义域名延后到 Site 容量或成本需要优化时处理。
 
-7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界统一制作一次候选 APK。旧 x86_64 APK 在 OpenGLES3 下载状态复现 disabled Button 背景消失、文字脱离内容行的问题；新源码让 Download/Pause/Remove/Cancel 四个渲染节点、标签与几何永久稳定，以控制器守卫拒绝无效操作。定向 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 234/234 通过；下一步只构建一次新候选 APK完成 Android 远程状态流验收，不重复构建。
+7F Play Mode 优先与 Android UI 稳定化（2026-07-29）：验证流程固定为源码修改后先跑定向 PlayMode、完整 PlayMode 和必要 EditMode，只有平台边界才制作候选 APK。首轮把 Download/Pause/Remove/Cancel 改为永久稳定节点并由控制器守卫无效操作；第一份候选 APK 随后用“无效 Pause 不改变状态但文字/背景错位”的证据，把 Android 根因进一步锁定为 `.content-button:active` 的 scale transform。第二轮源码改用颜色/边框点击反馈并加入 USS 契约，定向 EditMode 18/18、内容 PlayMode 1/1、完整 PlayMode 7/7、完整 EditMode 235/235 通过；下一步只构建一次修复候选 APK完成 Android 远程状态流验收。
 
 验收：
 

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -105,6 +107,25 @@ public class ContentManagementPresentationTests
         Assert.That(settings.screenMatchMode, Is.EqualTo(PanelScreenMatchMode.MatchWidthOrHeight));
         Assert.That(settings.match, Is.EqualTo(0f),
             "Portrait UI must match width so tall Android screens gain vertical room instead of oversized controls.");
+    }
+
+    [Test]
+    public void ContentButtons_AvoidAndroidRenderTransformOnPress()
+    {
+        string styles = File.ReadAllText("Assets/UI/Styles.uss").Replace("\r\n", "\n");
+        Match normalRule = Regex.Match(styles, @"(?ms)^\.content-button\s*\{(?<body>.*?)\}");
+        Match activeRule = Regex.Match(styles, @"(?ms)^\.content-button:active\s*\{(?<body>.*?)\}");
+
+        Assert.That(normalRule.Success, Is.True);
+        Assert.That(activeRule.Success, Is.True);
+        Assert.That(normalRule.Groups["body"].Value, Does.Not.Contain("scale"),
+            "Android UI Toolkit can retain stale button text geometry after a scale transition.");
+        Assert.That(activeRule.Groups["body"].Value, Does.Not.Contain("scale"),
+            "Content button press feedback must not use a render transform on Android.");
+        Assert.That(normalRule.Groups["body"].Value,
+            Does.Contain("transition-property: background-color, border-color;"));
+        Assert.That(activeRule.Groups["body"].Value, Does.Contain("border-color:"),
+            "Safe color feedback should replace the removed press-scale animation.");
     }
 
     [Test]
