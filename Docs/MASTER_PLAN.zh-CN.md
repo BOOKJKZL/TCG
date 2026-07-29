@@ -4,7 +4,7 @@
 
 本次修改原因：Site-first 远程内容闭环和 Android 14 模拟器软件验收已经完成。验证节奏固定为 Play Mode 优先；普通代码变化不再重复构建 APK，只有权限、ABI、存储、图形、触觉等平台边界才构建。十四项软件收据、最终 PlayMode 7/7 与 EditMode 236/236 已取得；项目审计暂为 96%，只剩一次生产 ARM64 构建、静态审计与最终完成度审计。
 
-本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。
+本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。全量卡牌资料库与宝可梦图鉴请参阅[第二大阶段实施计划](PHASE_2_CARD_ARCHIVE_AND_POKEDEX.zh-CN.md)。
 
 ## 一、最终目标
 
