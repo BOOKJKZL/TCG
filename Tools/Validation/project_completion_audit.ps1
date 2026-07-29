@@ -117,6 +117,113 @@ function Invoke-AdbCommand {
     return [pscustomobject]@{ Output = $output; ExitCode = $exitCode }
 }
 
+function Invoke-ExternalCommand {
+    param([string]$Executable, [string[]]$Arguments)
+    $previousPreference = $ErrorActionPreference
+    $output = @()
+    $exitCode = -1
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = @(& $Executable @Arguments 2>&1 | ForEach-Object { "$_" })
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    return [pscustomobject]@{ Output = $output; ExitCode = $exitCode }
+}
+
+function Resolve-AndroidBuildTool {
+    param([string]$Name)
+    $roots = @(
+        "C:\Program Files\Unity\Hub\Editor\$UnityVersion\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\build-tools",
+        (Join-Path $env:LOCALAPPDATA "Android\Sdk\build-tools")
+    )
+    foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root)) {
+            continue
+        }
+        $versions = @(Get-ChildItem -LiteralPath $root -Directory | Sort-Object `
+            @{ Expression = { try { [version]$_.Name } catch { [version]"0.0" } }; Descending = $true })
+        foreach ($version in $versions) {
+            $candidate = Join-Path $version.FullName $Name
+            if (Test-Path -LiteralPath $candidate) {
+                return $candidate
+            }
+        }
+    }
+    return $null
+}
+
+function Test-AaptBadgingContract {
+    param([string]$Text)
+    $nativeMatch = [regex]::Match($Text, "(?m)^native-code:\s*(.+)$")
+    $abis = @()
+    if ($nativeMatch.Success) {
+        $abis = @([regex]::Matches($nativeMatch.Groups[1].Value, "'([^']+)'") |
+            ForEach-Object { $_.Groups[1].Value })
+    }
+    $abiPassed = $abis.Count -eq 1 -and $abis[0] -eq "arm64-v8a"
+
+    $permissions = @([regex]::Matches($Text, "(?m)^uses-permission:\s+name='([^']+)'") |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $allowedPermissions = @(
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    )
+    $unexpectedPermissions = @($permissions | Where-Object { $allowedPermissions -notcontains $_ })
+    $targetMatch = [regex]::Match($Text, "(?m)^targetSdkVersion:'(\d+)'$")
+    $targetSdk = if ($targetMatch.Success) { [int]$targetMatch.Groups[1].Value } else { 0 }
+    $permissionsPassed = $unexpectedPermissions.Count -eq 0 -and $targetSdk -ge 34
+
+    return [pscustomobject]@{
+        AbiPassed = $abiPassed
+        AbiDetail = "native-code=$($abis -join ','); expected arm64-v8a only."
+        PermissionsPassed = $permissionsPassed
+        PermissionDetail = "targetSdk=$targetSdk; permissions=$($permissions -join ','); unexpected=$($unexpectedPermissions.Count)."
+    }
+}
+
+function Test-AndroidStaticPackage {
+    param([string]$ApkPath)
+    $aapt = Resolve-AndroidBuildTool "aapt.exe"
+    $apksigner = Resolve-AndroidBuildTool "apksigner.bat"
+    $zipalign = Resolve-AndroidBuildTool "zipalign.exe"
+    if ($null -eq $aapt -or $null -eq $apksigner -or $null -eq $zipalign) {
+        $missing = @(
+            if ($null -eq $aapt) { "aapt" }
+            if ($null -eq $apksigner) { "apksigner" }
+            if ($null -eq $zipalign) { "zipalign" }
+        ) -join ", "
+        return @(
+            (New-AuditResult "APK ARM64 ABI" "Local" $false "Missing Android build tools: $missing."),
+            (New-AuditResult "APK permission boundary" "Local" $false "APK metadata cannot be audited."),
+            (New-AuditResult "APK signature and alignment" "Local" $false "APK signature cannot be audited.")
+        )
+    }
+
+    $badging = Invoke-ExternalCommand $aapt @("dump", "badging", $ApkPath)
+    if ($badging.ExitCode -ne 0) {
+        return @(
+            (New-AuditResult "APK ARM64 ABI" "Local" $false "aapt failed with exit code $($badging.ExitCode)."),
+            (New-AuditResult "APK permission boundary" "Local" $false "aapt metadata is unavailable."),
+            (New-AuditResult "APK signature and alignment" "Local" $false "Static package audit stopped after aapt failure.")
+        )
+    }
+
+    $contract = Test-AaptBadgingContract ($badging.Output -join "`n")
+    $signature = Invoke-ExternalCommand $apksigner @("verify", "--verbose", $ApkPath)
+    $alignment = Invoke-ExternalCommand $zipalign @("-c", "-v", "4", $ApkPath)
+    return @(
+        (New-AuditResult "APK ARM64 ABI" "Local" $contract.AbiPassed $contract.AbiDetail),
+        (New-AuditResult "APK permission boundary" "Local" $contract.PermissionsPassed $contract.PermissionDetail),
+        (New-AuditResult "APK signature and alignment" "Local" `
+            ($signature.ExitCode -eq 0 -and $alignment.ExitCode -eq 0) `
+            "apksigner exit=$($signature.ExitCode); zipalign exit=$($alignment.ExitCode).")
+    )
+}
+
 function Test-RemoteConfigurationJson {
     param([string]$Json)
     try {
@@ -325,7 +432,36 @@ function Invoke-SelfTest {
         throw "Self-test failed: incomplete Android receipt was accepted."
     }
     $passed++
-    Write-Output "Project completion audit self-test passed: $passed/3."
+
+    $validBadging = @"
+targetSdkVersion:'36'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.VIBRATE'
+uses-permission: name='$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+native-code: 'arm64-v8a'
+"@
+    $invalidAbiBadging = @"
+targetSdkVersion:'36'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.VIBRATE'
+uses-permission: name='$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+native-code: 'x86_64'
+"@
+    $invalidPermissionBadging = @"
+targetSdkVersion:'36'
+uses-permission: name='android.permission.READ_EXTERNAL_STORAGE'
+native-code: 'arm64-v8a'
+"@
+    $validContract = Test-AaptBadgingContract $validBadging
+    $invalidAbiContract = Test-AaptBadgingContract $invalidAbiBadging
+    $invalidPermissionContract = Test-AaptBadgingContract $invalidPermissionBadging
+    if (-not $validContract.AbiPassed -or -not $validContract.PermissionsPassed -or
+        $invalidAbiContract.AbiPassed -or -not $invalidAbiContract.PermissionsPassed -or
+        -not $invalidPermissionContract.AbiPassed -or $invalidPermissionContract.PermissionsPassed) {
+        throw "Self-test failed: Android APK static contract validation."
+    }
+    $passed++
+    Write-Output "Project completion audit self-test passed: $passed/4."
 }
 
 if ($SelfTest) {
@@ -375,6 +511,17 @@ if (Test-Path -LiteralPath $apkFullPath) {
 else {
     $results.Add((New-AuditResult "Fresh Android APK" "Local" $false "Missing APK: $apkFullPath"))
     $results.Add((New-AuditResult "APK private-content boundary" "Local" $false "APK cannot be scanned."))
+}
+
+if (Test-Path -LiteralPath $apkFullPath) {
+    foreach ($staticResult in @(Test-AndroidStaticPackage $apkFullPath)) {
+        $results.Add($staticResult)
+    }
+}
+else {
+    $results.Add((New-AuditResult "APK ARM64 ABI" "Local" $false "APK cannot be inspected."))
+    $results.Add((New-AuditResult "APK permission boundary" "Local" $false "APK cannot be inspected."))
+    $results.Add((New-AuditResult "APK signature and alignment" "Local" $false "APK cannot be inspected."))
 }
 
 $audioFiles = @(Get-ChildItem (Join-Path $repoRoot "Assets\Resources\Audio\GachaThemes") -File -Filter "*.wav" -ErrorAction SilentlyContinue)

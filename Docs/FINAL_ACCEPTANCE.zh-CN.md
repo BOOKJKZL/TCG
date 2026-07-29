@@ -1,12 +1,22 @@
 # 100% 最终验收说明
 
-最后更新：2026-07-29
+最后更新：2026-07-30
 
 ## 当前判定
 
-仓库实现、本机内容 fixture、自动测试、正式主题音效、Site 发布与 Android 模拟器软件验收已经完成。公开 HTTPS catalog 与两个最小卡包已经过完整读取、Range 和 SHA-256 验证；十四项软件收据已写入 Git 忽略的 `LocalContent/FinalAcceptance/android-device.json`。当前仍保持 96%，只剩最终生产 ARM64 构建、静态审计与 `project_completion_audit.ps1 -RequireComplete`，在这些证据产生前不提前计为 100%。
+第一大阶段的软件范围已经完成并通过 100% 审计。仓库实现、本机内容 fixture、自动测试、正式主题音效、Site 发布、Android 14 模拟器软件验收与最终 ARM64 APK 均已取得证据。公开 HTTPS catalog 与两个最小卡包通过完整读取、Range 和 SHA-256 验证；十四项软件收据保存在 Git 忽略的 `LocalContent/FinalAcceptance/android-device.json`。实体震动手感、实体扬声器音质与真实蜂窝切换仍明确保留为未来实体机补测，不被模拟器结论替代。
 
-`Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。
+`Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。审计现在还会自动拒绝非纯 ARM64 ABI、意外 Android 权限、无效签名或未对齐 APK，避免再次依赖人工发现错误架构。
+
+## 2026-07-30 最终 ARM64 收尾
+
+- 本次先刷新完整 EditMode，`TestResults/final-editmode.xml` 为 236/236、失败 0；最终 PlayMode 继续为 `TestResults/final-playmode.xml` 的 7/7。
+- 只执行一次修复后的生产构建。`TestResults/android-arm64-final-20260730024733.log` 记录 6 个场景、`BuildResult.Succeeded`、批处理返回码 0 与 8 分 40 秒构建时间。
+- 最终 `Builds/Android/UniversalGachaSimulator-smoke.apk` 为 51,978,834 bytes（49.57 MiB），SHA-256 为 `abd93360d61f708f5c1d9bcd02d5bcd9f25761f023b5b01672967436a692dcde`；414 个 ZIP 条目、6 个原生库全部位于 `lib/arm64-v8a`，敏感名称匹配 0。
+- `aapt` 确认 `native-code: 'arm64-v8a'`、min SDK 23、target SDK 36；权限只有 `INTERNET`、`VIBRATE` 与 Android 自动生成的 package-scoped 非导出动态接收器权限。
+- `apksigner` 验证 v1/v2 签名有效，`zipalign -c -v 4` 通过。当前使用个人测试用途的 Android Debug 证书，不宣称为应用商店 release keystore。
+- 完成度审计的新增 Android 静态契约自测为 4/4；连接同一 `emulator-5554` 后，`-RequireComplete` 的本地、Site、设备与 14/14 软件收据全部通过，最终输出 `PROJECT COMPLETION VERIFIED: 100%`。
+- 独立 Cloudflare R2 环境变量仍显示为非阻塞 `WAIT`；当前公开 Site 版本已经满足本阶段远程内容验收，R2 属于第二大阶段全量资源容量优化。
 
 ## 2026-07-29 续作检查点
 
@@ -36,13 +46,13 @@
 - 在同一 New Input only 包中真实开启一包并保存 11 张卡后，`save.json` 为 1317 bytes、SHA-256 `f191003eb5a709a149653b5983ecb076fac30475454794b3678c6203302a4246`。移除 `en.base1` 后资源目录和安装凭据消失但哈希不变；从 Site 重新下载后资源与凭据恢复，收藏页显示 `1 installed sets · 11/204 collected · 11 new` 并加载卡图，哈希仍完全相同。核心证据为 `android14-collection-remove-success.png`、`android14-collection-redownload-installed.png` 与 `android14-collection-after-reinstall.png`。
 - 最终自动回归为 `TestResults/final-playmode.xml` 的 7/7 与 `TestResults/final-editmode.xml` 的 236/236。空间失败使用 `Plan_StorageFailure_IsReturnedAsStateInsteadOfEscaping`、损坏收据与事务回滚测试证明不会覆盖旧内容；云冲突只引用 `ConflictResolver_PrefersMostRecentlyModifiedProgress` 的确定性测试，不虚构真实云账号冲突。
 
-当前剩余收尾：
+当前限制与后续补测：
 
 - Android 按钮、触控、输入后端、设置、后台、远程资源与收藏重装的软件收据已经闭环。后续普通逻辑、UI 状态、动画与语言修改固定走“定向 PlayMode → 完整 PlayMode → 必要 EditMode”；不再为同一源码重复构建 APK。
 - 模拟器无法证明实体震动手感、实体扬声器音质与真实蜂窝切换，收据以 `physicalHaptics`、`physicalSpeakerQuality`、`cellularHandover` 明确保留限制；这些限制不冒充实体体验。
-- 最新源码的完整 EditMode 为 236/236、PlayMode 为 7/7；生产 ARM64 APK 与 `project_completion_audit.ps1 -RequireComplete` 尚未完成，因此当前结论仍是 96%，不是 100%。
+- 最新源码的完整 EditMode 为 236/236、PlayMode 为 7/7；生产 ARM64 APK、静态审计与 `project_completion_audit.ps1 -RequireComplete` 已完成，软件范围结论为 100%。
 
-工作区与下次执行顺序：
+2026-07-29 暂停时的执行顺序（历史记录）：
 
 1. 以已经通过的最终 PlayMode 7/7 与 EditMode 236/236 作为源码基线。
 2. 只构建一次生产 ARM64 干净包，执行 ABI、权限、隐私、体积和配置审计。
@@ -50,9 +60,9 @@
 
 暂停检查点（2026-07-29 08:05）：
 
-- 第一次最终构建日志 `TestResults/android-arm64-final-20260729073500.log` 虽然以 6 个场景、返回码 0 和 `BuildResult.Succeeded` 完成，但静态审计发现 APK 实际 `native-code: 'x86_64'`，不能作为 ARM64 最终包。该拒收包为 53,365,159 bytes、414 个 ZIP 条目、敏感名称匹配 0、SHA-256 `062e6b00f705688ac3e71ed36d8589cb2b174ebb8ef4b6d95dafc789f8b92e0d`；当前 `Builds/Android/UniversalGachaSimulator-smoke.apk` 仍指向这个非最终产物。
+- 第一次最终构建日志 `TestResults/android-arm64-final-20260729073500.log` 虽然以 6 个场景、返回码 0 和 `BuildResult.Succeeded` 完成，但静态审计发现 APK 实际 `native-code: 'x86_64'`，不能作为 ARM64 最终包。该拒收包为 53,365,159 bytes、414 个 ZIP 条目、敏感名称匹配 0、SHA-256 `062e6b00f705688ac3e71ed36d8589cb2b174ebb8ef4b6d95dafc789f8b92e0d`；在该暂停点，`Builds/Android/UniversalGachaSimulator-smoke.apk` 仍指向这个非最终产物。
 - 根因是生产 `Build()` 信任可变的 `PlayerSettings.Android.targetArchitectures`，而此前模拟器流程留下的编辑器状态仍为 x86_64。`AndroidSmokeBuilder` 已改为生产包显式强制 `ARM64`、模拟器包显式强制 `X86_64`，并在构建后恢复原编辑器状态；`AndroidBuildReadinessTests` 新增对应契约，定向 EditMode 3/3 已通过，证据为 `TestResults/android-architecture-editmode.xml`。
-- 按用户要求在此暂停；当前没有 Unity 或模拟器进程。下次先运行完整 EditMode 并更新 `final-editmode.xml`，确认已经提交的 ABI 修复后只重建一次最终 ARM64 包，重新执行 ABI、权限、签名、隐私、大小与 Hash 审计；最后启动同一模拟器运行 `project_completion_audit.ps1 -RequireComplete`。不得把现有 x86_64 smoke APK 记为完成。
+- 当时按用户要求在此暂停，且没有 Unity 或模拟器进程；恢复后的既定顺序是先运行完整 EditMode 并更新 `final-editmode.xml`，确认已提交的 ABI 修复后只重建一次最终 ARM64 包，再执行 ABI、权限、签名、隐私、大小与 Hash 审计，最后启动同一模拟器运行 `project_completion_audit.ps1 -RequireComplete`。该顺序已在 2026-07-30 全部完成。
 
 ## 一、保留最终自动测试证据
 
