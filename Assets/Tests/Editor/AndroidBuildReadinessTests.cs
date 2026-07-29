@@ -38,6 +38,9 @@ public class AndroidBuildReadinessTests
         Assert.That(AndroidSmokeBuilder.EmulatorOutputPath.Replace('\\', '/'), Does.StartWith("Builds/"));
         Assert.That(AndroidSmokeBuilder.EmulatorOutputPath, Does.Contain("x86_64"),
             "The emulator acceptance artifact must state its non-production ABI explicitly.");
+        Assert.That(AndroidSmokeBuilder.SmokeArchitecture, Is.EqualTo(AndroidArchitecture.ARM64),
+            "The production smoke build must force ARM64 even when mutable editor state still selects x86_64.");
+        Assert.That(AndroidSmokeBuilder.EmulatorArchitecture, Is.EqualTo(AndroidArchitecture.X86_64));
         Assert.That(
             (AndroidSmokeBuilder.SmokeBuildOptions & BuildOptions.CleanBuildCache) != 0,
             Is.True,

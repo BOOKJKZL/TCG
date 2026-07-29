@@ -14,6 +14,8 @@ namespace Gacha.EditorTools
     {
         public const string OutputPath = "Builds/Android/UniversalGachaSimulator-smoke.apk";
         public const string EmulatorOutputPath = "Builds/Android/UniversalGachaSimulator-emulator-x86_64.apk";
+        public const AndroidArchitecture SmokeArchitecture = AndroidArchitecture.ARM64;
+        public const AndroidArchitecture EmulatorArchitecture = AndroidArchitecture.X86_64;
         public const BuildOptions SmokeBuildOptions =
             BuildOptions.Development |
             BuildOptions.CompressWithLz4 |
@@ -27,19 +29,32 @@ namespace Gacha.EditorTools
         [MenuItem("Tools/Gacha/Build Android Smoke APK")]
         public static void Build()
         {
-            BuildAtPath(OutputPath, SmokeBuildOptions, false);
+            BuildForArchitecture(OutputPath, SmokeBuildOptions, false, SmokeArchitecture);
         }
 
         [MenuItem("Tools/Gacha/Build Android Emulator Acceptance APK")]
         public static void BuildEmulator()
         {
+            BuildForArchitecture(
+                EmulatorOutputPath,
+                EmulatorBuildOptions,
+                EmulatorUsesBuiltInRenderPipeline,
+                EmulatorArchitecture);
+        }
+
+        private static void BuildForArchitecture(
+            string outputPath,
+            BuildOptions buildOptions,
+            bool useBuiltInRenderPipeline,
+            AndroidArchitecture architecture)
+        {
             AndroidArchitecture originalArchitectures = PlayerSettings.Android.targetArchitectures;
             try
             {
-                // The production smoke APK remains ARM64. This isolated artifact avoids
-                // relying on Android Emulator's ARM translation during acceptance runs.
-                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.X86_64;
-                BuildAtPath(EmulatorOutputPath, EmulatorBuildOptions, EmulatorUsesBuiltInRenderPipeline);
+                // Build artifacts declare their own ABI instead of trusting mutable
+                // editor state left behind by an earlier emulator acceptance build.
+                PlayerSettings.Android.targetArchitectures = architecture;
+                BuildAtPath(outputPath, buildOptions, useBuiltInRenderPipeline);
             }
             finally
             {

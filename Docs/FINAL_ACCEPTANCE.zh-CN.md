@@ -48,6 +48,12 @@
 2. 只构建一次生产 ARM64 干净包，执行 ABI、权限、隐私、体积和配置审计。
 3. 重新连接同一模拟器以让审计核对已安装软件与十四项收据，运行 `project_completion_audit.ps1 -RequireComplete`；实体硬件限制继续如实保留。
 
+暂停检查点（2026-07-29 08:05）：
+
+- 第一次最终构建日志 `TestResults/android-arm64-final-20260729073500.log` 虽然以 6 个场景、返回码 0 和 `BuildResult.Succeeded` 完成，但静态审计发现 APK 实际 `native-code: 'x86_64'`，不能作为 ARM64 最终包。该拒收包为 53,365,159 bytes、414 个 ZIP 条目、敏感名称匹配 0、SHA-256 `062e6b00f705688ac3e71ed36d8589cb2b174ebb8ef4b6d95dafc789f8b92e0d`；当前 `Builds/Android/UniversalGachaSimulator-smoke.apk` 仍指向这个非最终产物。
+- 根因是生产 `Build()` 信任可变的 `PlayerSettings.Android.targetArchitectures`，而此前模拟器流程留下的编辑器状态仍为 x86_64。`AndroidSmokeBuilder` 已改为生产包显式强制 `ARM64`、模拟器包显式强制 `X86_64`，并在构建后恢复原编辑器状态；`AndroidBuildReadinessTests` 新增对应契约，定向 EditMode 3/3 已通过，证据为 `TestResults/android-architecture-editmode.xml`。
+- 按用户要求在此暂停；当前没有 Unity 或模拟器进程。下次先运行完整 EditMode 并更新 `final-editmode.xml`，确认已经提交的 ABI 修复后只重建一次最终 ARM64 包，重新执行 ABI、权限、签名、隐私、大小与 Hash 审计；最后启动同一模拟器运行 `project_completion_audit.ps1 -RequireComplete`。不得把现有 x86_64 smoke APK 记为完成。
+
 ## 一、保留最终自动测试证据
 
 测试结果必须写到 `TestResults/`，不能写到 Unity 会在下次启动时清理的 `Temp/`。功能开发先跑定向 PlayMode，再跑完整 PlayMode；不得用一次 APK 构建代替 PlayMode 回归：
