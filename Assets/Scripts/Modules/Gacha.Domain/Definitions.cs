@@ -32,17 +32,20 @@ namespace Gacha.Domain
             string gameId,
             IReadOnlyDictionary<string, string> names,
             string seriesId = null,
-            DateTime? releaseDate = null)
+            DateTime? releaseDate = null,
+            SetOrderingMetadata ordering = null)
             : base(id, names)
         {
             GameId = Required(gameId, nameof(gameId));
             SeriesId = string.IsNullOrWhiteSpace(seriesId) ? null : seriesId.Trim();
             ReleaseDate = releaseDate;
+            Ordering = ordering ?? SetOrderingMetadata.Unspecified;
         }
 
         public string GameId { get; }
         public string SeriesId { get; }
         public DateTime? ReleaseDate { get; }
+        public SetOrderingMetadata Ordering { get; }
     }
 
     public sealed class CollectibleItemDefinition : Definition

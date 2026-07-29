@@ -358,13 +358,12 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void BuildBrowseData()
     {
+        string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
         sets.Clear();
         sets.AddRange(catalog.Sets.Values
-            .OrderBy(set => set.ReleaseDate ?? DateTime.MaxValue)
-            .ThenBy(set => set.Id, StringComparer.Ordinal));
+            .OrderBy(set => set, new SetDefinitionComparer(SetSortMode.Generation, languageId)));
 
         cardsBySet.Clear();
-        string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
         foreach (SetDefinition set in sets)
         {
             List<PrintingDefinition> setCards = catalog.GetPrintings(set.Id, languageId)

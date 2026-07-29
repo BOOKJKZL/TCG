@@ -475,7 +475,9 @@ public sealed class GachaViewController : MonoBehaviour
                     catalog.Printings[printingId].Identity.LanguageId,
                     languageId,
                     StringComparison.OrdinalIgnoreCase)))
-            .OrderBy(product => catalog.Sets[product.SetId].ReleaseDate ?? DateTime.MaxValue)
+            .OrderBy(
+                product => catalog.Sets[product.SetId],
+                new SetDefinitionComparer(SetSortMode.Generation, languageId))
             .ThenBy(product => product.Id, StringComparer.Ordinal));
         productList.itemsSource = products;
         productList.Rebuild();
