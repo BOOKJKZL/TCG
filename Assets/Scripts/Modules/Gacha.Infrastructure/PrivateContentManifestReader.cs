@@ -14,7 +14,8 @@ namespace Gacha.Infrastructure.Content
 
     public sealed class PrivateContentManifestReader
     {
-        public const int SupportedSchemaVersion = 1;
+        public const int MinimumSupportedSchemaVersion = 1;
+        public const int SupportedSchemaVersion = 2;
 
         public IReadOnlyList<PrivateContentManifestDocument> LoadDirectory(string contentRoot)
         {
@@ -48,17 +49,25 @@ namespace Gacha.Infrastructure.Content
                 PrivateContentManifestDto manifest = JsonConvert.DeserializeObject<PrivateContentManifestDto>(json);
                 if (manifest == null)
                     throw new PrivateContentManifestException($"Manifest is empty: {manifestPath}");
-                if (manifest.SchemaVersion != SupportedSchemaVersion)
+                int sourceSchemaVersion = manifest.SchemaVersion;
+                if (sourceSchemaVersion < MinimumSupportedSchemaVersion ||
+                    sourceSchemaVersion > SupportedSchemaVersion)
                     throw new PrivateContentManifestException(
-                        $"Manifest '{manifestPath}' uses schema {manifest.SchemaVersion}; supported schema is {SupportedSchemaVersion}.");
+                        $"Manifest '{manifestPath}' uses schema {sourceSchemaVersion}; supported schemas are " +
+                        $"{MinimumSupportedSchemaVersion}-{SupportedSchemaVersion}.");
                 if (manifest.Set == null || string.IsNullOrWhiteSpace(manifest.Set.Id))
                     throw new PrivateContentManifestException($"Manifest has no valid set: {manifestPath}");
                 if (string.IsNullOrWhiteSpace(manifest.Language))
                     throw new PrivateContentManifestException($"Manifest has no language: {manifestPath}");
 
+                if (sourceSchemaVersion == 1)
+                    MigrateV1ToV2(manifest);
+                ValidateV2(manifest, manifestPath);
+
                 manifest.Cards ??= new List<ImportedCardDto>();
                 manifest.Errors ??= new List<ContentImportErrorDto>();
-                return new PrivateContentManifestDocument(Path.GetFullPath(manifestPath), manifest);
+                return new PrivateContentManifestDocument(
+                    Path.GetFullPath(manifestPath), manifest, sourceSchemaVersion);
             }
             catch (PrivateContentManifestException)
             {
@@ -68,6 +77,36 @@ namespace Gacha.Infrastructure.Content
             {
                 throw new PrivateContentManifestException($"Failed to read manifest: {manifestPath}", exception);
             }
+        }
+
+        private static void MigrateV1ToV2(PrivateContentManifestDto manifest)
+        {
+            ImportedSetDto set = manifest.Set;
+            set.SetCode = ValueOrFallback(set.SetCode, set.Id);
+            set.EraId = ValueOrFallback(set.EraId, ValueOrFallback(set.SeriesId, set.Id));
+            set.GenerationId = ValueOrFallback(set.GenerationId, "unmapped");
+            manifest.SchemaVersion = SupportedSchemaVersion;
+        }
+
+        private static void ValidateV2(PrivateContentManifestDto manifest, string manifestPath)
+        {
+            if (manifest.SchemaVersion != SupportedSchemaVersion)
+                throw new PrivateContentManifestException($"Manifest migration failed: {manifestPath}");
+            if (string.IsNullOrWhiteSpace(manifest.Set.SetCode))
+                throw new PrivateContentManifestException($"Manifest set has no stable SetCode: {manifestPath}");
+            if (string.IsNullOrWhiteSpace(manifest.Set.EraId))
+                throw new PrivateContentManifestException($"Manifest set has no stable EraId: {manifestPath}");
+            if (string.IsNullOrWhiteSpace(manifest.Set.GenerationId))
+                throw new PrivateContentManifestException($"Manifest set has no GenerationId state: {manifestPath}");
+            if (manifest.Set.GenerationOrder < 0)
+                throw new PrivateContentManifestException($"Manifest set has a negative GenerationOrder: {manifestPath}");
+            if (manifest.Set.SetOrdinal < 0)
+                throw new PrivateContentManifestException($"Manifest set has a negative SetOrdinal: {manifestPath}");
+        }
+
+        private static string ValueOrFallback(string value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
     }
 }

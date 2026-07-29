@@ -6,7 +6,7 @@ namespace Gacha.Infrastructure.Content
     [Serializable]
     public sealed class PrivateContentManifestDto
     {
-        public int SchemaVersion = 1;
+        public int SchemaVersion = 2;
         public string Source;
         public string Language;
         public string GeneratedAtUtc;
@@ -20,8 +20,13 @@ namespace Gacha.Infrastructure.Content
     {
         public string Id;
         public string Name;
+        public string SetCode;
         public string SeriesId;
         public string SeriesName;
+        public string EraId;
+        public string GenerationId;
+        public int? GenerationOrder;
+        public int? SetOrdinal;
         public string ReleaseDate;
         public int OfficialCardCount;
         public int TotalCardCount;
@@ -69,13 +74,19 @@ namespace Gacha.Infrastructure.Content
 
     public sealed class PrivateContentManifestDocument
     {
-        public PrivateContentManifestDocument(string manifestPath, PrivateContentManifestDto manifest)
+        public PrivateContentManifestDocument(
+            string manifestPath,
+            PrivateContentManifestDto manifest,
+            int? sourceSchemaVersion = null)
         {
             ManifestPath = manifestPath;
             Manifest = manifest ?? throw new ArgumentNullException(nameof(manifest));
+            SourceSchemaVersion = sourceSchemaVersion ?? manifest.SchemaVersion;
         }
 
         public string ManifestPath { get; }
         public PrivateContentManifestDto Manifest { get; }
+        public int SourceSchemaVersion { get; }
+        public bool WasMigrated => SourceSchemaVersion != Manifest.SchemaVersion;
     }
 }

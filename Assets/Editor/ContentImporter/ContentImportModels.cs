@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [Serializable]
 public sealed class PrivateContentManifest
 {
-    public int SchemaVersion = 1;
+    public int SchemaVersion = 2;
     public string Source = "tcgdex";
     public string Language;
     public string GeneratedAtUtc;
@@ -18,8 +18,13 @@ public sealed class ImportedSetRecord
 {
     public string Id;
     public string Name;
+    public string SetCode;
     public string SeriesId;
     public string SeriesName;
+    public string EraId;
+    public string GenerationId;
+    public int? GenerationOrder;
+    public int? SetOrdinal;
     public string ReleaseDate;
     public int OfficialCardCount;
     public int TotalCardCount;

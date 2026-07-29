@@ -53,6 +53,11 @@ namespace Gacha.Infrastructure.Content
             public string Id;
             public string SeriesId;
             public DateTime? ReleaseDate;
+            public string SetCode;
+            public string EraId;
+            public string GenerationId;
+            public int? GenerationOrder;
+            public int? SetOrdinal;
         }
 
         private sealed class ItemAccumulator : NamedAccumulator
@@ -89,7 +94,9 @@ namespace Gacha.Infrastructure.Content
             string gameId = "pokemon-tcg",
             string gameDisplayName = "Pokémon Trading Card Game")
         {
-            PrivateContentManifestDocument[] source = (documents ?? throw new ArgumentNullException(nameof(documents))).ToArray();
+            PrivateContentManifestDocument[] source = (documents ?? throw new ArgumentNullException(nameof(documents)))
+                .OrderBy(document => document.ManifestPath, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             if (source.Length == 0)
                 throw new ArgumentException("At least one manifest is required.", nameof(documents));
             if (string.IsNullOrWhiteSpace(gameId))
@@ -118,7 +125,14 @@ namespace Gacha.Infrastructure.Content
                     {
                         Id = setId,
                         SeriesId = manifest.Set.SeriesId,
-                        ReleaseDate = ParseDate(manifest.Set.ReleaseDate)
+                        ReleaseDate = ParseDate(manifest.Set.ReleaseDate),
+                        SetCode = ValueOrFallback(manifest.Set.SetCode, manifest.Set.Id),
+                        EraId = ValueOrFallback(
+                            manifest.Set.EraId,
+                            ValueOrFallback(manifest.Set.SeriesId, manifest.Set.Id)),
+                        GenerationId = manifest.Set.GenerationId,
+                        GenerationOrder = manifest.Set.GenerationOrder,
+                        SetOrdinal = manifest.Set.SetOrdinal
                     };
                     sets.Add(setId, set);
                 }
@@ -192,7 +206,18 @@ namespace Gacha.Infrastructure.Content
                 StringComparer.OrdinalIgnoreCase);
             GameDefinition game = new GameDefinition(gameId, gameNames, languages.Keys);
             SetDefinition[] setDefinitions = sets.Values
-                .Select(set => new SetDefinition(set.Id, gameId, set.Names, set.SeriesId, set.ReleaseDate))
+                .Select(set => new SetDefinition(
+                    set.Id,
+                    gameId,
+                    set.Names,
+                    set.SeriesId,
+                    set.ReleaseDate,
+                    new SetOrderingMetadata(
+                        set.SetCode,
+                        set.EraId,
+                        set.GenerationId,
+                        set.GenerationOrder,
+                        set.SetOrdinal)))
                 .ToArray();
             CollectibleItemDefinition[] itemDefinitions = items.Values
                 .Select(item => new CollectibleItemDefinition(item.Id, gameId, item.Names, item.Category, item.Tags))

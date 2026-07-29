@@ -66,14 +66,19 @@ public class ContentCatalogAdapterTests
     {
         return new PrivateContentManifestDto
         {
-            SchemaVersion = 1,
+            SchemaVersion = 2,
             Source = "test",
             Language = "en",
             Set = new ImportedSetDto
             {
                 Id = "sample1",
                 Name = "Sample Set",
+                SetCode = "S1",
                 SeriesId = "sample",
+                EraId = "sample",
+                GenerationId = "generation-1",
+                GenerationOrder = 1,
+                SetOrdinal = 1,
                 ReleaseDate = "2026-01-01"
             }
         };

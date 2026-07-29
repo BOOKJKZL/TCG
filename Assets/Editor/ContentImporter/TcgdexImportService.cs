@@ -216,14 +216,20 @@ public sealed class TcgdexImportService : IDisposable
         return record;
     }
 
-    private static ImportedSetRecord MapSet(JObject setObject, string sourceUrl)
+    internal static ImportedSetRecord MapSet(JObject setObject, string sourceUrl)
     {
+        string setId = Value(setObject, "id");
+        string seriesId = Value(setObject["serie"], "id");
         return new ImportedSetRecord
         {
-            Id = Value(setObject, "id"),
+            Id = setId,
             Name = Value(setObject, "name"),
-            SeriesId = Value(setObject["serie"], "id"),
+            SetCode = Value(setObject, "tcgOnline") ??
+                      setObject.SelectToken("abbreviation.official")?.ToString() ?? setId,
+            SeriesId = seriesId,
             SeriesName = Value(setObject["serie"], "name"),
+            EraId = seriesId ?? setId,
+            GenerationId = "unmapped",
             ReleaseDate = Value(setObject, "releaseDate"),
             OfficialCardCount = IntValue(setObject.SelectToken("cardCount.official")),
             TotalCardCount = IntValue(setObject.SelectToken("cardCount.total")),
