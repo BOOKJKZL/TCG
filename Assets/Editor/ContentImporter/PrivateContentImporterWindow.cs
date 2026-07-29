@@ -147,6 +147,12 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         {
             Language = language.Trim().ToLowerInvariant(),
             OutputRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "LocalContent", "Imports")),
+            SetGenerationOverridesPath = Path.Combine(
+                Application.dataPath,
+                "Editor",
+                "ContentImporter",
+                "Overrides",
+                "set-generation-overrides.json"),
             ImageQuality = quality,
             ImageExtension = extension,
             MaxConcurrency = concurrency,

@@ -84,6 +84,7 @@ public sealed class ContentImportOptions
 {
     public string Language = "en";
     public string OutputRoot;
+    public string SetGenerationOverridesPath;
     public string ImageQuality = "low";
     public string ImageExtension = "jpg";
     public int MaxConcurrency = 4;

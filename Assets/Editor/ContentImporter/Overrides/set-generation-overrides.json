@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sets": [
+    {
+      "setId": "base1",
+      "setCode": "BS",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "neo1",
+      "setCode": "N1",
+      "eraId": "neo",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "ex1",
+      "setCode": "RS",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "swsh1",
+      "setCode": "SSH",
+      "eraId": "swsh",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "sv01",
+      "setCode": "SVI",
+      "eraId": "sv",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 1
+    }
+  ]
+}

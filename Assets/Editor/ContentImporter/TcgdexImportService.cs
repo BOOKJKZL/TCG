@@ -30,13 +30,15 @@ public sealed class TcgdexImportService : IDisposable
     {
         ValidateOptions(options);
         Directory.CreateDirectory(options.OutputRoot);
+        PokemonSetGenerationOverrideCatalog setOverrides =
+            PokemonContentOverrideLoader.LoadOptionalSetGeneration(options.SetGenerationOverridesPath);
 
         var summary = new ContentImportSummary();
         foreach (string setId in setIds.Where(id => !string.IsNullOrWhiteSpace(id)))
         {
             cancellationToken.ThrowIfCancellationRequested();
             PrivateContentManifest manifest = await ImportSetAsync(
-                    setId.Trim(), options, progress, cancellationToken)
+                    setId.Trim(), options, setOverrides, progress, cancellationToken)
                 .ConfigureAwait(false);
 
             summary.SetCount++;
@@ -51,6 +53,7 @@ public sealed class TcgdexImportService : IDisposable
     private async Task<PrivateContentManifest> ImportSetAsync(
         string setId,
         ContentImportOptions options,
+        PokemonSetGenerationOverrideCatalog setOverrides,
         IProgress<ContentImportProgress> progress,
         CancellationToken cancellationToken)
     {
@@ -79,11 +82,13 @@ public sealed class TcgdexImportService : IDisposable
         if (options.MaximumCardsPerSet > 0)
             cardBriefs = new JArray(cardBriefs.Take(options.MaximumCardsPerSet));
 
+        ImportedSetRecord importedSet = MapSet(setObject, setUrl);
+        setOverrides.Apply(importedSet);
         var manifest = new PrivateContentManifest
         {
             Language = options.Language,
             GeneratedAtUtc = DateTime.UtcNow.ToString("O"),
-            Set = MapSet(setObject, setUrl)
+            Set = importedSet
         };
 
         var results = new ImportedCardRecord[cardBriefs.Count];

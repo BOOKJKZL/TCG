@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "policies": [
+    {
+      "formKind": "regional",
+      "defaultDisposition": "separate-entry",
+      "reason": "Regional forms are distinct dex entries linked to the same species."
+    },
+    {
+      "formKind": "mega",
+      "defaultDisposition": "manual-review",
+      "reason": "Mega forms require explicit review before receiving a separate dex entry."
+    },
+    {
+      "formKind": "gigantamax",
+      "defaultDisposition": "manual-review",
+      "reason": "Gigantamax forms require explicit review before receiving a separate dex entry."
+    },
+    {
+      "formKind": "battle-only",
+      "defaultDisposition": "manual-review",
+      "reason": "Battle-only forms vary in player significance and must not be classified automatically."
+    },
+    {
+      "formKind": "gender-difference",
+      "defaultDisposition": "related-variant",
+      "reason": "Gender differences remain related variants unless a manual override promotes one."
+    },
+    {
+      "formKind": "cosmetic",
+      "defaultDisposition": "related-variant",
+      "reason": "Cosmetic differences remain related variants unless a manual override promotes one."
+    }
+  ],
+  "overrides": []
+}
