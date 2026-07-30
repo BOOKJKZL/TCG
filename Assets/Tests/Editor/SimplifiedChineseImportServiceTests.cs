@@ -48,6 +48,15 @@ public class SimplifiedChineseImportServiceTests
     }
 
     [Test]
+    public void DefaultConstructor_UsesTransportSupportedByUnityMono()
+    {
+        Assert.That(() =>
+        {
+            using var service = new SimplifiedChineseImportService();
+        }, Throws.Nothing);
+    }
+
+    [Test]
     public async Task Import_WritesRuntimeManifestPngHashesAndResumableCheckpoint()
     {
         var responses = ProductListFixture();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -655,10 +656,9 @@ public sealed class SimplifiedChineseImportService : IDisposable
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient(new HttpClientHandler { MaxConnectionsPerServer = 32 })
-        {
-            Timeout = TimeSpan.FromSeconds(60)
-        };
+        ServicePointManager.DefaultConnectionLimit = Math.Max(
+            ServicePointManager.DefaultConnectionLimit, 32);
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "UniversalGachaSimulator-PrivateImporter/3.0");
         return client;
