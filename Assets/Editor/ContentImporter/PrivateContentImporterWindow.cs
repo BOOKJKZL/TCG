@@ -102,6 +102,37 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Import All English Sets (Resumable WebP)")]
+    public static async void ImportAllEnglishSetsFromMenu()
+    {
+        try
+        {
+            ContentImportSummary summary = await RunAllEnglishImportAsync();
+            Debug.Log(FormatSummary(summary));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void ImportAllEnglishSetsFromCommandLine()
+    {
+        try
+        {
+            ContentImportSummary summary = RunAllEnglishImportAsync().GetAwaiter().GetResult();
+            Debug.Log(FormatSummary(summary));
+            if (Application.isBatchMode && (summary.ErrorCount > 0 || summary.FailedSetCount > 0))
+                EditorApplication.Exit(2);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     // Entry point for repeatable batch imports from CI or PowerShell.
     public static void ImportHistoricalSamplesFromCommandLine()
     {
@@ -232,6 +263,43 @@ public sealed class PrivateContentImporterWindow : EditorWindow
                 "set-generation-overrides.json"));
     }
 
+    private static async Task<ContentImportSummary> RunAllEnglishImportAsync()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        ContentInventorySnapshot inventory = Newtonsoft.Json.JsonConvert.DeserializeObject<ContentInventorySnapshot>(
+            File.ReadAllText(Path.Combine(
+                projectRoot, "LocalContent", "Inventory", "tcgdex-inventory.json")));
+        if (inventory == null || inventory.Sets == null)
+            throw new InvalidDataException("TCGdex inventory is missing or invalid.");
+        string[] setIds = inventory.Sets
+            .Where(item => item.Language == "en")
+            .OrderBy(item => item.ReleaseDate, StringComparer.Ordinal)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .Select(item => item.Id)
+            .ToArray();
+        if (setIds.Length != 218)
+            throw new InvalidDataException(
+                $"Expected the audited 218 English Sets, found {setIds.Length}.");
+
+        using var service = new TcgdexImportService();
+        return await service.ImportSetsAsync(setIds, new ContentImportOptions
+        {
+            Language = "en",
+            OutputRoot = Path.Combine(projectRoot, "LocalContent", "Imports"),
+            SetGenerationOverridesPath = Path.Combine(
+                Application.dataPath, "Editor", "ContentImporter", "Overrides",
+                "set-generation-overrides.json"),
+            ImageQuality = "low",
+            ImageExtension = "webp",
+            MaxConcurrency = 4,
+            MaximumCardsPerSet = 0,
+            RefreshExistingFiles = false,
+            RequestIntervalMilliseconds = 25,
+            MaximumAttempts = 5,
+            RetryBaseDelayMilliseconds = 750
+        }).ConfigureAwait(false);
+    }
+
     private static ContentImportOptions CreateOptions(
         string language, string quality, string extension, int concurrency,
         int maximumCards, bool refresh)
@@ -269,7 +337,9 @@ public sealed class PrivateContentImporterWindow : EditorWindow
     {
         double megabytes = summary.ImageBytes / 1024d / 1024d;
         return $"Imported {summary.SetCount} sets, {summary.CardCount} cards, " +
-               $"{megabytes:F1} MB images, {summary.ErrorCount} errors.";
+               $"{megabytes:F1} MB images, {summary.ReusedMetadataCount} metadata and " +
+               $"{summary.ReusedImageCount} images reused, {summary.ErrorCount} errors, " +
+               $"{summary.FailedSetCount} failed Sets.";
     }
 
     private static string FormatInventorySummary(ContentInventorySnapshot snapshot)

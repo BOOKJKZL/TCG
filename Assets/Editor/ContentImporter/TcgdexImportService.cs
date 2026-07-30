@@ -14,12 +14,26 @@ public sealed class TcgdexImportService : IDisposable
 {
     private const string ApiRoot = "https://api.tcgdex.net/v2";
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
+    private readonly string _apiRoot;
+    private readonly SemaphoreSlim _requestGate = new SemaphoreSlim(1, 1);
+    private DateTime _nextRequestUtc = DateTime.MinValue;
 
     public TcgdexImportService()
+        : this(CreateClient(), ApiRoot, true)
     {
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "UniversalGachaSimulator-PrivateImporter/1.0");
+    }
+
+    internal TcgdexImportService(HttpClient httpClient, string apiRoot = ApiRoot)
+        : this(httpClient, apiRoot, false)
+    {
+    }
+
+    private TcgdexImportService(HttpClient httpClient, string apiRoot, bool ownsHttpClient)
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _apiRoot = (apiRoot ?? throw new ArgumentNullException(nameof(apiRoot))).TrimEnd('/');
+        _ownsHttpClient = ownsHttpClient;
     }
 
     public async Task<ContentImportSummary> ImportSetsAsync(
@@ -32,32 +46,61 @@ public sealed class TcgdexImportService : IDisposable
         Directory.CreateDirectory(options.OutputRoot);
         PokemonSetGenerationOverrideCatalog setOverrides =
             PokemonContentOverrideLoader.LoadOptionalSetGeneration(options.SetGenerationOverridesPath);
+        List<string> normalizedSetIds = setIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var checkpoint = new ContentImportCheckpointStore(
+            options.OutputRoot, options.Language, options.ImageQuality, options.ImageExtension);
+        checkpoint.Begin(normalizedSetIds);
 
-        var summary = new ContentImportSummary();
-        foreach (string setId in setIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+        var summary = new ContentImportSummary
+        {
+            CheckpointPath = checkpoint.CheckpointPath,
+            FailureReportPath = checkpoint.FailureReportPath
+        };
+        foreach (string setId in normalizedSetIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            PrivateContentManifest manifest = await ImportSetAsync(
-                    setId.Trim(), options, setOverrides, progress, cancellationToken)
-                .ConfigureAwait(false);
-
-            summary.SetCount++;
-            summary.CardCount += manifest.Cards.Count;
-            summary.ErrorCount += manifest.Errors.Count;
-            summary.ImageBytes += manifest.Cards.Sum(card => card.ImageBytes);
+            try
+            {
+                ImportSetOutcome outcome = await ImportSetAsync(
+                        setId, options, setOverrides, checkpoint, progress, cancellationToken)
+                    .ConfigureAwait(false);
+                summary.SetCount++;
+                summary.CardCount += outcome.Manifest.Cards.Count;
+                summary.ErrorCount += outcome.Manifest.Errors.Count;
+                summary.ImageBytes += outcome.Manifest.Cards.Sum(card => card.ImageBytes);
+                summary.ReusedMetadataCount += outcome.ReusedMetadataCount;
+                summary.ReusedImageCount += outcome.ReusedImageCount;
+            }
+            catch (OperationCanceledException)
+            {
+                checkpoint.WriteFailureReport();
+                throw;
+            }
+            catch (Exception exception)
+            {
+                summary.FailedSetCount++;
+                summary.ErrorCount++;
+                checkpoint.FailSet(setId, exception.Message);
+            }
         }
 
+        checkpoint.WriteFailureReport();
         return summary;
     }
 
-    private async Task<PrivateContentManifest> ImportSetAsync(
+    private async Task<ImportSetOutcome> ImportSetAsync(
         string setId,
         ContentImportOptions options,
         PokemonSetGenerationOverrideCatalog setOverrides,
+        ContentImportCheckpointStore checkpoint,
         IProgress<ContentImportProgress> progress,
         CancellationToken cancellationToken)
     {
-        string setUrl = $"{ApiRoot}/{options.Language}/sets/{Uri.EscapeDataString(setId)}";
+        string setUrl = $"{_apiRoot}/{options.Language}/sets/{Uri.EscapeDataString(setId)}";
         progress?.Report(new ContentImportProgress
         {
             SetId = setId,
@@ -65,7 +108,8 @@ public sealed class TcgdexImportService : IDisposable
             Total = 1
         });
 
-        string setJson = await GetStringWithRetryAsync(setUrl, cancellationToken).ConfigureAwait(false);
+        string setJson = await GetStringWithRetryAsync(setUrl, options, cancellationToken)
+            .ConfigureAwait(false);
         JObject setObject = JObject.Parse(setJson);
         string actualSetId = Value(setObject, "id") ?? setId;
         string setDirectory = Path.Combine(options.OutputRoot, options.Language, actualSetId);
@@ -81,6 +125,7 @@ public sealed class TcgdexImportService : IDisposable
         JArray cardBriefs = setObject["cards"] as JArray ?? new JArray();
         if (options.MaximumCardsPerSet > 0)
             cardBriefs = new JArray(cardBriefs.Take(options.MaximumCardsPerSet));
+        checkpoint.StartSet(actualSetId, cardBriefs.Count);
 
         ImportedSetRecord importedSet = MapSet(setObject, setUrl);
         setOverrides.Apply(importedSet);
@@ -91,21 +136,29 @@ public sealed class TcgdexImportService : IDisposable
             Set = importedSet
         };
 
-        var results = new ImportedCardRecord[cardBriefs.Count];
+        var results = new CardImportOutcome[cardBriefs.Count];
         var errors = new ContentImportError[cardBriefs.Count];
         int completed = 0;
+        int reusedMetadata = 0;
+        int reusedImages = 0;
         using var semaphore = new SemaphoreSlim(options.MaxConcurrency);
 
         IEnumerable<Task> tasks = cardBriefs.Select(async (token, index) =>
         {
             string cardId = Value(token, "id") ?? $"unknown-{index}";
             await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            bool attemptFinished = false;
             try
             {
                 results[index] = await ImportCardAsync(
                         cardId, rawCardsDirectory, imagesDirectory, setDirectory,
                         options, cancellationToken)
                     .ConfigureAwait(false);
+                if (results[index].ReusedMetadata)
+                    Interlocked.Increment(ref reusedMetadata);
+                if (results[index].ReusedImage)
+                    Interlocked.Increment(ref reusedImages);
+                attemptFinished = true;
             }
             catch (OperationCanceledException)
             {
@@ -118,9 +171,12 @@ public sealed class TcgdexImportService : IDisposable
                     ItemId = cardId,
                     Message = exception.Message
                 };
+                attemptFinished = true;
             }
             finally
             {
+                if (attemptFinished)
+                    checkpoint.RecordCard(actualSetId, cardId, errors[index]?.Message);
                 semaphore.Release();
                 int current = Interlocked.Increment(ref completed);
                 progress?.Report(new ContentImportProgress
@@ -134,15 +190,19 @@ public sealed class TcgdexImportService : IDisposable
         });
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        manifest.Cards.AddRange(results.Where(card => card != null).OrderBy(card => card.LocalId));
+        manifest.Cards.AddRange(results
+            .Where(result => result != null)
+            .Select(result => result.Record)
+            .OrderBy(card => card.LocalId, StringComparer.Ordinal));
         manifest.Errors.AddRange(errors.Where(error => error != null));
 
         WriteTextAtomic(Path.Combine(setDirectory, "manifest.json"),
             JsonConvert.SerializeObject(manifest, Formatting.Indented));
-        return manifest;
+        checkpoint.CompleteSet(actualSetId);
+        return new ImportSetOutcome(manifest, reusedMetadata, reusedImages);
     }
 
-    private async Task<ImportedCardRecord> ImportCardAsync(
+    private async Task<CardImportOutcome> ImportCardAsync(
         string cardId,
         string rawCardsDirectory,
         string imagesDirectory,
@@ -150,16 +210,22 @@ public sealed class TcgdexImportService : IDisposable
         ContentImportOptions options,
         CancellationToken cancellationToken)
     {
-        string cardUrl = $"{ApiRoot}/{options.Language}/cards/{Uri.EscapeDataString(cardId)}";
+        string cardUrl = $"{_apiRoot}/{options.Language}/cards/{Uri.EscapeDataString(cardId)}";
         string rawPath = Path.Combine(rawCardsDirectory, SafeFileName(cardId) + ".json");
         string cardJson;
+        bool reusedMetadata;
 
         if (!options.RefreshExistingFiles && File.Exists(rawPath))
+        {
             cardJson = File.ReadAllText(rawPath, Encoding.UTF8);
+            reusedMetadata = true;
+        }
         else
         {
-            cardJson = await GetStringWithRetryAsync(cardUrl, cancellationToken).ConfigureAwait(false);
+            cardJson = await GetStringWithRetryAsync(cardUrl, options, cancellationToken)
+                .ConfigureAwait(false);
             WriteTextAtomic(rawPath, JObject.Parse(cardJson).ToString(Formatting.Indented));
+            reusedMetadata = false;
         }
 
         JObject cardObject = JObject.Parse(cardJson);
@@ -167,6 +233,7 @@ public sealed class TcgdexImportService : IDisposable
         string imageRelativePath = null;
         string imageHash = null;
         long imageBytes = 0;
+        bool reusedImage = false;
 
         if (!string.IsNullOrWhiteSpace(imageBaseUrl))
         {
@@ -176,10 +243,14 @@ public sealed class TcgdexImportService : IDisposable
             byte[] bytes;
 
             if (!options.RefreshExistingFiles && File.Exists(imagePath))
+            {
                 bytes = File.ReadAllBytes(imagePath);
+                reusedImage = true;
+            }
             else
             {
-                bytes = await GetBytesWithRetryAsync(imageUrl, cancellationToken).ConfigureAwait(false);
+                bytes = await GetBytesWithRetryAsync(imageUrl, options, cancellationToken)
+                    .ConfigureAwait(false);
                 WriteBytesAtomic(imagePath, bytes);
             }
 
@@ -218,7 +289,7 @@ public sealed class TcgdexImportService : IDisposable
             }
         }
 
-        return record;
+        return new CardImportOutcome(record, reusedMetadata, reusedImage);
     }
 
     internal static ImportedSetRecord MapSet(JObject setObject, string sourceUrl)
@@ -255,19 +326,24 @@ public sealed class TcgdexImportService : IDisposable
         };
     }
 
-    private async Task<string> GetStringWithRetryAsync(string url, CancellationToken cancellationToken)
+    private async Task<string> GetStringWithRetryAsync(
+        string url, ContentImportOptions options, CancellationToken cancellationToken)
     {
-        byte[] bytes = await GetBytesWithRetryAsync(url, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = await GetBytesWithRetryAsync(url, options, cancellationToken)
+            .ConfigureAwait(false);
         return Encoding.UTF8.GetString(bytes);
     }
 
-    private async Task<byte[]> GetBytesWithRetryAsync(string url, CancellationToken cancellationToken)
+    private async Task<byte[]> GetBytesWithRetryAsync(
+        string url, ContentImportOptions options, CancellationToken cancellationToken)
     {
         Exception lastException = null;
-        for (int attempt = 1; attempt <= 3; attempt++)
+        for (int attempt = 1; attempt <= options.MaximumAttempts; attempt++)
         {
             try
             {
+                await AwaitRequestSlotAsync(options.RequestIntervalMilliseconds, cancellationToken)
+                    .ConfigureAwait(false);
                 using HttpResponseMessage response = await _httpClient
                     .GetAsync(url, cancellationToken)
                     .ConfigureAwait(false);
@@ -281,12 +357,33 @@ public sealed class TcgdexImportService : IDisposable
             catch (Exception exception)
             {
                 lastException = exception;
-                if (attempt < 3)
-                    await Task.Delay(attempt * 750, cancellationToken).ConfigureAwait(false);
+                if (attempt < options.MaximumAttempts)
+                    await Task.Delay(attempt * options.RetryBaseDelayMilliseconds, cancellationToken)
+                        .ConfigureAwait(false);
             }
         }
 
-        throw new HttpRequestException($"Failed to download '{url}' after 3 attempts.", lastException);
+        throw new HttpRequestException(
+            $"Failed to download '{url}' after {options.MaximumAttempts} attempts.", lastException);
+    }
+
+    private async Task AwaitRequestSlotAsync(
+        int intervalMilliseconds, CancellationToken cancellationToken)
+    {
+        if (intervalMilliseconds <= 0)
+            return;
+        await _requestGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            TimeSpan delay = _nextRequestUtc - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            _nextRequestUtc = DateTime.UtcNow.AddMilliseconds(intervalMilliseconds);
+        }
+        finally
+        {
+            _requestGate.Release();
+        }
     }
 
     private static void ValidateOptions(ContentImportOptions options)
@@ -301,6 +398,20 @@ public sealed class TcgdexImportService : IDisposable
             throw new ArgumentException("ImageQuality must be low or high.", nameof(options));
         if (!new[] { "jpg", "png", "webp" }.Contains(options.ImageExtension))
             throw new ArgumentException("ImageExtension must be jpg, png, or webp.", nameof(options));
+        if (options.RequestIntervalMilliseconds < 0 || options.RequestIntervalMilliseconds > 10000)
+            throw new ArgumentOutOfRangeException(nameof(options.RequestIntervalMilliseconds));
+        if (options.MaximumAttempts < 1 || options.MaximumAttempts > 10)
+            throw new ArgumentOutOfRangeException(nameof(options.MaximumAttempts));
+        if (options.RetryBaseDelayMilliseconds < 0 || options.RetryBaseDelayMilliseconds > 60000)
+            throw new ArgumentOutOfRangeException(nameof(options.RetryBaseDelayMilliseconds));
+    }
+
+    private static HttpClient CreateClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "UniversalGachaSimulator-PrivateImporter/2.0");
+        return client;
     }
 
     private static void WriteTextAtomic(string path, string content)
@@ -363,6 +474,38 @@ public sealed class TcgdexImportService : IDisposable
 
     public void Dispose()
     {
-        _httpClient.Dispose();
+        _requestGate.Dispose();
+        if (_ownsHttpClient)
+            _httpClient.Dispose();
+    }
+
+    private sealed class CardImportOutcome
+    {
+        public CardImportOutcome(
+            ImportedCardRecord record, bool reusedMetadata, bool reusedImage)
+        {
+            Record = record;
+            ReusedMetadata = reusedMetadata;
+            ReusedImage = reusedImage;
+        }
+
+        public ImportedCardRecord Record { get; }
+        public bool ReusedMetadata { get; }
+        public bool ReusedImage { get; }
+    }
+
+    private sealed class ImportSetOutcome
+    {
+        public ImportSetOutcome(
+            PrivateContentManifest manifest, int reusedMetadataCount, int reusedImageCount)
+        {
+            Manifest = manifest;
+            ReusedMetadataCount = reusedMetadataCount;
+            ReusedImageCount = reusedImageCount;
+        }
+
+        public PrivateContentManifest Manifest { get; }
+        public int ReusedMetadataCount { get; }
+        public int ReusedImageCount { get; }
     }
 }

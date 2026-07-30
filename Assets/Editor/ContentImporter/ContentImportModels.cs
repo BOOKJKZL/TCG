@@ -90,6 +90,9 @@ public sealed class ContentImportOptions
     public int MaxConcurrency = 4;
     public int MaximumCardsPerSet;
     public bool RefreshExistingFiles;
+    public int RequestIntervalMilliseconds = 25;
+    public int MaximumAttempts = 5;
+    public int RetryBaseDelayMilliseconds = 750;
 }
 
 public sealed class ContentImportSummary
@@ -98,4 +101,9 @@ public sealed class ContentImportSummary
     public int CardCount;
     public int ErrorCount;
     public long ImageBytes;
+    public int ReusedMetadataCount;
+    public int ReusedImageCount;
+    public int FailedSetCount;
+    public string CheckpointPath;
+    public string FailureReportPath;
 }
