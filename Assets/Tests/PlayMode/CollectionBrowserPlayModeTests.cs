@@ -108,12 +108,14 @@ namespace Gacha.Tests.PlayMode
                 Invoke(controller, "SetOwnedOnlyFilter", false);
                 TextField search = document.rootVisualElement.Q<TextField>("card-search");
                 search.value = "definitely-no-matching-card";
-                yield return null;
+                Assert.That((int)GetProperty(controller, "CurrentCardCount"), Is.GreaterThan(0),
+                    "Typing should not rebuild the virtualized list in the same frame.");
+                yield return new WaitForSecondsRealtime(0.18f);
                 Assert.That((int)GetProperty(controller, "CurrentCardCount"), Is.EqualTo(0));
                 Assert.That(document.rootVisualElement.Q<Label>("filter-empty").resolvedStyle.display,
                     Is.EqualTo(DisplayStyle.Flex));
                 search.value = string.Empty;
-                yield return null;
+                yield return new WaitForSecondsRealtime(0.18f);
 
                 DropdownField rarityFilter = document.rootVisualElement.Q<DropdownField>("rarity-filter");
                 Assert.That(rarityFilter.choices.Count, Is.GreaterThan(1));

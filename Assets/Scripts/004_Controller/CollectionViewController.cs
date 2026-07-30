@@ -13,6 +13,8 @@ using UnityEngine.UIElements;
 
 public sealed class CollectionViewController : MonoBehaviour
 {
+    private const int SearchDebounceMilliseconds = 120;
+
     private sealed class SetRow
     {
         public AsyncCardImageView Image;
@@ -76,6 +78,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private IVisualElementScheduledItem detailsAnimation;
     private IVisualElementScheduledItem languageSwapAnimation;
     private IVisualElementScheduledItem filterAnimation;
+    private IVisualElementScheduledItem searchRefresh;
     private PokemonPokedexController pokedexController;
     private string searchQuery = string.Empty;
     private string selectedRarityId;
@@ -138,6 +141,7 @@ public sealed class CollectionViewController : MonoBehaviour
         languageSwapAnimation = null;
         filterAnimation?.Pause();
         filterAnimation = null;
+        CancelSearchRefresh();
         foreach (AsyncCardImageView imageView in imageViews.ToArray())
             imageView.Dispose();
         imageViews.Clear();
@@ -386,7 +390,7 @@ public sealed class CollectionViewController : MonoBehaviour
             if (updatingFilterControls)
                 return;
             searchQuery = evt.newValue?.Trim() ?? string.Empty;
-            ApplyFilters(true);
+            ScheduleSearchRefresh();
         });
         rarityFilter.RegisterValueChangedCallback(_ =>
         {
@@ -598,6 +602,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void ApplyFilters(bool animate, bool hideDetails = true)
     {
+        CancelSearchRefresh();
         IEnumerable<PrintingDefinition> query = CurrentSetCards;
         if (!string.IsNullOrWhiteSpace(searchQuery))
         {
@@ -629,6 +634,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void ResetFilters(bool apply)
     {
+        CancelSearchRefresh();
         searchQuery = string.Empty;
         selectedRarityId = null;
         ownedOnly = false;
@@ -641,6 +647,23 @@ public sealed class CollectionViewController : MonoBehaviour
         RefreshFilterControls();
         if (apply)
             ApplyFilters(true);
+    }
+
+    private void ScheduleSearchRefresh()
+    {
+        CancelSearchRefresh();
+        searchRefresh = cardPage.schedule.Execute(() =>
+        {
+            searchRefresh = null;
+            ApplyFilters(true);
+        });
+        searchRefresh.ExecuteLater(SearchDebounceMilliseconds);
+    }
+
+    private void CancelSearchRefresh()
+    {
+        searchRefresh?.Pause();
+        searchRefresh = null;
     }
 
     private void RebuildRarityFilter()

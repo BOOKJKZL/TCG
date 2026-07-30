@@ -88,6 +88,15 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-title").text, Is.EqualTo("Pokédex"));
 
+                TextField speciesSearch = document.rootVisualElement.Q<TextField>("pokedex-search");
+                speciesSearch.value = "Bulbasaur";
+                speciesSearch.value = "Pikachu";
+                Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(151),
+                    "Rapid typing should not rebuild the virtualized list in the same frame.");
+                yield return new WaitForSecondsRealtime(0.18f);
+                Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(1));
+                Assert.That(list.itemsSource.Cast<PokemonSpeciesDefinition>().Single().NationalDexNumber, Is.EqualTo(25));
+
                 controller.SetSearch("#025");
                 yield return null;
                 Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(1));
@@ -115,6 +124,11 @@ namespace Gacha.Tests.PlayMode
                 ListView relatedCardList = document.rootVisualElement.Q<ListView>("pokedex-card-list");
                 Assert.That(relatedCardList.virtualizationMethod,
                     Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+                TextField relatedCardSearch = document.rootVisualElement.Q<TextField>("pokedex-card-search");
+                relatedCardSearch.value = "definitely-no-matching-card";
+                Assert.That(controller.VisibleCardCount, Is.GreaterThan(0));
+                yield return new WaitForSecondsRealtime(0.18f);
+                Assert.That(controller.VisibleCardCount, Is.EqualTo(0));
                 controller.SetCardSearch("Pikachu");
                 yield return null;
                 Assert.That(controller.VisibleCardCount, Is.GreaterThan(0));

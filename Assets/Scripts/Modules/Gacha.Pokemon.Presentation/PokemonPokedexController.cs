@@ -17,6 +17,8 @@ namespace Gacha.Pokemon.Presentation
 {
     public sealed class PokemonPokedexController : MonoBehaviour
     {
+        private const int SearchDebounceMilliseconds = 120;
+
         private sealed class SpeciesRow
         {
             public Label Number;
@@ -91,6 +93,8 @@ namespace Gacha.Pokemon.Presentation
         private Button speciesCardsButton;
         private Button manageDownloadsButton;
         private IVisualElementScheduledItem transitionAnimation;
+        private IVisualElementScheduledItem speciesSearchRefresh;
+        private IVisualElementScheduledItem cardSearchRefresh;
         private CardTextureCache artworkCache;
         private AsyncCardImageView artworkView;
         private CardTextureCache cardTextureCache;
@@ -191,6 +195,7 @@ namespace Gacha.Pokemon.Presentation
         {
             if (!EnsureReady())
                 return;
+            CancelSpeciesSearchRefresh();
             browser.Search(value);
             updatingControls = true;
             searchField.SetValueWithoutNotify(browser.Query);
@@ -202,6 +207,7 @@ namespace Gacha.Pokemon.Presentation
         {
             if (!EnsureReady() || !generationIds.Contains(generationId))
                 return false;
+            CancelSpeciesSearchRefresh();
             browser.SelectGeneration(generationId);
             updatingControls = true;
             generationField.index = generationIds.IndexOf(generationId);
@@ -282,6 +288,8 @@ namespace Gacha.Pokemon.Presentation
             if (ApplicationServices.IsConfigured)
                 ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
             transitionAnimation?.Pause();
+            CancelSpeciesSearchRefresh();
+            CancelCardSearchRefresh();
             artworkView?.Dispose();
             artworkView = null;
             artworkCache?.Dispose();
@@ -383,10 +391,7 @@ namespace Gacha.Pokemon.Presentation
             searchField.RegisterValueChangedCallback(evt =>
             {
                 if (!updatingControls && browser != null)
-                {
-                    browser.Search(evt.newValue);
-                    RefreshSpeciesList(true);
-                }
+                    ScheduleSpeciesSearchRefresh(evt.newValue);
             });
             generationField.RegisterValueChangedCallback(_ =>
             {
@@ -399,7 +404,7 @@ namespace Gacha.Pokemon.Presentation
                 if (updatingControls)
                     return;
                 cardSearch = (evt.newValue ?? string.Empty).Trim();
-                RefreshCardGallery(true);
+                ScheduleCardSearchRefresh();
             });
             cardSortField.RegisterValueChangedCallback(_ =>
             {
@@ -640,6 +645,7 @@ namespace Gacha.Pokemon.Presentation
         {
             if (browser?.SelectedSpecies == null)
                 return;
+            CancelCardSearchRefresh();
             showAllSpeciesCards = value;
             UIFeedbackService.Play(FeedbackCue.Confirm);
             RefreshCardGallery(true);
@@ -647,11 +653,50 @@ namespace Gacha.Pokemon.Presentation
 
         public void SetCardSearch(string value)
         {
+            CancelCardSearchRefresh();
             cardSearch = (value ?? string.Empty).Trim();
             updatingControls = true;
             cardSearchField.SetValueWithoutNotify(cardSearch);
             updatingControls = false;
             RefreshCardGallery(true);
+        }
+
+        private void ScheduleSpeciesSearchRefresh(string value)
+        {
+            CancelSpeciesSearchRefresh();
+            string query = value ?? string.Empty;
+            speciesSearchRefresh = speciesList.schedule.Execute(() =>
+            {
+                speciesSearchRefresh = null;
+                if (browser == null)
+                    return;
+                browser.Search(query);
+                RefreshSpeciesList(true);
+            });
+            speciesSearchRefresh.ExecuteLater(SearchDebounceMilliseconds);
+        }
+
+        private void CancelSpeciesSearchRefresh()
+        {
+            speciesSearchRefresh?.Pause();
+            speciesSearchRefresh = null;
+        }
+
+        private void ScheduleCardSearchRefresh()
+        {
+            CancelCardSearchRefresh();
+            cardSearchRefresh = cardList.schedule.Execute(() =>
+            {
+                cardSearchRefresh = null;
+                RefreshCardGallery(true);
+            });
+            cardSearchRefresh.ExecuteLater(SearchDebounceMilliseconds);
+        }
+
+        private void CancelCardSearchRefresh()
+        {
+            cardSearchRefresh?.Pause();
+            cardSearchRefresh = null;
         }
 
         public bool OpenRelatedCard(int index)
