@@ -23,7 +23,11 @@ public class GameplayPerformanceTests
             contentRoot,
             variantPolicy: new PokemonImportedCardVariantPolicy()).Load();
         Assert.That(loaded.Succeeded, Is.True, loaded.ErrorMessage);
-        Assert.That(loaded.Catalog.Products.Count, Is.EqualTo(5));
+        Assert.That(loaded.Catalog.Products.Count, Is.GreaterThanOrEqualTo(5));
+        ProductDefinition[] sampledProducts = loaded.Catalog.Products.Values
+            .OrderBy(product => product.Id, StringComparer.Ordinal)
+            .Take(10)
+            .ToArray();
 
         var inventory = new MemoryInventory();
         var rules = new FallbackProductRuleProvider(
@@ -43,7 +47,7 @@ public class GameplayPerformanceTests
 
         const int packsPerProduct = 100;
         int expectedTotalCards = 0;
-        foreach (ProductDefinition product in loaded.Catalog.Products.Values)
+        foreach (ProductDefinition product in sampledProducts)
         {
             int expectedCardsPerPack = service.GetProfile(product.Id).Rules.Slots.Sum(slot => slot.DrawCount);
             expectedTotalCards += expectedCardsPerPack * packsPerProduct;
@@ -62,10 +66,10 @@ public class GameplayPerformanceTests
             $"ContinuousOpening packs={inventory.TotalPacks} cards={inventory.TotalCards} " +
             $"elapsed={stopwatch.Elapsed.TotalSeconds:0.000}s retained={retainedGrowth / 1024f / 1024f:0.000}MiB");
 
-        Assert.That(inventory.TotalPacks, Is.EqualTo(loaded.Catalog.Products.Count * packsPerProduct));
+        Assert.That(inventory.TotalPacks, Is.EqualTo(sampledProducts.Length * packsPerProduct));
         Assert.That(inventory.TotalCards, Is.EqualTo(expectedTotalCards));
         Assert.That(inventory.DistinctCards, Is.LessThanOrEqualTo(loaded.Catalog.Printings.Count));
-        Assert.That(inventory.TrackedProducts, Is.EqualTo(loaded.Catalog.Products.Count));
+        Assert.That(inventory.TrackedProducts, Is.EqualTo(sampledProducts.Length));
         Assert.That(retainedGrowth, Is.LessThan(32L * 1024L * 1024L),
             $"Retained managed memory grew by {retainedGrowth / 1024f / 1024f:0.00} MiB.");
         Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)),

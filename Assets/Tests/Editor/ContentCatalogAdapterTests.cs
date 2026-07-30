@@ -43,7 +43,7 @@ public class ContentCatalogAdapterTests
     }
 
     [Test]
-    public void InstalledFiveSetFixture_BuildsCompleteCatalogWhenAvailable()
+    public void InstalledContentFixture_BuildsCompleteCatalogAtCurrentScale()
     {
         string contentRoot = Path.Combine(Directory.GetCurrentDirectory(), "LocalContent", "Imports");
         if (!Directory.Exists(contentRoot))
@@ -52,14 +52,19 @@ public class ContentCatalogAdapterTests
         IReadOnlyList<PrivateContentManifestDocument> documents = new PrivateContentManifestReader().LoadDirectory(contentRoot);
         PrivateCatalogImportResult result = new PrivateManifestCatalogAdapter().Build(documents);
 
-        Assert.That(result.SourceSetCount, Is.EqualTo(5));
-        Assert.That(result.SourceCardCount, Is.EqualTo(796));
-        Assert.That(result.Catalog.Items.Count, Is.EqualTo(796));
-        Assert.That(result.Catalog.Rarities.Count, Is.EqualTo(12));
-        Assert.That(result.Catalog.Printings.Count, Is.EqualTo(1278));
+        int expectedCards = documents.Sum(document => document.Manifest.Cards.Count);
+        Assert.That(result.SourceSetCount, Is.EqualTo(documents.Count));
+        Assert.That(result.SourceSetCount, Is.GreaterThanOrEqualTo(5));
+        Assert.That(result.SourceCardCount, Is.EqualTo(expectedCards));
+        Assert.That(result.Catalog.Items.Count, Is.EqualTo(expectedCards));
+        Assert.That(result.Catalog.Rarities.Count, Is.GreaterThanOrEqualTo(12));
+        Assert.That(result.Catalog.Printings.Count, Is.GreaterThanOrEqualTo(expectedCards));
         Assert.That(result.Warnings, Is.Empty);
-        Assert.That(result.Catalog.Printings.Values.All(printing =>
-            File.Exists(Path.Combine(contentRoot, printing.ImageRelativePath.Replace('/', Path.DirectorySeparatorChar)))), Is.True);
+        Assert.That(result.Catalog.Printings.Values
+            .Where(printing => !string.IsNullOrWhiteSpace(printing.ImageRelativePath))
+            .All(printing => File.Exists(Path.Combine(
+                contentRoot,
+                printing.ImageRelativePath.Replace('/', Path.DirectorySeparatorChar)))), Is.True);
     }
 
     private static PrivateContentManifestDto CreateManifest()

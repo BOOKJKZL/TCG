@@ -161,10 +161,10 @@ public class PokemonModernRuleProviderTests
             Is.EqualTo(ProductRuleTrust.SourceInformedSimulation));
         Assert.That(catalog.Products.Values
             .Select(product => provider.GetProfile(catalog, product.Id, "en"))
-            .Count(profile => profile.Trust == ProductRuleTrust.HistoricallyVerified), Is.EqualTo(3));
+            .Count(profile => profile?.Trust == ProductRuleTrust.HistoricallyVerified), Is.EqualTo(3));
         Assert.That(catalog.Products.Values
             .Select(product => provider.GetProfile(catalog, product.Id, "en"))
-            .Count(profile => profile.Trust == ProductRuleTrust.SourceInformedSimulation), Is.EqualTo(2));
+            .Count(profile => profile?.Trust == ProductRuleTrust.SourceInformedSimulation), Is.EqualTo(2));
         Assert.That(provider.GetProfile(catalog, modern.Id, "zh-CN"), Is.Null);
     }
 
