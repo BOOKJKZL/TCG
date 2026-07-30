@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
+using Gacha.Infrastructure.Rules;
 using Gacha.Pokemon.Infrastructure;
 using Newtonsoft.Json;
 using UnityEditor;
@@ -137,7 +138,9 @@ namespace Gacha.EditorTools.Content
                         report.InstalledReceiptCount++;
                 }
 
-                CatalogLoadResult cards = new PrivateContentCatalogProvider(contentRoot).Load();
+                CatalogLoadResult cards = new PrivateContentCatalogProvider(
+                    contentRoot,
+                    variantPolicy: new PokemonImportedCardVariantPolicy()).Load();
                 if (!cards.Succeeded)
                     throw new InvalidDataException("Installed card catalog failed: " + cards.ErrorMessage);
                 report.InstalledSetCount = cards.SourceSetCount;
@@ -164,6 +167,7 @@ namespace Gacha.EditorTools.Content
 
                 if (report.InstalledReceiptCount != ExpectedPackageCount ||
                     report.InstalledSetCount != 218 || report.InstalledCardCount != 23444 ||
+                    report.InstalledPrintingCount != 32426 ||
                     report.TaxonomySpeciesCount != 1025 || report.TaxonomyFormCount != 1579 ||
                     report.LinkedCardCount != 23444 || report.ArtworkImageCount != 1571)
                     report.Failures.Add("Installed complete release counts do not match audited source counts.");
