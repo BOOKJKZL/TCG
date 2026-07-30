@@ -1,0 +1,17 @@
+{
+    "name": "Gacha.Pokemon.Application",
+    "rootNamespace": "Gacha.Pokemon.Application",
+    "references": [
+        "Gacha.Domain",
+        "Gacha.Pokemon.Domain"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
