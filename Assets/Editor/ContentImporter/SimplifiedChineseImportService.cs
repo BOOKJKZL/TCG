@@ -143,7 +143,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
         }
 
         var checkpoint = new ContentImportCheckpointStore(
-            options.OutputRoot, Language, "source", options.DownloadImages ? "png" : "metadata");
+            options.OutputRoot, Language, "source-v2", options.DownloadImages ? "png" : "metadata");
         checkpoint.Begin(products.Select(value => value.SetId));
         var summary = new ContentImportSummary
         {
@@ -284,7 +284,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
         {
             JObject card = token as JObject ?? new JObject();
             string localId = Value(card, "cardIndex") ?? (index + 1).ToString("D3", CultureInfo.InvariantCulture);
-            string cardId = product.SetCode + "-" + localId;
+            string cardId = product.SetId + "-" + localId;
             await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             string failure = null;
             bool attemptFinished = false;
@@ -331,6 +331,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
         manifest.Errors.AddRange(errors.Where(value => value != null));
         WriteTextAtomic(Path.Combine(setDirectory, "manifest.json"),
             JsonConvert.SerializeObject(manifest, Formatting.Indented));
+        RemoveUnreferencedFiles(setDirectory, rawCardsDirectory, imagesDirectory, manifest);
         checkpoint.CompleteSet(product.SetId);
         return new ImportSetOutcome(
             manifest, reusedMetadata + reusedCards, reusedImages);
@@ -351,7 +352,8 @@ public sealed class SimplifiedChineseImportService : IDisposable
         bool reusedMetadata = !options.RefreshExistingFiles && File.Exists(rawPath);
         if (!reusedMetadata)
             WriteTextAtomic(rawPath, card.ToString(Formatting.Indented));
-        string imageUrl = assetRoot + "/" + Uri.EscapeDataString(product.SetCode) + "/" +
+        string sourceSetCode = Value(card, "setCode") ?? product.SetId;
+        string imageUrl = assetRoot + "/" + Uri.EscapeDataString(sourceSetCode) + "/" +
                           Uri.EscapeDataString(localId) + ".png";
         string imageRelativePath = null;
         string imageHash = null;
@@ -661,6 +663,35 @@ public sealed class SimplifiedChineseImportService : IDisposable
             File.Delete(path);
         File.Move(temporary, path);
     }
+
+    private static void RemoveUnreferencedFiles(
+        string setDirectory,
+        string rawCardsDirectory,
+        string imagesDirectory,
+        PrivateContentManifest manifest)
+    {
+        var referencedRaw = new HashSet<string>(manifest.Cards
+            .Where(value => !string.IsNullOrWhiteSpace(value.RawDataRelativePath))
+            .Select(value => Path.GetFullPath(Path.Combine(setDirectory, value.RawDataRelativePath))),
+            PathComparer());
+        var referencedImages = new HashSet<string>(manifest.Cards
+            .Where(value => !string.IsNullOrWhiteSpace(value.ImageRelativePath))
+            .Select(value => Path.GetFullPath(Path.Combine(setDirectory, value.ImageRelativePath))),
+            PathComparer());
+        foreach (string path in Directory.GetFiles(rawCardsDirectory, "*.json", SearchOption.TopDirectoryOnly))
+            if (!referencedRaw.Contains(Path.GetFullPath(path)))
+                File.Delete(path);
+        foreach (string path in Directory.GetFiles(imagesDirectory, "*", SearchOption.TopDirectoryOnly)
+                     .Where(value => new[] { ".jpg", ".jpeg", ".png", ".webp" }.Contains(
+                         Path.GetExtension(value), StringComparer.OrdinalIgnoreCase)))
+            if (!referencedImages.Contains(Path.GetFullPath(path)))
+                File.Delete(path);
+    }
+
+    private static StringComparer PathComparer() =>
+        Path.DirectorySeparatorChar == '\\'
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
     private static HttpClient CreateClient()
     {

@@ -145,6 +145,36 @@ public class SimplifiedChineseImportServiceTests
     }
 
     [Test]
+    public async Task Import_PromoUsesUniqueSetIdButCardSetCodeForArtworkUrl()
+    {
+        var responses = ProductListFixture();
+        responses["https://cards.test/api/product-detail"] = Json(@"{
+          'code':200,'msg':'OK.','data':{
+            'setId':'SMP','setCode':'PROMO','name':'特典卡',
+            'releaseDate':'0001-01-01T00:00:00Z','series':'Sun & Moon',
+            'cardsNum':1,'cards':[
+              {'setCode':'SMP','cardIndex':'001','cardName':'特典卡一','rarity':'PROMO',
+               'cardType':'Pokemon','yorenCode':'P001','is':['Basic']}
+            ]
+          }
+        }");
+        responses["https://cards.test/images/SMP/001.png"] = new byte[] { 9, 8, 7 };
+        using var client = Client(responses);
+        using var service = new SimplifiedChineseImportService(
+            client, "https://cards.test/api", "https://cards.test/images");
+
+        ContentImportSummary summary = await service.ImportAsync(
+            new[] { "SMP" }, Options(), cancellationToken: CancellationToken.None);
+
+        Assert.That(summary.ErrorCount, Is.Zero);
+        PrivateContentManifest manifest = JsonConvert.DeserializeObject<PrivateContentManifest>(
+            File.ReadAllText(Path.Combine(temporaryDirectory, "zh-cn", "SMP", "manifest.json")));
+        Assert.That(manifest.Cards.Single().Id, Is.EqualTo("SMP-001"));
+        Assert.That(manifest.Cards.Single().ImageSourceUrl,
+            Is.EqualTo("https://cards.test/images/SMP/001.png"));
+    }
+
+    [Test]
     public async Task Inventory_IsDeterministicExceptForGeneratedTimestamp()
     {
         using var firstClient = Client(ProductListFixture());
