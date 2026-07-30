@@ -27,7 +27,7 @@ namespace Gacha.Presentation
         private Coroutine refreshRoutine;
         private Coroutine transitionRoutine;
         private LanguageSelectionService languages;
-        private string contentUnavailableMessage;
+        private bool contentUnavailable;
 
         public static LanguageSettingsPanel Create(Transform parent)
         {
@@ -79,12 +79,12 @@ namespace Gacha.Presentation
             CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
             if (load.Succeeded)
             {
-                contentUnavailableMessage = null;
+                contentUnavailable = false;
                 languages.RefreshContentLanguage(load.Catalog);
             }
             else
             {
-                contentUnavailableMessage = load.ErrorMessage;
+                contentUnavailable = true;
                 contentLanguageButton.interactable = false;
                 UIFeedbackService.Play(FeedbackCue.Error);
             }
@@ -109,7 +109,7 @@ namespace Gacha.Presentation
                 StopCoroutine(transitionRoutine);
             refreshRoutine = null;
             transitionRoutine = null;
-            contentUnavailableMessage = null;
+            contentUnavailable = false;
         }
 
         private void CycleUiLanguage()
@@ -198,9 +198,12 @@ namespace Gacha.Presentation
                 availableContentLanguageCount: contentLanguageCount);
             contentLanguageButton.interactable = hasMultipleContentLanguages;
 
-            if (!catalogReady && !string.IsNullOrWhiteSpace(contentUnavailableMessage))
+            if (!catalogReady && contentUnavailable)
             {
-                statusText.text = contentUnavailableMessage;
+                yield return SetLocalized(
+                    statusText,
+                    "gacha.status.no_products",
+                    "No card packs are installed for the current card language.");
             }
             else if (languages.ContentLanguage.UsedFallback)
             {
