@@ -15,6 +15,12 @@ namespace Gacha.EditorTools.Content
         public const string DefaultPackageId = "pokemon.card-subject-links.en";
         public const string DefaultInstallRelativePath = "pokedex/links/en";
 
+        public static string PackageId(string language) =>
+            "pokemon.card-subject-links." + NormalizeLanguage(language);
+
+        public static string InstallRelativePath(string language) =>
+            "pokedex/links/" + NormalizeLanguage(language);
+
         public static ContentPackagePublishResult Publish(
             string snapshotPath,
             string outputDirectory,
@@ -45,6 +51,14 @@ namespace Gacha.EditorTools.Content
             PublishedContentPackage package = result.Packages.Single();
             VerifyArchive(package.ArchivePath, fileName, fullSnapshotPath);
             return result;
+        }
+
+        private static string NormalizeLanguage(string language)
+        {
+            string normalized = (language ?? string.Empty).Trim().ToLowerInvariant();
+            if (normalized != "en" && normalized != "ja" && normalized != "zh-cn")
+                throw new ArgumentException("Unsupported card language: " + language, nameof(language));
+            return normalized;
         }
 
         private static void VerifyArchive(string archivePath, string expectedEntryName, string snapshotPath)

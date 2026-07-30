@@ -10,14 +10,33 @@ public sealed class PokemonCompleteReleasePublisherTests
         ContentPackagePublishDefinition[] definitions = PokemonCompleteReleasePublisher
             .BuildDefinitions().ToArray();
 
-        Assert.That(definitions.Length, Is.EqualTo(229));
-        Assert.That(definitions.Select(value => value.PackageId).Distinct().Count(), Is.EqualTo(229));
+        Assert.That(definitions.Length, Is.EqualTo(537));
+        Assert.That(definitions.Select(value => value.PackageId).Distinct().Count(), Is.EqualTo(537));
         Assert.That(definitions.All(value => value.PackageId == value.PackageId.ToLowerInvariant()), Is.True);
+        Assert.That(definitions.All(value => value.PackageId.All(character =>
+            character >= 'a' && character <= 'z' || character >= '0' && character <= '9' ||
+            character == '.' || character == '-' || character == '_')),
+            Is.True);
         Assert.That(definitions.Select(value => value.InstallRelativePath)
-            .Distinct(System.StringComparer.OrdinalIgnoreCase).Count(), Is.EqualTo(229));
+            .Distinct(System.StringComparer.OrdinalIgnoreCase).Count(), Is.EqualTo(537));
         Assert.That(definitions.Count(value => value.PackageId.StartsWith("en.")), Is.EqualTo(218));
+        Assert.That(definitions.Count(value => value.PackageId.StartsWith("ja.")), Is.EqualTo(177));
+        Assert.That(definitions.Count(value => value.PackageId.StartsWith("zh-cn.")), Is.EqualTo(129));
+        Assert.That(definitions.Count(value => value.PackageId.StartsWith("pokemon.card-subject-links.")),
+            Is.EqualTo(3));
         Assert.That(definitions.Count(value => value.PackageId.StartsWith("pokemon.pokedex.artwork.")), Is.EqualTo(9));
         Assert.That(definitions.Single(value => value.PackageId == "pokemon.pokedex.taxonomy")
             .IncludedRelativePaths, Is.EqualTo(new[] { "pokemon-taxonomy.json" }));
+        Assert.That(definitions.Single(value => string.Equals(
+                value.InstallRelativePath, "ja/sm1+", System.StringComparison.OrdinalIgnoreCase)).PackageId,
+            Is.EqualTo("ja.sm1_2b"));
+    }
+
+    [TestCase("sm1+", "sm1_2b")]
+    [TestCase("A_B", "a_5fb")]
+    [TestCase("包", "_e5_8c_85")]
+    public void EncodePackageIdSegment_UsesStableUtf8Escapes(string source, string expected)
+    {
+        Assert.That(PokemonCompleteReleasePublisher.EncodePackageIdSegment(source), Is.EqualTo(expected));
     }
 }

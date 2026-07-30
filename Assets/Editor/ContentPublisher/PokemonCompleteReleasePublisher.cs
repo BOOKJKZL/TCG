@@ -44,8 +44,10 @@ namespace Gacha.EditorTools.Content
 
     public static class PokemonCompleteReleasePublisher
     {
-        public const int ExpectedPackageCount = 229;
-        public const string Version = "3.0.0";
+        public const int ExpectedSetPackageCount = 524;
+        public const int ExpectedPackageCount = 537;
+        public const string Version = "4.0.0";
+        private static readonly string[] CardLanguages = { "en", "ja", "zh-cn" };
         public static string DefaultOutputRoot => Path.Combine(
             ContentPackagePublisherBatch.ProjectRoot, "LocalContent", "Releases", "android-complete");
 
@@ -88,16 +90,26 @@ namespace Gacha.EditorTools.Content
             {
                 ContentPackagePublishDefinition[] definitions = BuildDefinitions().ToArray();
                 report.PackageCount = definitions.Length;
-                report.SetPackageCount = definitions.Count(value => value.PackageId.StartsWith("en.", StringComparison.Ordinal));
+                report.SetPackageCount = definitions.Count(value => CardLanguages.Any(language =>
+                    value.PackageId.StartsWith(language + ".", StringComparison.Ordinal)));
                 report.ArtworkPackageCount = definitions.Count(value => value.PackageId.StartsWith(
                     "pokemon.pokedex.artwork.", StringComparison.Ordinal));
                 report.TaxonomyPackageCount = definitions.Count(value => value.PackageId == "pokemon.pokedex.taxonomy");
-                report.LinkPackageCount = definitions.Count(value => value.PackageId == PokemonCardSubjectPackagePublisher.DefaultPackageId);
-                if (report.PackageCount != ExpectedPackageCount || report.SetPackageCount != 218 ||
-                    report.ArtworkPackageCount != 9 || report.TaxonomyPackageCount != 1 || report.LinkPackageCount != 1)
+                report.LinkPackageCount = definitions.Count(value => value.PackageId.StartsWith(
+                    "pokemon.card-subject-links.", StringComparison.Ordinal));
+                if (report.PackageCount != ExpectedPackageCount ||
+                    report.SetPackageCount != ExpectedSetPackageCount ||
+                    report.ArtworkPackageCount != 9 || report.TaxonomyPackageCount != 1 ||
+                    report.LinkPackageCount != CardLanguages.Length)
                     report.Failures.Add("Complete release package category counts are incorrect.");
 
-                var request = new ContentPackagePublishRequest(DefaultOutputRoot, 3, definitions);
+                CatalogLoadResult expectedCards = new PrivateContentCatalogProvider(
+                    ContentPackagePublisherBatch.DefaultImportRoot,
+                    variantPolicy: new PokemonImportedCardVariantPolicy()).Load();
+                if (!expectedCards.Succeeded)
+                    throw new InvalidDataException("Source card catalog failed: " + expectedCards.ErrorMessage);
+
+                var request = new ContentPackagePublishRequest(DefaultOutputRoot, 4, definitions);
                 ContentPackagePublishResult first = new DeterministicContentPackagePublisher().Publish(request);
                 byte[] firstCatalog = File.ReadAllBytes(first.CatalogPath);
                 string firstIdentity = IdentityHash(first.Packages);
@@ -146,12 +158,20 @@ namespace Gacha.EditorTools.Content
                 report.InstalledSetCount = cards.SourceSetCount;
                 report.InstalledCardCount = cards.SourceItemCount;
                 report.InstalledPrintingCount = cards.PrintingCount;
-                var pokedex = new PokemonPokedexSnapshotRepository().Load(
-                    Path.Combine(contentRoot, "pokedex", "taxonomy", "pokemon-taxonomy.json"),
-                    Path.Combine(contentRoot, "pokedex", "links", "en", "pokemon-card-subject-links.en.json"));
-                report.TaxonomySpeciesCount = pokedex.Catalog.Species.Count;
-                report.TaxonomyFormCount = pokedex.Catalog.Forms.Count;
-                report.LinkedCardCount = pokedex.SubjectCatalog.Cards.Count;
+                string taxonomyPath = Path.Combine(
+                    contentRoot, "pokedex", "taxonomy", "pokemon-taxonomy.json");
+                PokemonTaxonomySnapshotLoadResult taxonomy =
+                    new PokemonTaxonomySnapshotReader().LoadFile(taxonomyPath);
+                report.TaxonomySpeciesCount = taxonomy.Catalog.Species.Count;
+                report.TaxonomyFormCount = taxonomy.Catalog.Forms.Count;
+                foreach (string language in CardLanguages)
+                {
+                    PokemonPokedexSnapshotBundle pokedex = new PokemonPokedexSnapshotRepository().Load(
+                        taxonomyPath,
+                        Path.Combine(contentRoot, "pokedex", "links", language,
+                            $"pokemon-card-subject-links.{language}.json"));
+                    report.LinkedCardCount += pokedex.SubjectCatalog.Cards.Count;
+                }
                 for (int generation = 1; generation <= 9; generation++)
                 {
                     PokemonArtworkCatalog artwork = new PokemonArtworkManifestReader().LoadFile(Path.Combine(
@@ -160,16 +180,18 @@ namespace Gacha.EditorTools.Content
                         "artwork",
                         "generation-" + generation,
                         "manifest.json"));
-                    if (!string.Equals(artwork.TaxonomySourceSha256, pokedex.Taxonomy.SourceSha256, StringComparison.Ordinal))
+                    if (!string.Equals(
+                            artwork.TaxonomySourceSha256, taxonomy.SourceSha256, StringComparison.Ordinal))
                         report.Failures.Add("Installed artwork taxonomy hash differs for generation-" + generation + ".");
                     report.ArtworkImageCount += artwork.Entries.Count;
                 }
 
                 if (report.InstalledReceiptCount != ExpectedPackageCount ||
-                    report.InstalledSetCount != 218 || report.InstalledCardCount != 23444 ||
-                    report.InstalledPrintingCount != 32426 ||
+                    report.InstalledSetCount != expectedCards.SourceSetCount ||
+                    report.InstalledCardCount != expectedCards.SourceItemCount ||
+                    report.InstalledPrintingCount != expectedCards.PrintingCount ||
                     report.TaxonomySpeciesCount != 1025 || report.TaxonomyFormCount != 1579 ||
-                    report.LinkedCardCount != 23444 || report.ArtworkImageCount != 1571)
+                    report.LinkedCardCount != 44076 || report.ArtworkImageCount != 1571)
                     report.Failures.Add("Installed complete release counts do not match audited source counts.");
             }
             catch (Exception exception)
@@ -194,17 +216,31 @@ namespace Gacha.EditorTools.Content
         {
             IReadOnlyList<ContentPackagePublisherBatch.ImportedSet> imports =
                 ContentPackagePublisherBatch.DiscoverImports(ContentPackagePublisherBatch.DefaultImportRoot)
-                    .Where(value => value.Language.Equals("en", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(value => value.SetId, StringComparer.Ordinal)
+                    .Where(value => CardLanguages.Contains(
+                        value.Language, StringComparer.OrdinalIgnoreCase))
+                    .OrderBy(value => value.Language, StringComparer.Ordinal)
+                    .ThenBy(value => value.SetId, StringComparer.Ordinal)
                     .ToArray();
-            if (imports.Count != 218)
-                throw new InvalidDataException($"Complete release requires 218 English Sets; found {imports.Count}.");
+            IReadOnlyDictionary<string, int> expected = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["en"] = 218,
+                ["ja"] = 177,
+                ["zh-cn"] = 129
+            };
+            foreach (KeyValuePair<string, int> language in expected)
+            {
+                int actual = imports.Count(value => string.Equals(
+                    value.Language, language.Key, StringComparison.OrdinalIgnoreCase));
+                if (actual != language.Value)
+                    throw new InvalidDataException(
+                        $"Complete release requires {language.Value} '{language.Key}' Sets; found {actual}.");
+            }
             foreach (ContentPackagePublisherBatch.ImportedSet imported in imports)
                 yield return new ContentPackagePublishDefinition(
-                    (imported.Language + "." + imported.SetId).ToLowerInvariant(),
+                    imported.Language.ToLowerInvariant() + "." + EncodePackageIdSegment(imported.SetId),
                     imported.SourceDirectory,
                     imported.Language + "/" + imported.SetId,
-                    3,
+                    4,
                     Version,
                     ContentPackagePublisherBatch.RuntimePackagePaths(imported));
 
@@ -213,16 +249,17 @@ namespace Gacha.EditorTools.Content
                 "pokemon.pokedex.taxonomy",
                 Path.Combine(pokedexRoot, "snapshot"),
                 "pokedex/taxonomy",
-                3,
+                4,
                 Version,
                 new[] { "pokemon-taxonomy.json" });
-            yield return new ContentPackagePublishDefinition(
-                PokemonCardSubjectPackagePublisher.DefaultPackageId,
-                Path.Combine(pokedexRoot, "links"),
-                PokemonCardSubjectPackagePublisher.DefaultInstallRelativePath,
-                3,
-                Version,
-                new[] { "pokemon-card-subject-links.en.json" });
+            foreach (string language in CardLanguages)
+                yield return new ContentPackagePublishDefinition(
+                    PokemonCardSubjectPackagePublisher.PackageId(language),
+                    Path.Combine(pokedexRoot, "links"),
+                    PokemonCardSubjectPackagePublisher.InstallRelativePath(language),
+                    4,
+                    Version,
+                    new[] { $"pokemon-card-subject-links.{language}.json" });
             for (int generation = 1; generation <= 9; generation++)
             {
                 string generationId = "generation-" + generation;
@@ -230,9 +267,29 @@ namespace Gacha.EditorTools.Content
                     "pokemon.pokedex.artwork." + generationId,
                     Path.Combine(pokedexRoot, "artwork", generationId),
                     "pokedex/artwork/" + generationId,
-                    3,
+                    4,
                     Version);
             }
+        }
+
+        public static string EncodePackageIdSegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Package id segment cannot be empty.", nameof(value));
+
+            byte[] bytes = Encoding.UTF8.GetBytes(value.Trim().ToLowerInvariant());
+            StringBuilder encoded = new(bytes.Length);
+            foreach (byte current in bytes)
+            {
+                bool safe = current >= (byte)'a' && current <= (byte)'z' ||
+                            current >= (byte)'0' && current <= (byte)'9' ||
+                            current == (byte)'.' || current == (byte)'-';
+                if (safe)
+                    encoded.Append((char)current);
+                else
+                    encoded.Append('_').Append(current.ToString("x2", CultureInfo.InvariantCulture));
+            }
+            return encoded.ToString();
         }
 
         private static string IdentityHash(IEnumerable<PublishedContentPackage> packages)

@@ -42,4 +42,14 @@ public sealed class PokemonCardSubjectPackagePublisherTests
         Assert.That(archive.Entries.Select(entry => entry.FullName),
             Is.EqualTo(new[] { "pokemon-card-subject-links.en.json" }));
     }
+
+    [TestCase("en", "pokemon.card-subject-links.en", "pokedex/links/en")]
+    [TestCase("ja", "pokemon.card-subject-links.ja", "pokedex/links/ja")]
+    [TestCase("zh-cn", "pokemon.card-subject-links.zh-cn", "pokedex/links/zh-cn")]
+    public void LanguageIdentity_IsIndependentPerInstalledCardLanguage(
+        string language, string packageId, string installPath)
+    {
+        Assert.That(PokemonCardSubjectPackagePublisher.PackageId(language), Is.EqualTo(packageId));
+        Assert.That(PokemonCardSubjectPackagePublisher.InstallRelativePath(language), Is.EqualTo(installPath));
+    }
 }
