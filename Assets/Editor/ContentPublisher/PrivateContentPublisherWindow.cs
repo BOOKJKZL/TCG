@@ -253,7 +253,7 @@ public static class ContentPackagePublisherBatch
         return result;
     }
 
-    private static IReadOnlyList<string> RuntimePackagePaths(ImportedSet importedSet)
+    public static IReadOnlyList<string> RuntimePackagePaths(ImportedSet importedSet)
     {
         string manifestPath = Path.Combine(importedSet.SourceDirectory, "manifest.json");
         PrivateContentManifestDocument document = new PrivateContentManifestReader().LoadFile(manifestPath);
@@ -331,7 +331,7 @@ public static class ContentPackagePublisherBatch
         }
     }
 
-    private static IReadOnlyList<ImportedSet> DiscoverImports(string root)
+    public static IReadOnlyList<ImportedSet> DiscoverImports(string root)
     {
         if (!Directory.Exists(root))
             return Array.Empty<ImportedSet>();
