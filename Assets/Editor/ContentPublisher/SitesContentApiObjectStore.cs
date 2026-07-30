@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Gacha.EditorTools.Content
 {
@@ -58,6 +59,7 @@ namespace Gacha.EditorTools.Content
     /// </summary>
     public sealed class SitesContentApiObjectStore : IR2ReleaseObjectStore, IDisposable
     {
+        private const int MaximumTransientUploadAttempts = 4;
         private static readonly Regex ArchiveKeyPattern = new Regex(
             "^packages/([a-z0-9][a-z0-9._-]{0,79})/([a-f0-9]{64})\\.zip$",
             RegexOptions.CultureInvariant);
@@ -116,19 +118,36 @@ namespace Gacha.EditorTools.Content
             ArchiveIdentity identity = ParseArchiveKey(objectKey);
             long bytes = new FileInfo(localPath).Length;
             Uri uri = PackageAdminUri(identity, bytes);
-            using (var request = CreateProtectedRequest(HttpMethod.Post, uri))
-            using (var stream = File.OpenRead(localPath))
-            using (var content = new StreamContent(stream))
+            for (int attempt = 1; attempt <= MaximumTransientUploadAttempts; attempt++)
             {
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-                content.Headers.ContentLength = bytes;
-                request.Content = content;
-                using (HttpResponseMessage response = await client.SendAsync(
-                           request,
-                           HttpCompletionOption.ResponseHeadersRead,
-                           cancellationToken))
+                using (var request = CreateProtectedRequest(HttpMethod.Post, uri))
+                using (var stream = File.OpenRead(localPath))
+                using (var content = new StreamContent(stream))
                 {
-                    await EnsureSuccessAsync(response, "ZIP upload");
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+                    content.Headers.ContentLength = bytes;
+                    request.Content = content;
+                    using (HttpResponseMessage response = await client.SendAsync(
+                               request,
+                               HttpCompletionOption.ResponseHeadersRead,
+                               cancellationToken))
+                    {
+                        if (response.IsSuccessStatusCode)
+                            return;
+                        if (!IsTransient(response.StatusCode) || attempt == MaximumTransientUploadAttempts)
+                        {
+                            await EnsureSuccessAsync(
+                                response,
+                                $"ZIP upload for '{objectKey}' (attempt {attempt}/{MaximumTransientUploadAttempts})");
+                        }
+
+                        TimeSpan delay = RetryDelay(response, attempt);
+                        Debug.LogWarning(
+                            $"Sites ZIP upload returned transient HTTP {(int)response.StatusCode} for " +
+                            $"'{objectKey}' (attempt {attempt}/{MaximumTransientUploadAttempts}); " +
+                            $"retrying in {delay.TotalSeconds:0.#} seconds.");
+                        await Task.Delay(delay, cancellationToken);
+                    }
                 }
             }
         }
@@ -279,6 +298,20 @@ namespace Gacha.EditorTools.Content
             throw new IOException(
                 action + " failed with HTTP " + (int)response.StatusCode +
                 (string.IsNullOrEmpty(details) ? "." : ": " + details));
+        }
+
+        private static bool IsTransient(HttpStatusCode statusCode)
+        {
+            int code = (int)statusCode;
+            return code == 408 || code == 429 || code == 500 || code == 502 || code == 503 || code == 504;
+        }
+
+        private static TimeSpan RetryDelay(HttpResponseMessage response, int attempt)
+        {
+            TimeSpan? requested = response.Headers.RetryAfter?.Delta;
+            if (requested.HasValue && requested.Value >= TimeSpan.Zero && requested.Value <= TimeSpan.FromSeconds(30))
+                return requested.Value;
+            return TimeSpan.FromSeconds(Math.Min(8, 1 << (attempt - 1)));
         }
 
         private static string Header(HttpResponseMessage response, string name)

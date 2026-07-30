@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -158,6 +159,43 @@ public class SitesContentApiObjectStoreTests
         Assert.That(handler.Requests[0].Method, Is.EqualTo(HttpMethod.Post));
         Assert.That(handler.Requests[0].Uri.AbsolutePath, Is.EqualTo("/api/admin/content/catalog"));
         Assert.That(handler.Requests[0].Body, Is.EqualTo(catalog));
+    }
+
+    [Test]
+    public async Task Adapter_RetriesTransientZipFailuresWithFreshRequestBodies()
+    {
+        byte[] archive = { 7, 6, 5, 4 };
+        string sha256 = Sha256(archive);
+        string objectKey = "packages/zh-cn.fixture/" + sha256 + ".zip";
+        string archivePath = Path.Combine(root, sha256 + ".zip");
+        File.WriteAllBytes(archivePath, archive);
+        int attempts = 0;
+        var handler = new RecordingHandler((request, body) =>
+        {
+            attempts++;
+            var response = new HttpResponseMessage(
+                attempts < 3 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.Created);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+            response.Content = new StringContent(attempts < 3 ? "temporary" : "{\"ok\":true}");
+            return response;
+        });
+        var credentials = new SitesContentApiCredentials(
+            new Uri("https://cards.chatgpt.site"),
+            new string('C', 43));
+
+        using (var store = new SitesContentApiObjectStore(credentials, handler, TimeSpan.FromSeconds(5)))
+        {
+            await store.UploadFileAsync(
+                objectKey,
+                archivePath,
+                sha256,
+                "application/zip",
+                "public, max-age=31536000, immutable",
+                CancellationToken.None);
+        }
+
+        Assert.That(handler.Requests.Count, Is.EqualTo(3));
+        Assert.That(handler.Requests.All(request => request.Body.SequenceEqual(archive)), Is.True);
     }
 
     [Test]

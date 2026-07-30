@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
+using UnityEngine;
 
 namespace Gacha.EditorTools.Content
 {
@@ -250,8 +251,9 @@ namespace Gacha.EditorTools.Content
 
             int uploaded = 0;
             int reused = 0;
-            foreach (R2ReleaseObject archive in plan.Archives)
+            for (int index = 0; index < plan.Archives.Count; index++)
             {
+                R2ReleaseObject archive = plan.Archives[index];
                 cancellationToken.ThrowIfCancellationRequested();
                 R2RemoteObjectState existing = await objectStore
                     .InspectAsync(archive.ObjectKey, cancellationToken);
@@ -281,6 +283,13 @@ namespace Gacha.EditorTools.Content
                 R2RemoteObjectState publicRead = await objectStore
                     .VerifyPublicAsync(archive.PublicUri, archive.Bytes, archive.Sha256, cancellationToken);
                 AssertRemoteObject(archive.ObjectKey, publicRead, archive.Bytes, archive.Sha256, false);
+                int completed = index + 1;
+                if (completed == 1 || completed % 25 == 0 || completed == plan.Archives.Count)
+                {
+                    Debug.Log(
+                        $"Content publication progress: {completed}/{plan.Archives.Count}, " +
+                        $"uploaded={uploaded}, reused={reused}, current='{archive.ObjectKey}'.");
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
