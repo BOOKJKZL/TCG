@@ -44,6 +44,7 @@
                 <ui:VisualElement class="details-panel__card">
                     <ui:VisualElement name="detail-art-slot" class="details-panel__art" />
                     <ui:Label name="detail-new-badge" class="details-panel__new" style="display: none;" />
+                    <ui:VisualElement name="detail-language-switcher" class="details-panel__languages" style="display: none;" />
                     <ui:Label name="detail-name" class="details-panel__name" />
                     <ui:Label name="detail-metadata" class="details-panel__metadata" />
                     <ui:Label name="detail-progress" class="details-panel__progress" />

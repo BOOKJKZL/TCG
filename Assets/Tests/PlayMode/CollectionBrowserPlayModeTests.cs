@@ -97,6 +97,9 @@ namespace Gacha.Tests.PlayMode
                 VisualElement details = document.rootVisualElement.Q<VisualElement>("details-panel");
                 Assert.That(details.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(details.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.05f));
+                Assert.That((bool)GetProperty(controller, "HasDetailLanguageSwitcher"), Is.False);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("detail-language-switcher").resolvedStyle.display,
+                    Is.EqualTo(DisplayStyle.None));
                 Assert.That(progressStore.GetProgress(availableCards[0].Id).IsNew, Is.False);
                 Assert.That((int)GetProperty(controller, "NewCardCount"), Is.EqualTo(0));
                 Assert.That(cues, Does.Contain(FeedbackCue.CardFlip));
@@ -155,6 +158,93 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator CollectionDetails_SwitchOnlyInstalledCardVersionWithoutChangingGlobalLanguages()
+        {
+            Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("CollectionViewController"))
+                .First(type => type != null);
+            PropertyInfo catalogOverride = controllerType.GetProperty(
+                "CatalogOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            PropertyInfo storeOverride = controllerType.GetProperty(
+                "CollectionProgressStoreOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            UniversalCatalog testCatalog = BuildCardLanguageCatalog();
+            catalogOverride.SetValue(null, testCatalog);
+            storeOverride.SetValue(null, new MemoryCollectionProgressStore());
+            Assert.That(ApplicationServices.IsConfigured, Is.True);
+            string originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+            string originalCardLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
+            ApplicationServices.Languages.SelectContentLanguage("en", testCatalog);
+            var cues = new List<FeedbackCue>();
+            UIFeedbackService.FeedbackPlayed += cues.Add;
+            try
+            {
+                AsyncOperation load = SceneManager.LoadSceneAsync("004_CollectionScene", LoadSceneMode.Single);
+                yield return load;
+                yield return null;
+
+                MonoBehaviour controller = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                        FindObjectsInactive.Include,
+                        FindObjectsSortMode.None)
+                    .FirstOrDefault(component => component.GetType() == controllerType);
+                Assert.That(controller, Is.Not.Null);
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (!(bool)GetProperty(controller, "IsReady") && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That((bool)GetProperty(controller, "IsReady"), Is.True,
+                    GetProperty(controller, "InitializationError") as string);
+
+                bool opened = (bool)controllerType.GetMethod("ShowPrintingDetails")
+                    .Invoke(controller, new object[] { "card-025-en" });
+                Assert.That(opened, Is.True);
+                yield return new WaitForSecondsRealtime(0.25f);
+
+                UIDocument document = controller.GetComponent<UIDocument>();
+                VisualElement switcher = document.rootVisualElement.Q<VisualElement>("detail-language-switcher");
+                Button[] languageButtons = switcher.Children().OfType<Button>().ToArray();
+                Assert.That((bool)GetProperty(controller, "HasDetailLanguageSwitcher"), Is.True);
+                Assert.That((int)GetProperty(controller, "DetailLanguageCount"), Is.EqualTo(3));
+                Assert.That(switcher.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(languageButtons.Select(button => button.text), Is.EqualTo(new[] { "中", "EN", "日" }));
+
+                bool switched = (bool)controllerType.GetMethod("SwitchDetailCardLanguage")
+                    .Invoke(controller, new object[] { "ja" });
+                Assert.That(switched, Is.True);
+                yield return new WaitForSecondsRealtime(0.2f);
+
+                Assert.That(GetProperty(controller, "DetailPrintingId"), Is.EqualTo("card-025-ja"));
+                Assert.That(document.rootVisualElement.Q<Label>("detail-name").text, Is.EqualTo("ピカチュウ"));
+                Assert.That(document.rootVisualElement.Q<Label>("detail-metadata").text, Does.Contain("日本語セット"));
+                Assert.That(document.rootVisualElement.Q<Button>("detail-language-ja").ClassListContains("is-selected"), Is.True);
+                Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo(originalUiLanguage));
+                Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("en"));
+                Assert.That(ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId, Is.EqualTo("en"));
+                Assert.That(cues, Does.Contain(FeedbackCue.CardFlip));
+
+                opened = (bool)controllerType.GetMethod("ShowPrintingDetails")
+                    .Invoke(controller, new object[] { "trainer-001-en" });
+                Assert.That(opened, Is.True);
+                yield return null;
+                Assert.That((bool)GetProperty(controller, "HasDetailLanguageSwitcher"), Is.False);
+                Assert.That(switcher.childCount, Is.Zero);
+                Assert.That(switcher.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+            }
+            finally
+            {
+                UIFeedbackService.FeedbackPlayed -= cues.Add;
+                catalogOverride.SetValue(null, null);
+                storeOverride.SetValue(null, null);
+                if (ApplicationServices.IsConfigured)
+                {
+                    ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
+                    UniversalCatalog installed = ApplicationServices.Catalog.EnsureLoaded().Catalog;
+                    ApplicationServices.Languages.SelectContentLanguage(originalCardLanguage, installed);
+                }
+            }
+        }
+
         private static object GetProperty(object target, string name)
         {
             return target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(target);
@@ -163,6 +253,73 @@ namespace Gacha.Tests.PlayMode
         private static void Invoke(object target, string name, params object[] arguments)
         {
             target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public)?.Invoke(target, arguments);
+        }
+
+        private static UniversalCatalog BuildCardLanguageCatalog()
+        {
+            var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["en"] = "Pokemon TCG",
+                ["ja"] = "ポケモンカード",
+                ["zh-cn"] = "宝可梦卡牌"
+            };
+            var languages = new[]
+            {
+                new LanguageDefinition("en", new Dictionary<string, string> { ["en"] = "English" }),
+                new LanguageDefinition("ja", new Dictionary<string, string> { ["ja"] = "日本語" }),
+                new LanguageDefinition("zh-cn", new Dictionary<string, string> { ["zh-cn"] = "简体中文" })
+            };
+            var game = new GameDefinition("pokemon", names, languages.Select(value => value.Id));
+            var set = new SetDefinition("language-set", game.Id, new Dictionary<string, string>
+            {
+                ["en"] = "English Set",
+                ["ja"] = "日本語セット",
+                ["zh-cn"] = "简体中文系列"
+            });
+            var pokemon = new CollectibleItemDefinition("pikachu", game.Id, new Dictionary<string, string>
+            {
+                ["en"] = "Pikachu",
+                ["ja"] = "ピカチュウ",
+                ["zh-cn"] = "皮卡丘"
+            }, "pokemon");
+            var trainer = new CollectibleItemDefinition("trainer", game.Id,
+                new Dictionary<string, string> { ["en"] = "Trainer" }, "trainer");
+            var rarity = new RarityDefinition("rare", game.Id, new Dictionary<string, string>
+            {
+                ["en"] = "Rare",
+                ["ja"] = "レア",
+                ["zh-cn"] = "稀有"
+            }, 1);
+            var variant = new VariantDefinition("normal", game.Id, new Dictionary<string, string>
+            {
+                ["en"] = "Normal",
+                ["ja"] = "通常",
+                ["zh-cn"] = "普通"
+            });
+            var printings = new[]
+            {
+                new PrintingDefinition("card-025-en", pokemon.Id,
+                    new PrintingIdentity(game.Id, set.Id, "025", "en", variant.Id), rarity.Id,
+                    new Dictionary<string, string> { ["en"] = "Pikachu" }),
+                new PrintingDefinition("card-025-ja", pokemon.Id,
+                    new PrintingIdentity(game.Id, set.Id, "025", "ja", variant.Id), rarity.Id,
+                    new Dictionary<string, string> { ["ja"] = "ピカチュウ" }),
+                new PrintingDefinition("card-025-zh-cn", pokemon.Id,
+                    new PrintingIdentity(game.Id, set.Id, "025", "zh-cn", variant.Id), rarity.Id,
+                    new Dictionary<string, string> { ["zh-cn"] = "皮卡丘" }),
+                new PrintingDefinition("trainer-001-en", trainer.Id,
+                    new PrintingIdentity(game.Id, set.Id, "001", "en", variant.Id), rarity.Id,
+                    new Dictionary<string, string> { ["en"] = "Trainer" })
+            };
+            return new UniversalCatalog(
+                languages,
+                new[] { game },
+                new[] { set },
+                new[] { pokemon, trainer },
+                new[] { rarity },
+                new[] { variant },
+                printings,
+                Array.Empty<ProductDefinition>());
         }
 
         private sealed class MemoryCollectionProgressStore : ICollectionProgressStore

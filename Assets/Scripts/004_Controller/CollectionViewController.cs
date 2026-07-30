@@ -48,6 +48,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private VisualElement setPage;
     private VisualElement cardPage;
     private VisualElement detailsPanel;
+    private VisualElement detailLanguageSwitcher;
     private ListView setList;
     private ListView cardList;
     private Label pageTitle;
@@ -71,7 +72,9 @@ public sealed class CollectionViewController : MonoBehaviour
     private TextField searchField;
     private DropdownField rarityFilter;
     private SetDefinition currentSet;
+    private PrintingDefinition currentDetailPrinting;
     private IVisualElementScheduledItem detailsAnimation;
+    private IVisualElementScheduledItem languageSwapAnimation;
     private IVisualElementScheduledItem filterAnimation;
     private PokemonPokedexController pokedexController;
     private string searchQuery = string.Empty;
@@ -81,6 +84,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private bool updatingFilterControls;
 
     public static ICollectionProgressStore CollectionProgressStoreOverride { private get; set; }
+    public static UniversalCatalog CatalogOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
@@ -90,6 +94,12 @@ public sealed class CollectionViewController : MonoBehaviour
     public int OwnedCardCount => CurrentSetCards.Count(printing => Progress(printing).IsOwned);
     public int NewCardCount => CurrentSetCards.Count(printing => Progress(printing).IsNew);
     public int CachedTextureCount => textureCache?.Count ?? 0;
+    public string DetailPrintingId => currentDetailPrinting?.Id;
+    public int DetailLanguageCount => currentDetailPrinting == null
+        ? 0
+        : catalog?.PrintingLanguages.GetGroup(currentDetailPrinting.Id)?.AvailableLanguageIds.Count ?? 0;
+    public bool HasDetailLanguageSwitcher => currentDetailPrinting != null &&
+        catalog?.PrintingLanguages.GetGroup(currentDetailPrinting.Id)?.HasMultipleLanguages == true;
 
     private IReadOnlyList<PrintingDefinition> CurrentSetCards =>
         currentSet != null && cardsBySet.TryGetValue(currentSet.Id, out List<PrintingDefinition> setCards)
@@ -100,6 +110,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private static void ResetRuntimeState()
     {
         CollectionProgressStoreOverride = null;
+        CatalogOverride = null;
     }
 
     private void Awake()
@@ -123,6 +134,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
         detailsAnimation?.Pause();
         detailsAnimation = null;
+        languageSwapAnimation?.Pause();
+        languageSwapAnimation = null;
         filterAnimation?.Pause();
         filterAnimation = null;
         foreach (AsyncCardImageView imageView in imageViews.ToArray())
@@ -159,21 +172,28 @@ public sealed class CollectionViewController : MonoBehaviour
         if (printing == null)
             return false;
 
-        detailName.text = DisplayName(printing);
-        string rarity = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition definition)
-            ? DisplayName(definition)
-            : printing.RarityId;
-        detailMetadata.text = $"#{printing.Identity.CardNumber}  ·  {rarity}  ·  {printing.Identity.LanguageId}";
-        CollectionItemProgress progress = Progress(printing);
-        detailProgress.text = FormatOwnedCount(progress.OwnedCount);
-        detailNewBadge.text = CardUiText.Get("common.badge.new");
-        detailNewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
-        detailImage.Bind(printing);
+        currentDetailPrinting = printing;
+        RefreshPrintingDetails(printing, true);
+        RebuildDetailLanguageSwitcher();
         detailsPanel.style.display = DisplayStyle.Flex;
         detailsPanel.BringToFront();
         AnimateDetailsIn();
-        if (progress.IsNew)
-            MarkPrintingSeen(printing);
+        return true;
+    }
+
+    public bool SwitchDetailCardLanguage(string cardLanguageId)
+    {
+        if (currentDetailPrinting == null || catalog == null)
+            return false;
+        PrintingDefinition next = catalog.PrintingLanguages.Select(currentDetailPrinting.Id, cardLanguageId);
+        if (next == null || string.Equals(next.Id, currentDetailPrinting.Id, StringComparison.Ordinal))
+            return false;
+
+        currentDetailPrinting = next;
+        RefreshPrintingDetails(next, true);
+        RebuildDetailLanguageSwitcher();
+        UIFeedbackService.Play(FeedbackCue.CardFlip, true);
+        AnimateLanguageSwap();
         return true;
     }
 
@@ -204,13 +224,17 @@ public sealed class CollectionViewController : MonoBehaviour
                 throw new InvalidOperationException("CollectionView.uxml is not attached to the UIDocument.");
 
             QueryVisualElements();
-            CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
-            if (!load.Succeeded)
-                throw new InvalidOperationException(load.ErrorMessage);
+            CatalogLoadResult load = null;
+            if (CatalogOverride == null)
+            {
+                load = ApplicationServices.Catalog.EnsureLoaded();
+                if (!load.Succeeded)
+                    throw new InvalidOperationException(load.ErrorMessage);
+            }
             if (!ApplicationServices.HasContentImages)
                 throw new InvalidOperationException("The installed content image service is unavailable.");
 
-            catalog = load.Catalog;
+            catalog = CatalogOverride ?? load.Catalog;
             ApplicationServices.Languages.RefreshContentLanguage(catalog);
             collectionProgress = CollectionProgressStoreOverride ?? new PlayerCollectionProgressStore();
             textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
@@ -256,6 +280,7 @@ public sealed class CollectionViewController : MonoBehaviour
         setPage = Required<VisualElement>("set-page");
         cardPage = Required<VisualElement>("card-page");
         detailsPanel = Required<VisualElement>("details-panel");
+        detailLanguageSwitcher = Required<VisualElement>("detail-language-switcher");
         setList = Required<ListView>("set-list");
         cardList = Required<ListView>("card-list");
         pageTitle = Required<Label>("collection-title");
@@ -662,6 +687,115 @@ public sealed class CollectionViewController : MonoBehaviour
         newOnlyButton.EnableInClassList("is-selected", newOnly);
     }
 
+    private void RefreshPrintingDetails(PrintingDefinition printing, bool markSeen)
+    {
+        string cardLanguageId = printing.Identity.LanguageId;
+        detailName.text = CardDisplayName(printing, cardLanguageId);
+        string setName = catalog.Sets.TryGetValue(printing.Identity.SetId, out SetDefinition set)
+            ? CardDisplayName(set, cardLanguageId)
+            : printing.Identity.SetId;
+        string rarity = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarityDefinition)
+            ? CardDisplayName(rarityDefinition, cardLanguageId)
+            : printing.RarityId;
+        string variant = catalog.Variants.TryGetValue(printing.Identity.VariantId, out VariantDefinition variantDefinition)
+            ? CardDisplayName(variantDefinition, cardLanguageId)
+            : printing.Identity.VariantId;
+        detailMetadata.text = $"{setName}  ·  #{printing.Identity.CardNumber}\n" +
+                              $"{rarity}  ·  {variant}  ·  {LanguageBadge(cardLanguageId)}";
+        CollectionItemProgress progress = Progress(printing);
+        detailProgress.text = FormatOwnedCount(progress.OwnedCount);
+        detailNewBadge.text = CardUiText.Get("common.badge.new");
+        detailNewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
+        detailImage.Bind(printing);
+        if (markSeen && progress.IsNew)
+            MarkPrintingSeen(printing);
+    }
+
+    private void RebuildDetailLanguageSwitcher()
+    {
+        detailLanguageSwitcher.Clear();
+        PrintingLanguageGroup group = currentDetailPrinting == null
+            ? null
+            : catalog.PrintingLanguages.GetGroup(currentDetailPrinting.Id);
+        if (group == null || !group.HasMultipleLanguages)
+        {
+            detailLanguageSwitcher.style.display = DisplayStyle.None;
+            return;
+        }
+
+        foreach (string languageId in group.AvailableLanguageIds
+                     .OrderBy(LanguageSortOrder)
+                     .ThenBy(value => value, StringComparer.OrdinalIgnoreCase))
+        {
+            string selectedLanguage = languageId;
+            var button = new Button(() => SwitchDetailCardLanguage(selectedLanguage))
+            {
+                text = LanguageBadge(selectedLanguage),
+                name = "detail-language-" + selectedLanguage.ToLowerInvariant().Replace('_', '-')
+            };
+            button.AddToClassList("details-panel__language");
+            button.EnableInClassList("is-selected", string.Equals(
+                currentDetailPrinting.Identity.LanguageId,
+                selectedLanguage,
+                StringComparison.OrdinalIgnoreCase));
+            detailLanguageSwitcher.Add(button);
+        }
+        detailLanguageSwitcher.style.display = DisplayStyle.Flex;
+    }
+
+    private void AnimateLanguageSwap()
+    {
+        languageSwapAnimation?.Pause();
+        languageSwapAnimation = null;
+        if (UIFeedbackService.ReduceMotion)
+        {
+            detailImage.Element.style.opacity = 1f;
+            return;
+        }
+
+        detailImage.Element.style.opacity = 0.35f;
+        languageSwapAnimation = detailImage.Element.schedule.Execute(() =>
+        {
+            detailImage.Element.style.opacity = 1f;
+            languageSwapAnimation = null;
+        });
+        languageSwapAnimation.ExecuteLater(Mathf.RoundToInt(120f / UIFeedbackService.AnimationSpeed));
+    }
+
+    private static int LanguageSortOrder(string languageId)
+    {
+        string normalized = languageId?.Trim().Replace('_', '-').ToLowerInvariant() ?? string.Empty;
+        if (normalized.StartsWith("zh-", StringComparison.Ordinal) || normalized == "zh")
+            return 0;
+        if (normalized == "en" || normalized.StartsWith("en-", StringComparison.Ordinal))
+            return 1;
+        if (normalized == "ja" || normalized.StartsWith("ja-", StringComparison.Ordinal))
+            return 2;
+        return 3;
+    }
+
+    private static string LanguageBadge(string languageId)
+    {
+        string normalized = languageId?.Trim().Replace('_', '-').ToLowerInvariant() ?? string.Empty;
+        if (normalized.StartsWith("zh-", StringComparison.Ordinal) || normalized == "zh")
+            return "中";
+        if (normalized == "en" || normalized.StartsWith("en-", StringComparison.Ordinal))
+            return "EN";
+        if (normalized == "ja" || normalized.StartsWith("ja-", StringComparison.Ordinal))
+            return "日";
+        return normalized.ToUpperInvariant();
+    }
+
+    private static string CardDisplayName(Definition definition, string cardLanguageId)
+    {
+        if (definition == null)
+            return string.Empty;
+        if (!string.IsNullOrWhiteSpace(cardLanguageId) &&
+            definition.Names.TryGetValue(cardLanguageId, out string exact))
+            return exact;
+        return definition.Names.Values.First();
+    }
+
     private void MarkPrintingSeen(PrintingDefinition printing)
     {
         try
@@ -732,9 +866,17 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         detailsAnimation?.Pause();
         detailsAnimation = null;
+        languageSwapAnimation?.Pause();
+        languageSwapAnimation = null;
         detailsPanel.style.display = DisplayStyle.None;
         detailsPanel.style.opacity = 0f;
         detailImage?.Unbind();
+        if (detailImage != null)
+            detailImage.Element.style.opacity = 1f;
+        currentDetailPrinting = null;
+        detailLanguageSwitcher?.Clear();
+        if (detailLanguageSwitcher != null)
+            detailLanguageSwitcher.style.display = DisplayStyle.None;
         if (detailNewBadge != null)
             detailNewBadge.style.display = DisplayStyle.None;
         if (clearSelection)
@@ -782,6 +924,12 @@ public sealed class CollectionViewController : MonoBehaviour
             : "Pokédex";
         backToSetsButton.text = CardUiText.Get("collection.action.all_sets");
         closeDetailsButton.text = CardUiText.Get("common.action.close");
+        if (currentDetailPrinting != null)
+        {
+            CollectionItemProgress detailState = Progress(currentDetailPrinting);
+            detailProgress.text = FormatOwnedCount(detailState.OwnedCount);
+            detailNewBadge.text = CardUiText.Get("common.badge.new");
+        }
         SetBrowserStatus(FormatCollectionSummary(), false);
         RefreshFilterControls();
         if (currentSet != null)

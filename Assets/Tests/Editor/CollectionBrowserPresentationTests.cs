@@ -49,6 +49,7 @@ public class CollectionBrowserPresentationTests
         Assert.That(root.Q<Label>("filter-empty"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("details-panel"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("detail-art-slot"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("detail-language-switcher"), Is.Not.Null);
         Assert.That(root.Q<Label>("detail-progress"), Is.Not.Null);
         Assert.That(root.Q<Label>("detail-new-badge"), Is.Not.Null);
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
