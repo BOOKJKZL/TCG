@@ -27,7 +27,7 @@ namespace Gacha.Infrastructure.Content
 
         public CatalogLoadResult Load()
         {
-            var documents = new PrivateContentManifestReader().LoadDirectory(contentRoot);
+            var documents = new PrivateContentManifestReader().LoadCardSetDirectory(contentRoot);
             PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter(variantPolicy).Build(
                 documents,
                 gameId,

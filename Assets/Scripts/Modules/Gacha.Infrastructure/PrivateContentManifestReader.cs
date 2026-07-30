@@ -19,6 +19,18 @@ namespace Gacha.Infrastructure.Content
 
         public IReadOnlyList<PrivateContentManifestDocument> LoadDirectory(string contentRoot)
         {
+            return LoadDirectory(contentRoot, _ => true);
+        }
+
+        public IReadOnlyList<PrivateContentManifestDocument> LoadCardSetDirectory(string contentRoot)
+        {
+            return LoadDirectory(contentRoot, path => IsCardSetManifestPath(contentRoot, path));
+        }
+
+        private IReadOnlyList<PrivateContentManifestDocument> LoadDirectory(
+            string contentRoot,
+            Func<string, bool> includePath)
+        {
             if (string.IsNullOrWhiteSpace(contentRoot))
                 throw new ArgumentException("Content root cannot be empty.", nameof(contentRoot));
             if (!Directory.Exists(contentRoot))
@@ -26,6 +38,7 @@ namespace Gacha.Infrastructure.Content
 
             string[] manifestPaths = Directory
                 .GetFiles(contentRoot, "manifest.json", SearchOption.AllDirectories)
+                .Where(includePath)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
@@ -36,6 +49,15 @@ namespace Gacha.Infrastructure.Content
             foreach (string path in manifestPaths)
                 documents.Add(LoadFile(path));
             return documents;
+        }
+
+        private static bool IsCardSetManifestPath(string contentRoot, string manifestPath)
+        {
+            string relativePath = Path.GetRelativePath(contentRoot, manifestPath)
+                .Replace('\\', '/');
+            string[] segments = relativePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            return segments.Length == 3 &&
+                   string.Equals(segments[2], "manifest.json", StringComparison.OrdinalIgnoreCase);
         }
 
         public PrivateContentManifestDocument LoadFile(string manifestPath)

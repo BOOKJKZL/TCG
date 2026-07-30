@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gacha.Application;
 using Gacha.Domain;
 using Gacha.Infrastructure.Content;
 using NUnit.Framework;
@@ -65,6 +66,34 @@ public class ContentCatalogAdapterTests
             .All(printing => File.Exists(Path.Combine(
                 contentRoot,
                 printing.ImageRelativePath.Replace('/', Path.DirectorySeparatorChar)))), Is.True);
+    }
+
+    [Test]
+    public void CatalogProvider_IgnoresNonCardModuleManifestsUnderSharedContentRoot()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "gacha-shared-content-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string cardDirectory = Path.Combine(root, "en", "sample1");
+            Directory.CreateDirectory(cardDirectory);
+            File.WriteAllText(
+                Path.Combine(cardDirectory, "manifest.json"),
+                Newtonsoft.Json.JsonConvert.SerializeObject(CreateManifest()));
+
+            string artworkDirectory = Path.Combine(root, "pokedex", "artwork", "generation-1");
+            Directory.CreateDirectory(artworkDirectory);
+            File.WriteAllText(Path.Combine(artworkDirectory, "manifest.json"), "{\"SchemaVersion\":1,\"Entries\":[]}");
+
+            CatalogLoadResult result = new PrivateContentCatalogProvider(root).Load();
+
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(result.SourceSetCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
     }
 
     private static PrivateContentManifestDto CreateManifest()
