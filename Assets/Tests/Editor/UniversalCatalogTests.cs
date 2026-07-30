@@ -102,6 +102,32 @@ public class UniversalCatalogTests
     }
 
     [Test]
+    public void GetPrintings_ReusesIndexedSetAndLanguageBuckets()
+    {
+        UniversalCatalog catalog = BuildMultilingualCatalog();
+
+        IEnumerable<PrintingDefinition> english = catalog.GetPrintings("base1", "EN");
+
+        Assert.That(catalog.GetPrintings("base1", "en"), Is.SameAs(english));
+        Assert.That(english.Select(value => value.Id), Is.EqualTo(new[] { "base1-1-en-holo" }));
+        Assert.That(catalog.GetPrintings("base1").Count(), Is.EqualTo(3));
+        Assert.That(catalog.GetPrintings("missing", "en"), Is.Empty);
+    }
+
+    [Test]
+    public void PrintingLanguages_LazilyCreatedSingletonRemainsStableAndVisibleInGroups()
+    {
+        UniversalCatalog catalog = BuildCatalog();
+        PrintingDefinition printing = catalog.Printings.Values.Single();
+
+        PrintingLanguageGroup first = catalog.PrintingLanguages.GetGroup(printing.Id);
+        PrintingLanguageGroup second = catalog.PrintingLanguages.GetGroup(printing.Id);
+
+        Assert.That(second, Is.SameAs(first));
+        Assert.That(catalog.PrintingLanguages.Groups.Values, Does.Contain(first));
+    }
+
+    [Test]
     public void PrintingLanguages_SharedItemSwitchesOnlyToAvailableCardLanguages()
     {
         UniversalCatalog catalog = BuildMultilingualCatalog();

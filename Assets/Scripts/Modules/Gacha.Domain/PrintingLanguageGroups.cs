@@ -116,8 +116,13 @@ namespace Gacha.Domain
     {
         private const string AutomaticPrefix = "auto|";
         private const string SingletonPrefix = "single|";
-        private readonly IReadOnlyDictionary<string, PrintingLanguageGroup> groups;
+        private readonly IReadOnlyDictionary<string, PrintingDefinition> printingsById;
+        private readonly Dictionary<string, PrintingLanguageGroup> multiLanguageGroups;
+        private readonly Dictionary<string, PrintingLanguageGroup> singletonGroups =
+            new Dictionary<string, PrintingLanguageGroup>(StringComparer.Ordinal);
         private readonly IReadOnlyDictionary<string, PrintingLanguageGroup> groupsByPrinting;
+        private readonly object singletonGate = new object();
+        private IReadOnlyDictionary<string, PrintingLanguageGroup> allGroups;
 
         internal PrintingLanguageIndex(
             IEnumerable<PrintingDefinition> printings,
@@ -157,24 +162,45 @@ namespace Gacha.Domain
                 if (members.Length > 1 && onePerLanguage)
                 {
                     AddAutomaticGroup(candidate.Key, members, result, byPrinting);
-                    continue;
                 }
-
-                foreach (PrintingDefinition member in members)
-                    AddSingleton(member, result, byPrinting);
             }
 
-            groups = new ReadOnlyDictionary<string, PrintingLanguageGroup>(result);
+            printingsById = new ReadOnlyDictionary<string, PrintingDefinition>(byId);
+            multiLanguageGroups = result;
             groupsByPrinting = new ReadOnlyDictionary<string, PrintingLanguageGroup>(byPrinting);
         }
 
-        public IReadOnlyDictionary<string, PrintingLanguageGroup> Groups => groups;
+        public IReadOnlyDictionary<string, PrintingLanguageGroup> Groups
+        {
+            get
+            {
+                lock (singletonGate)
+                {
+                    if (allGroups != null)
+                        return allGroups;
+                    foreach (PrintingDefinition printing in printingsById.Values)
+                        if (!groupsByPrinting.ContainsKey(printing.Id))
+                            GetOrCreateSingleton(printing);
+                    var complete = new Dictionary<string, PrintingLanguageGroup>(multiLanguageGroups,
+                        StringComparer.Ordinal);
+                    foreach (PrintingLanguageGroup singleton in singletonGroups.Values)
+                        complete.Add(singleton.Id, singleton);
+                    allGroups = new ReadOnlyDictionary<string, PrintingLanguageGroup>(complete);
+                    return allGroups;
+                }
+            }
+        }
 
         public PrintingLanguageGroup GetGroup(string printingId)
         {
-            if (string.IsNullOrWhiteSpace(printingId) || !groupsByPrinting.TryGetValue(printingId, out PrintingLanguageGroup group))
+            if (string.IsNullOrWhiteSpace(printingId))
                 return null;
-            return group;
+            if (groupsByPrinting.TryGetValue(printingId, out PrintingLanguageGroup group))
+                return group;
+            if (!printingsById.TryGetValue(printingId, out PrintingDefinition printing))
+                return null;
+            lock (singletonGate)
+                return GetOrCreateSingleton(printing);
         }
 
         public PrintingDefinition Select(
@@ -212,20 +238,20 @@ namespace Gacha.Domain
                 groupsByPrinting.Add(member.Id, group);
         }
 
-        private static void AddSingleton(
-            PrintingDefinition printing,
-            IDictionary<string, PrintingLanguageGroup> groups,
-            IDictionary<string, PrintingLanguageGroup> groupsByPrinting)
+        private PrintingLanguageGroup GetOrCreateSingleton(PrintingDefinition printing)
         {
-            string id = UniqueId(SingletonPrefix + printing.Id, groups);
+            if (singletonGroups.TryGetValue(printing.Id, out PrintingLanguageGroup existing))
+                return existing;
+            string id = UniqueId(SingletonPrefix + printing.Id, multiLanguageGroups);
             var group = new PrintingLanguageGroup(
                 id,
                 new[] { printing },
                 PrintingLanguageMatchMethod.SharedItemIdentity,
                 1d,
                 PrintingLanguageReviewStatus.AutoAccepted);
-            groups.Add(id, group);
-            groupsByPrinting.Add(printing.Id, group);
+            singletonGroups.Add(printing.Id, group);
+            allGroups = null;
+            return group;
         }
 
         private static string AutomaticKey(PrintingDefinition printing) =>

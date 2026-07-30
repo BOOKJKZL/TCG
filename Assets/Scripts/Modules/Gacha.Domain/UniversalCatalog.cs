@@ -18,6 +18,10 @@ namespace Gacha.Domain
 
     public sealed class UniversalCatalog
     {
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>> printingsBySet;
+        private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>>
+            printingsBySetAndLanguage;
+
         public UniversalCatalog(
             IEnumerable<LanguageDefinition> languages,
             IEnumerable<GameDefinition> games,
@@ -47,6 +51,10 @@ namespace Gacha.Domain
             }
 
             PrintingLanguages = new PrintingLanguageIndex(Printings.Values, PrintingLanguageGroups);
+            BuildPrintingIndexes(
+                Printings.Values,
+                out printingsBySet,
+                out printingsBySetAndLanguage);
         }
 
         public IReadOnlyDictionary<string, LanguageDefinition> Languages { get; }
@@ -62,9 +70,68 @@ namespace Gacha.Domain
 
         public IEnumerable<PrintingDefinition> GetPrintings(string setId, string languageId = null)
         {
-            return Printings.Values.Where(printing =>
-                printing.Identity.SetId == setId &&
-                (languageId == null || string.Equals(printing.Identity.LanguageId, languageId, StringComparison.OrdinalIgnoreCase)));
+            if (string.IsNullOrWhiteSpace(setId))
+                return Array.Empty<PrintingDefinition>();
+            if (languageId == null)
+                return printingsBySet.TryGetValue(setId, out IReadOnlyList<PrintingDefinition> setPrintings)
+                    ? setPrintings
+                    : Array.Empty<PrintingDefinition>();
+            return printingsBySetAndLanguage.TryGetValue(setId,
+                       out IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>> languages) &&
+                   languages.TryGetValue(languageId, out IReadOnlyList<PrintingDefinition> localizedPrintings)
+                ? localizedPrintings
+                : Array.Empty<PrintingDefinition>();
+        }
+
+        private static void BuildPrintingIndexes(
+            IEnumerable<PrintingDefinition> printings,
+            out IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>> bySet,
+            out IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>> bySetAndLanguage)
+        {
+            var setBuckets = new Dictionary<string, List<PrintingDefinition>>(StringComparer.Ordinal);
+            var languageBuckets =
+                new Dictionary<string, Dictionary<string, List<PrintingDefinition>>>(StringComparer.Ordinal);
+            foreach (PrintingDefinition printing in printings)
+            {
+                if (!setBuckets.TryGetValue(printing.Identity.SetId, out List<PrintingDefinition> setBucket))
+                {
+                    setBucket = new List<PrintingDefinition>();
+                    setBuckets.Add(printing.Identity.SetId, setBucket);
+                }
+                setBucket.Add(printing);
+
+                if (!languageBuckets.TryGetValue(printing.Identity.SetId,
+                        out Dictionary<string, List<PrintingDefinition>> setLanguages))
+                {
+                    setLanguages = new Dictionary<string, List<PrintingDefinition>>(StringComparer.OrdinalIgnoreCase);
+                    languageBuckets.Add(printing.Identity.SetId, setLanguages);
+                }
+                if (!setLanguages.TryGetValue(printing.Identity.LanguageId,
+                        out List<PrintingDefinition> languageBucket))
+                {
+                    languageBucket = new List<PrintingDefinition>();
+                    setLanguages.Add(printing.Identity.LanguageId, languageBucket);
+                }
+                languageBucket.Add(printing);
+            }
+
+            bySet = new ReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>(
+                setBuckets.ToDictionary(
+                    value => value.Key,
+                    value => (IReadOnlyList<PrintingDefinition>)new ReadOnlyCollection<PrintingDefinition>(value.Value),
+                    StringComparer.Ordinal));
+            bySetAndLanguage = new ReadOnlyDictionary<string,
+                IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>>(
+                languageBuckets.ToDictionary(
+                    set => set.Key,
+                    set => (IReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>)
+                        new ReadOnlyDictionary<string, IReadOnlyList<PrintingDefinition>>(
+                            set.Value.ToDictionary(
+                                value => value.Key,
+                                value => (IReadOnlyList<PrintingDefinition>)
+                                    new ReadOnlyCollection<PrintingDefinition>(value.Value),
+                                StringComparer.OrdinalIgnoreCase)),
+                    StringComparer.Ordinal));
         }
 
         private IReadOnlyList<string> Validate()
