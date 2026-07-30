@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Domain;
 using UnityEngine;
+using WebP;
 
 namespace Gacha.Presentation
 {
@@ -246,12 +247,37 @@ namespace Gacha.Presentation
 
         private static Texture2D DecodeTexture(byte[] data)
         {
+            if (IsWebP(data))
+            {
+                Texture2D webp = Texture2DExt.CreateTexture2DFromWebP(
+                    data,
+                    lMipmaps: false,
+                    lLinear: false,
+                    lError: out Error error,
+                    makeNoLongerReadable: true);
+                if (error == Error.Success)
+                    return webp;
+
+                DestroyTexture(webp);
+                return null;
+            }
+
             var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, false);
             if (ImageConversion.LoadImage(texture, data, true))
                 return texture;
 
             DestroyTexture(texture);
             return null;
+        }
+
+        private static bool IsWebP(byte[] data)
+        {
+            return data != null &&
+                   data.Length >= 12 &&
+                   data[0] == (byte)'R' && data[1] == (byte)'I' &&
+                   data[2] == (byte)'F' && data[3] == (byte)'F' &&
+                   data[8] == (byte)'W' && data[9] == (byte)'E' &&
+                   data[10] == (byte)'B' && data[11] == (byte)'P';
         }
 
         private static void DestroyTexture(Texture2D texture)

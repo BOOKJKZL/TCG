@@ -7,6 +7,7 @@ using Gacha.Domain;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEngine;
+using WebP;
 
 public class CardTextureCacheTests
 {
@@ -48,6 +49,28 @@ public class CardTextureCacheTests
         texture.Apply();
         pngBytes = texture.EncodeToPNG();
         UnityEngine.Object.DestroyImmediate(texture);
+    }
+
+    [Test]
+    public async Task LoadAsync_DecodesWebPImages()
+    {
+        var sourceTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        sourceTexture.SetPixels(new[] { Color.red, Color.green, Color.blue, Color.white });
+        sourceTexture.Apply();
+        byte[] webpBytes = sourceTexture.EncodeToWebP(80f, out Error encodeError);
+        UnityEngine.Object.DestroyImmediate(sourceTexture);
+        Assert.That(encodeError, Is.EqualTo(Error.Success));
+
+        var source = new ImageSource { ImmediateBytes = webpBytes };
+        using (var cache = new CardTextureCache(source, 2))
+        {
+            CardTextureLoadResult result = await cache.LoadAsync(CreatePrinting("webp"));
+
+            Assert.That(result.Succeeded, Is.True, result.ErrorMessage);
+            Assert.That(result.Texture.width, Is.EqualTo(2));
+            Assert.That(result.Texture.height, Is.EqualTo(2));
+            Assert.That(cache.Count, Is.EqualTo(1));
+        }
     }
 
     [Test]
