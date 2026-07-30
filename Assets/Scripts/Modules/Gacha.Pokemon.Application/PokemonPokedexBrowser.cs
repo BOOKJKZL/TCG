@@ -40,6 +40,19 @@ namespace Gacha.Pokemon.Application
                 .ThenBy(value => value.Id, StringComparer.Ordinal)
                 .ToArray();
 
+        public IReadOnlyList<PokemonFormDefinition> VisibleIntroducedForms =>
+            taxonomy.Forms.Values
+                .Where(form => !form.IsDefault &&
+                               form.Disposition == PokemonFormDisposition.SeparateEntry &&
+                               string.Equals(form.IntroducedGenerationId, generationId, StringComparison.Ordinal) &&
+                               taxonomy.Species.TryGetValue(form.SpeciesId, out PokemonSpeciesDefinition species) &&
+                               !string.Equals(species.DebutGenerationId, generationId, StringComparison.Ordinal) &&
+                               MatchesFormQuery(form, species))
+                .OrderBy(form => taxonomy.Species[form.SpeciesId].NationalDexNumber)
+                .ThenBy(form => form.PokemonId)
+                .ThenBy(form => form.Id, StringComparer.Ordinal)
+                .ToArray();
+
         public IReadOnlyList<PokemonFormDefinition> SelectableForms
         {
             get
@@ -119,6 +132,11 @@ namespace Gacha.Pokemon.Application
         public IReadOnlyList<PokemonCardSubjectLink> GetFormCards(string formId) =>
             cardSubjects?.GetByForm(formId) ?? Array.Empty<PokemonCardSubjectLink>();
 
+        public PokemonSpeciesDefinition GetSpecies(string speciesId) =>
+            taxonomy.Species.TryGetValue(speciesId ?? string.Empty, out PokemonSpeciesDefinition species)
+                ? species
+                : throw new KeyNotFoundException("Unknown Pokémon species: " + speciesId);
+
         public static string Localized(
             IReadOnlyDictionary<string, string> values,
             string languageId,
@@ -144,6 +162,16 @@ namespace Gacha.Pokemon.Application
             if (int.TryParse(normalized, out int number) && species.NationalDexNumber == number)
                 return true;
             return species.Names.Values.Any(name =>
+                name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private bool MatchesFormQuery(PokemonFormDefinition form, PokemonSpeciesDefinition species)
+        {
+            if (query.Length == 0)
+                return true;
+            if (MatchesQuery(species))
+                return true;
+            return form.Names.Values.Any(name =>
                 name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 

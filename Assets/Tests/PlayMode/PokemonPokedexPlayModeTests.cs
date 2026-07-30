@@ -61,6 +61,24 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(list.itemsSource.Cast<PokemonSpeciesDefinition>()
                     .Select(value => value.NationalDexNumber), Is.EqualTo(Enumerable.Range(1, 151)));
 
+                Assert.That(controller.SelectGeneration("generation-7"), Is.True);
+                yield return null;
+                Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(88));
+                Assert.That(controller.VisibleIntroducedFormCount, Is.GreaterThanOrEqualTo(20));
+                ListView introducedForms = document.rootVisualElement.Q<ListView>("pokedex-introduced-forms-list");
+                PokemonFormDefinition[] alolaForms = introducedForms.itemsSource
+                    .Cast<PokemonFormDefinition>()
+                    .Where(form => form.RegionId == "alola")
+                    .ToArray();
+                Assert.That(alolaForms.Length, Is.EqualTo(20));
+                Assert.That(controller.OpenSpeciesForm(alolaForms[0].SpeciesId, alolaForms[0].Id), Is.True);
+                Assert.That(controller.SelectedFormId, Is.EqualTo(alolaForms[0].Id));
+                controller.NavigateBack();
+                Assert.That(controller.SelectGeneration("generation-1"), Is.True);
+                yield return null;
+                Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(151));
+                Assert.That(controller.VisibleIntroducedFormCount, Is.EqualTo(0));
+
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-title").text, Is.EqualTo("宝可梦图鉴"));

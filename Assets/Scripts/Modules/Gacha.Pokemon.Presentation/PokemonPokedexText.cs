@@ -18,6 +18,7 @@ namespace Gacha.Pokemon.Presentation
                 ["search"] = Text("Search name or National No.", "搜索名称或全国编号"),
                 ["empty"] = Text("No Pokémon match this search.", "没有符合搜索条件的宝可梦。"),
                 ["count"] = Text("{0} Pokémon · National No. order", "{0} 只宝可梦 · 全国编号顺序"),
+                ["new_forms"] = Text("New forms introduced in this generation ({0})", "本世代新增形态（{0}）"),
                 ["number"] = Text("National No. #{0:000}", "全国图鉴 #{0:000}"),
                 ["debut"] = Text("First appeared in {0}", "首次登场于{0}"),
                 ["forms"] = Text("Related forms", "相关形态"),

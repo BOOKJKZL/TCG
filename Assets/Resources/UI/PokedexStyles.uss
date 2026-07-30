@@ -119,6 +119,39 @@
     transition-duration: 0.12s;
 }
 
+.pokedex-form-row {
+    height: 100%;
+    margin: 3px 7px;
+    padding: 8px 14px;
+    flex-direction: row;
+    align-items: center;
+    border-width: 1px;
+    border-radius: 14px;
+    border-color: rgba(255, 204, 102, 0.58);
+    background-color: rgb(54, 51, 47);
+}
+
+.pokedex-introduced-forms {
+    height: 205px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-width: 1px;
+    border-radius: 16px;
+    border-color: rgba(255, 204, 102, 0.52);
+    background-color: rgba(45, 39, 34, 0.94);
+}
+
+.pokedex-introduced-forms__heading {
+    margin-bottom: 6px;
+    color: rgb(255, 220, 135);
+    font-size: 18px;
+    -unity-font-style: bold;
+}
+
+.pokedex-introduced-forms__list {
+    flex-grow: 1;
+}
+
 .pokedex-row:hover {
     scale: 1.01 1.01;
     border-color: rgb(117, 226, 189);

@@ -17,6 +17,10 @@
                 </ui:VisualElement>
                 <ui:Label name="pokedex-status" class="pokedex-status" />
                 <ui:Label name="pokedex-empty" class="pokedex-empty" style="display: none;" />
+                <ui:VisualElement name="pokedex-introduced-forms-section" class="pokedex-introduced-forms" style="display: none;">
+                    <ui:Label name="pokedex-introduced-forms-heading" class="pokedex-introduced-forms__heading" />
+                    <ui:ListView name="pokedex-introduced-forms-list" class="pokedex-introduced-forms__list" />
+                </ui:VisualElement>
                 <ui:ListView name="pokedex-species-list" class="pokedex-list" />
             </ui:VisualElement>
 

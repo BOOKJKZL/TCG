@@ -53,6 +53,22 @@ public sealed class PokemonPokedexBrowserTests
         Assert.That(browser.OpenForm("form:1-review"), Is.False);
     }
 
+    [Test]
+    public void LaterGeneration_SeparatesNewSpeciesFromOldSpeciesNewForms()
+    {
+        PokemonTaxonomyCatalog taxonomy = CrossGenerationTaxonomy();
+        var browser = new PokemonPokedexBrowser(taxonomy);
+
+        browser.SelectGeneration("generation-2");
+
+        Assert.That(browser.VisibleSpecies.Select(value => value.Id), Is.EqualTo(new[] { "species:2" }));
+        Assert.That(browser.VisibleIntroducedForms.Select(value => value.Id),
+            Is.EqualTo(new[] { "form:1-region" }));
+        Assert.That(browser.OpenSpecies("species:1", "form:1-region"), Is.True);
+        Assert.That(browser.SelectedSpecies.Id, Is.EqualTo("species:1"));
+        Assert.That(browser.SelectedForm.Id, Is.EqualTo("form:1-region"));
+    }
+
     private static PokemonPokedexBrowser Browser(int count) => new PokemonPokedexBrowser(Taxonomy(count));
 
     private static PokemonTaxonomyCatalog Taxonomy(
@@ -117,4 +133,38 @@ public sealed class PokemonPokedexBrowserTests
             ["en"] = english,
             ["zh"] = chinese
         };
+
+    private static PokemonTaxonomyCatalog CrossGenerationTaxonomy()
+    {
+        var generations = new[]
+        {
+            new PokemonGenerationDefinition("generation-1", 1, Names("Generation I", "第一世代"), 1, 1),
+            new PokemonGenerationDefinition("generation-2", 2, Names("Generation II", "第二世代"), 2, 2)
+        };
+        var species = new[]
+        {
+            new PokemonSpeciesDefinition(
+                "species:1", 1, "generation-1", Names("One", "一"), Names("One", "一"),
+                Names("One", "一"), "form:1", new[] { "form:1", "form:1-region" }, false, false, false),
+            new PokemonSpeciesDefinition(
+                "species:2", 2, "generation-2", Names("Two", "二"), Names("Two", "二"),
+                Names("Two", "二"), "form:2", new[] { "form:2" }, false, false, false)
+        };
+        var forms = new[]
+        {
+            new PokemonFormDefinition(
+                "form:1", "species:1", 1, "default", PokemonFormDisposition.SeparateEntry,
+                Names("One", "一"), "generation-1", new[] { "form:1-region" }, new[] { "normal" },
+                true, false, false, false),
+            new PokemonFormDefinition(
+                "form:1-region", "species:1", 10001, "regional", PokemonFormDisposition.SeparateEntry,
+                Names("Region One", "地区一"), "generation-2", new[] { "form:1" }, new[] { "dark" },
+                false, false, false, false, "test-region"),
+            new PokemonFormDefinition(
+                "form:2", "species:2", 2, "default", PokemonFormDisposition.SeparateEntry,
+                Names("Two", "二"), "generation-2", Array.Empty<string>(), new[] { "normal" },
+                true, false, false, false)
+        };
+        return new PokemonTaxonomyCatalog(generations, species, forms);
+    }
 }

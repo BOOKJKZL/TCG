@@ -21,20 +21,31 @@ namespace Gacha.Pokemon.Presentation
             public Label Genus;
         }
 
+        private sealed class IntroducedFormRow
+        {
+            public Label Number;
+            public Label Name;
+            public Label Metadata;
+        }
+
         private readonly List<PokemonSpeciesDefinition> visibleSpecies = new List<PokemonSpeciesDefinition>();
+        private readonly List<PokemonFormDefinition> visibleIntroducedForms = new List<PokemonFormDefinition>();
         private readonly List<string> generationIds = new List<string>();
         private PokemonPokedexBrowser browser;
         private VisualElement root;
         private VisualElement listPage;
         private VisualElement detailPage;
         private VisualElement formStrip;
+        private VisualElement introducedFormsSection;
         private ListView speciesList;
+        private ListView introducedFormsList;
         private DropdownField generationField;
         private TextField searchField;
         private Label title;
         private Label subtitle;
         private Label status;
         private Label empty;
+        private Label introducedFormsHeading;
         private Label detailNumber;
         private Label detailName;
         private Label detailGenus;
@@ -59,6 +70,7 @@ namespace Gacha.Pokemon.Presentation
         public bool IsOpen => root != null && root.resolvedStyle.display == DisplayStyle.Flex;
         public string InitializationError { get; private set; }
         public int VisibleSpeciesCount => visibleSpecies.Count;
+        public int VisibleIntroducedFormCount => visibleIntroducedForms.Count;
         public int GenerationCount => browser?.Generations.Count ?? 0;
         public string CurrentGenerationId => browser?.GenerationId;
         public string SelectedSpeciesId => browser?.SelectedSpecies?.Id;
@@ -213,13 +225,16 @@ namespace Gacha.Pokemon.Presentation
             listPage = Required<VisualElement>("pokedex-list-page");
             detailPage = Required<VisualElement>("pokedex-detail-page");
             formStrip = Required<VisualElement>("pokedex-form-strip");
+            introducedFormsSection = Required<VisualElement>("pokedex-introduced-forms-section");
             speciesList = Required<ListView>("pokedex-species-list");
+            introducedFormsList = Required<ListView>("pokedex-introduced-forms-list");
             generationField = Required<DropdownField>("pokedex-generation");
             searchField = Required<TextField>("pokedex-search");
             title = Required<Label>("pokedex-title");
             subtitle = Required<Label>("pokedex-subtitle");
             status = Required<Label>("pokedex-status");
             empty = Required<Label>("pokedex-empty");
+            introducedFormsHeading = Required<Label>("pokedex-introduced-forms-heading");
             detailNumber = Required<Label>("pokedex-detail-number");
             detailName = Required<Label>("pokedex-detail-name");
             detailGenus = Required<Label>("pokedex-detail-genus");
@@ -251,6 +266,17 @@ namespace Gacha.Pokemon.Presentation
                 PokemonSpeciesDefinition species = selection.OfType<PokemonSpeciesDefinition>().FirstOrDefault();
                 if (species != null)
                     OpenSpecies(species.Id);
+            };
+            introducedFormsList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
+            introducedFormsList.fixedItemHeight = 78f;
+            introducedFormsList.selectionType = SelectionType.Single;
+            introducedFormsList.makeItem = MakeIntroducedFormRow;
+            introducedFormsList.bindItem = BindIntroducedFormRow;
+            introducedFormsList.selectionChanged += selection =>
+            {
+                PokemonFormDefinition form = selection.OfType<PokemonFormDefinition>().FirstOrDefault();
+                if (form != null)
+                    OpenSpeciesForm(form.SpeciesId, form.Id);
             };
             closeButton.clicked += Close;
             detailBackButton.clicked += () => NavigateBack();
@@ -302,15 +328,60 @@ namespace Gacha.Pokemon.Presentation
             element.tooltip = row.Name.text;
         }
 
+        private VisualElement MakeIntroducedFormRow()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("pokedex-form-row");
+            var number = new Label();
+            number.AddToClassList("pokedex-row__number");
+            var copy = new VisualElement();
+            copy.AddToClassList("pokedex-row__copy");
+            var name = new Label();
+            name.AddToClassList("pokedex-row__name");
+            var metadata = new Label();
+            metadata.AddToClassList("pokedex-row__genus");
+            copy.Add(name);
+            copy.Add(metadata);
+            row.Add(number);
+            row.Add(copy);
+            row.userData = new IntroducedFormRow { Number = number, Name = name, Metadata = metadata };
+            return row;
+        }
+
+        private void BindIntroducedFormRow(VisualElement element, int index)
+        {
+            if (index < 0 || index >= visibleIntroducedForms.Count)
+                return;
+            PokemonFormDefinition form = visibleIntroducedForms[index];
+            PokemonSpeciesDefinition species = browser.GetSpecies(form.SpeciesId);
+            var row = (IntroducedFormRow)element.userData;
+            row.Number.text = "#" + species.NationalDexNumber.ToString("000");
+            row.Name.text = PokemonPokedexBrowser.Localized(form.Names, UiLanguage);
+            row.Metadata.text = string.IsNullOrWhiteSpace(form.RegionId)
+                ? form.FormKind
+                : form.RegionId;
+            element.tooltip = form.Id;
+        }
+
         private void RefreshSpeciesList(bool animate)
         {
             if (browser == null)
                 return;
             visibleSpecies.Clear();
             visibleSpecies.AddRange(browser.VisibleSpecies);
+            visibleIntroducedForms.Clear();
+            visibleIntroducedForms.AddRange(browser.VisibleIntroducedForms);
             speciesList.itemsSource = visibleSpecies;
             speciesList.ClearSelection();
             speciesList.Rebuild();
+            introducedFormsList.itemsSource = visibleIntroducedForms;
+            introducedFormsList.ClearSelection();
+            introducedFormsList.Rebuild();
+            introducedFormsHeading.text = PokemonPokedexText.Format(
+                "new_forms", UiLanguage, visibleIntroducedForms.Count);
+            introducedFormsSection.style.display = visibleIntroducedForms.Count > 0
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
             status.text = PokemonPokedexText.Format("count", UiLanguage, visibleSpecies.Count);
             empty.text = PokemonPokedexText.Get("empty", UiLanguage);
             empty.style.display = visibleSpecies.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -355,6 +426,19 @@ namespace Gacha.Pokemon.Presentation
                 browser.GetFormCards(form.Id).Count);
             detailBackButton.text = PokemonPokedexText.Get("back", language);
             RebuildFormButtons();
+        }
+
+        public bool OpenSpeciesForm(string speciesId, string formId)
+        {
+            if (!EnsureReady() || !browser.OpenSpecies(speciesId, formId))
+                return false;
+            returnListIndex = visibleSpecies.FindIndex(value => value.Id == speciesId);
+            RefreshDetails();
+            listPage.style.display = DisplayStyle.None;
+            detailPage.style.display = DisplayStyle.Flex;
+            UIFeedbackService.Play(FeedbackCue.CardFlip, true);
+            AnimateDetails();
+            return true;
         }
 
         private void RebuildFormButtons()
@@ -432,6 +516,7 @@ namespace Gacha.Pokemon.Presentation
             if (browser?.SelectedSpecies != null && detailPage.resolvedStyle.display == DisplayStyle.Flex)
                 RefreshDetails();
         }
+
 
         private void OnUiLanguageChanged(string _)
         {
