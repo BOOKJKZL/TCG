@@ -133,7 +133,8 @@ public sealed class TcgdexImportService : IDisposable
         checkpoint.StartSet(actualSetId, cardBriefs.Count);
 
         ImportedSetRecord importedSet = MapSet(setObject, setUrl);
-        setOverrides.Apply(importedSet);
+        if (!setOverrides.Apply(importedSet))
+            PokemonSetOrderingInference.TryApply(importedSet);
         var manifest = new PrivateContentManifest
         {
             Language = options.Language,

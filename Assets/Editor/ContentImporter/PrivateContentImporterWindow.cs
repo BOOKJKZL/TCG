@@ -70,6 +70,36 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Build Simplified Chinese Source Inventory")]
+    public static async void BuildSimplifiedChineseInventoryFromMenu()
+    {
+        try
+        {
+            SimplifiedChineseSourceInventory inventory = await RunSimplifiedChineseInventoryAsync();
+            Debug.Log(FormatSimplifiedChineseInventory(inventory));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void BuildSimplifiedChineseInventoryFromCommandLine()
+    {
+        try
+        {
+            SimplifiedChineseSourceInventory inventory = RunSimplifiedChineseInventoryAsync()
+                .GetAwaiter().GetResult();
+            Debug.Log(FormatSimplifiedChineseInventory(inventory));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     [MenuItem("Tools/Gacha/Compile English Set Generation Overrides")]
     public static void CompileEnglishSetGenerationOverridesFromMenu()
     {
@@ -133,6 +163,56 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Import All Japanese Sets (Available, Resumable WebP)")]
+    public static async void ImportAllJapaneseSetsFromMenu()
+    {
+        try
+        {
+            ContentImportSummary summary = await RunAllTcgdexLanguageImportAsync("ja");
+            Debug.Log(FormatSummary(summary));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void ImportAllJapaneseSetsFromCommandLine()
+    {
+        RunLanguageImportFromCommandLine("ja");
+    }
+
+    [MenuItem("Tools/Gacha/Import All Simplified Chinese Sets (Resumable PNG)")]
+    public static async void ImportAllSimplifiedChineseSetsFromMenu()
+    {
+        try
+        {
+            ContentImportSummary summary = await RunAllSimplifiedChineseImportAsync();
+            Debug.Log(FormatSummary(summary));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void ImportAllSimplifiedChineseSetsFromCommandLine()
+    {
+        try
+        {
+            ContentImportSummary summary = RunAllSimplifiedChineseImportAsync().GetAwaiter().GetResult();
+            Debug.Log(FormatSummary(summary));
+            if (Application.isBatchMode && (summary.ErrorCount > 0 || summary.FailedSetCount > 0))
+                EditorApplication.Exit(2);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     [MenuItem("Tools/Gacha/Audit English Imported Content")]
     public static void AuditEnglishImportedContentFromMenu()
     {
@@ -155,6 +235,20 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             if (Application.isBatchMode)
                 EditorApplication.Exit(1);
         }
+    }
+
+    [MenuItem("Tools/Gacha/Audit Japanese Imported Content")]
+    public static void AuditJapaneseImportedContentFromMenu()
+    {
+        ContentImportIntegrityReport report = AuditTcgdexImportedContent("ja");
+        Debug.Log(FormatAuditSummary(report));
+    }
+
+    [MenuItem("Tools/Gacha/Audit Simplified Chinese Imported Content")]
+    public static void AuditSimplifiedChineseImportedContentFromMenu()
+    {
+        ContentImportIntegrityReport report = AuditSimplifiedChineseImportedContent();
+        Debug.Log(FormatAuditSummary(report));
     }
 
     // Entry point for repeatable batch imports from CI or PowerShell.
@@ -264,7 +358,7 @@ public sealed class PrivateContentImporterWindow : EditorWindow
                 Application.dataPath, "..", "LocalContent", "Inventory")),
             ReferenceLanguage = "en",
             Languages = TcgdexInventoryService.SupportedLanguages.ToList(),
-            DetailedLanguages = new System.Collections.Generic.List<string> { "en" },
+            DetailedLanguages = new System.Collections.Generic.List<string> { "en", "ja" },
             SetGenerationOverridesPath = Path.Combine(
                 Application.dataPath,
                 "Editor",
@@ -274,6 +368,14 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             MaxConcurrency = 4,
             ImageSampleCount = 12
         }).ConfigureAwait(false);
+    }
+
+    private static async Task<SimplifiedChineseSourceInventory> RunSimplifiedChineseInventoryAsync()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        using var service = new SimplifiedChineseImportService();
+        return await service.BuildInventoryAsync(Path.Combine(projectRoot, "LocalContent", "Inventory"))
+            .ConfigureAwait(false);
     }
 
     private static PokemonSetGenerationCompileResult CompileEnglishSetGenerationOverrides()
@@ -324,6 +426,77 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }).ConfigureAwait(false);
     }
 
+    private static async Task<ContentImportSummary> RunAllTcgdexLanguageImportAsync(string language)
+    {
+        string normalized = (language ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized != "en" && normalized != "ja")
+            throw new ArgumentException("Bulk TCGdex import is enabled only for en and ja.", nameof(language));
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        ContentInventorySnapshot inventory = Newtonsoft.Json.JsonConvert.DeserializeObject<ContentInventorySnapshot>(
+            File.ReadAllText(Path.Combine(projectRoot, "LocalContent", "Inventory", "tcgdex-inventory.json")));
+        if (inventory == null || inventory.Sets == null)
+            throw new InvalidDataException("TCGdex inventory is missing or invalid.");
+        string[] setIds = inventory.Sets
+            .Where(item => item.Language == normalized)
+            .OrderBy(item => item.GenerationOrder ?? int.MaxValue)
+            .ThenBy(item => item.ReleaseDate ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(item => item.SetCode ?? item.Id, StringComparer.Ordinal)
+            .Select(item => item.Id)
+            .ToArray();
+        if (setIds.Length == 0)
+            throw new InvalidDataException(
+                $"No detailed '{normalized}' Sets were found. Rebuild the metadata inventory first.");
+
+        using var service = new TcgdexImportService();
+        return await service.ImportSetsAsync(setIds, new ContentImportOptions
+        {
+            Language = normalized,
+            OutputRoot = Path.Combine(projectRoot, "LocalContent", "Imports"),
+            SetGenerationOverridesPath = Path.Combine(
+                Application.dataPath, "Editor", "ContentImporter", "Overrides",
+                "set-generation-overrides.json"),
+            ImageQuality = "low",
+            ImageExtension = "webp",
+            MaxConcurrency = 4,
+            RequestIntervalMilliseconds = 25,
+            MaximumAttempts = 5,
+            RetryBaseDelayMilliseconds = 750
+        }).ConfigureAwait(false);
+    }
+
+    private static async Task<ContentImportSummary> RunAllSimplifiedChineseImportAsync()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        using var service = new SimplifiedChineseImportService();
+        return await service.ImportAsync(null, new SimplifiedChineseImportOptions
+        {
+            OutputRoot = Path.Combine(projectRoot, "LocalContent", "Imports"),
+            MaxConcurrency = 4,
+            DownloadImages = true,
+            RequestIntervalMilliseconds = 25,
+            MaximumAttempts = 5,
+            RetryBaseDelayMilliseconds = 750
+        }).ConfigureAwait(false);
+    }
+
+    private static void RunLanguageImportFromCommandLine(string language)
+    {
+        try
+        {
+            ContentImportSummary summary = RunAllTcgdexLanguageImportAsync(language)
+                .GetAwaiter().GetResult();
+            Debug.Log(FormatSummary(summary));
+            if (Application.isBatchMode && (summary.ErrorCount > 0 || summary.FailedSetCount > 0))
+                EditorApplication.Exit(2);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     private static ContentImportIntegrityReport AuditEnglishImportedContent()
     {
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
@@ -331,6 +504,36 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         return ContentImportIntegrityAuditor.Audit(
             importRoot, "en", 218,
             Path.Combine(importRoot, "en", "bulk-import-audit.json"));
+    }
+
+    private static ContentImportIntegrityReport AuditTcgdexImportedContent(string language)
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string inventoryPath = Path.Combine(projectRoot, "LocalContent", "Inventory", "tcgdex-inventory.json");
+        ContentInventorySnapshot inventory = Newtonsoft.Json.JsonConvert.DeserializeObject<ContentInventorySnapshot>(
+            File.ReadAllText(inventoryPath)) ?? throw new InvalidDataException("TCGdex inventory is invalid.");
+        int expected = inventory.Sets.Count(value => value.Language == language);
+        if (expected < 1)
+            throw new InvalidDataException($"TCGdex inventory has no detailed '{language}' Sets.");
+        string importRoot = Path.Combine(projectRoot, "LocalContent", "Imports");
+        return ContentImportIntegrityAuditor.Audit(
+            importRoot, language, expected,
+            Path.Combine(importRoot, language, "bulk-import-audit.json"));
+    }
+
+    private static ContentImportIntegrityReport AuditSimplifiedChineseImportedContent()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string inventoryPath = Path.Combine(
+            projectRoot, "LocalContent", "Inventory", "simplified-chinese-inventory.json");
+        SimplifiedChineseSourceInventory inventory =
+            Newtonsoft.Json.JsonConvert.DeserializeObject<SimplifiedChineseSourceInventory>(
+                File.ReadAllText(inventoryPath)) ??
+            throw new InvalidDataException("Simplified Chinese source inventory is invalid.");
+        string importRoot = Path.Combine(projectRoot, "LocalContent", "Imports");
+        return ContentImportIntegrityAuditor.Audit(
+            importRoot, "zh-cn", inventory.ProductCount,
+            Path.Combine(importRoot, "zh-cn", "bulk-import-audit.json"));
     }
 
     private static ContentImportOptions CreateOptions(
@@ -383,6 +586,12 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         return $"Inventory complete: {snapshot.Languages.Count} languages, {sets} sets, " +
                $"{cards} cards listed, {snapshot.Errors.Count} errors. " +
                $"Hash {snapshot.ContentSha256}.";
+    }
+
+    private static string FormatSimplifiedChineseInventory(SimplifiedChineseSourceInventory inventory)
+    {
+        return $"Simplified Chinese inventory complete: {inventory.ProductCount} products, " +
+               $"{inventory.CardCount} cards. Hash {inventory.ContentSha256}.";
     }
 
     private static string FormatAuditSummary(ContentImportIntegrityReport report)

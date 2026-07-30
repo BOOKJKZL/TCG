@@ -173,7 +173,7 @@ public sealed class TcgdexInventoryService : IDisposable
                 JObject detail = JObject.Parse(await GetStringWithRetryAsync(
                     sourceUrl, cancellationToken).ConfigureAwait(false));
                 ImportedSetRecord mapped = TcgdexImportService.MapSet(detail, sourceUrl);
-                bool wasMapped = overrides.Apply(mapped);
+                bool wasMapped = overrides.Apply(mapped) || PokemonSetOrderingInference.TryApply(mapped);
                 JArray cards = detail["cards"] as JArray ?? new JArray();
                 results[index] = new ContentInventorySetRecord
                 {

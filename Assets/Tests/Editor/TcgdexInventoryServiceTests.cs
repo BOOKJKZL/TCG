@@ -68,8 +68,8 @@ public class TcgdexInventoryServiceTests
         Assert.That(english.DetailedSetCount, Is.EqualTo(2));
         Assert.That(english.CardEntryCount, Is.EqualTo(3));
         Assert.That(english.CardImageCount, Is.EqualTo(2));
-        Assert.That(english.MappedSetCount, Is.EqualTo(1));
-        Assert.That(english.UnmappedSetCount, Is.EqualTo(1));
+        Assert.That(english.MappedSetCount, Is.EqualTo(2));
+        Assert.That(english.UnmappedSetCount, Is.Zero);
         Assert.That(french.Detailed, Is.False);
         Assert.That(french.SetCount, Is.EqualTo(1));
         Assert.That(snapshot.Sets.Select(item => item.Id), Is.EqualTo(new[] { "base1", "future1" }));
