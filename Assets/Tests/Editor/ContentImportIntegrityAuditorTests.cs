@@ -47,6 +47,20 @@ public class ContentImportIntegrityAuditorTests
     }
 
     [Test]
+    public void Audit_PngCardImagesAreCountedAndValidated()
+    {
+        WriteSet("set1", "card1", new byte[] { 1, 2, 3, 4 }, ".png");
+
+        ContentImportIntegrityReport report = ContentImportIntegrityAuditor.Audit(
+            temporaryDirectory, "en", 1);
+
+        Assert.That(report.IsValid, Is.True);
+        Assert.That(report.ImageFileCount, Is.EqualTo(1));
+        Assert.That(report.ImageBytes, Is.EqualTo(4));
+        Assert.That(report.OrphanImageFileCount, Is.Zero);
+    }
+
+    [Test]
     public void Audit_CorruptImageAndTraversalPathAreRejected()
     {
         string manifestPath = WriteSet("set1", "card1", new byte[] { 1, 2, 3, 4 });
@@ -84,7 +98,7 @@ public class ContentImportIntegrityAuditorTests
         Assert.That(report.Failures.Select(item => item.Scope), Does.Contain("temporary-files"));
     }
 
-    private string WriteSet(string setId, string cardId, byte[] imageBytes)
+    private string WriteSet(string setId, string cardId, byte[] imageBytes, string imageExtension = ".webp")
     {
         string setDirectory = Path.Combine(temporaryDirectory, "en", setId);
         string rawDirectory = Path.Combine(setDirectory, "raw");
@@ -104,9 +118,9 @@ public class ContentImportIntegrityAuditorTests
         };
         if (imageBytes != null)
         {
-            string imagePath = Path.Combine(imagesDirectory, cardId + ".webp");
+            string imagePath = Path.Combine(imagesDirectory, cardId + imageExtension);
             File.WriteAllBytes(imagePath, imageBytes);
-            card.ImageRelativePath = Path.Combine("images", cardId + ".webp");
+            card.ImageRelativePath = Path.Combine("images", cardId + imageExtension);
             card.ImageBytes = imageBytes.LongLength;
             card.ImageSha256 = Hash(imageBytes);
         }

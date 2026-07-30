@@ -34,6 +34,10 @@ public sealed class ContentImportIntegrityFailure
 
 public static class ContentImportIntegrityAuditor
 {
+    private static readonly HashSet<string> SupportedImageExtensions = new HashSet<string>(
+        new[] { ".jpg", ".jpeg", ".png", ".webp" },
+        StringComparer.OrdinalIgnoreCase);
+
     public static ContentImportIntegrityReport Audit(
         string importRoot, string language, int expectedSetCount, string outputPath = null)
     {
@@ -85,14 +89,15 @@ public static class ContentImportIntegrityAuditor
             Failure(report, "orphan-raw", Relative(languageRoot, orphan),
                 "Raw card JSON is not referenced by any manifest.");
 
-        string[] imageFiles = Directory.GetFiles(languageRoot, "*.webp", SearchOption.AllDirectories)
+        string[] imageFiles = Directory.GetFiles(languageRoot, "*", SearchOption.AllDirectories)
+            .Where(path => SupportedImageExtensions.Contains(Path.GetExtension(path)))
             .Select(Path.GetFullPath)
             .ToArray();
         report.ImageFileCount = imageFiles.Length;
         report.OrphanImageFileCount = imageFiles.Count(path => !referencedImageFiles.Contains(path));
         foreach (string orphan in imageFiles.Where(path => !referencedImageFiles.Contains(path)))
             Failure(report, "orphan-image", Relative(languageRoot, orphan),
-                "WebP image is not referenced by any manifest.");
+                "Image is not referenced by any manifest.");
 
         report.DownloadTempFileCount = Directory.GetFiles(
             languageRoot, "*.download", SearchOption.AllDirectories).Length;
@@ -180,6 +185,13 @@ public static class ContentImportIntegrityAuditor
             if (!File.Exists(imagePath))
             {
                 Failure(report, "image-missing", cardId, card.ImageRelativePath);
+                continue;
+            }
+
+            if (!SupportedImageExtensions.Contains(Path.GetExtension(imagePath)))
+            {
+                Failure(report, "image-format", cardId,
+                    $"Unsupported image extension: {Path.GetExtension(imagePath)}");
                 continue;
             }
 

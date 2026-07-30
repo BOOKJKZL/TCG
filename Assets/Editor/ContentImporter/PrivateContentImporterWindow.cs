@@ -388,7 +388,7 @@ public sealed class PrivateContentImporterWindow : EditorWindow
     private static string FormatAuditSummary(ContentImportIntegrityReport report)
     {
         return $"Import audit valid={report.IsValid}: {report.SetCount} Sets, " +
-               $"{report.CardCount} cards, {report.ImageFileCount} WebP images, " +
+               $"{report.CardCount} cards, {report.ImageFileCount} card images, " +
                $"{report.MissingImageReferenceCount} source cards without image references, " +
                $"{report.Failures.Count} integrity failures.";
     }
