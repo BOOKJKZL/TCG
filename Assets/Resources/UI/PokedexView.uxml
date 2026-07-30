@@ -1,0 +1,53 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="PokedexStyles.uss" />
+    <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay">
+        <ui:VisualElement class="pokedex-shell">
+            <ui:VisualElement class="pokedex-header">
+                <ui:VisualElement class="pokedex-heading">
+                    <ui:Label name="pokedex-title" class="pokedex-title" />
+                    <ui:Label name="pokedex-subtitle" class="pokedex-subtitle" />
+                </ui:VisualElement>
+                <ui:Button name="pokedex-close-button" class="pokedex-button pokedex-button--quiet" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="pokedex-list-page" class="pokedex-page">
+                <ui:VisualElement class="pokedex-filters">
+                    <ui:DropdownField name="pokedex-generation" class="pokedex-field pokedex-generation" />
+                    <ui:TextField name="pokedex-search" class="pokedex-field pokedex-search" />
+                </ui:VisualElement>
+                <ui:Label name="pokedex-status" class="pokedex-status" />
+                <ui:Label name="pokedex-empty" class="pokedex-empty" style="display: none;" />
+                <ui:ListView name="pokedex-species-list" class="pokedex-list" />
+            </ui:VisualElement>
+
+            <ui:ScrollView name="pokedex-detail-page" class="pokedex-page pokedex-detail" style="display: none;">
+                <ui:Button name="pokedex-detail-back" class="pokedex-button pokedex-detail__back" />
+                <ui:VisualElement class="pokedex-detail__hero">
+                    <ui:VisualElement class="pokedex-artwork">
+                        <ui:Label name="pokedex-art-number" class="pokedex-artwork__number" />
+                        <ui:Label name="pokedex-art-status" class="pokedex-artwork__status" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="pokedex-detail__copy">
+                        <ui:Label name="pokedex-detail-number" class="pokedex-detail__number" />
+                        <ui:Label name="pokedex-detail-name" class="pokedex-detail__name" />
+                        <ui:Label name="pokedex-detail-genus" class="pokedex-detail__genus" />
+                        <ui:Label name="pokedex-detail-debut" class="pokedex-detail__metadata" />
+                        <ui:Label name="pokedex-detail-types" class="pokedex-detail__metadata" />
+                        <ui:Label name="pokedex-detail-region" class="pokedex-detail__metadata" />
+                        <ui:Label name="pokedex-detail-description" class="pokedex-detail__description" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="pokedex-section pokedex-forms-section">
+                    <ui:Label name="pokedex-forms-heading" class="pokedex-section__heading" />
+                    <ui:ScrollView mode="Horizontal" horizontal-scroller-visibility="Auto" vertical-scroller-visibility="Hidden">
+                        <ui:VisualElement name="pokedex-form-strip" class="pokedex-form-strip" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+                <ui:VisualElement class="pokedex-section">
+                    <ui:Label name="pokedex-cards-heading" class="pokedex-section__heading" />
+                    <ui:Label name="pokedex-card-count" class="pokedex-card-count" />
+                </ui:VisualElement>
+            </ui:ScrollView>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

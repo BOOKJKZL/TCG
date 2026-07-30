@@ -912,6 +912,17 @@
     flex-grow: 1;
 }
 
+.collection-browser__actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.browser-button--pokedex {
+    margin-right: 10px;
+    border-color: rgba(117, 226, 189, 0.9);
+    background-color: rgb(33, 126, 104);
+}
+
 .collection-browser__title,
 .card-page__title {
     font-size: 34px;

@@ -2,8 +2,13 @@
     "name": "Gacha.Pokemon.Presentation",
     "rootNamespace": "Gacha.Pokemon.Presentation",
     "references": [
+        "Gacha.Application",
         "Gacha.Domain",
-        "Gacha.Presentation"
+        "Gacha.Pokemon.Application",
+        "Gacha.Pokemon.Domain",
+        "Gacha.Pokemon.Infrastructure",
+        "Gacha.Presentation",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

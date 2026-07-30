@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Domain;
+using Gacha.Pokemon.Presentation;
 using Gacha.Presentation;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -61,6 +62,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private Label filterEmpty;
     private AsyncCardImageView detailImage;
     private Button menuButton;
+    private Button pokedexButton;
     private Button backToSetsButton;
     private Button closeDetailsButton;
     private Button ownedOnlyButton;
@@ -71,6 +73,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private SetDefinition currentSet;
     private IVisualElementScheduledItem detailsAnimation;
     private IVisualElementScheduledItem filterAnimation;
+    private PokemonPokedexController pokedexController;
     private string searchQuery = string.Empty;
     private string selectedRarityId;
     private bool ownedOnly;
@@ -215,6 +218,10 @@ public sealed class CollectionViewController : MonoBehaviour
 
             ConfigureLists();
             ConfigureButtons();
+            pokedexController = GetComponent<PokemonPokedexController>();
+            if (pokedexController == null)
+                pokedexController = gameObject.AddComponent<PokemonPokedexController>();
+            pokedexController.Attach(uiDocument);
             BuildBrowseData();
             RefreshLocalizedChrome();
             ShowSets();
@@ -252,6 +259,7 @@ public sealed class CollectionViewController : MonoBehaviour
         detailNewBadge = Required<Label>("detail-new-badge");
         filterEmpty = Required<Label>("filter-empty");
         menuButton = Required<Button>("menu-button");
+        pokedexButton = Required<Button>("pokedex-button");
         backToSetsButton = Required<Button>("back-to-sets-button");
         closeDetailsButton = Required<Button>("details-close-button");
         ownedOnlyButton = Required<Button>("owned-only-button");
@@ -308,6 +316,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private void ConfigureButtons()
     {
         menuButton.clicked += MenuBtnClick;
+        pokedexButton.clicked += () => pokedexController?.Open();
         backToSetsButton.clicked += () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
@@ -755,6 +764,12 @@ public sealed class CollectionViewController : MonoBehaviour
         pageTitle.text = CardUiText.Get("collection.title");
         pageSubtitle.text = CardUiText.Get("collection.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
+        pokedexButton.text = string.Equals(
+            ApplicationServices.Languages.UiLanguageId,
+            "zh",
+            StringComparison.OrdinalIgnoreCase)
+            ? "宝可梦图鉴"
+            : "Pokédex";
         backToSetsButton.text = CardUiText.Get("collection.action.all_sets");
         closeDetailsButton.text = CardUiText.Get("common.action.close");
         SetBrowserStatus(FormatCollectionSummary(), false);

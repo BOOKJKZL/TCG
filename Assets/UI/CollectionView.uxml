@@ -7,7 +7,10 @@
                     <ui:Label name="collection-title" class="collection-browser__title" />
                     <ui:Label name="collection-subtitle" class="collection-browser__subtitle" />
                 </ui:VisualElement>
-                <ui:Button name="menu-button" class="browser-button" />
+                <ui:VisualElement class="collection-browser__actions">
+                    <ui:Button name="pokedex-button" class="browser-button browser-button--pokedex" />
+                    <ui:Button name="menu-button" class="browser-button" />
+                </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="browser-status" class="collection-browser__status" />
 
