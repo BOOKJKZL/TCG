@@ -110,6 +110,41 @@ public class SimplifiedChineseImportServiceTests
     }
 
     [Test]
+    public async Task Import_MissingSourceImageKeepsCardMetadataAndCompletesSet()
+    {
+        var responses = ProductListFixture();
+        responses["https://cards.test/api/product-detail"] = Json(@"{
+          'code':200,'msg':'OK.','data':{
+            'setId':'CSM1aC','setCode':'CSM1aC','name':'横空出世 赫',
+            'releaseDate':'2022-10-28T00:00:00+08:00','series':'Sun & Moon',
+            'cardsNum':1,'cards':[
+              {'setCode':'CSM1aC','cardIndex':'GRA','cardName':'基本草能量','rarity':'',
+               'cardType':'Energy','yorenCode':'','is':[]}
+            ]
+          }
+        }");
+        using var client = Client(responses);
+        using var service = new SimplifiedChineseImportService(
+            client, "https://cards.test/api", "https://cards.test/images");
+
+        ContentImportSummary summary = await service.ImportAsync(
+            new[] { "CSM1aC" }, Options(), cancellationToken: CancellationToken.None);
+
+        Assert.That(summary.SetCount, Is.EqualTo(1));
+        Assert.That(summary.CardCount, Is.EqualTo(1));
+        Assert.That(summary.ErrorCount, Is.Zero);
+        PrivateContentManifest manifest = JsonConvert.DeserializeObject<PrivateContentManifest>(
+            File.ReadAllText(Path.Combine(temporaryDirectory, "zh-cn", "CSM1aC", "manifest.json")));
+        Assert.That(manifest.Cards.Single().Name, Is.EqualTo("基本草能量"));
+        Assert.That(manifest.Cards.Single().ImageRelativePath, Is.Null);
+        Assert.That(manifest.Errors, Is.Empty);
+        ContentImportIntegrityReport audit = ContentImportIntegrityAuditor.Audit(
+            temporaryDirectory, "zh-cn", 1);
+        Assert.That(audit.IsValid, Is.True);
+        Assert.That(audit.MissingImageReferenceCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task Inventory_IsDeterministicExceptForGeneratedTimestamp()
     {
         using var firstClient = Client(ProductListFixture());

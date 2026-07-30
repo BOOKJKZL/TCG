@@ -368,12 +368,17 @@ public sealed class SimplifiedChineseImportService : IDisposable
             }
             else
             {
-                bytes = await GetBytesAsync(imageUrl, options, cancellationToken).ConfigureAwait(false);
-                WriteBytesAtomic(imagePath, bytes);
+                bytes = await GetOptionalImageBytesAsync(imageUrl, options, cancellationToken)
+                    .ConfigureAwait(false);
+                if (bytes != null)
+                    WriteBytesAtomic(imagePath, bytes);
             }
-            imageRelativePath = RelativePath(setDirectory, imagePath);
-            imageHash = Sha256(bytes);
-            imageBytes = bytes.LongLength;
+            if (bytes != null)
+            {
+                imageRelativePath = RelativePath(setDirectory, imagePath);
+                imageHash = Sha256(bytes);
+                imageBytes = bytes.LongLength;
+            }
         }
 
         var record = new ImportedCardRecord
@@ -418,17 +423,18 @@ public sealed class SimplifiedChineseImportService : IDisposable
         return envelope;
     }
 
-    private Task<byte[]> GetBytesAsync(
+    private Task<byte[]> GetOptionalImageBytesAsync(
         string url,
         SimplifiedChineseImportOptions options,
         CancellationToken cancellationToken) =>
-        SendWithRetryAsync(url, null, options, cancellationToken);
+        SendWithRetryAsync(url, null, options, cancellationToken, returnNullOnNotFound: true);
 
     private async Task<byte[]> SendWithRetryAsync(
         string url,
         Func<HttpContent> contentFactory,
         SimplifiedChineseImportOptions options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool returnNullOnNotFound = false)
     {
         Exception last = null;
         for (int attempt = 1; attempt <= options.MaximumAttempts; attempt++)
@@ -443,6 +449,8 @@ public sealed class SimplifiedChineseImportService : IDisposable
                     request.Content = contentFactory();
                 using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken)
                     .ConfigureAwait(false);
+                if (returnNullOnNotFound && response.StatusCode == HttpStatusCode.NotFound)
+                    return null;
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
             }
