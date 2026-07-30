@@ -133,6 +133,30 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Audit English Imported Content")]
+    public static void AuditEnglishImportedContentFromMenu()
+    {
+        ContentImportIntegrityReport report = AuditEnglishImportedContent();
+        Debug.Log(FormatAuditSummary(report));
+    }
+
+    public static void AuditEnglishImportedContentFromCommandLine()
+    {
+        try
+        {
+            ContentImportIntegrityReport report = AuditEnglishImportedContent();
+            Debug.Log(FormatAuditSummary(report));
+            if (Application.isBatchMode && !report.IsValid)
+                EditorApplication.Exit(1);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     // Entry point for repeatable batch imports from CI or PowerShell.
     public static void ImportHistoricalSamplesFromCommandLine()
     {
@@ -300,6 +324,15 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }).ConfigureAwait(false);
     }
 
+    private static ContentImportIntegrityReport AuditEnglishImportedContent()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string importRoot = Path.Combine(projectRoot, "LocalContent", "Imports");
+        return ContentImportIntegrityAuditor.Audit(
+            importRoot, "en", 218,
+            Path.Combine(importRoot, "en", "bulk-import-audit.json"));
+    }
+
     private static ContentImportOptions CreateOptions(
         string language, string quality, string extension, int concurrency,
         int maximumCards, bool refresh)
@@ -350,5 +383,13 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         return $"Inventory complete: {snapshot.Languages.Count} languages, {sets} sets, " +
                $"{cards} cards listed, {snapshot.Errors.Count} errors. " +
                $"Hash {snapshot.ContentSha256}.";
+    }
+
+    private static string FormatAuditSummary(ContentImportIntegrityReport report)
+    {
+        return $"Import audit valid={report.IsValid}: {report.SetCount} Sets, " +
+               $"{report.CardCount} cards, {report.ImageFileCount} WebP images, " +
+               $"{report.MissingImageReferenceCount} source cards without image references, " +
+               $"{report.Failures.Count} integrity failures.";
     }
 }
