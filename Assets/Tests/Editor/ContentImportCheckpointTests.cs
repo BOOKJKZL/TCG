@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NUnit.Framework;
 
@@ -59,5 +60,25 @@ public class ContentImportCheckpointTests
 
         Assert.That(webp.CheckpointPath, Is.Not.EqualTo(jpg.CheckpointPath));
         Assert.That(webp.FailureReportPath, Is.Not.EqualTo(jpg.FailureReportPath));
+    }
+
+    [Test]
+    public async Task Store_RetriesAtomicReplaceWhileReaderBrieflyBlocksDeletion()
+    {
+        var store = new ContentImportCheckpointStore(temporaryDirectory, "en", "low", "webp");
+        store.Begin(new[] { "set-a" });
+        FileStream blocker = File.Open(store.CheckpointPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        Task release = Task.Run(async () =>
+        {
+            await Task.Delay(100);
+            blocker.Dispose();
+        });
+
+        Assert.DoesNotThrow(() => store.StartSet("set-a", 1));
+        await release;
+
+        ContentImportCheckpoint checkpoint = store.Snapshot();
+        Assert.That(checkpoint.Sets.Single().State, Is.EqualTo("running"));
+        Assert.That(File.Exists(store.CheckpointPath), Is.True);
     }
 }

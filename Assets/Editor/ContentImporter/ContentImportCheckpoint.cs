@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 
 [Serializable]
@@ -254,8 +255,24 @@ public sealed class ContentImportCheckpointStore
     {
         string temporaryPath = path + ".download";
         File.WriteAllText(temporaryPath, text, new UTF8Encoding(false));
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporaryPath, path);
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= 8; attempt++)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+                File.Move(temporaryPath, path);
+                return;
+            }
+            catch (Exception exception) when (
+                exception is IOException || exception is UnauthorizedAccessException)
+            {
+                lastException = exception;
+                if (attempt < 8)
+                    Thread.Sleep(attempt * 25);
+            }
+        }
+        throw new IOException($"Failed to atomically replace checkpoint '{path}'.", lastException);
     }
 }
