@@ -62,6 +62,10 @@ public class PokeApiTaxonomyImportServiceTests
             new PokemonTaxonomySnapshotReader().LoadFile(summary.SnapshotPath);
         Assert.That(loaded.Catalog.Species.Count, Is.EqualTo(1));
         Assert.That(loaded.Catalog.Forms.Count, Is.EqualTo(2));
+        PokeApiTaxonomyIntegrityReport audit = PokeApiTaxonomyIntegrityAuditor.Audit(
+            temporaryDirectory, options.FormClassificationPath);
+        Assert.That(audit.IsValid, Is.False);
+        Assert.That(audit.Failures, Has.Some.Contains("Generation 1"));
         PokeApiTaxonomyImportCheckpoint checkpoint = Newtonsoft.Json.JsonConvert
             .DeserializeObject<PokeApiTaxonomyImportCheckpoint>(File.ReadAllText(summary.CheckpointPath));
         Assert.That(checkpoint.Complete, Is.True);
