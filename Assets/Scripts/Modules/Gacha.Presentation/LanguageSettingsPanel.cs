@@ -27,6 +27,7 @@ namespace Gacha.Presentation
         private Coroutine refreshRoutine;
         private Coroutine transitionRoutine;
         private LanguageSelectionService languages;
+        private string contentUnavailableMessage;
 
         public static LanguageSettingsPanel Create(Transform parent)
         {
@@ -66,7 +67,7 @@ namespace Gacha.Presentation
         {
             if (!ApplicationServices.IsConfigured)
             {
-                ShowUnavailable("Language services are unavailable.");
+                ShowServicesUnavailable("Language services are unavailable.");
                 return;
             }
 
@@ -78,11 +79,13 @@ namespace Gacha.Presentation
             CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
             if (load.Succeeded)
             {
+                contentUnavailableMessage = null;
                 languages.RefreshContentLanguage(load.Catalog);
             }
             else
             {
-                ShowUnavailable(load.ErrorMessage);
+                contentUnavailableMessage = load.ErrorMessage;
+                contentLanguageButton.interactable = false;
                 UIFeedbackService.Play(FeedbackCue.Error);
             }
 
@@ -106,6 +109,7 @@ namespace Gacha.Presentation
                 StopCoroutine(transitionRoutine);
             refreshRoutine = null;
             transitionRoutine = null;
+            contentUnavailableMessage = null;
         }
 
         private void CycleUiLanguage()
@@ -181,11 +185,24 @@ namespace Gacha.Presentation
                 LanguageKey(languages.ContentLanguage.ResolvedLanguageId),
                 languages.ContentLanguage.ResolvedLanguageId);
 
-            bool hasMultipleContentLanguages = ApplicationServices.Catalog.IsReady &&
-                                               ApplicationServices.Catalog.Catalog.Languages.Count > 1;
+            uiLanguageButton.interactable = CanSelectUiLanguage(
+                servicesAvailable: true,
+                availableUiLanguageCount: languages.AvailableUiLanguageIds.Count);
+            bool catalogReady = ApplicationServices.Catalog.IsReady;
+            int contentLanguageCount = catalogReady
+                ? ApplicationServices.Catalog.Catalog.Languages.Count
+                : 0;
+            bool hasMultipleContentLanguages = CanSelectContentLanguage(
+                servicesAvailable: true,
+                catalogReady: catalogReady,
+                availableContentLanguageCount: contentLanguageCount);
             contentLanguageButton.interactable = hasMultipleContentLanguages;
 
-            if (languages.ContentLanguage.UsedFallback)
+            if (!catalogReady && !string.IsNullOrWhiteSpace(contentUnavailableMessage))
+            {
+                statusText.text = contentUnavailableMessage;
+            }
+            else if (languages.ContentLanguage.UsedFallback)
             {
                 string template = null;
                 yield return GetLocalized("settings.language.fallback", "Requested {0}; using {1}.", value => template = value);
@@ -224,7 +241,7 @@ namespace Gacha.Presentation
             completed(value);
         }
 
-        private void ShowUnavailable(string message)
+        private void ShowServicesUnavailable(string message)
         {
             if (statusText != null)
                 statusText.text = string.IsNullOrWhiteSpace(message) ? "Language services are unavailable." : message;
@@ -232,6 +249,19 @@ namespace Gacha.Presentation
                 uiLanguageButton.interactable = false;
             if (contentLanguageButton != null)
                 contentLanguageButton.interactable = false;
+        }
+
+        public static bool CanSelectUiLanguage(bool servicesAvailable, int availableUiLanguageCount)
+        {
+            return servicesAvailable && availableUiLanguageCount > 1;
+        }
+
+        public static bool CanSelectContentLanguage(
+            bool servicesAvailable,
+            bool catalogReady,
+            int availableContentLanguageCount)
+        {
+            return servicesAvailable && catalogReady && availableContentLanguageCount > 1;
         }
 
         private void PlayEntrance()

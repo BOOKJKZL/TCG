@@ -85,6 +85,18 @@ public class LanguageSettingsPresentationTests
     }
 
     [Test]
+    public void LanguagePanel_KeepsUiLanguageIndependentFromCardCatalogAvailability()
+    {
+        Assert.That(LanguageSettingsPanel.CanSelectUiLanguage(
+            servicesAvailable: true,
+            availableUiLanguageCount: 2), Is.True);
+        Assert.That(LanguageSettingsPanel.CanSelectContentLanguage(
+            servicesAvailable: true,
+            catalogReady: false,
+            availableContentLanguageCount: 0), Is.False);
+    }
+
+    [Test]
     public void ExperiencePanel_CreatesFourFeedbackEnabledControls()
     {
         GameObject canvasObject = new GameObject("Test Canvas", typeof(RectTransform), typeof(Canvas));
