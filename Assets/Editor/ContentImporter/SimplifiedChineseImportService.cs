@@ -595,7 +595,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
             throw new ArgumentNullException(nameof(options));
         if (string.IsNullOrWhiteSpace(options.OutputRoot))
             throw new ArgumentException("OutputRoot is required.", nameof(options));
-        if (options.MaxConcurrency < 1 || options.MaxConcurrency > 12)
+        if (options.MaxConcurrency < 1 || options.MaxConcurrency > 32)
             throw new ArgumentOutOfRangeException(nameof(options.MaxConcurrency));
         if (options.MaximumCardsPerSet < 0)
             throw new ArgumentOutOfRangeException(nameof(options.MaximumCardsPerSet));
@@ -655,7 +655,10 @@ public sealed class SimplifiedChineseImportService : IDisposable
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        var client = new HttpClient(new HttpClientHandler { MaxConnectionsPerServer = 32 })
+        {
+            Timeout = TimeSpan.FromSeconds(60)
+        };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "UniversalGachaSimulator-PrivateImporter/3.0");
         return client;

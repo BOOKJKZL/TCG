@@ -398,7 +398,7 @@ public sealed class TcgdexImportService : IDisposable
             throw new ArgumentNullException(nameof(options));
         if (string.IsNullOrWhiteSpace(options.OutputRoot))
             throw new ArgumentException("OutputRoot is required.", nameof(options));
-        if (options.MaxConcurrency < 1 || options.MaxConcurrency > 12)
+        if (options.MaxConcurrency < 1 || options.MaxConcurrency > 32)
             throw new ArgumentOutOfRangeException(nameof(options.MaxConcurrency));
         if (!new[] { "low", "high" }.Contains(options.ImageQuality))
             throw new ArgumentException("ImageQuality must be low or high.", nameof(options));
@@ -414,7 +414,10 @@ public sealed class TcgdexImportService : IDisposable
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        var client = new HttpClient(new HttpClientHandler { MaxConnectionsPerServer = 32 })
+        {
+            Timeout = TimeSpan.FromSeconds(60)
+        };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "UniversalGachaSimulator-PrivateImporter/2.0");
         return client;

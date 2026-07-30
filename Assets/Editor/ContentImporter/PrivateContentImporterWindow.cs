@@ -457,7 +457,7 @@ public sealed class PrivateContentImporterWindow : EditorWindow
                 "set-generation-overrides.json"),
             ImageQuality = "low",
             ImageExtension = "webp",
-            MaxConcurrency = 12,
+            MaxConcurrency = 24,
             RequestIntervalMilliseconds = 0,
             MaximumAttempts = 5,
             RetryBaseDelayMilliseconds = 750
@@ -471,7 +471,7 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         return await service.ImportAsync(null, new SimplifiedChineseImportOptions
         {
             OutputRoot = Path.Combine(projectRoot, "LocalContent", "Imports"),
-            MaxConcurrency = 12,
+            MaxConcurrency = 24,
             DownloadImages = true,
             RequestIntervalMilliseconds = 0,
             MaximumAttempts = 5,
