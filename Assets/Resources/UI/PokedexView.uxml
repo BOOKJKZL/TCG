@@ -2,7 +2,18 @@
     <Style src="PokedexStyles.uss" />
     <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay">
         <ui:VisualElement class="pokedex-shell">
+            <ui:VisualElement name="pokedex-device-rail" class="pokedex-device-rail">
+                <ui:VisualElement class="pokedex-device-rail__red" />
+                <ui:VisualElement class="pokedex-device-rail__yellow" />
+                <ui:VisualElement class="pokedex-device-rail__blue" />
+            </ui:VisualElement>
             <ui:VisualElement class="pokedex-header">
+                <ui:VisualElement name="pokedex-status-lights" class="pokedex-status-lights">
+                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--lens" />
+                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--red" />
+                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--yellow" />
+                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--green" />
+                </ui:VisualElement>
                 <ui:VisualElement class="pokedex-heading">
                     <ui:Label name="pokedex-title" class="pokedex-title" />
                     <ui:Label name="pokedex-subtitle" class="pokedex-subtitle" />

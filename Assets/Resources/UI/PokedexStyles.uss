@@ -9,6 +9,75 @@
     background-color: rgba(3, 8, 18, 0.97);
 }
 
+.pokedex-device-rail {
+    height: 8px;
+    flex-shrink: 0;
+    flex-direction: row;
+    margin-left: -26px;
+    margin-right: -26px;
+    margin-top: -26px;
+    margin-bottom: 18px;
+    overflow: hidden;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+}
+
+.pokedex-device-rail__red {
+    flex-grow: 5;
+    background-color: rgb(235, 74, 80);
+}
+
+.pokedex-device-rail__yellow {
+    flex-grow: 2;
+    background-color: rgb(255, 211, 65);
+}
+
+.pokedex-device-rail__blue {
+    flex-grow: 3;
+    background-color: rgb(52, 137, 214);
+}
+
+.pokedex-status-lights {
+    width: 104px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-right: 16px;
+}
+
+.pokedex-status-light {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    margin-left: 5px;
+    border-width: 2px;
+    border-radius: 6px;
+    border-color: rgba(255, 255, 255, 0.72);
+}
+
+.pokedex-status-light--lens {
+    width: 38px;
+    height: 38px;
+    margin-left: 0;
+    margin-right: 4px;
+    border-width: 4px;
+    border-radius: 21px;
+    border-color: rgb(235, 249, 255);
+    background-color: rgb(66, 204, 241);
+}
+
+.pokedex-status-light--red {
+    background-color: rgb(240, 74, 81);
+}
+
+.pokedex-status-light--yellow {
+    background-color: rgb(255, 211, 65);
+}
+
+.pokedex-status-light--green {
+    background-color: rgb(78, 203, 128);
+}
+
 .pokedex-shell {
     flex-grow: 1;
     width: 100%;
@@ -414,4 +483,133 @@
 .reduce-motion .pokedex-button,
 .reduce-motion .pokedex-form-button {
     transition-duration: 0s;
+}
+
+/* Original handheld Pokédex-inspired device treatment; no official UI assets. */
+.pokedex-overlay {
+    background-color: rgb(7, 19, 39);
+}
+
+.pokedex-shell {
+    border-color: rgb(247, 103, 110);
+    background-color: rgb(181, 43, 54);
+}
+
+.pokedex-page {
+    padding: 14px;
+    border-radius: 18px;
+    background-color: rgb(242, 247, 250);
+}
+
+.pokedex-title {
+    color: white;
+}
+
+.pokedex-subtitle {
+    color: rgb(255, 213, 216);
+}
+
+.pokedex-status,
+.pokedex-empty,
+.pokedex-card-count {
+    color: rgb(72, 98, 122);
+}
+
+.pokedex-filters {
+    border-color: rgb(81, 165, 221);
+    background-color: rgb(17, 48, 82);
+}
+
+.pokedex-field {
+    color: rgb(218, 237, 250);
+}
+
+.pokedex-field .unity-base-text-field__input,
+.pokedex-field .unity-base-popup-field__input {
+    border-color: rgb(88, 176, 229);
+    background-color: rgb(8, 31, 57);
+}
+
+.pokedex-row,
+.pokedex-card-row {
+    border-color: rgb(184, 202, 216);
+    background-color: rgb(255, 255, 255);
+}
+
+.pokedex-row:hover,
+.pokedex-card-row:hover {
+    border-color: rgb(67, 157, 221);
+    background-color: rgb(222, 239, 249);
+}
+
+.pokedex-row__name,
+.pokedex-card-row__name {
+    color: rgb(21, 43, 67);
+}
+
+.pokedex-row__genus,
+.pokedex-card-row__metadata,
+.pokedex-card-row__status {
+    color: rgb(74, 101, 126);
+}
+
+.pokedex-row__number {
+    color: rgb(205, 49, 61);
+}
+
+.pokedex-form-row,
+.pokedex-introduced-forms {
+    border-color: rgb(226, 169, 48);
+    background-color: rgb(255, 246, 211);
+}
+
+.pokedex-introduced-forms__heading {
+    color: rgb(135, 92, 18);
+}
+
+.pokedex-button,
+.pokedex-form-button {
+    border-color: rgb(103, 196, 241);
+    background-color: rgb(43, 118, 190);
+}
+
+.pokedex-button--quiet {
+    border-color: rgb(218, 231, 240);
+    background-color: rgb(48, 76, 102);
+}
+
+.pokedex-detail__hero,
+.pokedex-section {
+    border-color: rgb(184, 202, 216);
+    background-color: rgb(255, 255, 255);
+}
+
+.pokedex-detail__hero {
+    padding: 18px;
+    border-width: 1px;
+    border-radius: 18px;
+}
+
+.pokedex-detail__number {
+    color: rgb(205, 49, 61);
+}
+
+.pokedex-detail__name,
+.pokedex-section__heading {
+    color: rgb(21, 43, 67);
+}
+
+.pokedex-detail__genus,
+.pokedex-detail__metadata {
+    color: rgb(74, 101, 126);
+}
+
+.pokedex-detail__description {
+    color: rgb(38, 63, 86);
+}
+
+.pokedex-form-button.is-selected {
+    border-color: rgb(230, 177, 55);
+    background-color: rgb(205, 49, 61);
+    color: white;
 }

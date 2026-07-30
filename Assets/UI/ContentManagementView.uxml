@@ -2,7 +2,18 @@
     <Style src="Styles.uss" />
     <ui:VisualElement name="content-management" class="content-management">
         <ui:VisualElement name="content-shell" class="content-management__shell">
+            <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
+                <ui:VisualElement class="trainer-device-rail__red" />
+                <ui:VisualElement class="trainer-device-rail__yellow" />
+                <ui:VisualElement class="trainer-device-rail__blue" />
+            </ui:VisualElement>
             <ui:VisualElement class="content-management__header">
+                <ui:VisualElement name="trainer-status-lights" class="trainer-status-lights">
+                    <ui:VisualElement class="trainer-status-light trainer-status-light--lens" />
+                    <ui:VisualElement class="trainer-status-light trainer-status-light--red" />
+                    <ui:VisualElement class="trainer-status-light trainer-status-light--yellow" />
+                    <ui:VisualElement class="trainer-status-light trainer-status-light--green" />
+                </ui:VisualElement>
                 <ui:VisualElement class="content-management__heading">
                     <ui:Label name="content-title" class="content-management__title" />
                     <ui:Label name="content-subtitle" class="content-management__subtitle" />

@@ -1,5 +1,74 @@
 .main-menu { flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
 
+.trainer-device-rail {
+    height: 8px;
+    flex-shrink: 0;
+    flex-direction: row;
+    margin-left: -28px;
+    margin-right: -28px;
+    margin-top: -28px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+}
+
+.trainer-device-rail__red {
+    flex-grow: 5;
+    background-color: rgb(222, 53, 63);
+}
+
+.trainer-device-rail__yellow {
+    flex-grow: 2;
+    background-color: rgb(255, 211, 65);
+}
+
+.trainer-device-rail__blue {
+    flex-grow: 3;
+    background-color: rgb(52, 137, 214);
+}
+
+.trainer-status-lights {
+    width: 104px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-right: 16px;
+}
+
+.trainer-status-light {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    margin-left: 5px;
+    border-width: 2px;
+    border-radius: 6px;
+    border-color: rgba(255, 255, 255, 0.72);
+}
+
+.trainer-status-light--lens {
+    width: 38px;
+    height: 38px;
+    margin-left: 0;
+    margin-right: 4px;
+    border-width: 4px;
+    border-radius: 21px;
+    border-color: rgb(235, 249, 255);
+    background-color: rgb(66, 204, 241);
+}
+
+.trainer-status-light--red {
+    background-color: rgb(240, 74, 81);
+}
+
+.trainer-status-light--yellow {
+    background-color: rgb(255, 211, 65);
+}
+
+.trainer-status-light--green {
+    background-color: rgb(78, 203, 128);
+}
+
 .content-management {
     position: absolute;
     left: 0;
@@ -1275,4 +1344,148 @@
 .details-panel__new {
     margin-top: 14px;
     margin-bottom: 0;
+}
+
+/* Original trainer-terminal visual language shared by the primary game screens. */
+.content-management,
+.gacha-opening,
+.collection-browser {
+    background-color: rgb(7, 19, 39);
+}
+
+.content-management__shell,
+.gacha-opening__shell,
+.collection-browser__shell {
+    border-color: rgb(76, 190, 235);
+    background-color: rgb(16, 43, 76);
+}
+
+.content-management__title,
+.gacha-opening__title,
+.collection-browser__title,
+.card-page__title {
+    color: rgb(248, 252, 255);
+}
+
+.content-management__subtitle,
+.gacha-opening__subtitle,
+.collection-browser__subtitle,
+.collection-browser__status,
+.card-page__count {
+    color: rgb(177, 211, 235);
+}
+
+.content-package-row,
+.gacha-product-row,
+.gacha-summary-row,
+.set-row,
+.card-row {
+    border-color: rgb(184, 202, 216);
+    background-color: rgb(243, 247, 250);
+}
+
+.content-package-row__name,
+.gacha-product-row .gacha-product-row__name,
+.gacha-summary-row .gacha-summary-row__name,
+.set-row .browser-row__title,
+.card-row .browser-row__title {
+    color: rgb(21, 43, 67);
+}
+
+.content-package-row__metadata,
+.gacha-product-row .gacha-product-row__metadata,
+.gacha-summary-row .gacha-summary-row__metadata,
+.set-row .browser-row__metadata,
+.card-row .browser-row__metadata {
+    color: rgb(74, 101, 126);
+}
+
+.content-package-row:hover,
+.gacha-product-row:hover,
+.set-row:hover,
+.card-row:hover {
+    border-color: rgb(67, 157, 221);
+    background-color: rgb(222, 239, 249);
+}
+
+.card-row.is-new {
+    border-color: rgb(225, 160, 37);
+    background-color: rgb(255, 245, 207);
+}
+
+.gacha-button,
+.browser-button {
+    border-color: rgb(103, 196, 241);
+    background-color: rgb(43, 118, 190);
+}
+
+.gacha-button:hover,
+.browser-button:hover {
+    background-color: rgb(55, 146, 216);
+}
+
+.gacha-button--primary,
+.browser-button--pokedex {
+    border-color: rgb(255, 115, 121);
+    background-color: rgb(205, 49, 61);
+}
+
+.gacha-button--primary:hover,
+.browser-button--pokedex:hover {
+    background-color: rgb(230, 63, 73);
+}
+
+.content-button {
+    border-color: rgb(103, 196, 241);
+    background-color: rgb(43, 118, 190);
+}
+
+.content-button--primary {
+    border-color: rgb(255, 115, 121);
+    background-color: rgb(205, 49, 61);
+}
+
+.content-button--danger {
+    border-color: rgb(235, 97, 104);
+    background-color: rgb(139, 42, 50);
+}
+
+.details-panel__card {
+    border-color: rgb(224, 57, 67);
+    background-color: rgb(246, 249, 251);
+}
+
+.details-panel__card .details-panel__name {
+    color: rgb(21, 43, 67);
+}
+
+.details-panel__card .details-panel__metadata {
+    color: rgb(72, 98, 122);
+}
+
+.details-panel__card .details-panel__progress {
+    color: rgb(26, 125, 85);
+}
+
+.details-panel__languages {
+    border-color: rgb(146, 177, 200);
+    background-color: rgb(225, 234, 241);
+}
+
+.details-panel__language {
+    border-color: rgb(133, 164, 188);
+    background-color: rgb(240, 245, 248);
+    color: rgb(47, 76, 101);
+}
+
+.details-panel__language:hover {
+    border-color: rgb(55, 146, 216);
+    background-color: rgb(214, 235, 249);
+    color: rgb(21, 43, 67);
+}
+
+.details-panel__language.is-selected {
+    border-color: rgb(229, 164, 35);
+    background-color: rgb(205, 49, 61);
+    color: white;
 }
