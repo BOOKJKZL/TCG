@@ -59,7 +59,7 @@ namespace Gacha.EditorTools.Content
     public sealed class SitesContentApiObjectStore : IR2ReleaseObjectStore, IDisposable
     {
         private static readonly Regex ArchiveKeyPattern = new Regex(
-            "^packages/([a-z0-9][a-z0-9._-]{0,79})/([a-f0-9]{64})\\.zip$",
+            "^packages/([A-Za-z0-9][A-Za-z0-9._-]{0,79})/([a-f0-9]{64})\\.zip$",
             RegexOptions.CultureInvariant);
 
         private readonly SitesContentApiCredentials credentials;
