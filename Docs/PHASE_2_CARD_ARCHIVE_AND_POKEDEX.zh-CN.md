@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：已规划，尚未开始实施
+状态：进行中（Phase 2A 已完成）
 
-完成度：0%
+完成度：8%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -225,7 +225,7 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 | 阶段 | 权重 | 工作内容 | 主要验收证据 | Git 主题 |
 |---|---:|---|---|---|
-| 2A 数据契约与排序 | 8% | Manifest v2、Set 世代/编号/时间字段、稳定排序器、形态分类政策 | Schema/迁移/排序 EditMode 测试 | `feat(content): add pokemon set metadata and stable sorting` |
+| 2A 数据契约与排序（已完成） | 8% | Manifest v2、Set 世代/编号/时间字段、稳定排序器、形态分类政策 | Schema/迁移/排序 EditMode 测试 | `be85865`、`905e3ec`、`089e69a` |
 | 2B 全量清单盘点 | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `feat(importer): add all-set inventory discovery` |
 | 2C 可恢复批量导入 | 15% | checkpoint、限速、重试、断点续跑、图片压缩、Hash、失败队列 | 中断后续跑；重复执行无重复下载；Hash 全通过 | `feat(importer): add resumable bulk card import` |
 | 2D 打包与发布 | 15% | 按语言/Set 建确定性包；离线回读；Site pilot；容量门槛；R2 target | 同输入同 Hash；远端回读；Catalog 最后发布 | `feat(publisher): publish immutable card packages` |
@@ -249,6 +249,15 @@ dex/{generationId}/images.{quality}.{hash}.zip
 5. 为世代、日期、编号、名称排序加入确定性测试。
 
 完成 2A 前，不开始全量图片下载。
+
+完成记录（2026-07-30）：
+
+- 通用领域层新增可选 `SetOrderingMetadata` 与确定性排序器，支持世代、发布日期、Set 编号和名称排序；核心层没有写死宝可梦 Set ID。
+- 私人 Manifest writer 升级至 v2；reader 会把 v1 在内存中迁移为 v2，不重写来源文件，现有 `PrintingIdentity` 和收藏键保持不变。
+- Editor 私人导入器新增版本控制的 `set-generation-overrides.json` 与 `form-classification-overrides.json`；未知 Set 明确保留为 `unmapped`，不依靠名称猜测世代。
+- 收藏与抽卡系列列表已采用同一个稳定比较器。定向测试分别通过 4/4（排序）、6/6（Manifest/身份）和 4/4（override）。
+- 阶段回归通过 EditMode 248/248、PlayMode 7/7，失败 0。此次没有改变权限、ABI、储存、图形或触觉边界，因此不重复构建 APK。
+- 实现按三个主题提交：`be85865 feat(content): add stable set ordering`、`905e3ec feat(content): upgrade private manifests to v2`、`089e69a feat(importer): add pokemon metadata overrides`。
 
 ### Phase 2B：只做清单，不先下载全部图片
 
@@ -348,6 +357,6 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 ## 十二、现在应该先做什么
 
-下一步是 **Phase 2A：数据契约与稳定排序**，随后立刻做 **Phase 2B：metadata-only 全量清单盘点**。
+Phase 2A 已完成。下一步是 **Phase 2B：metadata-only 全量清单盘点**：自动发现全部 Set，只读取轻量 metadata 并生成可重跑的数量、语言完整度、图片覆盖率与容量估算报告。
 
-不建议现在直接下载全部图片。先用清单得出真实 Set 数、卡数、语言完整度和容量，才能决定 Site 能承载多少、何时切换 R2，并确保下载回来的资料已经有不会变化的世代、Set、物种和形态身份。
+现在仍不下载全部图片，也不写入 Site/R2。先用清单得出真实 Set 数、卡数、语言完整度和容量，才能决定 Site 能承载多少、何时切换 R2；Phase 2B 完成并确认范围后，才进入可恢复批量导入。
