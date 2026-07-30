@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：进行中（Phase 2A 已完成）
+状态：进行中（Phase 2A–2B 已完成）
 
-完成度：8%
+完成度：15%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -226,7 +226,7 @@ dex/{generationId}/images.{quality}.{hash}.zip
 | 阶段 | 权重 | 工作内容 | 主要验收证据 | Git 主题 |
 |---|---:|---|---|---|
 | 2A 数据契约与排序（已完成） | 8% | Manifest v2、Set 世代/编号/时间字段、稳定排序器、形态分类政策 | Schema/迁移/排序 EditMode 测试 | `be85865`、`905e3ec`、`089e69a` |
-| 2B 全量清单盘点 | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `feat(importer): add all-set inventory discovery` |
+| 2B 全量清单盘点（已完成） | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `8d1c938` |
 | 2C 可恢复批量导入 | 15% | checkpoint、限速、重试、断点续跑、图片压缩、Hash、失败队列 | 中断后续跑；重复执行无重复下载；Hash 全通过 | `feat(importer): add resumable bulk card import` |
 | 2D 打包与发布 | 15% | 按语言/Set 建确定性包；离线回读；Site pilot；容量门槛；R2 target | 同输入同 Hash；远端回读；Catalog 最后发布 | `feat(publisher): publish immutable card packages` |
 | 2E 图鉴资料层 | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | Gen 1 为 151 个唯一物种；地区形态双向关系完整 | `feat(pokedex): add species and form taxonomy` |
@@ -266,6 +266,15 @@ dex/{generationId}/images.{quality}.{hash}.zip
 3. 输出 Set 数、卡数、每语言完整度、图片 URL 覆盖率。
 4. 对少量样本测量原图与压缩图平均大小，估算总储存量和包数量。
 5. 让用户确认首批卡牌语言与 Site/R2 容量门槛。
+
+完成记录（2026-07-30）：
+
+- 新增可从 Editor 菜单或命令行执行的 TCGdex inventory 服务，支持 17 个语言列表发现、指定语言 Set 详情、确定性排序、内容 Hash、错误记录与 JSON/Markdown 原子报告。
+- 真实只读盘点发现 1,631 个语言 Set 条目；英文为 218 个 Set、23,746 个列表卡数，详情实际列出 23,444 个卡牌条目，其中 21,828 个具有图片 URL（93.1%）。
+- 12 张内存样本估算英文 `high.jpg` 约 13.87 GiB、`low.webp` 约 335.07 MiB；没有保存样本图，也没有向 Site/R2 写入。
+- 简体中文来源重复 Set `CSV1C` 已记录并确定性去重；英文 213 个尚未映射 Set 已作为 Phase 2C 的下载前门槛。
+- 首批内容语言依计划固定为英文，详细证据见[Phase 2B 清单审计](PHASE_2_INVENTORY_2026-07-30.zh-CN.md)。
+- 定向 EditMode 5/5、完整 EditMode 253/253、完整 PlayMode 7/7 通过；实现提交为 `8d1c938 feat(importer): add all-set inventory discovery`。
 
 ### Phase 2C–2D：一代/一个时代试跑后再全量
 
@@ -357,6 +366,6 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 ## 十二、现在应该先做什么
 
-Phase 2A 已完成。下一步是 **Phase 2B：metadata-only 全量清单盘点**：自动发现全部 Set，只读取轻量 metadata 并生成可重跑的数量、语言完整度、图片覆盖率与容量估算报告。
+Phase 2A–2B 已完成。下一步是 **Phase 2C：可恢复批量导入**。先补齐 218 个英文 Set 的世代/顺序映射，再实现 checkpoint、限速、重试、断点续跑、失败队列、图片压缩与逐文件 Hash。
 
-现在仍不下载全部图片，也不写入 Site/R2。先用清单得出真实 Set 数、卡数、语言完整度和容量，才能决定 Site 能承载多少、何时切换 R2；Phase 2B 完成并确认范围后，才进入可恢复批量导入。
+Phase 2C 只写本机私人内容目录，不上传 Site/R2。以英文低清 WebP 作为手机首批资源目标；本地完整性与确定性打包通过后，才在 Phase 2D 进入远端发布。

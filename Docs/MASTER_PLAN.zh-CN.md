@@ -2,7 +2,7 @@
 
 最后更新：2026-07-30
 
-本次修改原因：第一大阶段的软件范围已经完成 100% 验收；第二大阶段 Phase 2A 也已完成，使总计划进入 8%。Site-first 远程内容、Android 14 模拟器十四项软件收据、生产 ARM64 构建与静态审计均已通过；最新回归为 PlayMode 7/7、EditMode 248/248。实体震动手感、扬声器音质和真实蜂窝切换继续作为实体机补测限制。验证节奏固定为 Play Mode 优先，普通数据与代码变化不重复构建 APK，只有权限、ABI、存储、图形、触觉等平台边界才构建。
+本次修改原因：第一大阶段的软件范围已经完成 100% 验收；第二大阶段 Phase 2A–2B 也已完成，使总计划进入 15%。Site-first 远程内容、Android 14 模拟器十四项软件收据、生产 ARM64 构建与静态审计均已通过；最新回归为 PlayMode 7/7、EditMode 253/253。实体震动手感、扬声器音质和真实蜂窝切换继续作为实体机补测限制。验证节奏固定为 Play Mode 优先，普通数据与代码变化不重复构建 APK，只有权限、ABI、存储、图形、触觉等平台边界才构建。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。全量卡牌资料库与宝可梦图鉴请参阅[第二大阶段实施计划](PHASE_2_CARD_ARCHIVE_AND_POKEDEX.zh-CN.md)。
 
@@ -72,8 +72,9 @@ AccessibilitySettings
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
 - 通用按钮、下载和缺失资源路径仍有低音量程序化后备音；五套年代主题已经由 `AudioClipConfig` 优先加载十个正式原创 WAV，分别覆盖撕包与稀有揭晓，缺失时才回退到原程序化声音。
-- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 248/248、PlayMode 为 7/7 通过。
+- 反馈系统、通用领域模型、Application 状态、内容适配器、图片源、纹理缓存、新抽卡引擎、产品开启、收藏进度、体验设置、版本化资源包 catalog、协调安装/卸载、HTTP 断点下载、远程/离线 catalog、确定性发布器、内容管理 Presentation 和产品开包主题均有自动化测试；当前项目 EditMode 测试为 253/253、PlayMode 为 7/7 通过。
 - 第二大阶段 Phase 2A 已完成：通用 Set 稳定排序、私人 Manifest v2 与 v1 内存迁移、`PrintingIdentity` 回归保护，以及版本控制的 Set 世代/形态分类 override 均已验证。
+- 第二大阶段 Phase 2B 已完成：17 语言只读清单发现、218 个英文 Set 详情、图片 URL 覆盖率与 12 张容量抽样均已记录；没有下载全量卡图或写入远端。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -775,10 +776,11 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 阶段 9：模拟器软件验收（完成）
 → 第一大阶段完成：ARM64 生产构建 + 静态审计 + 最终完成度审计均通过
 → 第二大阶段 Phase 2A：数据契约与稳定排序（完成，整体 8%）
-→ 当前下一步：Phase 2B metadata-only 全量清单盘点
+→ 第二大阶段 Phase 2B：metadata-only 全量清单盘点（完成，整体 15%）
+→ 当前下一步：Phase 2C 英文 Set 映射与可恢复批量导入
 ```
 
-Phase 2B 只自动发现 Set 并读取轻量 metadata，不下载全量卡图，也不写入 Site/R2。现有五个英文系列继续作为玩家流程回归资料；等清单报告确认语言、数量、缺失率与容量后，才开始可恢复的批量下载。
+Phase 2B 已确认英文 218 个 Set 与约 335 MiB 的低清 WebP 级别。Phase 2C 先补齐 213 个未映射英文 Set，再执行只写本机目录的可恢复批量下载；Site/R2 上传仍属于后续 Phase 2D。
 
 以下情况必须暂停后续阶段并先修复：
 
