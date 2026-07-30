@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：进行中（Phase 2A–2E 已完成）
+状态：已完成（Phase 2A–2J 全部通过验收）
 
-完成度：57%
+完成度：100%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -230,11 +230,11 @@ dex/{generationId}/images.{quality}.{hash}.zip
 | 2C 可恢复批量导入（已完成） | 15% | checkpoint、限速、重试、断点续跑、WebP、Hash、失败队列、完整性审计 | 218/218 Set 完成；23,444/23,444 卡记录；21,828 张图 Hash 全通过 | `e789f3b`–`ef72f14` |
 | 2D 打包与发布（已完成） | 15% | 按语言/Set 建确定性运行时包；离线回读；Gen 1 Site pilot；容量门槛 | 218 包双构建 Hash 相同；11 包公网 Hash/Range/只读权限全通过 | `7d3cbf7`、`34e9481` |
 | 2E 图鉴资料层（已完成） | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | 9 世代、1,025 物种、1,579 形态；Gen 1 精确 #001–#151；完整审计失败 0 | `770d9d6`、`bc950b1`、`c62cc49`、`19d27ac`、`7fe7c87`、`474c26f` |
-| 2F 卡牌关联器 | 14% | Card→Species/Form 多对多匹配、置信度报告、人工 override | 100% 卡牌具有明确质量状态；抽样无名称误配 | `feat(pokedex): link card printings to pokemon subjects` |
-| 2G 第一世代图鉴 MVP | 12% | #001–#151 列表、搜索、详情、简介、形态跳转、卡牌区 | PlayMode 完成主要旅程；性能与本地化通过 | `feat(pokedex): build generation one pokedex experience` |
-| 2H 全世代与地区形态 | 8% | 扩展全部已导入世代；新形态分区；相关形态导航 | 世代边界、编号、形态分类与跳转全通过 | `feat(pokedex): expand generations and regional forms` |
-| 2I 按需卡图整合 | 5% | 卡牌筛选、排序、下载状态、未安装占位、跳转现有卡牌详情 | 离线/下载中/失败/完成状态可验证 | `feat(pokedex): integrate on-demand card gallery` |
-| 2J 全量发布与验收 | 4% | 完整导入、上传、远端审计、Android 最终平台验收、记录文档 | 数量/Hash/引用/性能/手机收据齐全 | `release(content): publish pokemon archive and pokedex` |
+| 2F 卡牌关联器（已完成） | 14% | Card→Species/Form 多对多匹配、置信度报告、人工 override | 23,444/23,444 卡具有明确质量状态；失败 0 | `b104171`–`c5d0edc` |
+| 2G 第一世代图鉴 MVP（已完成） | 12% | #001–#151 列表、搜索、详情、简介、形态跳转、卡牌区 | Gen 1 精确 151；双语、动画、音效与返回历史通过 PlayMode | `2d2d512`、`4f630fd` |
+| 2H 全世代与地区形态（已完成） | 8% | 扩展全部已导入世代；新形态分区；相关形态导航 | 9 世代、地区形态双向导航、1,571 张离线图通过 | `75558c6`、`a171d7c`、`ef6e1d5` |
+| 2I 按需卡图整合（已完成） | 5% | 卡牌筛选、排序、下载状态、未安装占位、跳转现有卡牌详情 | 虚拟化画廊、两种范围、缓存上限和现有详情跳转通过 | `2e09d12` |
+| 2J 全量发布与验收（已完成） | 4% | 完整导入、上传、远端审计、Android 最终平台验收、记录文档 | 229 包、548,304,599 bytes、公网/Android/299+8 测试全部通过 | `7e7fbfb`、`ee838e1`、`56b9138`、`912c2e3` |
 
 每个阶段完成后只提交该主题的文件，并进行对应风险等级的自验证；不能把多个阶段混成一个巨大 commit。
 
@@ -341,6 +341,32 @@ Phase 2E 完成记录（2026-07-30）：
 6. 未下载卡图显示低成本占位与下载按钮；下载完成后原位渐显，不重建整个页面。
 7. Gen 1 验收后再开放其他世代和地区形态，避免全量 UI 问题同时爆发。
 
+Phase 2F 完成记录（2026-07-30）：
+
+- 23,444 张卡全部得到明确质量状态：515 `matched-form`、18,994 `matched-species`、126 `multi-species`、3,574 `not-applicable`、235 `needs-review`，总数无缺口。
+- 关联规则区分物种与形态，不依赖当前 UI 语言；66 张所属训练家卡使用版本控制人工 override，Unown 与形态政策不确定项继续明确保留为复核状态。
+- 生成 `pokemon-card-subject-links.en` 独立包，下载 606,595 bytes、安装 12,749,536 bytes；全量关联包 SHA-256 为 `b4433e56a8da85022391a0fe416eb1a89f73407a4e18c0980989b59e4daa36cc`。
+
+Phase 2G–2I 完成记录（2026-07-30）：
+
+- `PokemonPokedexBrowser` 作为独立 Application 模块提供世代、全国编号、搜索、详情、返回历史和形态导航；第一世代严格为 #001–#151。
+- 图鉴 UI 已接入收藏场景，支持中英双语、进入/返回/选择动画、点击音效、静音与减少动态效果；列表和相关卡牌画廊均虚拟化，不一次创建全量节点。
+- 全部 9 世代与“本世代新增形态”分区已开放；Gen 7 验证为 88 个主物种与 20 个阿罗拉形态，原始/地区形态可双向跳转。
+- 图鉴图片导入 1,571 张 PNG，8 个来源明确缺图；9 个世代包合计 196,899,181 bytes，最大单包 27,914,532 bytes，全部低于 Site 100 MiB 单对象上限。
+- 运行时只从已验证的本地安装目录加载图鉴图与卡图，使用有界纹理缓存；未安装时显示占位与管理下载入口。相关卡片支持当前形态/全部同种、搜索、稳定排序，并可回到现有收藏详情。
+
+Phase 2J 完成记录（2026-07-30）：
+
+- 完整发行版由 218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图鉴图片包组成，共 229 包；同一输入连续两次生成相同 catalog 与包身份。
+- 全量下载 548,304,599 bytes、安装 578,905,470 bytes，最大包 27,914,532 bytes。隔离目录正式安装 229/229 收据后，使用与游戏组合根相同的 Pokémon variant policy 回读 218 Set、23,444 卡、32,426 Printing、1,025 物种、1,579 形态、23,444 卡牌关联与 1,571 图鉴图，失败 0。
+- 卡牌与图鉴模块共用同一内容根目录时，卡牌 reader 只扫描 `<language>/<set>/manifest.json`；`pokedex/.../manifest.json` 由图鉴模块独立读取，回归测试证明两类资料不会混淆。
+- 正式 catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`，包身份集合 SHA-256 为 `58c0ed676870ec9270d5fb2469710bee25c193930523be23c9f6954a1aeaed38`。远端 package id 统一小写，原始 Set ID、安装路径与显示资料不变。
+- Site 实际发布上传 206 个新对象、复用 23 个对象；发布器对 229/229 归档从公网完整读回并复算 SHA-256 后才切换 catalog。
+- 独立匿名公网审计通过 229/229 HEAD、229/229 中点 Range `206`/精确 `Content-Range`，Catalog 与 ZIP 的 8/8 写方法返回 `405`，审计未发送 Authorization。
+- 最终完整 EditMode 299/299、PlayMode 8/8；Site 类型检查、生产构建、19 项测试和 lint 全通过。
+- 最终 ARM64 APK 为 52,607,315 bytes，SHA-256 `cc0028aa221820427cb165fc0fc52ed9613003169344dec95e8398d8ac710676`；纯 `arm64-v8a`、签名/zipalign、权限和 418 个 APK 条目的隐私扫描全部通过。Android 14 模拟器直接安装同一 ARM64 包并以前台进程运行，只读配置敏感字段命中 0。
+- `project_completion_audit.ps1 -RequireComplete` 使用本阶段测试、229 包 catalog、公开 Site 与 Android 14 收据输出 `PROJECT COMPLETION VERIFIED: 100%`。详细收据见 [Phase 2 最终验收](PHASE_2_FINAL_ACCEPTANCE_2026-07-30.zh-CN.md)。
+
 ## 九、游戏体验要求
 
 图鉴仍然是游戏体验，不是数据库管理页面。每个玩家可见阶段必须包含：
@@ -404,6 +430,4 @@ Phase 2E 完成记录（2026-07-30）：
 
 ## 十二、现在应该先做什么
 
-Phase 2A–2E 已完成，整体为 57%。下一步是 **Phase 2F：卡牌关联器**。
-
-以已固定的 1,025 物种/1,579 形态快照和 23,444 张英文卡牌 metadata 为输入，生成 Card→Species/Form 多对多关联、置信度与人工复核队列；每张卡必须落入 matched-form、matched-species、multi-species、not-applicable 或 needs-review 之一。关联器不能只靠本地化显示名，切换 UI 语言不得改变关联结果。
+Phase 2A–2J 已全部完成，第二大阶段为 100%。下一步不再是补齐本阶段功能，而是从已验证基线选择新范围：增加其他卡牌语言、研究更精确的历史产品配列、迁移到独立 Cloudflare R2，或进行实体 Android 设备的震动/扬声器/蜂窝体验补测。任何新范围都应建立新的阶段计划，不回写本阶段完成定义。

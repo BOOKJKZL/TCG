@@ -113,7 +113,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 同日电脑直传版本已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，本机随机凭据已由唯一 owner 邮箱绑定。`en.base1`、`en.neo1` 与 catalog 已由 Unity 直接发布；独立公网客户端完整读回 14,906,006 / 16,437,718 bytes 并得到预期 SHA-256，两包中点续传均返回精确 `206 Content-Range`。catalog 与 package 路由的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`；Git 忽略的 `LocalContent/remote-content.json` 已由验证成功的发布器原子生成。
 
-2026-07-30，公网 Catalog 已升级为 revision 2 的 Gen 1 pilot，共 11 个英文 Set、10,916,516 下载 bytes。11 个归档均由电脑端新上传，发布器完成服务端与公网 Hash 回读后才切换 Catalog；独立客户端再次通过 11/11 全包 SHA-256、11/11 中点 `206 Content-Range`，以及 Catalog/ZIP 的 8/8 写方法 `405 Allow: GET, HEAD`。218 个英文 Set 的全量本机 Catalog 已完成确定性与离线回读，等图鉴/关联包完成后在 Phase 2J 一次执行最终全量远端切换。
+2026-07-30，公网 Catalog 已完成 Phase 2J 全量切换，共 229 包、548,304,599 下载 bytes：218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图鉴图片包。首次全量发布上传 206 个新对象、复用 23 个相同哈希对象；发布器逐包完成 origin 与公网完整 SHA-256 回读后才原子切换 catalog。最终 catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`。独立匿名审计通过 229/229 HEAD、229/229 中点 `206 Content-Range` 与 Catalog/ZIP 的 8/8 写方法 `405`，并明确未发送 Authorization。
 
 部署后手机配置只需：
 
@@ -150,7 +150,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 中途取消或失败可能留下已经验证过的内容寻址 ZIP，但不会提前移动 catalog 指针，也不会生成看似可用的本机运行配置。批处理离线入口为 `PrivateR2PublisherBatch.PreflightFromEnvironment`；未设置公开 Base URL 时只使用不可联网的 `example.invalid` 计算对象映射。真实入口为 `PrivateR2PublisherBatch.PublishFromEnvironment`，读取完整环境变量。真实执行前仍应先查看离线预检结果。
 
-当前工具链和 8 个定向测试已完成，但因为尚未提供 bucket、S3 endpoint、公开读取 URL 与凭据，本项目没有执行真实外部上传。这是刻意的权限边界，不是静默跳过。
+独立 Cloudflare R2 尚未配置 bucket、S3 endpoint 与凭据，因此没有执行 R2 迁移；这不代表远端发布缺失，当前 229 包已经真实上传并由 Site R2 对外提供只读下载。只有 Site 容量、成本或维护实测成为问题时才迁移，届时复用同一内容寻址 catalog，不改手机存档与图鉴身份。
 
 ## 远程 catalog 私人配置
 
@@ -194,6 +194,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
+- 2026-07-30 Phase 2 最终 ARM64 APK 为 52,607,315 bytes，SHA-256 `cc0028aa221820427cb165fc0fc52ed9613003169344dec95e8398d8ac710676`；418 个 APK 条目中私人内容/凭据命中 0。Android 14 模拟器声明支持 ARM 转译，已直接安装同一生产 APK、推送 158-byte 公开只读配置并以前台进程运行；配置敏感字段命中 0。
 - 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7D 的 Android/IL2CPP 冒烟包为 74.86 MiB，包含 6 个场景，413 个 APK 条目中私人内容、`remote-content.json` 和 `catalog-cache-v1.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.3 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - `Tools/Android/install_smoke_content.ps1` 默认使用 `Local` 模式：安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。它适合 R2 尚未配置时验证触摸、声音、震动和本地内容读取。

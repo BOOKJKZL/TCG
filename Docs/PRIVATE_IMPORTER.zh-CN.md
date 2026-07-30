@@ -92,6 +92,18 @@ LocalContent/Pokedex/
 
 真实快照固定 9 世代、1,025 物种、1,351 个具体变体与 1,579 个形态。重复执行默认只重新取得 3 份发现清单并复用逐资源原子缓存；勾选 `Refresh cached resources` 才强制刷新详情。形态名称缺失会进入显式 fallback 警告，Mega/Gigantamax/战斗限定按版本控制政策进入人工复核，不能被静默分类。
 
+## 完整宝可梦发行包
+
+卡牌、图鉴 taxonomy、卡牌关联和图鉴图片都准备完成后，可在 Unity Editor 执行：
+
+```text
+Tools > Universal Gacha > Publish Complete Pokemon Archive
+```
+
+批处理入口为 `Gacha.EditorTools.Content.PokemonCompleteReleasePublisher.PublishFromCommandLine`。输出写入 Git 忽略的 `LocalContent/Releases/android-complete`，共 229 包：218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图片包。发布器会连续构建两次验证确定性，再把全部包安装到隔离内容根目录，通过正式运行时 reader 回读数量后才生成有效审计。
+
+当前完整发行下载 548,304,599 bytes、安装 578,905,470 bytes，最大单包 27,914,532 bytes；catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`。远端 package id 规范化为小写，但来源 `setId`、安装目录与玩家显示资料保持原值。电脑仍是唯一导入/写入端；APK 和手机只持有公开 catalog URL。
+
 ## 注意
 
 - 当前全量图片选择 `low.webp`，运行时由固定的跨平台 WebP 解码器读取；旧五系列 JPG 只留在私人来源目录，不进入新 ZIP。
