@@ -51,6 +51,17 @@
                 <ui:VisualElement class="pokedex-section">
                     <ui:Label name="pokedex-cards-heading" class="pokedex-section__heading" />
                     <ui:Label name="pokedex-card-count" class="pokedex-card-count" />
+                    <ui:VisualElement class="pokedex-card-controls">
+                        <ui:Button name="pokedex-form-cards-button" class="pokedex-form-button" />
+                        <ui:Button name="pokedex-species-cards-button" class="pokedex-form-button" />
+                        <ui:Button name="pokedex-manage-downloads-button" class="pokedex-button pokedex-button--quiet pokedex-manage-button" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="pokedex-card-filters">
+                        <ui:TextField name="pokedex-card-search" class="pokedex-field pokedex-card-search" />
+                        <ui:DropdownField name="pokedex-card-sort" class="pokedex-field pokedex-card-sort" />
+                    </ui:VisualElement>
+                    <ui:Label name="pokedex-card-empty" class="pokedex-empty pokedex-card-empty" style="display: none;" />
+                    <ui:ListView name="pokedex-card-list" class="pokedex-card-list" />
                 </ui:VisualElement>
             </ui:ScrollView>
         </ui:VisualElement>

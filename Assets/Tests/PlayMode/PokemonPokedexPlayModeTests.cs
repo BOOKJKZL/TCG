@@ -106,6 +106,25 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That(controller.ArtworkState, Is.EqualTo(AsyncCardImageState.Ready));
                 Assert.That(controller.CachedArtworkCount, Is.InRange(1, 8));
+                Assert.That(controller.ShowingAllSpeciesCards, Is.False);
+                Assert.That(controller.VisibleCardCount, Is.EqualTo(0));
+                controller.ShowAllSpeciesCards(true);
+                yield return null;
+                Assert.That(controller.VisibleCardCount, Is.GreaterThan(0));
+                Assert.That(controller.InstalledVisibleCardCount, Is.EqualTo(controller.VisibleCardCount));
+                ListView relatedCardList = document.rootVisualElement.Q<ListView>("pokedex-card-list");
+                Assert.That(relatedCardList.virtualizationMethod,
+                    Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+                controller.SetCardSearch("Pikachu");
+                yield return null;
+                Assert.That(controller.VisibleCardCount, Is.GreaterThan(0));
+                Assert.That(controller.OpenRelatedCard(0), Is.True);
+                yield return null;
+                Assert.That(root.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("details-panel").resolvedStyle.display,
+                    Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(controller.Open(), Is.True);
+                yield return null;
 
                 controller.NavigateBack();
                 controller.SetSearch(string.Empty);

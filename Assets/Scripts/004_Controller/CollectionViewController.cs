@@ -153,8 +153,9 @@ public sealed class CollectionViewController : MonoBehaviour
 
     public bool ShowPrintingDetails(string printingId)
     {
-        PrintingDefinition printing = cards.FirstOrDefault(candidate =>
-            string.Equals(candidate.Id, printingId, StringComparison.Ordinal));
+        PrintingDefinition printing = null;
+        if (catalog != null)
+            catalog.Printings.TryGetValue(printingId ?? string.Empty, out printing);
         if (printing == null)
             return false;
 
@@ -221,7 +222,16 @@ public sealed class CollectionViewController : MonoBehaviour
             pokedexController = GetComponent<PokemonPokedexController>();
             if (pokedexController == null)
                 pokedexController = gameObject.AddComponent<PokemonPokedexController>();
-            pokedexController.Attach(uiDocument);
+            pokedexController.Attach(
+                uiDocument,
+                ShowPrintingDetails,
+                () =>
+                {
+                    if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                        GameManager.Instance.loadManager.LoadScene(5);
+                    else
+                        SceneManager.LoadScene("006_ContentScene");
+                });
             BuildBrowseData();
             RefreshLocalizedChrome();
             ShowSets();
