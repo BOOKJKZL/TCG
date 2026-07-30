@@ -58,6 +58,7 @@ public class TcgdexBulkImportTests
             File.ReadAllText(Path.Combine(setDirectory, "manifest.json")));
         Assert.That(manifest.SchemaVersion, Is.EqualTo(2));
         Assert.That(manifest.Set.GenerationId, Is.EqualTo("generation-1"));
+        Assert.That(manifest.Set.SetOrdinal, Is.EqualTo(7));
         Assert.That(manifest.Cards.Single().ImageRelativePath, Is.EqualTo(Path.Combine("images", "base1-1.webp")));
         Assert.That(manifest.Cards.Single().ImageSha256, Has.Length.EqualTo(64));
         Assert.That(File.ReadAllBytes(Path.Combine(setDirectory, "images", "base1-1.webp")),
@@ -134,7 +135,11 @@ public class TcgdexBulkImportTests
             RefreshExistingFiles = false,
             RequestIntervalMilliseconds = 0,
             MaximumAttempts = 3,
-            RetryBaseDelayMilliseconds = 0
+            RetryBaseDelayMilliseconds = 0,
+            SetOrdinalsById = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["base1"] = 7
+            }
         };
     }
 

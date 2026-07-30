@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -180,6 +181,27 @@ public sealed class PrivateContentImporterWindow : EditorWindow
     public static void ImportAllJapaneseSetsFromCommandLine()
     {
         RunLanguageImportFromCommandLine("ja");
+    }
+
+    [MenuItem("Tools/Gacha/Normalize Japanese Set Ordering")]
+    public static void NormalizeJapaneseImportedSetOrderingFromMenu()
+    {
+        ContentImportSetOrderingNormalizationResult result = NormalizeJapaneseImportedSetOrdering();
+        Debug.Log($"Normalized Japanese Set ordering: {result.UpdatedSetCount}/{result.SetCount} updated.");
+    }
+
+    public static void NormalizeJapaneseImportedSetOrderingFromCommandLine()
+    {
+        try
+        {
+            NormalizeJapaneseImportedSetOrderingFromMenu();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
     }
 
     [MenuItem("Tools/Gacha/Import All Simplified Chinese Sets (Resumable PNG)")]
@@ -426,6 +448,18 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }).ConfigureAwait(false);
     }
 
+    private static ContentImportSetOrderingNormalizationResult NormalizeJapaneseImportedSetOrdering()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        ContentInventorySnapshot inventory = Newtonsoft.Json.JsonConvert.DeserializeObject<ContentInventorySnapshot>(
+            File.ReadAllText(Path.Combine(projectRoot, "LocalContent", "Inventory", "tcgdex-inventory.json"))) ??
+            throw new InvalidDataException("TCGdex inventory is invalid.");
+        IReadOnlyDictionary<string, int> ordinals =
+            PokemonSetOrderingInference.BuildSequentialOrdinals(inventory.Sets, "ja");
+        return ContentImportSetOrderingNormalizer.Normalize(
+            Path.Combine(projectRoot, "LocalContent", "Imports"), "ja", ordinals);
+    }
+
     private static async Task<ContentImportSummary> RunAllTcgdexLanguageImportAsync(string language)
     {
         string normalized = (language ?? string.Empty).Trim().ToLowerInvariant();
@@ -439,6 +473,7 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         string[] setIds = inventory.Sets
             .Where(item => item.Language == normalized)
             .OrderBy(item => item.GenerationOrder ?? int.MaxValue)
+            .ThenBy(item => string.IsNullOrWhiteSpace(item.ReleaseDate) ? 1 : 0)
             .ThenBy(item => item.ReleaseDate ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(item => item.SetCode ?? item.Id, StringComparer.Ordinal)
             .Select(item => item.Id)
@@ -447,6 +482,8 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             throw new InvalidDataException(
                 $"No detailed '{normalized}' Sets were found. Rebuild the metadata inventory first.");
 
+        IReadOnlyDictionary<string, int> ordinals =
+            PokemonSetOrderingInference.BuildSequentialOrdinals(inventory.Sets, normalized);
         using var service = new TcgdexImportService();
         return await service.ImportSetsAsync(setIds, new ContentImportOptions
         {
@@ -460,7 +497,8 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             MaxConcurrency = 24,
             RequestIntervalMilliseconds = 0,
             MaximumAttempts = 5,
-            RetryBaseDelayMilliseconds = 750
+            RetryBaseDelayMilliseconds = 750,
+            SetOrdinalsById = ordinals
         }).ConfigureAwait(false);
     }
 

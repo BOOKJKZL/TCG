@@ -136,6 +136,13 @@ public sealed class TcgdexImportService : IDisposable
         ImportedSetRecord importedSet = MapSet(setObject, setUrl);
         if (!setOverrides.Apply(importedSet))
             PokemonSetOrderingInference.TryApply(importedSet);
+        if (options.SetOrdinalsById != null &&
+            options.SetOrdinalsById.TryGetValue(actualSetId, out int setOrdinal))
+        {
+            if (setOrdinal < 1)
+                throw new InvalidDataException($"Set '{actualSetId}' has an invalid ordinal {setOrdinal}.");
+            importedSet.SetOrdinal = setOrdinal;
+        }
         var manifest = new PrivateContentManifest
         {
             Language = options.Language,

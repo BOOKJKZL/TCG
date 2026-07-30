@@ -93,6 +93,7 @@ public sealed class ContentImportOptions
     public int RequestIntervalMilliseconds = 25;
     public int MaximumAttempts = 5;
     public int RetryBaseDelayMilliseconds = 750;
+    public IReadOnlyDictionary<string, int> SetOrdinalsById;
 }
 
 public sealed class ContentImportSummary
