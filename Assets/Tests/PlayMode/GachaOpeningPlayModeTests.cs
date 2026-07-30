@@ -46,14 +46,26 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That((bool)GetProperty(controller, "IsReady"), Is.True,
                     GetProperty(controller, "InitializationError") as string);
-                Assert.That((int)GetProperty(controller, "ProductCount"), Is.EqualTo(5));
+                int productCount = (int)GetProperty(controller, "ProductCount");
+                Assert.That(productCount, Is.GreaterThanOrEqualTo(5));
+
+                UIDocument document = controller.GetComponent<UIDocument>();
+                ListView productList = document.rootVisualElement.Q<ListView>("product-list");
+                Assert.That(productList.itemsSource.Count, Is.EqualTo(productCount));
+                Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+                int initialBaseIndex = productList.itemsSource.Cast<ProductDefinition>()
+                    .Select((product, index) => new { product, index })
+                    .Single(pair => pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal))
+                    .index;
+                productList.SetSelection(initialBaseIndex);
+                yield return null;
+
                 Assert.That(GetProperty(controller, "SelectedRuleTrust").ToString(), Is.EqualTo("HistoricallyVerified"));
                 Assert.That(GetProperty(controller, "SelectedRuleConfidence").ToString(), Is.EqualTo("Corroborated"));
                 Assert.That((string)GetProperty(controller, "SelectedRuleRegionId"),
                     Is.EqualTo("pokemon-international-en"));
                 Assert.That((int)GetProperty(controller, "SelectedRuleEvidenceCount"), Is.EqualTo(2));
 
-                UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That((string)GetProperty(controller, "SelectedThemeId"),
                     Is.EqualTo("pokemon-base1-vintage"));
                 Assert.That((string)GetProperty(controller, "SelectedThemePackAudioKey"),
@@ -82,9 +94,6 @@ namespace Gacha.Tests.PlayMode
                     Does.Contain("Corroborated").And.Contain("2026-07-23"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
                     .Children().OfType<Button>().First().text, Does.StartWith("Source 1:"));
-
-                ListView productList = document.rootVisualElement.Q<ListView>("product-list");
-                Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
 
                 int exIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })

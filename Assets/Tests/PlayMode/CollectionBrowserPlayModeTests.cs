@@ -47,7 +47,8 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
 
                 Assert.That((bool)GetProperty(controller, "IsReady"), Is.True, GetProperty(controller, "InitializationError") as string);
-                Assert.That((int)GetProperty(controller, "InstalledSetCount"), Is.EqualTo(5));
+                int installedSetCount = (int)GetProperty(controller, "InstalledSetCount");
+                Assert.That(installedSetCount, Is.GreaterThanOrEqualTo(5));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
@@ -63,10 +64,15 @@ namespace Gacha.Tests.PlayMode
 
                 ListView setList = document.rootVisualElement.Q<ListView>("set-list");
                 ListView cardList = document.rootVisualElement.Q<ListView>("card-list");
+                Assert.That(setList.itemsSource.Count, Is.EqualTo(installedSetCount));
                 Assert.That(setList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
                 Assert.That(cardList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
 
-                setList.SetSelection(0);
+                int baseSetIndex = setList.itemsSource.Cast<SetDefinition>()
+                    .Select((set, index) => new { set, index })
+                    .Single(pair => pair.set.Id.EndsWith(":base1", StringComparison.Ordinal))
+                    .index;
+                setList.SetSelection(baseSetIndex);
                 yield return null;
                 Assert.That((int)GetProperty(controller, "CurrentCardCount"), Is.GreaterThan(0));
                 Assert.That(cues, Does.Contain(FeedbackCue.Confirm));
