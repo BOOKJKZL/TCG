@@ -41,6 +41,35 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Build TCGdex Metadata Inventory")]
+    public static async void BuildMetadataInventoryFromMenu()
+    {
+        try
+        {
+            ContentInventorySnapshot snapshot = await RunMetadataInventoryAsync();
+            Debug.Log(FormatInventorySummary(snapshot));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void BuildMetadataInventoryFromCommandLine()
+    {
+        try
+        {
+            ContentInventorySnapshot snapshot = RunMetadataInventoryAsync().GetAwaiter().GetResult();
+            Debug.Log(FormatInventorySummary(snapshot));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     // Entry point for repeatable batch imports from CI or PowerShell.
     public static void ImportHistoricalSamplesFromCommandLine()
     {
@@ -139,6 +168,27 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             .ConfigureAwait(false);
     }
 
+    private static async Task<ContentInventorySnapshot> RunMetadataInventoryAsync()
+    {
+        using var service = new TcgdexInventoryService();
+        return await service.BuildAsync(new ContentInventoryOptions
+        {
+            OutputRoot = Path.GetFullPath(Path.Combine(
+                Application.dataPath, "..", "LocalContent", "Inventory")),
+            ReferenceLanguage = "en",
+            Languages = TcgdexInventoryService.SupportedLanguages.ToList(),
+            DetailedLanguages = new System.Collections.Generic.List<string> { "en" },
+            SetGenerationOverridesPath = Path.Combine(
+                Application.dataPath,
+                "Editor",
+                "ContentImporter",
+                "Overrides",
+                "set-generation-overrides.json"),
+            MaxConcurrency = 4,
+            ImageSampleCount = 12
+        }).ConfigureAwait(false);
+    }
+
     private static ContentImportOptions CreateOptions(
         string language, string quality, string extension, int concurrency,
         int maximumCards, bool refresh)
@@ -177,5 +227,14 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         double megabytes = summary.ImageBytes / 1024d / 1024d;
         return $"Imported {summary.SetCount} sets, {summary.CardCount} cards, " +
                $"{megabytes:F1} MB images, {summary.ErrorCount} errors.";
+    }
+
+    private static string FormatInventorySummary(ContentInventorySnapshot snapshot)
+    {
+        int sets = snapshot.Languages.Sum(item => item.SetCount);
+        int cards = snapshot.Languages.Sum(item => item.TotalCardCount);
+        return $"Inventory complete: {snapshot.Languages.Count} languages, {sets} sets, " +
+               $"{cards} cards listed, {snapshot.Errors.Count} errors. " +
+               $"Hash {snapshot.ContentSha256}.";
     }
 }
