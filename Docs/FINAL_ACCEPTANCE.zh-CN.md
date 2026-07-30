@@ -4,9 +4,18 @@
 
 ## 当前判定
 
-第一大阶段的软件范围已经完成并通过 100% 审计。仓库实现、本机内容 fixture、自动测试、正式主题音效、Site 发布、Android 14 模拟器软件验收与最终 ARM64 APK 均已取得证据。公开 HTTPS catalog 与两个最小卡包通过完整读取、Range 和 SHA-256 验证；十四项软件收据保存在 Git 忽略的 `LocalContent/FinalAcceptance/android-device.json`。实体震动手感、实体扬声器音质与真实蜂窝切换仍明确保留为未来实体机补测，不被模拟器结论替代。
+第一至第三阶段的软件范围已经完成并通过 100% 审计。仓库实现、本机确定性内容发行、自动测试、正式主题音效、Site 发布、Android 14 模拟器软件验收与最终 ARM64 APK 均已取得证据。公开 HTTPS revision 4 catalog 的 537 个资源包全部通过 HEAD、Range 与 SHA-256 验证，匿名写入 8/8 被拒绝；十四项软件收据保存在 Git 忽略的 `LocalContent/FinalAcceptance/android-device.json`。实体震动手感、实体扬声器音质与真实蜂窝切换仍明确保留为未来实体机补测，不被模拟器结论替代。
 
 `Tools/Validation/project_completion_audit.ps1` 是唯一的最终百分比判定入口。它不会因为缺少凭据或手机而伪造成功；`-RequireComplete` 在不足 100% 时返回退出码 2。审计现在还会自动拒绝非纯 ARM64 ABI、意外 Android 权限、无效签名或未对齐 APK，避免再次依赖人工发现错误架构。
+
+## 2026-07-30 第三阶段最终验收
+
+- 应用语言与卡片语言已完全隔离：不同持久化键、不同事件、不同可用性判断。无本地卡牌 Catalog 时只禁用卡片语言选择器，应用语言仍可切换；缺少内容提示使用当前 UI Locale，不显示电脑路径。
+- Android 14 x86_64 验收包在干净应用数据下把应用界面切换成中文后，PlayerPrefs 明确记录 `settings.ui-language=zh` 与 `settings.content-language=en`，证明 UI 语言不会改写卡片语言。视觉证据为 `TestResults/Emulator/phase3-isolated-before-switch.png` 与 `TestResults/Emulator/phase3-isolated-zh-ui-en-card.png`。
+- 完整发行共 537 包：524 个三语言 Set、1 个 taxonomy、3 个卡牌语言关联和 9 个世代图片包；下载 1,301,893,754 bytes、安装 1,356,266,175 bytes，确定性构建、ZIP 数量、大小、SHA-256 和隔离安装回读失败均为 0。
+- 最终 EditMode 为 344/344、PlayMode 为 10/10。生产 `Builds/Android/UniversalGachaSimulator-smoke.apk` 为 52,643,378 bytes（50.20 MiB），SHA-256 `cdf68dd6f9cc2cb796d437ef22a61774a25df650d964bc16f7ed711a1234b2a4`；纯 ARM64、权限、签名、zipalign 和私人内容边界全部通过。
+- 公开 Site `https://universal-gacha-content.jiejingleek.chatgpt.site` 的 Catalog SHA-256 为 `4e01bb463c0c9b6952bb40d6417257da2c095e096932756f1918e6ad33ec9d89`；HEAD 537/537、Range 537/537、匿名写入拒绝 8/8，读取未使用授权头。
+- `project_completion_audit.ps1 -RequireComplete` 最终输出 `PROJECT COMPLETION VERIFIED: 100%`。独立 Cloudflare R2 凭据仍显示非阻塞 `WAIT`，因为当前只读 Site 已满足软件范围；R2 是后续容量与运维优化，不是本阶段缺口。
 
 ## 2026-07-30 最终 ARM64 收尾
 

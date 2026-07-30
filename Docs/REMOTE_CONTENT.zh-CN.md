@@ -194,6 +194,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
+- 2026-07-30 Phase 3 revision 4 已通过正式 Site 发布与匿名只读审计：Catalog 537 包、1,301,893,754 下载 bytes，HEAD 537/537、Range 537/537、写入拒绝 8/8，读取不携带授权头。最终 ARM64 APK 为 52,643,378 bytes，SHA-256 `cdf68dd6f9cc2cb796d437ef22a61774a25df650d964bc16f7ed711a1234b2a4`；418 个 APK 条目中私人内容命中 0，设备配置仍只有公开 URL、15 秒超时与 1 MiB Catalog 上限。
 - 2026-07-30 Phase 2 最终 ARM64 APK 为 52,607,315 bytes，SHA-256 `cc0028aa221820427cb165fc0fc52ed9613003169344dec95e8398d8ac710676`；418 个 APK 条目中私人内容/凭据命中 0。Android 14 模拟器声明支持 ARM 转译，已直接安装同一生产 APK、推送 158-byte 公开只读配置并以前台进程运行；配置敏感字段命中 0。
 - 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7D 的 Android/IL2CPP 冒烟包为 74.86 MiB，包含 6 个场景，413 个 APK 条目中私人内容、`remote-content.json` 和 `catalog-cache-v1.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.3 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。

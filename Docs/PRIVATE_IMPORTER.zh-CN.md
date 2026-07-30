@@ -100,9 +100,9 @@ LocalContent/Pokedex/
 Tools > Universal Gacha > Publish Complete Pokemon Archive
 ```
 
-批处理入口为 `Gacha.EditorTools.Content.PokemonCompleteReleasePublisher.PublishFromCommandLine`。输出写入 Git 忽略的 `LocalContent/Releases/android-complete`，共 229 包：218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图片包。发布器会连续构建两次验证确定性，再把全部包安装到隔离内容根目录，通过正式运行时 reader 回读数量后才生成有效审计。
+批处理入口为 `Gacha.EditorTools.Content.PokemonCompleteReleasePublisher.PublishFromCommandLine`。输出写入 Git 忽略的 `LocalContent/Releases/android-complete`，当前 revision 4 共 537 包：218 个英文 Set、177 个日文 Set、129 个简中 Set、1 个 taxonomy、3 个按卡牌语言拆分的关联包和 9 个世代图片包。发布器会连续构建两次验证确定性，再把全部包安装到隔离内容根目录，通过正式运行时 reader 回读数量后才生成有效审计。
 
-当前完整发行下载 548,304,599 bytes、安装 578,905,470 bytes，最大单包 27,914,532 bytes；catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`。远端 package id 规范化为小写，但来源 `setId`、安装目录与玩家显示资料保持原值。电脑仍是唯一导入/写入端；APK 和手机只持有公开 catalog URL。
+当前完整发行下载 1,301,893,754 bytes、安装 1,356,266,175 bytes，最大单包 27,914,532 bytes；catalog SHA-256 为 `4e01bb463c0c9b6952bb40d6417257da2c095e096932756f1918e6ad33ec9d89`，package identity SHA-256 为 `141c62be2ac30186fcf89c8dd337112e21131f72734021acfa1cc72654d1e24a`。隔离安装回读 537 份收据、499 个逻辑 Set、43,705 张逻辑卡和 53,480 个 Printing，失败为 0。远端 package id 规范化为小写并安全转义路径字符，但来源 `setId`、安装目录与玩家显示资料保持原值。电脑仍是唯一导入/写入端；APK 和手机只持有公开 catalog URL。
 
 ## 注意
 
