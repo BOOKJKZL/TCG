@@ -197,7 +197,7 @@ namespace Gacha.EditorTools.Content
                 throw new InvalidDataException($"Complete release requires 218 English Sets; found {imports.Count}.");
             foreach (ContentPackagePublisherBatch.ImportedSet imported in imports)
                 yield return new ContentPackagePublishDefinition(
-                    imported.Language + "." + imported.SetId,
+                    (imported.Language + "." + imported.SetId).ToLowerInvariant(),
                     imported.SourceDirectory,
                     imported.Language + "/" + imported.SetId,
                     3,
