@@ -38,6 +38,11 @@ public sealed class PokemonCardSubjectIntegrityReport
     public int NotApplicableCount;
     public int NeedsReviewCount;
     public int TemporaryFileCount;
+    public string PackageId;
+    public string PackageSha256;
+    public long PackageDownloadBytes;
+    public long PackageInstalledBytes;
+    public string PackageCatalogPath;
     public List<PokemonCardSubjectReviewRecord> ReviewQueue = new List<PokemonCardSubjectReviewRecord>();
     public List<string> Failures = new List<string>();
 }
@@ -146,7 +151,7 @@ public static class PokemonCardSubjectIntegrityAuditor
         return string.Concat(sha.ComputeHash(bytes).Select(value => value.ToString("x2")));
     }
 
-    private static void WriteReport(string path, PokemonCardSubjectIntegrityReport report)
+    public static void WriteReport(string path, PokemonCardSubjectIntegrityReport report)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
         string temporary = path + ".download";

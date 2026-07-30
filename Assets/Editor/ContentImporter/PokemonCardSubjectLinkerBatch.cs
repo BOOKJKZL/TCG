@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Gacha.EditorTools.Content;
 using UnityEditor;
 using UnityEngine;
 
@@ -43,9 +44,22 @@ public static class PokemonCardSubjectLinkerBatch
         if (result.SetCount != 218 || result.CardCount != 23444)
             throw new InvalidDataException(
                 $"Expected audited source 218 Sets/23,444 cards, found {result.SetCount}/{result.CardCount}.");
-        return PokemonCardSubjectIntegrityAuditor.Audit(
+        PokemonCardSubjectIntegrityReport report = PokemonCardSubjectIntegrityAuditor.Audit(
             ImportRoot, "en", TaxonomyPath, OverridePath, SnapshotPath,
             218, 23444, AuditPath);
+        if (!report.IsValid)
+            return report;
+
+        ContentPackagePublishResult publication = PokemonCardSubjectPackagePublisher.Publish(
+            SnapshotPath, PackageReleaseRoot);
+        PublishedContentPackage package = publication.Packages[0];
+        report.PackageId = package.Package.PackageId;
+        report.PackageSha256 = package.Package.Sha256;
+        report.PackageDownloadBytes = package.Package.DownloadBytes;
+        report.PackageInstalledBytes = package.Package.InstalledBytes;
+        report.PackageCatalogPath = publication.CatalogPath;
+        PokemonCardSubjectIntegrityAuditor.WriteReport(AuditPath, report);
+        return report;
     }
 
     private static string Format(PokemonCardSubjectIntegrityReport report) =>
@@ -53,7 +67,8 @@ public static class PokemonCardSubjectLinkerBatch
         $"{report.CardCount} cards, {report.PrintingCount} printings; " +
         $"matched form/species/multi={report.MatchedFormCount}/{report.MatchedSpeciesCount}/" +
         $"{report.MultiSpeciesCount}, not-applicable={report.NotApplicableCount}, " +
-        $"needs-review={report.NeedsReviewCount}, failures={report.Failures.Count}.";
+        $"needs-review={report.NeedsReviewCount}, package={report.PackageDownloadBytes} bytes, " +
+        $"failures={report.Failures.Count}.";
 
     private static string ProjectRoot => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
     private static string ImportRoot => Path.Combine(ProjectRoot, "LocalContent", "Imports");
@@ -65,4 +80,6 @@ public static class PokemonCardSubjectLinkerBatch
         ProjectRoot, "LocalContent", "Pokedex", "links", "pokemon-card-subject-links.en.json");
     private static string AuditPath => Path.Combine(
         ProjectRoot, "LocalContent", "Pokedex", "links", "pokemon-card-subject-links.en.audit.json");
+    private static string PackageReleaseRoot => Path.Combine(
+        ProjectRoot, "LocalContent", "Pokedex", "releases", "android-links");
 }
