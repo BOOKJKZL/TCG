@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
@@ -30,6 +32,8 @@ public sealed class SimplifiedChineseImageOptimizationReport
     public int CardCount;
     public int ConvertedImageCount;
     public int ExistingWebpImageCount;
+    public int RelabeledWebpImageCount;
+    public int RepairedSourceImageCount;
     public int MissingImageCount;
     public long BeforeBytes;
     public long AfterBytes;
@@ -70,7 +74,8 @@ public static class SimplifiedChineseImageOptimizer
         string importRoot,
         string language = "zh-cn",
         float quality = DefaultQuality,
-        string outputPath = null)
+        string outputPath = null,
+        Func<string, byte[]> replacementDownloader = null)
     {
         if (string.IsNullOrWhiteSpace(importRoot))
             throw new ArgumentException("Import root is required.", nameof(importRoot));
@@ -94,7 +99,7 @@ public static class SimplifiedChineseImageOptimizer
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         foreach (string manifestPath in manifestPaths)
-            OptimizeManifest(manifestPath, quality, report);
+            OptimizeManifest(manifestPath, quality, report, replacementDownloader);
         report.SavedBytes = Math.Max(0, report.BeforeBytes - report.AfterBytes);
         report.Failures = report.Failures
             .OrderBy(value => value.SetId, StringComparer.Ordinal)
@@ -112,7 +117,8 @@ public static class SimplifiedChineseImageOptimizer
     private static void OptimizeManifest(
         string manifestPath,
         float quality,
-        SimplifiedChineseImageOptimizationReport report)
+        SimplifiedChineseImageOptimizationReport report,
+        Func<string, byte[]> replacementDownloader)
     {
         PrivateContentManifest manifest = JsonConvert.DeserializeObject<PrivateContentManifest>(
             File.ReadAllText(manifestPath, Encoding.UTF8));
@@ -170,9 +176,27 @@ public static class SimplifiedChineseImageOptimizer
                 {
                     webp = File.ReadAllBytes(webpPath);
                 }
+                else if (IsWebp(png))
+                {
+                    webp = png;
+                    WriteBytesAtomic(webpPath, webp);
+                    report.ConvertedImageCount++;
+                    report.RelabeledWebpImageCount++;
+                }
                 else
                 {
-                    webp = EncodePng(png, quality);
+                    try
+                    {
+                        webp = EncodePng(png, quality);
+                    }
+                    catch (InvalidDataException) when (!string.IsNullOrWhiteSpace(card.ImageSourceUrl))
+                    {
+                        byte[] repaired = DownloadReplacement(
+                            card.ImageSourceUrl,
+                            replacementDownloader);
+                        webp = IsWebp(repaired) ? repaired : EncodePng(repaired, quality);
+                        report.RepairedSourceImageCount++;
+                    }
                     WriteBytesAtomic(webpPath, webp);
                     report.ConvertedImageCount++;
                 }
@@ -213,6 +237,44 @@ public static class SimplifiedChineseImageOptimizer
         {
             UnityEngine.Object.DestroyImmediate(texture);
         }
+    }
+
+    private static bool IsWebp(byte[] bytes) =>
+        bytes != null && bytes.Length >= 12 &&
+        bytes[0] == (byte)'R' && bytes[1] == (byte)'I' &&
+        bytes[2] == (byte)'F' && bytes[3] == (byte)'F' &&
+        bytes[8] == (byte)'W' && bytes[9] == (byte)'E' &&
+        bytes[10] == (byte)'B' && bytes[11] == (byte)'P';
+
+    private static byte[] DownloadReplacement(
+        string url,
+        Func<string, byte[]> replacementDownloader)
+    {
+        if (replacementDownloader != null)
+            return replacementDownloader(url) ??
+                   throw new InvalidDataException("Replacement image download returned no data.");
+
+        Exception last = null;
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                byte[] bytes = client.GetByteArrayAsync(url).GetAwaiter().GetResult();
+                if (bytes == null || bytes.Length < 12)
+                    throw new InvalidDataException("Replacement image download was empty.");
+                return bytes;
+            }
+            catch (Exception exception)
+            {
+                last = exception;
+                if (attempt < 3)
+                    Thread.Sleep(attempt * 500);
+            }
+        }
+        throw new HttpRequestException(
+            "Failed to redownload corrupt source image after 3 attempts: " + url,
+            last);
     }
 
     private static string ResolveWithin(string root, string relativePath)
@@ -286,6 +348,7 @@ public static class SimplifiedChineseImageOptimizer
     private static string Format(SimplifiedChineseImageOptimizationReport report) =>
         $"Simplified Chinese WebP optimization valid={report.IsValid}: " +
         $"sets/cards={report.SetCount}/{report.CardCount}, converted={report.ConvertedImageCount}, " +
+        $"relabeled/repaired={report.RelabeledWebpImageCount}/{report.RepairedSourceImageCount}, " +
         $"missing={report.MissingImageCount}, before={report.BeforeBytes}, after={report.AfterBytes}, " +
         $"saved={report.SavedBytes}, failures={report.Failures.Count}.";
 }

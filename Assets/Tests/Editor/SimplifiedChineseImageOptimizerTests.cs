@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
+using WebP;
 
 public class SimplifiedChineseImageOptimizerTests
 {
@@ -61,6 +62,43 @@ public class SimplifiedChineseImageOptimizerTests
         Assert.That(second.ConvertedImageCount, Is.Zero);
         Assert.That(second.ExistingWebpImageCount, Is.EqualTo(1));
         Assert.That(second.BeforeBytes, Is.EqualTo(second.AfterBytes));
+    }
+
+    [Test]
+    public void Optimize_RelabelsWebpContentAndRepairsCorruptPngFromItsSourceUrl()
+    {
+        string setDirectory = WriteFixture();
+        string imageDirectory = Path.Combine(setDirectory, "images");
+        byte[] validPng = File.ReadAllBytes(Path.Combine(imageDirectory, "card-1.png"));
+        byte[] sourceWebp = EncodeWebp(validPng);
+        File.WriteAllBytes(Path.Combine(imageDirectory, "card-1.png"), sourceWebp);
+        File.WriteAllBytes(Path.Combine(imageDirectory, "card-2.png"),
+            new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 3 });
+        PrivateContentManifest manifest = JsonConvert.DeserializeObject<PrivateContentManifest>(
+            File.ReadAllText(Path.Combine(setDirectory, "manifest.json")));
+        ImportedCardRecord second = manifest.Cards.Single(value => value.Id == "card-2");
+        second.ImageSourceUrl = "https://private.invalid/card-2.png";
+        second.ImageRelativePath = Path.Combine("images", "card-2.png");
+        File.WriteAllText(Path.Combine(setDirectory, "manifest.json"),
+            JsonConvert.SerializeObject(manifest, Formatting.Indented));
+
+        SimplifiedChineseImageOptimizationReport report =
+            SimplifiedChineseImageOptimizer.Optimize(
+                temporaryDirectory,
+                outputPath: Path.Combine(temporaryDirectory, "repair-report.json"),
+                replacementDownloader: url =>
+                {
+                    Assert.That(url, Is.EqualTo(second.ImageSourceUrl));
+                    return validPng;
+                });
+
+        Assert.That(report.IsValid, Is.True);
+        Assert.That(report.ConvertedImageCount, Is.EqualTo(2));
+        Assert.That(report.RelabeledWebpImageCount, Is.EqualTo(1));
+        Assert.That(report.RepairedSourceImageCount, Is.EqualTo(1));
+        Assert.That(File.Exists(Path.Combine(imageDirectory, "card-1.png")), Is.False);
+        Assert.That(File.ReadAllBytes(Path.Combine(imageDirectory, "card-1.webp")), Is.EqualTo(sourceWebp));
+        Assert.That(File.Exists(Path.Combine(imageDirectory, "card-2.webp")), Is.True);
     }
 
     private string WriteFixture()
@@ -123,5 +161,21 @@ public class SimplifiedChineseImageOptimizerTests
     {
         using SHA256 sha = SHA256.Create();
         return string.Concat(sha.ComputeHash(bytes).Select(value => value.ToString("x2")));
+    }
+
+    private static byte[] EncodeWebp(byte[] png)
+    {
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(ImageConversion.LoadImage(texture, png, false), Is.True);
+            byte[] webp = texture.EncodeToWebP(95f, out WebP.Error error);
+            Assert.That(error, Is.EqualTo(WebP.Error.Success));
+            return webp;
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(texture);
+        }
     }
 }
