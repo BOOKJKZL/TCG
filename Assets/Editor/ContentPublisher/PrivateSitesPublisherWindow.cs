@@ -279,6 +279,7 @@ public static class PrivateSitesPublisherBatch
     private const string SiteBaseUrlVariable = "GACHA_SITE_BASE_URL";
     private const string PublisherTokenVariable = "GACHA_SITE_PUBLISH_TOKEN";
     private const string CredentialPathVariable = "GACHA_SITE_CREDENTIAL_PATH";
+    private const string ReleaseRootVariable = "GACHA_RELEASE_ROOT";
 
     public static void GenerateCredentialFromEnvironment()
     {
@@ -331,7 +332,7 @@ public static class PrivateSitesPublisherBatch
     {
         string runtimeConfig = Path.Combine(ResolveProjectRoot(), "LocalContent", "remote-content.json");
         return R2ReleasePublisher.CreatePlan(new R2ReleasePublishRequest(
-            ContentPackagePublisherBatch.DefaultReleaseRoot,
+            ResolveReleaseRoot(),
             new Uri(siteBaseUri, "api/content/"),
             string.Empty,
             runtimeConfig));
@@ -375,6 +376,14 @@ public static class PrivateSitesPublisherBatch
         string configuredPath = Environment.GetEnvironmentVariable(CredentialPathVariable);
         return string.IsNullOrWhiteSpace(configuredPath)
             ? Path.Combine(ResolveProjectRoot(), "LocalContent", "site-publisher-credential.json")
+            : Path.GetFullPath(configuredPath.Trim());
+    }
+
+    private static string ResolveReleaseRoot()
+    {
+        string configuredPath = Environment.GetEnvironmentVariable(ReleaseRootVariable);
+        return string.IsNullOrWhiteSpace(configuredPath)
+            ? ContentPackagePublisherBatch.DefaultReleaseRoot
             : Path.GetFullPath(configuredPath.Trim());
     }
 

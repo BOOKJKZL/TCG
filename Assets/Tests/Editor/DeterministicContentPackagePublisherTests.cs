@@ -205,6 +205,27 @@ public class DeterministicContentPackagePublisherTests
             Is.EqualTo(new FileInfo(Path.Combine(source, "manifest.json")).Length + 64));
     }
 
+    [Test]
+    public void ImportedSet_PreservesGenerationForPilotSelection()
+    {
+        var generationOne = new ContentPackagePublisherBatch.ImportedSet(
+            "en",
+            "base1",
+            source,
+            "generation-1");
+        var generationTwo = new ContentPackagePublisherBatch.ImportedSet(
+            "en",
+            "neo1",
+            source,
+            "generation-2");
+
+        ContentPackagePublisherBatch.ImportedSet[] selected = new[] { generationTwo, generationOne }
+            .Where(item => item.GenerationId == "generation-1")
+            .ToArray();
+
+        Assert.That(selected.Select(item => item.SetId), Is.EqualTo(new[] { "base1" }));
+    }
+
     private ContentPackagePublishRequest Request()
     {
         return new ContentPackagePublishRequest(

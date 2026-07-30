@@ -144,21 +144,25 @@ public static class ContentPackagePublisherBatch
 {
     public sealed class ImportedSet
     {
-        public ImportedSet(string language, string setId, string sourceDirectory)
+        public ImportedSet(string language, string setId, string sourceDirectory, string generationId = null)
         {
             Language = language;
             SetId = setId;
             SourceDirectory = sourceDirectory;
+            GenerationId = generationId;
         }
 
         public string Language { get; }
         public string SetId { get; }
         public string SourceDirectory { get; }
+        public string GenerationId { get; }
     }
 
     public static string ProjectRoot => Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
     public static string DefaultImportRoot => Path.Combine(ProjectRoot, "LocalContent", "Imports");
     public static string DefaultReleaseRoot => Path.Combine(ProjectRoot, "LocalContent", "Releases", "android");
+    public static string DefaultGenerationOnePilotRoot =>
+        Path.Combine(ProjectRoot, "LocalContent", "Releases", "site-pilot-generation-1");
 
     [MenuItem("Tools/Universal Gacha/Publish Base + Neo Fixtures")]
     public static void PublishHistoricalFixtures()
@@ -198,6 +202,30 @@ public static class ContentPackagePublisherBatch
             imports);
         Debug.Log(
             $"All English content published locally: packages={result.Packages.Count}, " +
+            $"catalog='{result.CatalogPath}'.");
+    }
+
+    [MenuItem("Tools/Universal Gacha/Publish Generation One Site Pilot")]
+    public static void PublishGenerationOneSitePilot()
+    {
+        IReadOnlyList<ImportedSet> imports = DiscoverImports(DefaultImportRoot)
+            .Where(item => string.Equals(item.Language, "en", StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(item.GenerationId, "generation-1", StringComparison.Ordinal))
+            .ToArray();
+        if (imports.Count != 11)
+        {
+            throw new InvalidOperationException(
+                $"Generation One Site pilot requires exactly 11 mapped English Sets; found {imports.Count}.");
+        }
+
+        ContentPackagePublishResult result = Publish(
+            DefaultGenerationOnePilotRoot,
+            2,
+            2,
+            "2.0.0-pilot.1",
+            imports);
+        Debug.Log(
+            $"Generation One Site pilot published locally: packages={result.Packages.Count}, " +
             $"catalog='{result.CatalogPath}'.");
     }
 
@@ -314,7 +342,8 @@ public static class ContentPackagePublisherBatch
             .Select(document => new ImportedSet(
                 document.Manifest.Language,
                 document.Manifest.Set.Id,
-                Path.GetDirectoryName(document.ManifestPath)))
+                Path.GetDirectoryName(document.ManifestPath),
+                document.Manifest.Set.GenerationId))
             .ToArray();
     }
 }
