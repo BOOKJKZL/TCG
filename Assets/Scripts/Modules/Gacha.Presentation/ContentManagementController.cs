@@ -15,6 +15,7 @@ namespace Gacha.Presentation
     public sealed class ContentManagementController : MonoBehaviour
     {
         private const string StringTable = "Card_UI";
+        private const int RowsBuiltPerFrame = 12;
 
         private static readonly IReadOnlyDictionary<string, string> EnglishFallbacks =
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -313,6 +314,7 @@ namespace Gacha.Presentation
         private CancellationTokenSource loadCancellation;
         private Coroutine localizationRoutine;
         private Coroutine entranceAnimation;
+        private Coroutine rowPopulationRoutine;
         private int loadGeneration;
         private bool destroyed;
         private bool catalogUsedCache;
@@ -436,6 +438,7 @@ namespace Gacha.Presentation
                 StopCoroutine(localizationRoutine);
             localizationRoutine = null;
             StopEntranceAnimation();
+            StopRowPopulation();
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
             if (experienceSettings != null)
                 experienceSettings.Changed -= OnExperienceSettingsChanged;
@@ -523,50 +526,92 @@ namespace Gacha.Presentation
             catalogHasCacheWarning = !string.IsNullOrWhiteSpace(result.WarningMessage);
             if (catalogHasCacheWarning)
                 Debug.LogWarning("Content package catalog warning: " + result.WarningMessage);
+            StopRowPopulation();
             ClearOperations();
             packageList.Clear();
             rows.Clear();
             notifiedFailures.Clear();
+            rowPopulationRoutine = StartCoroutine(PopulateRowsIncrementally(generation));
+        }
 
-            try
+        private IEnumerator PopulateRowsIncrementally(int generation)
+        {
+            int index = 0;
+            while (!destroyed && generation == loadGeneration && index < catalog.Packages.Count)
             {
-                foreach (ContentPackageCatalogEntry entry in catalog.Packages)
+                Exception failure = null;
+                int frameEnd = Math.Min(index + RowsBuiltPerFrame, catalog.Packages.Count);
+                try
                 {
-                    ContentPackageInstallCoordinator operation = operationFactory.Create(
-                        catalog,
-                        entry.Package.PackageId);
-                    var bridge = new ContentPackageOperationUiBridge(operation, dispatcher);
-                    string packageId = entry.Package.PackageId;
-                    bridge.Changed += snapshot => ApplyOperation(packageId, snapshot);
-                    bridge.FailureReported += ReportFailure;
-                    operations.Add(packageId, operation);
-                    bridges.Add(packageId, bridge);
-
-                    var row = new PackageRow(entry, PrimaryClicked, PauseClicked, CancelClicked, RemoveClicked);
-                    RefreshInstalledState(row);
-                    rows.Add(packageId, row);
-                    packageList.Add(row.Root);
-                    ApplyOperation(packageId, operation.Current);
+                    while (index < frameEnd)
+                        AddPackageRow(catalog.Packages[index++]);
+                }
+                catch (Exception exception)
+                {
+                    failure = exception;
                 }
 
-                bool empty = rows.Count == 0;
-                emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
-                packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
-                IsReady = true;
-                InitializationError = null;
-                ApplyReadyCatalogStatus();
-                refreshAction.Allowed = true;
+                if (failure != null)
+                {
+                    rowPopulationRoutine = null;
+                    ClearOperations();
+                    rows.Clear();
+                    packageList.Clear();
+                    ApplyCatalogFailure(generation, failure.Message);
+                    yield break;
+                }
+
+                if (index < catalog.Packages.Count)
+                {
+                    SetCatalogStatus($"{L("content.catalog.loading")} {index}/{catalog.Packages.Count}", false);
+                    yield return null;
+                }
             }
-            catch (Exception exception)
-            {
-                ApplyCatalogFailure(generation, exception.Message);
-            }
+
+            rowPopulationRoutine = null;
+            if (destroyed || generation != loadGeneration)
+                yield break;
+            bool empty = rows.Count == 0;
+            emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
+            packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
+            IsReady = true;
+            InitializationError = null;
+            ApplyReadyCatalogStatus();
+            refreshAction.Allowed = true;
+        }
+
+        private void AddPackageRow(ContentPackageCatalogEntry entry)
+        {
+            ContentPackageInstallCoordinator operation = operationFactory.Create(
+                catalog,
+                entry.Package.PackageId);
+            var bridge = new ContentPackageOperationUiBridge(operation, dispatcher);
+            string packageId = entry.Package.PackageId;
+            bridge.Changed += snapshot => ApplyOperation(packageId, snapshot);
+            bridge.FailureReported += ReportFailure;
+            operations.Add(packageId, operation);
+            bridges.Add(packageId, bridge);
+
+            var row = new PackageRow(entry, PrimaryClicked, PauseClicked, CancelClicked, RemoveClicked);
+            RefreshInstalledState(row);
+            rows.Add(packageId, row);
+            packageList.Add(row.Root);
+            ApplyOperation(packageId, operation.Current);
+        }
+
+        private void StopRowPopulation()
+        {
+            if (rowPopulationRoutine == null)
+                return;
+            StopCoroutine(rowPopulationRoutine);
+            rowPopulationRoutine = null;
         }
 
         private void ApplyCatalogFailure(int generation, string message)
         {
             if (destroyed || generation != loadGeneration)
                 return;
+            StopRowPopulation();
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
             catalogUsedCache = false;
             catalogHasCacheWarning = false;

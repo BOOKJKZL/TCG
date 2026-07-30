@@ -164,10 +164,15 @@ namespace Gacha.Tests.PlayMode
             {
                 ContentPackageCatalogEntry entry = catalog.Find(packageId) ??
                     throw new InvalidOperationException("Fixture package was not found.");
+                if (!transfers.TryGetValue(packageId, out Transfer transfer))
+                {
+                    transfer = new Transfer();
+                    transfers.Add(packageId, transfer);
+                }
                 return new ContentPackageInstallCoordinator(
                     entry.Package,
                     new ContentPackagePlanner(lifecycle, new Storage(), 0),
-                    transfers[packageId],
+                    transfer,
                     new Installer(lifecycle));
             }
         }
@@ -418,6 +423,47 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator ContentScene_BuildsLargeCatalogAcrossFramesWithoutBlockingThePage()
+        {
+            const int packageCount = 48;
+            var lifecycle = new Lifecycle();
+            ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateLargeCatalog(packageCount));
+            ContentManagementController.OperationFactoryOverride = new OperationFactory(lifecycle);
+            ContentManagementController.LifecycleOverride = lifecycle;
+            try
+            {
+                AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                yield return load;
+                yield return null;
+
+                ContentManagementController controller = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                Assert.That(controller, Is.Not.Null);
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (controller.PackageCount == 0 && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+
+                Assert.That(controller.PackageCount, Is.InRange(1, packageCount - 1));
+                Assert.That(controller.IsReady, Is.False,
+                    "A large package catalog should yield between row batches instead of blocking one frame.");
+                while (!controller.IsReady && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+
+                Assert.That(controller.IsReady, Is.True, controller.InitializationError);
+                Assert.That(controller.PackageCount, Is.EqualTo(packageCount));
+                UIDocument document = controller.GetComponent<UIDocument>();
+                Assert.That(document.rootVisualElement.Query<VisualElement>(className: "content-package-row").ToList(),
+                    Has.Count.EqualTo(packageCount));
+            }
+            finally
+            {
+                ContentManagementController.CatalogProviderOverride = null;
+                ContentManagementController.OperationFactoryOverride = null;
+                ContentManagementController.LifecycleOverride = null;
+                ContentManagementController.DispatcherOverride = null;
+            }
+        }
+
         private static void AssertPersistentActionBar(
             VisualElement actions,
             VisualElement download,
@@ -572,6 +618,21 @@ namespace Gacha.Tests.PlayMode
                     new ContentPackageCatalogEntry(first, new Uri("https://fixture.example/" + HashA + ".zip")),
                     new ContentPackageCatalogEntry(second, new Uri("https://fixture.example/" + HashB + ".zip"))
                 });
+        }
+
+        private static ContentPackageCatalog CreateLargeCatalog(int count)
+        {
+            var entries = new List<ContentPackageCatalogEntry>(count);
+            for (int index = 0; index < count; index++)
+            {
+                string id = $"en.large-{index:D3}";
+                string hash = index.ToString("x64");
+                ContentPackageDescriptor descriptor = Package(id, $"en/large-{index:D3}", hash);
+                entries.Add(new ContentPackageCatalogEntry(
+                    descriptor,
+                    new Uri("https://fixture.example/" + hash + ".zip")));
+            }
+            return new ContentPackageCatalog(ContentPackageCatalog.SupportedSchemaVersion, 1, entries);
         }
 
         private static ContentPackageDescriptor Package(string id, string path, string hash)
