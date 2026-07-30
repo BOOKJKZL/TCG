@@ -54,12 +54,19 @@ public class ContentCatalogAdapterTests
         PrivateCatalogImportResult result = new PrivateManifestCatalogAdapter().Build(documents);
 
         int expectedCards = documents.Sum(document => document.Manifest.Cards.Count);
-        Assert.That(result.SourceSetCount, Is.EqualTo(documents.Count));
+        Assert.That(result.SourceSetCount, Is.EqualTo(result.Catalog.Sets.Count));
+        Assert.That(result.SourceSetCount, Is.LessThanOrEqualTo(documents.Count),
+            "The same logical set may have separate manifests for each card language.");
         Assert.That(result.SourceSetCount, Is.GreaterThanOrEqualTo(5));
-        Assert.That(result.SourceCardCount, Is.EqualTo(expectedCards));
-        Assert.That(result.Catalog.Items.Count, Is.EqualTo(expectedCards));
+        Assert.That(result.SourceCardCount, Is.EqualTo(result.Catalog.Items.Count));
+        Assert.That(result.SourceCardCount, Is.LessThanOrEqualTo(expectedCards),
+            "Localized printings of the same set/local number share one logical card item.");
+        Assert.That(result.Catalog.Languages.Count, Is.EqualTo(documents
+            .Select(document => document.Manifest.Language)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count()));
         Assert.That(result.Catalog.Rarities.Count, Is.GreaterThanOrEqualTo(12));
-        Assert.That(result.Catalog.Printings.Count, Is.GreaterThanOrEqualTo(expectedCards));
+        Assert.That(result.Catalog.Printings.Count, Is.GreaterThanOrEqualTo(result.SourceCardCount));
         Assert.That(result.Warnings, Is.Empty);
         Assert.That(result.Catalog.Printings.Values
             .Where(printing => !string.IsNullOrWhiteSpace(printing.ImageRelativePath))

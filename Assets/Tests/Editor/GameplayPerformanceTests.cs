@@ -25,9 +25,12 @@ public class GameplayPerformanceTests
         Assert.That(loaded.Succeeded, Is.True, loaded.ErrorMessage);
         Assert.That(loaded.Catalog.Products.Count, Is.GreaterThanOrEqualTo(5));
         ProductDefinition[] sampledProducts = loaded.Catalog.Products.Values
+            .Where(product => loaded.Catalog.GetPrintings(product.SetId, "en").Any())
             .OrderBy(product => product.Id, StringComparer.Ordinal)
             .Take(10)
             .ToArray();
+        Assert.That(sampledProducts.Length, Is.EqualTo(10),
+            "The performance fixture needs ten products in the selected card language.");
 
         var inventory = new MemoryInventory();
         var rules = new FallbackProductRuleProvider(
