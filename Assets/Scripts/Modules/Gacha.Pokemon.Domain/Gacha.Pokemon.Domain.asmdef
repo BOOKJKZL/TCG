@@ -1,0 +1,16 @@
+{
+    "name": "Gacha.Pokemon.Domain",
+    "rootNamespace": "Gacha.Pokemon.Domain",
+    "references": [
+        "Gacha.Domain"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
