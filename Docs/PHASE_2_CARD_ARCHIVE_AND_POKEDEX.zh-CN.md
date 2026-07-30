@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：进行中（Phase 2A–2B 已完成）
+状态：进行中（Phase 2A–2C 已完成）
 
-完成度：15%
+完成度：30%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -227,7 +227,7 @@ dex/{generationId}/images.{quality}.{hash}.zip
 |---|---:|---|---|---|
 | 2A 数据契约与排序（已完成） | 8% | Manifest v2、Set 世代/编号/时间字段、稳定排序器、形态分类政策 | Schema/迁移/排序 EditMode 测试 | `be85865`、`905e3ec`、`089e69a` |
 | 2B 全量清单盘点（已完成） | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `8d1c938` |
-| 2C 可恢复批量导入 | 15% | checkpoint、限速、重试、断点续跑、图片压缩、Hash、失败队列 | 中断后续跑；重复执行无重复下载；Hash 全通过 | `feat(importer): add resumable bulk card import` |
+| 2C 可恢复批量导入（已完成） | 15% | checkpoint、限速、重试、断点续跑、WebP、Hash、失败队列、完整性审计 | 218/218 Set 完成；23,444/23,444 卡记录；21,828 张图 Hash 全通过 | `e789f3b`–`ef72f14` |
 | 2D 打包与发布 | 15% | 按语言/Set 建确定性包；离线回读；Site pilot；容量门槛；R2 target | 同输入同 Hash；远端回读；Catalog 最后发布 | `feat(publisher): publish immutable card packages` |
 | 2E 图鉴资料层 | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | Gen 1 为 151 个唯一物种；地区形态双向关系完整 | `feat(pokedex): add species and form taxonomy` |
 | 2F 卡牌关联器 | 14% | Card→Species/Form 多对多匹配、置信度报告、人工 override | 100% 卡牌具有明确质量状态；抽样无名称误配 | `feat(pokedex): link card printings to pokemon subjects` |
@@ -276,12 +276,25 @@ dex/{generationId}/images.{quality}.{hash}.zip
 - 首批内容语言依计划固定为英文，详细证据见[Phase 2B 清单审计](PHASE_2_INVENTORY_2026-07-30.zh-CN.md)。
 - 定向 EditMode 5/5、完整 EditMode 253/253、完整 PlayMode 7/7 通过；实现提交为 `8d1c938 feat(importer): add all-set inventory discovery`。
 
-### Phase 2C–2D：一代/一个时代试跑后再全量
+### Phase 2C：可恢复全量英文导入
+
+完成记录（2026-07-30）：
+
+- 218 个英文 Set 已全部进入版本控制的世代/时代映射：第一至第九世代分别为 11、11、28、27、18、28、23、28、29 个 Set；Pokémon TCG Pocket 另外作为独立产品世代保存 15 个 Set，不冒充实体卡牌世代。
+- 批量导入器已具备限速、指数重试、逐卡原子 checkpoint、单 Set 失败隔离、失败报告、已完成 Set 快速跳过与断点恢复。第一次真实执行完成 217 个 Set；`base4` 因外部监视器短暂占用 checkpoint 文件而只在收尾阶段失败，130 张资料并未丢失。修复 Windows 原子替换重试后，第二次执行只重跑 `base4`，复用其 130 份 metadata 与 130 张图片并完成 218/218。
+- 英文导入结果为 218 个 Set、23,444 份卡牌 metadata、21,828 张低清 WebP；1,616 张来源记录没有图片 URL，因此明确记录为“无图片引用”，不是下载失败。图片合计 345,786,690 bytes，本机完整导入目录（含原始 JSON 与报告）为 543,734,046 bytes。
+- 完整性审计逐一验证 Manifest v2、排序字段、原始卡牌文件、图片长度/SHA-256、路径边界、重复卡牌 ID、孤儿图片与 `.download` 临时文件；结果为有效，失败 0、孤儿图 0、临时下载 0。
+- 重复执行的 checkpoint 为 218 个 `completed`、23,444 个已处理、失败卡 0、失败记录 0。完整证据见 [Phase 2C 导入审计](PHASE_2_IMPORT_2026-07-30.zh-CN.md)。
+- 全资料库暴露了旧测试依赖固定五 Set，以及 Unity 原生图片转换不能解码 WebP。测试已改为按稳定 Set ID 验证；运行时已接入固定 `unity.webp` 版本并用真实 WebP 编解码测试和玩家流程验证，继续保留 32 张 LRU 上限。
+- 最终完整 EditMode 268/268、PlayMode 7/7 通过。此阶段没有改变 Android 权限、ABI、储存路径或图形设置，因此不重复构建 APK；Android 原生 WebP 库会在 Phase 2J 的最终平台包一并验收。
+- 实现按主题提交：`e789f3b`、`5049056`、`4953d79`、`72e14ee`、`fe29104`、`e4e7984`、`6302a7a`、`ef72f14`。
+
+### Phase 2D：确定性打包与发布
 
 1. 先用第一世代相关 Set 做端到端试跑。
-2. 验证断点续跑、Hash、压图质量、确定性 ZIP 和远端回读。
-3. 通过后按世代/时代逐批导入与发布。
-4. 每批生成成功、跳过、失败、缺图、重复与容量报告。
+2. 验证确定性 ZIP、正式安装器离线回读、包体容量与 Catalog 最后发布顺序。
+3. 通过后按语言/Set 为 218 个英文 Set 生成不可变包；原始来源 JSON 不进入手机图片包。
+4. 先以 Site 做小规模 pilot 并实测容量/请求门槛；超过门槛时使用同一发布接口切换至 Cloudflare R2，不修改游戏身份或收藏。
 5. 所有资源上传完成并验证后，才更新公开 Catalog。
 
 ### Phase 2E–2F：建立图鉴与卡牌关联
@@ -366,6 +379,6 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 ## 十二、现在应该先做什么
 
-Phase 2A–2B 已完成。下一步是 **Phase 2C：可恢复批量导入**。先补齐 218 个英文 Set 的世代/顺序映射，再实现 checkpoint、限速、重试、断点续跑、失败队列、图片压缩与逐文件 Hash。
+Phase 2A–2C 已完成，整体为 30%。下一步是 **Phase 2D：确定性打包与发布**。
 
-Phase 2C 只写本机私人内容目录，不上传 Site/R2。以英文低清 WebP 作为手机首批资源目标；本地完整性与确定性打包通过后，才在 Phase 2D 进入远端发布。
+先让现有发布器读取 218 个 Manifest，生成按 `en/{setId}` 拆分的不可变 metadata/images 包，并连续构建验证相同 Hash；随后用正式 Planner、下载器与安装器做离线回读。只有本机确定性、容量报告和只读权限审计通过，才执行 Site pilot；Catalog 必须最后发布。
