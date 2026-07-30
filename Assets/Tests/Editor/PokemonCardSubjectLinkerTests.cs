@@ -47,6 +47,12 @@ public class PokemonCardSubjectLinkerTests
         Assert.That(result.Snapshot.Links.Single(value => value.CardId == "rocket-19").Reason,
             Is.EqualTo("trainer-owned-name-requires-review"));
         Assert.That(File.Exists(output), Is.True);
+        PokemonCardSubjectIntegrityReport audit = PokemonCardSubjectIntegrityAuditor.Audit(
+            imports, "en", taxonomy, overrides, output, 1, 5,
+            Path.Combine(root, "audit.json"));
+        Assert.That(audit.IsValid, Is.True, string.Join("\n", audit.Failures));
+        Assert.That(audit.ReviewQueue.Count, Is.EqualTo(1));
+        Assert.That(audit.TemporaryFileCount, Is.Zero);
     }
 
     [Test]
