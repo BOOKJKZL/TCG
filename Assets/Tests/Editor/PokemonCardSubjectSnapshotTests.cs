@@ -2,10 +2,20 @@ using System;
 using System.Collections.Generic;
 using Gacha.Pokemon.Domain;
 using Gacha.Pokemon.Infrastructure;
+using Gacha.Pokemon.Presentation;
 using NUnit.Framework;
 
 public class PokemonCardSubjectSnapshotTests
 {
+    [TestCase("en", "pokemon-card-subject-links.en.json")]
+    [TestCase("ja", "pokemon-card-subject-links.ja.json")]
+    [TestCase("zh", "pokemon-card-subject-links.zh-cn.json")]
+    [TestCase("zh-Hans", "pokemon-card-subject-links.zh-cn.json")]
+    public void CardSubjectFileName_DependsOnlyOnCardLanguage(string cardLanguage, string expected)
+    {
+        Assert.That(PokemonPokedexController.CardSubjectSnapshotFileName(cardLanguage), Is.EqualTo(expected));
+    }
+
     [Test]
     public void Reader_BuildsPrintingAndSpeciesIndexes()
     {

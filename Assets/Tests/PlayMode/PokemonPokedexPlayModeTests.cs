@@ -21,6 +21,7 @@ namespace Gacha.Tests.PlayMode
         public IEnumerator CollectionScene_OpensLocalizedVirtualizedGenerationOnePokedex()
         {
             string originalLanguage = null;
+            string originalCardLanguage = null;
             var cues = new List<FeedbackCue>();
             Type collectionControllerType = AppDomain.CurrentDomain.GetAssemblies()
                 .Select(assembly => assembly.GetType("CollectionViewController"))
@@ -39,6 +40,7 @@ namespace Gacha.Tests.PlayMode
                 PokemonPokedexController controller = UnityEngine.Object.FindFirstObjectByType<PokemonPokedexController>();
                 Assert.That(controller, Is.Not.Null);
                 originalLanguage = ApplicationServices.Languages.UiLanguageId;
+                originalCardLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
                 UIFeedbackService.Configure(false, false, 1f, true);
                 Assert.That(controller.Open(), Is.True, controller.InitializationError);
 
@@ -60,6 +62,18 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(list.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
                 Assert.That(list.itemsSource.Cast<PokemonSpeciesDefinition>()
                     .Select(value => value.NationalDexNumber), Is.EqualTo(Enumerable.Range(1, 151)));
+
+                string uiLanguageBeforeCardSwitch = ApplicationServices.Languages.UiLanguageId;
+                ApplicationServices.Languages.SelectContentLanguage(
+                    "ja", ApplicationServices.Catalog.Catalog);
+                yield return null;
+                Assert.That(controller.LoadedCardLanguageId, Is.EqualTo("ja"));
+                Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo(uiLanguageBeforeCardSwitch));
+                ApplicationServices.Languages.SelectContentLanguage(
+                    "en", ApplicationServices.Catalog.Catalog);
+                yield return null;
+                Assert.That(controller.LoadedCardLanguageId, Is.EqualTo("en"));
+                Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo(uiLanguageBeforeCardSwitch));
 
                 Assert.That(controller.SelectGeneration("generation-7"), Is.True);
                 yield return null;
@@ -166,6 +180,10 @@ namespace Gacha.Tests.PlayMode
             {
                 if (!string.IsNullOrWhiteSpace(originalLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalLanguage);
+                if (!string.IsNullOrWhiteSpace(originalCardLanguage) &&
+                    ApplicationServices.IsConfigured && ApplicationServices.Catalog.IsReady)
+                    ApplicationServices.Languages.SelectContentLanguage(
+                        originalCardLanguage, ApplicationServices.Catalog.Catalog);
                 UIFeedbackService.FeedbackPlayed -= cues.Add;
                 UIFeedbackService.Configure(false, true, 1f, true);
                 progressOverride.SetValue(null, null);

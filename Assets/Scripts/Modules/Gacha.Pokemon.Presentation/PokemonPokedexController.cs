@@ -112,6 +112,7 @@ namespace Gacha.Pokemon.Presentation
         public bool IsReady { get; private set; }
         public bool IsOpen => root != null && root.resolvedStyle.display == DisplayStyle.Flex;
         public string InitializationError { get; private set; }
+        public string LoadedCardLanguageId { get; private set; }
         public int VisibleSpeciesCount => visibleSpecies.Count;
         public int VisibleIntroducedFormCount => visibleIntroducedForms.Count;
         public int GenerationCount => browser?.Generations.Count ?? 0;
@@ -258,6 +259,7 @@ namespace Gacha.Pokemon.Presentation
                     new PokemonPokedexSnapshotRepository().Load(TaxonomyPath, CardSubjectPath);
                 browser = new PokemonPokedexBrowser(snapshot.Catalog, snapshot.SubjectCatalog);
                 taxonomySourceSha256 = snapshot.Taxonomy.SourceSha256;
+                LoadedCardLanguageId = snapshot.CardSubjects.Language;
                 CatalogLoadResult catalogLoad = ApplicationServices.Catalog.EnsureLoaded();
                 if (!catalogLoad.Succeeded)
                     throw new InvalidOperationException(catalogLoad.ErrorMessage);
@@ -271,7 +273,10 @@ namespace Gacha.Pokemon.Presentation
                 BuildGenerationChoices();
                 RefreshSpeciesList(false);
                 if (ApplicationServices.IsConfigured)
+                {
                     ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
+                    ApplicationServices.Languages.ContentLanguageChanged += OnCardLanguageChanged;
+                }
                 IsReady = true;
                 return true;
             }
@@ -286,7 +291,10 @@ namespace Gacha.Pokemon.Presentation
         private void OnDestroy()
         {
             if (ApplicationServices.IsConfigured)
+            {
                 ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
+                ApplicationServices.Languages.ContentLanguageChanged -= OnCardLanguageChanged;
+            }
             transitionAnimation?.Pause();
             CancelSpeciesSearchRefresh();
             CancelCardSearchRefresh();
@@ -919,6 +927,40 @@ namespace Gacha.Pokemon.Presentation
             RefreshLocalizedContent();
         }
 
+        private void OnCardLanguageChanged(ContentLanguageSelection selection)
+        {
+            if (!IsReady || SnapshotOverride != null)
+                return;
+            try
+            {
+                string generationId = browser.GenerationId;
+                string speciesId = browser.SelectedSpecies?.Id;
+                string formId = browser.SelectedForm?.Id;
+                PokemonPokedexSnapshotBundle snapshot = new PokemonPokedexSnapshotRepository().Load(
+                    TaxonomyPath, CardSubjectPathForLanguage(selection.ResolvedLanguageId));
+                var replacement = new PokemonPokedexBrowser(snapshot.Catalog, snapshot.SubjectCatalog);
+                if (replacement.Generations.Any(value => value.Id == generationId))
+                    replacement.SelectGeneration(generationId);
+                if (speciesId != null)
+                    replacement.OpenSpecies(speciesId, formId);
+                browser = replacement;
+                taxonomySourceSha256 = snapshot.Taxonomy.SourceSha256;
+                LoadedCardLanguageId = snapshot.CardSubjects.Language;
+                BuildGenerationChoices();
+                RefreshSpeciesList(false);
+                if (browser.SelectedSpecies != null &&
+                    detailPage.resolvedStyle.display == DisplayStyle.Flex)
+                    RefreshDetails();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Pokédex card language could not be changed: " + exception.Message);
+                status.text = PokemonPokedexText.Format("unavailable", UiLanguage, exception.Message);
+                status.AddToClassList("is-error");
+                UIFeedbackService.Play(FeedbackCue.Error);
+            }
+        }
+
         private void AnimateOpen()
         {
             transitionAnimation?.Pause();
@@ -973,16 +1015,39 @@ namespace Gacha.Pokemon.Presentation
             }
         }
 
-        private static string CardSubjectPath
+        public static string CardSubjectSnapshotFileName(string cardLanguageId)
         {
-            get
+            string normalized = NormalizeCardLanguageId(cardLanguageId);
+            return $"pokemon-card-subject-links.{normalized}.json";
+        }
+
+        public static string NormalizeCardLanguageId(string cardLanguageId)
+        {
+            string normalized = (cardLanguageId ?? string.Empty).Trim().ToLowerInvariant();
+            return normalized switch
             {
+                "ja" => "ja",
+                "zh" => "zh-cn",
+                "zh-cn" => "zh-cn",
+                "zh-hans" => "zh-cn",
+                _ => "en"
+            };
+        }
+
+        private static string CardSubjectPath => CardSubjectPathForLanguage(
+            ApplicationServices.IsConfigured
+                ? ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId
+                : "en");
+
+        private static string CardSubjectPathForLanguage(string cardLanguageId)
+        {
+            string language = NormalizeCardLanguageId(cardLanguageId);
+            string fileName = CardSubjectSnapshotFileName(language);
 #if UNITY_EDITOR
-                return Path.Combine(ProjectRoot, "LocalContent", "Pokedex", "links", "pokemon-card-subject-links.en.json");
+            return Path.Combine(ProjectRoot, "LocalContent", "Pokedex", "links", fileName);
 #else
-                return Path.Combine(UnityEngine.Application.persistentDataPath, "Content", "pokedex", "links", "en", "pokemon-card-subject-links.en.json");
+            return Path.Combine(UnityEngine.Application.persistentDataPath, "Content", "pokedex", "links", language, fileName);
 #endif
-            }
         }
 
         private static string ArtworkRoot

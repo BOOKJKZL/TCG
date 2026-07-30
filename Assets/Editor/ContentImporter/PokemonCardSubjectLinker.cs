@@ -88,14 +88,25 @@ public static class PokemonCardSubjectLinker
 
         Dictionary<int, PokemonSpeciesDefinition> speciesByNumber = taxonomyLoad.Catalog.Species.Values
             .ToDictionary(value => value.NationalDexNumber);
+        string taxonomyNameLanguage = TaxonomyNameLanguage(normalizedLanguage);
         Dictionary<string, PokemonSpeciesDefinition[]> speciesByName = taxonomyLoad.Catalog.Species.Values
             .SelectMany(species => species.Names
-                .Where(name => name.Key.Equals("en", StringComparison.OrdinalIgnoreCase))
+                .Where(name => name.Key.Equals(taxonomyNameLanguage, StringComparison.OrdinalIgnoreCase))
                 .Select(name => (key: NormalizeName(name.Value), species)))
             .GroupBy(value => value.key, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
                 group => group.Select(value => value.species).Distinct().ToArray(),
+                StringComparer.Ordinal);
+        Dictionary<string, PokemonFormDefinition[]> formsByName = taxonomyLoad.Catalog.Forms.Values
+            .Where(form => !form.IsDefault)
+            .SelectMany(form => form.Names
+                .Where(name => name.Key.Equals(taxonomyNameLanguage, StringComparison.OrdinalIgnoreCase))
+                .Select(name => (key: NormalizeName(name.Value), form)))
+            .GroupBy(value => value.key, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(value => value.form).Distinct().ToArray(),
                 StringComparer.Ordinal);
 
         var links = new List<PokemonCardSubjectLinkDto>();
@@ -124,16 +135,22 @@ public static class PokemonCardSubjectLinker
                     cardPrintings,
                     speciesByNumber,
                     speciesByName,
+                    formsByName,
                     taxonomyLoad.Catalog,
                     overrides,
-                    warnings));
+                    warnings,
+                    normalizedLanguage));
             }
         }
         sourceHash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
 
         var snapshot = new PokemonCardSubjectSnapshotDto
         {
-            Source = "tcgdex",
+            Source = string.Join("+", documents.Select(value => value.Manifest.Source)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(value => value, StringComparer.Ordinal)),
             Language = normalizedLanguage,
             GeneratedAtUtc = taxonomyLoad.CapturedAtUtc.ToString("O", CultureInfo.InvariantCulture),
             TaxonomySourceSha256 = taxonomyLoad.SourceSha256,
@@ -172,9 +189,11 @@ public static class PokemonCardSubjectLinker
         IReadOnlyList<string> printingIds,
         IReadOnlyDictionary<int, PokemonSpeciesDefinition> speciesByNumber,
         IReadOnlyDictionary<string, PokemonSpeciesDefinition[]> speciesByName,
+        IReadOnlyDictionary<string, PokemonFormDefinition[]> formsByName,
         PokemonTaxonomyCatalog taxonomy,
         PokemonCardSubjectOverrideCatalog overrides,
-        ISet<string> warnings)
+        ISet<string> warnings,
+        string language)
     {
         if (overrides.TryGet(card.Id, out PokemonCardSubjectOverride manual))
             return OverrideLink(setId, card, itemId, printingIds, manual);
@@ -182,8 +201,7 @@ public static class PokemonCardSubjectLinker
             return Dto(setId, card, itemId, printingIds, Array.Empty<string>(), Array.Empty<string>(),
                 "not-applicable", "category", 1d, "non-pokemon-category", null);
 
-        int[] dexNumbers = (raw["dexId"] as JArray ?? new JArray())
-            .Values<int>().Distinct().OrderBy(value => value).ToArray();
+        int[] dexNumbers = SourceDexNumbers(raw);
         var species = new List<PokemonSpeciesDefinition>();
         foreach (int number in dexNumbers)
         {
@@ -202,6 +220,28 @@ public static class PokemonCardSubjectLinker
         if (species.Count == 0)
         {
             string nameKey = NormalizeName(baseName);
+            if (formsByName.TryGetValue(nameKey, out PokemonFormDefinition[] namedForms))
+            {
+                if (namedForms.Length == 1)
+                {
+                    PokemonFormDefinition form = namedForms[0];
+                    if (form.Disposition == PokemonFormDisposition.ManualReview ||
+                        form.Disposition == PokemonFormDisposition.Excluded)
+                        return Dto(setId, card, itemId, printingIds,
+                            new[] { form.SpeciesId }, new[] { form.Id },
+                            "needs-review", "canonical-english-name", 0.9d,
+                            "localized-form-policy-requires-review", null);
+                    warnings.Add("localized-form-fallback:" + card.Id);
+                    return Dto(setId, card, itemId, printingIds,
+                        new[] { form.SpeciesId }, new[] { form.Id },
+                        "matched-form", "canonical-english-name", 0.95d,
+                        "canonical-localized-form-name", null);
+                }
+                return Dto(setId, card, itemId, printingIds,
+                    namedForms.Select(value => value.SpeciesId), namedForms.Select(value => value.Id),
+                    "needs-review", "canonical-english-name", 0.5d,
+                    "ambiguous-localized-form-name", null);
+            }
             if (!speciesByName.TryGetValue(nameKey, out PokemonSpeciesDefinition[] candidates) ||
                 candidates.Length != 1)
                 return Dto(setId, card, itemId, printingIds, Array.Empty<string>(), Array.Empty<string>(),
@@ -215,8 +255,10 @@ public static class PokemonCardSubjectLinker
         }
 
         PokemonSpeciesDefinition matchedSpecies = species[0];
+        string taxonomyNameLanguage = TaxonomyNameLanguage(language);
         PokemonFormDefinition[] formCandidates = taxonomy.GetForms(matchedSpecies.Id)
-            .Where(form => !form.IsDefault && form.Names.TryGetValue("en", out string formName) &&
+            .Where(form => !form.IsDefault && form.Names.TryGetValue(
+                               taxonomyNameLanguage, out string formName) &&
                            NormalizeName(formName) == NormalizeName(baseName))
             .ToArray();
         if (formCandidates.Length == 1)
@@ -237,6 +279,33 @@ public static class PokemonCardSubjectLinker
                 new[] { matchedSpecies.Id }, formCandidates.Select(value => value.Id),
                 "needs-review", "source-dex-id-and-form-name", 0.5d,
                 "ambiguous-form-name", null);
+        string regionId = RegionIdFromCardName(baseName, language);
+        if (regionId != null)
+        {
+            PokemonFormDefinition[] regionCandidates = taxonomy.GetForms(matchedSpecies.Id)
+                .Where(form => !form.IsDefault && string.Equals(
+                    form.RegionId, regionId, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (regionCandidates.Length == 1)
+            {
+                PokemonFormDefinition form = regionCandidates[0];
+                if (form.Disposition == PokemonFormDisposition.ManualReview ||
+                    form.Disposition == PokemonFormDisposition.Excluded)
+                    return Dto(setId, card, itemId, printingIds,
+                        new[] { matchedSpecies.Id }, new[] { form.Id },
+                        "needs-review", "source-dex-id-and-form-name", 0.95d,
+                        "regional-form-policy-requires-review", null);
+                return Dto(setId, card, itemId, printingIds,
+                    new[] { matchedSpecies.Id }, new[] { form.Id },
+                    "matched-form", "source-dex-id-and-form-name", 1d,
+                    "source-dex-id-and-region-name", null);
+            }
+            if (regionCandidates.Length > 1)
+                return Dto(setId, card, itemId, printingIds,
+                    new[] { matchedSpecies.Id }, regionCandidates.Select(value => value.Id),
+                    "needs-review", "source-dex-id-and-form-name", 0.5d,
+                    "ambiguous-regional-form-name", null);
+        }
         return Dto(setId, card, itemId, printingIds,
             new[] { matchedSpecies.Id }, Array.Empty<string>(),
             "matched-species", "source-dex-id", 1d, "source-dex-id", null);
@@ -310,7 +379,62 @@ public static class PokemonCardSubjectLinker
         if (value.EndsWith(" " + suffix, StringComparison.OrdinalIgnoreCase) ||
             value.EndsWith("-" + suffix, StringComparison.OrdinalIgnoreCase))
             return value.Substring(0, value.Length - suffix.Length - 1).Trim();
+        if (value.Length > suffix.Length &&
+            value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            char boundary = value[value.Length - suffix.Length - 1];
+            if (!((boundary >= 'a' && boundary <= 'z') ||
+                  (boundary >= 'A' && boundary <= 'Z') ||
+                  (boundary >= '0' && boundary <= '9')))
+                return value.Substring(0, value.Length - suffix.Length).Trim();
+        }
         return value;
+    }
+
+    private static int[] SourceDexNumbers(JObject raw)
+    {
+        int[] source = (raw["dexId"] as JArray ?? new JArray())
+            .Values<int>().Distinct().OrderBy(value => value).ToArray();
+        if (source.Length > 0)
+            return source;
+        string yorenCode = raw["yorenCode"]?.ToString()?.Trim();
+        if (!string.IsNullOrWhiteSpace(yorenCode) && yorenCode.Length > 1 &&
+            (yorenCode[0] == 'P' || yorenCode[0] == 'p') &&
+            int.TryParse(yorenCode.Substring(1), NumberStyles.None,
+                CultureInfo.InvariantCulture, out int number) && number > 0)
+            return new[] { number };
+        return Array.Empty<int>();
+    }
+
+    private static string TaxonomyNameLanguage(string language) =>
+        (language ?? string.Empty).StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "zh" : "en";
+
+    private static string RegionIdFromCardName(string name, string language)
+    {
+        string value = name ?? string.Empty;
+        string normalizedLanguage = (language ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalizedLanguage == "ja")
+        {
+            if (value.Contains("アローラ")) return "alola";
+            if (value.Contains("ガラル")) return "galar";
+            if (value.Contains("ヒスイ")) return "hisui";
+            if (value.Contains("パルデア")) return "paldea";
+        }
+        else if (normalizedLanguage.StartsWith("zh", StringComparison.Ordinal))
+        {
+            if (value.Contains("阿罗拉") || value.Contains("阿羅拉")) return "alola";
+            if (value.Contains("伽勒尔") || value.Contains("伽勒爾")) return "galar";
+            if (value.Contains("洗翠")) return "hisui";
+            if (value.Contains("帕底亚") || value.Contains("帕底亞")) return "paldea";
+        }
+        else
+        {
+            if (value.IndexOf("Alolan", StringComparison.OrdinalIgnoreCase) >= 0) return "alola";
+            if (value.IndexOf("Galarian", StringComparison.OrdinalIgnoreCase) >= 0) return "galar";
+            if (value.IndexOf("Hisuian", StringComparison.OrdinalIgnoreCase) >= 0) return "hisui";
+            if (value.IndexOf("Paldean", StringComparison.OrdinalIgnoreCase) >= 0) return "paldea";
+        }
+        return null;
     }
 
     private static string NormalizeName(string value)
