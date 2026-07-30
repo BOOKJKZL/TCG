@@ -26,7 +26,8 @@ namespace Gacha.Domain
             IEnumerable<RarityDefinition> rarities,
             IEnumerable<VariantDefinition> variants,
             IEnumerable<PrintingDefinition> printings,
-            IEnumerable<ProductDefinition> products)
+            IEnumerable<ProductDefinition> products,
+            IEnumerable<PrintingLanguageGroupDefinition> printingLanguageGroups = null)
         {
             Languages = Index(languages, "language");
             Games = Index(games, "game");
@@ -36,12 +37,16 @@ namespace Gacha.Domain
             Variants = Index(variants, "variant");
             Printings = Index(printings, "printing");
             Products = Index(products, "product");
+            PrintingLanguageGroups = new ReadOnlyCollection<PrintingLanguageGroupDefinition>(
+                (printingLanguageGroups ?? Array.Empty<PrintingLanguageGroupDefinition>()).ToArray());
 
             IReadOnlyList<string> errors = Validate();
             if (errors.Count > 0)
             {
                 throw new UniversalCatalogValidationException(errors);
             }
+
+            PrintingLanguages = new PrintingLanguageIndex(Printings.Values, PrintingLanguageGroups);
         }
 
         public IReadOnlyDictionary<string, LanguageDefinition> Languages { get; }
@@ -52,6 +57,8 @@ namespace Gacha.Domain
         public IReadOnlyDictionary<string, VariantDefinition> Variants { get; }
         public IReadOnlyDictionary<string, PrintingDefinition> Printings { get; }
         public IReadOnlyDictionary<string, ProductDefinition> Products { get; }
+        public IReadOnlyList<PrintingLanguageGroupDefinition> PrintingLanguageGroups { get; }
+        public PrintingLanguageIndex PrintingLanguages { get; }
 
         public IEnumerable<PrintingDefinition> GetPrintings(string setId, string languageId = null)
         {
@@ -121,7 +128,45 @@ namespace Gacha.Domain
                 }
             }
 
+            ValidatePrintingLanguageGroups(errors);
+
             return new ReadOnlyCollection<string>(errors);
+        }
+
+        private void ValidatePrintingLanguageGroups(List<string> errors)
+        {
+            var groupIds = new HashSet<string>(StringComparer.Ordinal);
+            var claimedPrintings = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (PrintingLanguageGroupDefinition group in PrintingLanguageGroups)
+            {
+                if (group == null)
+                {
+                    errors.Add("The printing language group collection contains null.");
+                    continue;
+                }
+                if (!groupIds.Add(group.Id))
+                    errors.Add($"Printing language group id '{group.Id}' is duplicated.");
+
+                var games = new HashSet<string>(StringComparer.Ordinal);
+                var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string printingId in group.PrintingIds)
+                {
+                    if (!Printings.TryGetValue(printingId, out PrintingDefinition printing))
+                    {
+                        errors.Add($"Printing language group '{group.Id}' references missing printing '{printingId}'.");
+                        continue;
+                    }
+                    games.Add(printing.Identity.GameId);
+                    if (!languages.Add(printing.Identity.LanguageId))
+                        errors.Add($"Printing language group '{group.Id}' contains more than one '{printing.Identity.LanguageId}' printing.");
+                    if (claimedPrintings.TryGetValue(printingId, out string previousGroup))
+                        errors.Add($"Printing '{printingId}' belongs to both language groups '{previousGroup}' and '{group.Id}'.");
+                    else
+                        claimedPrintings.Add(printingId, group.Id);
+                }
+                if (games.Count > 1)
+                    errors.Add($"Printing language group '{group.Id}' combines different games.");
+            }
         }
 
         private void ValidateGame(List<string> errors, string id, string type, string gameId)

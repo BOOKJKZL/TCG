@@ -87,6 +87,56 @@ public class UniversalCatalogTests
         Assert.That(set.GetDisplayName("ja", "en"), Is.EqualTo("Base Set"));
     }
 
+    [Test]
+    public void PrintingLanguages_SingleLanguageDoesNotOfferASelector()
+    {
+        UniversalCatalog catalog = BuildCatalog();
+        PrintingDefinition printing = catalog.Printings.Values.Single();
+
+        PrintingLanguageGroup group = catalog.PrintingLanguages.GetGroup(printing.Id);
+
+        Assert.That(group, Is.Not.Null);
+        Assert.That(group.HasMultipleLanguages, Is.False);
+        Assert.That(group.AvailableLanguageIds, Is.EqualTo(new[] { "en" }));
+        Assert.That(catalog.PrintingLanguages.Select(printing.Id, "ja"), Is.SameAs(printing));
+    }
+
+    [Test]
+    public void PrintingLanguages_SharedItemSwitchesOnlyToAvailableCardLanguages()
+    {
+        UniversalCatalog catalog = BuildMultilingualCatalog();
+        PrintingDefinition english = catalog.Printings["base1-1-en-holo"];
+        PrintingLanguageGroup group = catalog.PrintingLanguages.GetGroup(english.Id);
+
+        Assert.That(group.HasMultipleLanguages, Is.True);
+        Assert.That(group.AvailableLanguageIds, Is.EqualTo(new[] { "en", "ja", "zh-cn" }));
+        Assert.That(catalog.PrintingLanguages.Select(english.Id, "ja").Id, Is.EqualTo("base1-1-ja-holo"));
+        Assert.That(catalog.PrintingLanguages.Select(english.Id, "zh-CN").Id, Is.EqualTo("base1-1-zh-cn-holo"));
+        Assert.That(catalog.PrintingLanguages.Select(english.Id, "fr"), Is.SameAs(english));
+    }
+
+    [Test]
+    public void PrintingLanguages_ExplicitGroupCanLinkDifferentRegionalSets()
+    {
+        UniversalCatalog source = BuildMultilingualCatalog(true);
+        PrintingDefinition english = source.Printings["base1-1-en-holo"];
+
+        Assert.That(source.PrintingLanguages.Select(english.Id, "ja").Id, Is.EqualTo("jp-base-1-ja-holo"));
+        Assert.That(source.PrintingLanguages.GetGroup(english.Id).MatchMethod,
+            Is.EqualTo(PrintingLanguageMatchMethod.ManualOverride));
+        Assert.That(source.PrintingLanguages.GetGroup(english.Id).ReviewStatus,
+            Is.EqualTo(PrintingLanguageReviewStatus.Reviewed));
+    }
+
+    [Test]
+    public void Catalog_RejectsLanguageGroupWithTwoPrintingsFromSameLanguage()
+    {
+        UniversalCatalogValidationException exception = Assert.Throws<UniversalCatalogValidationException>(() =>
+            BuildMultilingualCatalog(false, true));
+
+        Assert.That(exception.Errors.Any(value => value.Contains("more than one 'en' printing")), Is.True);
+    }
+
     private static UniversalCatalog BuildCatalog()
     {
         LanguageDefinition language = new LanguageDefinition("en", Names("English"));
@@ -121,6 +171,71 @@ public class UniversalCatalogTests
             new[] { variant },
             new[] { printing },
             new[] { product });
+    }
+
+    private static UniversalCatalog BuildMultilingualCatalog(
+        bool useRegionalSet = false,
+        bool invalidSameLanguageGroup = false)
+    {
+        var languages = new[]
+        {
+            new LanguageDefinition("en", Names("English")),
+            new LanguageDefinition("ja", new Dictionary<string, string> { ["ja"] = "Japanese" }),
+            new LanguageDefinition("zh-cn", new Dictionary<string, string> { ["zh-cn"] = "Chinese" })
+        };
+        GameDefinition game = new GameDefinition("pokemon", Names("Pokemon TCG"), languages.Select(value => value.Id));
+        SetDefinition englishSet = new SetDefinition("base1", game.Id, Names("Base Set"));
+        SetDefinition japaneseSet = useRegionalSet
+            ? new SetDefinition("jp-base", game.Id, new Dictionary<string, string> { ["ja"] = "Japanese Base" })
+            : englishSet;
+        CollectibleItemDefinition sharedItem = new CollectibleItemDefinition("alakazam", game.Id, Names("Alakazam"), "card");
+        CollectibleItemDefinition japaneseItem = useRegionalSet
+            ? new CollectibleItemDefinition("alakazam-jp", game.Id,
+                new Dictionary<string, string> { ["ja"] = "Alakazam JP" }, "card")
+            : sharedItem;
+        RarityDefinition rarity = new RarityDefinition("rare", game.Id, Names("Rare"), 1);
+        VariantDefinition variant = new VariantDefinition("holo", game.Id, Names("Holo"));
+        var printings = new List<PrintingDefinition>
+        {
+            new PrintingDefinition("base1-1-en-holo", sharedItem.Id,
+                new PrintingIdentity(game.Id, englishSet.Id, "1", "en", variant.Id), rarity.Id, Names("Alakazam")),
+            new PrintingDefinition(useRegionalSet ? "jp-base-1-ja-holo" : "base1-1-ja-holo", japaneseItem.Id,
+                new PrintingIdentity(game.Id, japaneseSet.Id, "1", "ja", variant.Id), rarity.Id,
+                new Dictionary<string, string> { ["ja"] = "Alakazam JP" }),
+            new PrintingDefinition("base1-1-zh-cn-holo", sharedItem.Id,
+                new PrintingIdentity(game.Id, englishSet.Id, "1", "zh-cn", variant.Id), rarity.Id,
+                new Dictionary<string, string> { ["zh-cn"] = "Alakazam CN" })
+        };
+        if (invalidSameLanguageGroup)
+        {
+            printings.Add(new PrintingDefinition("base1-2-en-holo", sharedItem.Id,
+                new PrintingIdentity(game.Id, englishSet.Id, "2", "en", variant.Id), rarity.Id, Names("Alakazam 2")));
+        }
+
+        PrintingLanguageGroupDefinition[] groups = useRegionalSet || invalidSameLanguageGroup
+            ? new[]
+            {
+                new PrintingLanguageGroupDefinition(
+                    "alakazam-languages",
+                    invalidSameLanguageGroup
+                        ? new[] { "base1-1-en-holo", "base1-2-en-holo" }
+                        : new[] { "base1-1-en-holo", "jp-base-1-ja-holo" },
+                    PrintingLanguageMatchMethod.ManualOverride,
+                    1d,
+                    PrintingLanguageReviewStatus.Reviewed)
+            }
+            : Array.Empty<PrintingLanguageGroupDefinition>();
+
+        return new UniversalCatalog(
+            languages,
+            new[] { game },
+            useRegionalSet ? new[] { englishSet, japaneseSet } : new[] { englishSet },
+            useRegionalSet ? new[] { sharedItem, japaneseItem } : new[] { sharedItem },
+            new[] { rarity },
+            new[] { variant },
+            printings,
+            Array.Empty<ProductDefinition>(),
+            groups);
     }
 
     private static Dictionary<string, string> Names(string englishName)

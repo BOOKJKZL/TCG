@@ -207,6 +207,36 @@ public class ApplicationServicesTests
     }
 
     [Test]
+    public void LanguageSelection_UiAndCardLanguageChangesNeverDriveEachOther()
+    {
+        var store = new PreferenceStore("en", "en");
+        var service = new LanguageSelectionService(store, new[] { "en", "zh" });
+        UniversalCatalog catalog = CreateCatalog("en", "ja", "zh-cn");
+        service.RefreshContentLanguage(catalog);
+        int uiEvents = 0;
+        int cardEvents = 0;
+        service.UiLanguageChanged += _ => uiEvents++;
+        service.ContentLanguageChanged += _ => cardEvents++;
+
+        service.SelectContentLanguage("ja", catalog);
+
+        Assert.That(service.UiLanguageId, Is.EqualTo("en"));
+        Assert.That(service.ContentLanguage.ResolvedLanguageId, Is.EqualTo("ja"));
+        Assert.That(uiEvents, Is.Zero);
+        Assert.That(cardEvents, Is.EqualTo(1));
+
+        service.SelectUiLanguage("zh");
+
+        Assert.That(service.UiLanguageId, Is.EqualTo("zh"));
+        Assert.That(service.ContentLanguage.ResolvedLanguageId, Is.EqualTo("ja"));
+        Assert.That(service.RequestedContentLanguageId, Is.EqualTo("ja"));
+        Assert.That(uiEvents, Is.EqualTo(1));
+        Assert.That(cardEvents, Is.EqualTo(1));
+        Assert.That(store.Saved.UiLanguageId, Is.EqualTo("zh"));
+        Assert.That(store.Saved.ContentLanguageId, Is.EqualTo("ja"));
+    }
+
+    [Test]
     public void LanguageSelection_UsesParentUiLocaleAndEnglishContentFallback()
     {
         var store = new PreferenceStore("zh-CN", "zh-CN");
