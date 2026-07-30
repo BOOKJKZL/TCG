@@ -35,6 +35,8 @@ public class LanguageSettingsPresentationTests
         Assert.That(english.GetEntry("settings.language.content").Value, Is.EqualTo("Card content language"));
         Assert.That(chinese.GetEntry("settings.language.ui").Value, Is.EqualTo("界面语言"));
         Assert.That(chinese.GetEntry("settings.language.content").Value, Is.EqualTo("卡牌内容语言"));
+        Assert.That(english.GetEntry("language.ja").Value, Is.EqualTo("Japanese"));
+        Assert.That(chinese.GetEntry("language.ja").Value, Is.EqualTo("日语"));
         Assert.That(english.GetEntry("settings.experience.reduce_motion").Value, Is.EqualTo("Reduce motion"));
         Assert.That(english.GetEntry("settings.experience.animation_speed").Value, Is.EqualTo("Animation speed"));
         Assert.That(chinese.GetEntry("settings.experience.reduce_motion").Value, Is.EqualTo("减少动态效果"));

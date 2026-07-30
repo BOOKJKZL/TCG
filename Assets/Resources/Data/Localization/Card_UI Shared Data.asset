@@ -543,6 +543,10 @@ MonoBehaviour:
     m_Key: content.action.download
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428288
+    m_Key: language.ja
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
