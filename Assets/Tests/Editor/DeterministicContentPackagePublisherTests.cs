@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -167,6 +168,41 @@ public class DeterministicContentPackagePublisherTests
 
         Assert.That(result.Packages.Count, Is.EqualTo(1));
         Assert.That(Directory.GetDirectories(output, ".verification-*"), Is.Empty);
+    }
+
+    [Test]
+    public void BatchPublish_IncludesOnlyManifestReferencedRuntimeFiles()
+    {
+        Directory.CreateDirectory(Path.Combine(source, "raw", "cards"));
+        File.WriteAllText(Path.Combine(source, "raw", "cards", "fixture.json"), "{\"raw\":true}");
+        File.WriteAllBytes(Path.Combine(source, "images", "legacy.jpg"), Bytes(32));
+        File.WriteAllBytes(Path.Combine(source, "images", "current.webp"), Bytes(64));
+        File.WriteAllText(
+            Path.Combine(source, "manifest.json"),
+            "{\"SchemaVersion\":2,\"Source\":\"fixture\",\"Language\":\"en\"," +
+            "\"Set\":{\"Id\":\"fixture\",\"Name\":\"Fixture Set\",\"SetCode\":\"fixture\"," +
+            "\"SeriesId\":\"fixture\",\"SeriesName\":\"Fixture\",\"EraId\":\"fixture\"," +
+            "\"GenerationId\":\"generation-1\",\"GenerationOrder\":1,\"SetOrdinal\":1," +
+            "\"ReleaseDate\":\"2000-01-01\",\"OfficialCardCount\":1,\"TotalCardCount\":1}," +
+            "\"Cards\":[{\"Id\":\"fixture-1\",\"LocalId\":\"1\",\"Name\":\"Fixture\"," +
+            "\"Category\":\"Pokemon\",\"Rarity\":\"Common\"," +
+            "\"ImageRelativePath\":\"images\\\\current.webp\",\"ImageSha256\":\"hash\"," +
+            "\"Variants\":{\"Normal\":true}}],\"Errors\":[]}");
+
+        ContentPackagePublishResult result = ContentPackagePublisherBatch.Publish(
+            output,
+            2,
+            2,
+            "2.0.0",
+            new[] { new ContentPackagePublisherBatch.ImportedSet("en", "fixture", source) });
+
+        using (ZipArchive archive = ZipFile.OpenRead(result.Packages.Single().ArchivePath))
+        {
+            Assert.That(archive.Entries.Select(entry => entry.FullName),
+                Is.EqualTo(new[] { "images/current.webp", "manifest.json" }));
+        }
+        Assert.That(result.Packages.Single().Package.InstalledBytes,
+            Is.EqualTo(new FileInfo(Path.Combine(source, "manifest.json")).Length + 64));
     }
 
     private ContentPackagePublishRequest Request()

@@ -20,13 +20,15 @@ namespace Gacha.EditorTools.Content
             string sourceDirectory,
             string installRelativePath,
             long revision,
-            string version)
+            string version,
+            IEnumerable<string> includedRelativePaths = null)
         {
             PackageId = packageId;
             SourceDirectory = sourceDirectory;
             InstallRelativePath = installRelativePath;
             Revision = revision;
             Version = version;
+            IncludedRelativePaths = includedRelativePaths?.ToArray();
         }
 
         public string PackageId { get; }
@@ -34,6 +36,7 @@ namespace Gacha.EditorTools.Content
         public string InstallRelativePath { get; }
         public long Revision { get; }
         public string Version { get; }
+        public IReadOnlyList<string> IncludedRelativePaths { get; }
     }
 
     public sealed class ContentPackagePublishRequest
@@ -137,7 +140,10 @@ namespace Gacha.EditorTools.Content
             CancellationToken cancellationToken)
         {
             string sourceRoot = Path.GetFullPath(definition.SourceDirectory);
-            IReadOnlyList<SourceFile> files = EnumerateSourceFiles(sourceRoot, outputRoot);
+            IReadOnlyList<SourceFile> files = EnumerateSourceFiles(
+                sourceRoot,
+                outputRoot,
+                definition.IncludedRelativePaths);
             long installedBytes = SumInstalledBytes(files);
             string temporaryArchive = Path.Combine(temporaryRoot, definition.PackageId + ".zip");
             WriteArchive(temporaryArchive, files, cancellationToken);
@@ -178,7 +184,10 @@ namespace Gacha.EditorTools.Content
             return new PublishedContentPackage(descriptor, archivePath, archiveUrl);
         }
 
-        private static IReadOnlyList<SourceFile> EnumerateSourceFiles(string sourceRoot, string outputRoot)
+        private static IReadOnlyList<SourceFile> EnumerateSourceFiles(
+            string sourceRoot,
+            string outputRoot,
+            IReadOnlyList<string> includedRelativePaths)
         {
             if (!Directory.Exists(sourceRoot))
                 throw new DirectoryNotFoundException("Content package source directory was not found: " + sourceRoot);
@@ -196,7 +205,10 @@ namespace Gacha.EditorTools.Content
                 if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                     throw new InvalidDataException("Content package source cannot contain directory links: " + directory);
             }
-            foreach (string path in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
+            IEnumerable<string> sourcePaths = includedRelativePaths == null
+                ? Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
+                : ResolveIncludedPaths(sourceRoot, sourcePrefix, includedRelativePaths);
+            foreach (string path in sourcePaths)
             {
                 FileAttributes attributes = File.GetAttributes(path);
                 if ((attributes & FileAttributes.ReparsePoint) != 0)
@@ -211,6 +223,26 @@ namespace Gacha.EditorTools.Content
             if (files.Count == 0)
                 throw new InvalidDataException("Content package source contains no files.");
             return files;
+        }
+
+        private static IEnumerable<string> ResolveIncludedPaths(
+            string sourceRoot,
+            string sourcePrefix,
+            IReadOnlyList<string> includedRelativePaths)
+        {
+            foreach (string requestedPath in includedRelativePaths)
+            {
+                string portablePath = (requestedPath ?? string.Empty).Replace('\\', '/');
+                ValidatePortablePath(portablePath);
+                string fullPath = Path.GetFullPath(Path.Combine(
+                    sourceRoot,
+                    portablePath.Replace('/', Path.DirectorySeparatorChar)));
+                if (!fullPath.StartsWith(sourcePrefix, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Included content path escapes its source directory: " + requestedPath);
+                if (!File.Exists(fullPath))
+                    throw new FileNotFoundException("Included content file was not found.", fullPath);
+                yield return fullPath;
+            }
         }
 
         private static void WriteArchive(

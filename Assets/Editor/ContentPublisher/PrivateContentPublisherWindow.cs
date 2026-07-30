@@ -181,6 +181,26 @@ public static class ContentPackagePublisherBatch
             $"catalog='{result.CatalogPath}'.");
     }
 
+    [MenuItem("Tools/Universal Gacha/Publish All English Sets")]
+    public static void PublishAllEnglishSets()
+    {
+        IReadOnlyList<ImportedSet> imports = DiscoverImports(DefaultImportRoot)
+            .Where(item => string.Equals(item.Language, "en", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (imports.Count == 0)
+            throw new InvalidOperationException("No English private imports were found.");
+
+        ContentPackagePublishResult result = Publish(
+            DefaultReleaseRoot,
+            2,
+            2,
+            "2.0.0",
+            imports);
+        Debug.Log(
+            $"All English content published locally: packages={result.Packages.Count}, " +
+            $"catalog='{result.CatalogPath}'.");
+    }
+
     public static ContentPackagePublishResult Publish(
         string outputRoot,
         long catalogRevision,
@@ -194,7 +214,8 @@ public static class ContentPackagePublisherBatch
                 item.SourceDirectory,
                 item.Language + "/" + item.SetId,
                 packageRevision,
-                version))
+                version,
+                RuntimePackagePaths(item)))
             .ToArray();
         ContentPackagePublishResult result = new DeterministicContentPackagePublisher().Publish(new ContentPackagePublishRequest(
             outputRoot,
@@ -202,6 +223,33 @@ public static class ContentPackagePublisherBatch
             definitions));
         VerifyRuntimeInstallation(result, definitions.Length, outputRoot);
         return result;
+    }
+
+    private static IReadOnlyList<string> RuntimePackagePaths(ImportedSet importedSet)
+    {
+        string manifestPath = Path.Combine(importedSet.SourceDirectory, "manifest.json");
+        PrivateContentManifestDocument document = new PrivateContentManifestReader().LoadFile(manifestPath);
+        if (!string.Equals(document.Manifest.Language, importedSet.Language, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(document.Manifest.Set.Id, importedSet.SetId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Imported Set identity does not match its manifest: {importedSet.Language}/{importedSet.SetId}.");
+        }
+
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "manifest.json" };
+        foreach (string imagePath in document.Manifest.Cards
+                     .Select(card => card?.ImageRelativePath)
+                     .Where(path => !string.IsNullOrWhiteSpace(path)))
+        {
+            string portablePath = imagePath.Replace('\\', '/');
+            if (!portablePath.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Manifest image must stay under images/: {importedSet.SetId}/{imagePath}");
+            }
+            paths.Add(portablePath);
+        }
+        return paths.OrderBy(path => path, StringComparer.Ordinal).ToArray();
     }
 
     private static void VerifyRuntimeInstallation(
