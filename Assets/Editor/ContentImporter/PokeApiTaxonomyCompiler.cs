@@ -279,6 +279,20 @@ public static class PokeApiTaxonomyCompiler
             speciesNames.TryGetValue("zh", out string speciesChinese) &&
             RegionChineseNames.TryGetValue(regionId, out string regionChinese))
             values["zh"] = regionChinese + speciesChinese;
+        if (!values.ContainsKey("en"))
+        {
+            if (!speciesNames.TryGetValue("en", out string speciesEnglish))
+                throw new InvalidOperationException($"{context}:name has no species English fallback.");
+            string formToken = FirstText(form["form_name"]?.ToString(), form["name"]?.ToString());
+            if (string.IsNullOrWhiteSpace(formToken))
+                throw new InvalidOperationException($"{context}:name has no form slug fallback.");
+            string suffix = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+                formToken.Replace('-', ' '));
+            values["en"] = string.Equals(speciesEnglish, suffix, StringComparison.OrdinalIgnoreCase)
+                ? speciesEnglish
+                : speciesEnglish + " (" + suffix + ")";
+            warnings.Add($"fallback:{context}:name:en->slug");
+        }
         FillFallbacks(values, context + ":name", warnings);
         return values;
     }

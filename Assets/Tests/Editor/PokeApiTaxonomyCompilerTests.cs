@@ -55,6 +55,24 @@ public class PokeApiTaxonomyCompilerTests
             Does.Contain("unknown version group"));
     }
 
+    [Test]
+    public void Compiler_UsesTrackedSlugFallbackWhenFormNamesAreMissing()
+    {
+        PokeApiTaxonomyRawData raw = RattataRaw();
+        raw.Forms[10193] = raw.Forms[10193].Replace(
+            "[{'name':'Alolan Rattata','language':{'name':'en'}}]".Replace('\'', '"'),
+            "[]");
+
+        PokeApiTaxonomyCompileResult result = PokeApiTaxonomyCompiler.Compile(
+            raw, Policies(), DateTimeOffset.Parse("2026-07-30T00:00:00Z"));
+
+        PokemonFormSnapshotDto form = result.Snapshot.Forms.Single(item => item.Id == "pokemon-form:10193");
+        Assert.That(form.Names["en"], Is.EqualTo("Rattata (Alola)"));
+        Assert.That(form.Names["zh"], Is.EqualTo("阿罗拉小拉达"));
+        Assert.That(result.Snapshot.Warnings,
+            Does.Contain("fallback:pokemon-form:10193:name:en->slug"));
+    }
+
     private static PokeApiTaxonomyRawData Reformat(PokeApiTaxonomyRawData source)
     {
         var result = new PokeApiTaxonomyRawData();
