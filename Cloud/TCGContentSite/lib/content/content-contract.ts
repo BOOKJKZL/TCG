@@ -4,7 +4,7 @@ export const CONTENT_CATALOG_SCHEMA_VERSION = 1;
 export const MAX_CATALOG_BYTES = 1024 * 1024;
 export const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
 
-const PACKAGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
+const PACKAGE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 export type ContentPackage = {

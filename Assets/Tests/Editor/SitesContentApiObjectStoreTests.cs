@@ -69,7 +69,7 @@ public class SitesContentApiObjectStoreTests
     {
         byte[] archive = { 1, 2, 3, 4, 5 };
         string sha256 = Sha256(archive);
-        string objectKey = "packages/en.A1/" + sha256 + ".zip";
+        string objectKey = "packages/en.fixture/" + sha256 + ".zip";
         string archivePath = Path.Combine(root, sha256 + ".zip");
         File.WriteAllBytes(archivePath, archive);
         var handler = new RecordingHandler((request, body) =>
@@ -115,7 +115,7 @@ public class SitesContentApiObjectStoreTests
                 CancellationToken.None);
 
             R2RemoteObjectState publicState = await store.VerifyPublicAsync(
-                new Uri("https://cards.chatgpt.site/api/content/packages/en.A1/" + sha256 + ".zip"),
+                new Uri("https://cards.chatgpt.site/api/content/packages/en.fixture/" + sha256 + ".zip"),
                 archive.Length,
                 sha256,
                 CancellationToken.None);

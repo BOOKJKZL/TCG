@@ -10,14 +10,14 @@ function validCatalog() {
     schemaVersion: 1,
     revision: 3,
     packages: [{
-      packageId: "en.A1",
+      packageId: "en.base1",
       installRelativePath: "en/base1",
       revision: 1,
       version: "1.0.0",
       downloadBytes: 123,
       installedBytes: 456,
       sha256,
-      archiveUrl: `packages/en.A1/${sha256}.zip`,
+      archiveUrl: `packages/en.base1/${sha256}.zip`,
     }],
   };
 }
@@ -28,7 +28,7 @@ test("accepts the exact catalog v1 contract", () => {
 
 test("rejects mutable URLs, traversal paths, unknown fields, and duplicates", () => {
   const mutableUrl = validCatalog();
-  mutableUrl.packages[0].archiveUrl = "packages/en.A1/latest.zip";
+  mutableUrl.packages[0].archiveUrl = "packages/en.base1/latest.zip";
   assert.throws(() => parseContentCatalog(mutableUrl), ApiError);
 
   const traversal = validCatalog();
