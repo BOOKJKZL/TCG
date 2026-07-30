@@ -63,6 +63,11 @@ public sealed class TcgdexImportService : IDisposable
         foreach (string setId in normalizedSetIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (!options.RefreshExistingFiles && checkpoint.IsSetComplete(setId))
+            {
+                summary.SkippedSetCount++;
+                continue;
+            }
             try
             {
                 ImportSetOutcome outcome = await ImportSetAsync(

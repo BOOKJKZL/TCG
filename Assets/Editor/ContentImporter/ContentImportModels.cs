@@ -103,6 +103,7 @@ public sealed class ContentImportSummary
     public long ImageBytes;
     public int ReusedMetadataCount;
     public int ReusedImageCount;
+    public int SkippedSetCount;
     public int FailedSetCount;
     public string CheckpointPath;
     public string FailureReportPath;

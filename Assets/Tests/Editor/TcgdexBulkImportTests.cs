@@ -46,9 +46,10 @@ public class TcgdexBulkImportTests
         Assert.That(first.ReusedMetadataCount, Is.Zero);
         Assert.That(first.ReusedImageCount, Is.Zero);
         Assert.That(first.ErrorCount, Is.Zero);
-        Assert.That(second.ReusedMetadataCount, Is.EqualTo(1));
-        Assert.That(second.ReusedImageCount, Is.EqualTo(1));
-        Assert.That(handler.Count("https://api.test/v2/en/sets/base1"), Is.EqualTo(2));
+        Assert.That(second.SkippedSetCount, Is.EqualTo(1));
+        Assert.That(second.ReusedMetadataCount, Is.Zero);
+        Assert.That(second.ReusedImageCount, Is.Zero);
+        Assert.That(handler.Count("https://api.test/v2/en/sets/base1"), Is.EqualTo(1));
         Assert.That(handler.Count("https://api.test/v2/en/cards/base1-1"), Is.EqualTo(1));
         Assert.That(handler.Count("https://assets.test/base1/1/low.webp"), Is.EqualTo(1));
 

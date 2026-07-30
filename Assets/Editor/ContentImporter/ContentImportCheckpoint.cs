@@ -73,6 +73,17 @@ public sealed class ContentImportCheckpointStore
     public string CheckpointPath => checkpointPath;
     public string FailureReportPath => failureReportPath;
 
+    public bool IsSetComplete(string setId)
+    {
+        lock (gate)
+        {
+            ContentImportSetCheckpoint set = checkpoint.Sets.FirstOrDefault(item =>
+                string.Equals(item.SetId, setId, StringComparison.Ordinal));
+            return set != null && string.Equals(set.State, "completed", StringComparison.Ordinal) &&
+                   set.FailedCards == 0 && set.ProcessedCards == set.ExpectedCards;
+        }
+    }
+
     public void Begin(IEnumerable<string> setIds)
     {
         lock (gate)

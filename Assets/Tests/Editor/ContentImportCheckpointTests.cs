@@ -46,6 +46,7 @@ public class ContentImportCheckpointTests
         Assert.That(set.ExpectedCards, Is.EqualTo(2));
         Assert.That(set.ProcessedCards, Is.EqualTo(2));
         Assert.That(set.FailedCards, Is.EqualTo(1));
+        Assert.That(reloaded.IsSetComplete("set-a"), Is.False);
         Assert.That(report.Failures, Has.Count.EqualTo(1));
         Assert.That(report.Failures[0].ItemId, Is.EqualTo("card-2"));
         Assert.That(Directory.GetFiles(temporaryDirectory, "*.download", SearchOption.AllDirectories),
@@ -80,5 +81,18 @@ public class ContentImportCheckpointTests
         ContentImportCheckpoint checkpoint = store.Snapshot();
         Assert.That(checkpoint.Sets.Single().State, Is.EqualTo("running"));
         Assert.That(File.Exists(store.CheckpointPath), Is.True);
+    }
+
+    [Test]
+    public void Store_OnlyReportsExactErrorFreeCompletionAsSkippable()
+    {
+        var store = new ContentImportCheckpointStore(temporaryDirectory, "en", "low", "webp");
+        store.Begin(new[] { "set-a" });
+        store.StartSet("set-a", 1);
+        Assert.That(store.IsSetComplete("set-a"), Is.False);
+        store.RecordCard("set-a", "card-1", null);
+        store.CompleteSet("set-a");
+
+        Assert.That(store.IsSetComplete("set-a"), Is.True);
     }
 }

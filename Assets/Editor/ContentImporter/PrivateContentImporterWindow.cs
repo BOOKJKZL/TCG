@@ -338,7 +338,8 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         double megabytes = summary.ImageBytes / 1024d / 1024d;
         return $"Imported {summary.SetCount} sets, {summary.CardCount} cards, " +
                $"{megabytes:F1} MB images, {summary.ReusedMetadataCount} metadata and " +
-               $"{summary.ReusedImageCount} images reused, {summary.ErrorCount} errors, " +
+               $"{summary.ReusedImageCount} images reused, {summary.SkippedSetCount} Sets skipped, " +
+               $"{summary.ErrorCount} errors, " +
                $"{summary.FailedSetCount} failed Sets.";
     }
 
