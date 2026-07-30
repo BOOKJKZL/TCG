@@ -229,6 +229,35 @@
     -unity-font-style: bold;
 }
 
+.pokedex-art-slot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.pokedex-artwork .async-card-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.pokedex-artwork .async-card-image__status {
+    top: 126px;
+    left: 24px;
+    right: 24px;
+    font-size: 14px;
+}
+
+.pokedex-artwork .async-card-image__retry {
+    left: 72px;
+    right: 72px;
+    bottom: 36px;
+    height: 38px;
+}
+
 .pokedex-artwork__status {
     max-width: 230px;
     margin-top: 18px;

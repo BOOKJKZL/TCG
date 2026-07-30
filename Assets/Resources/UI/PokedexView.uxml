@@ -28,6 +28,7 @@
                 <ui:Button name="pokedex-detail-back" class="pokedex-button pokedex-detail__back" />
                 <ui:VisualElement class="pokedex-detail__hero">
                     <ui:VisualElement class="pokedex-artwork">
+                        <ui:VisualElement name="pokedex-art-slot" class="pokedex-art-slot" />
                         <ui:Label name="pokedex-art-number" class="pokedex-artwork__number" />
                         <ui:Label name="pokedex-art-status" class="pokedex-artwork__status" />
                     </ui:VisualElement>

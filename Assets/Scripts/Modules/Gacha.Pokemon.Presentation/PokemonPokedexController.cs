@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Gacha.Application;
+using Gacha.Domain;
+using Gacha.Infrastructure.Content;
 using Gacha.Pokemon.Application;
 using Gacha.Pokemon.Domain;
 using Gacha.Pokemon.Infrastructure;
@@ -31,7 +34,11 @@ namespace Gacha.Pokemon.Presentation
         private readonly List<PokemonSpeciesDefinition> visibleSpecies = new List<PokemonSpeciesDefinition>();
         private readonly List<PokemonFormDefinition> visibleIntroducedForms = new List<PokemonFormDefinition>();
         private readonly List<string> generationIds = new List<string>();
+        private readonly Dictionary<string, PokemonArtworkCatalog> artworkCatalogs =
+            new Dictionary<string, PokemonArtworkCatalog>(StringComparer.Ordinal);
+        private readonly HashSet<string> missingArtworkCatalogs = new HashSet<string>(StringComparer.Ordinal);
         private PokemonPokedexBrowser browser;
+        private string taxonomySourceSha256;
         private VisualElement root;
         private VisualElement listPage;
         private VisualElement detailPage;
@@ -61,6 +68,8 @@ namespace Gacha.Pokemon.Presentation
         private Button closeButton;
         private Button detailBackButton;
         private IVisualElementScheduledItem transitionAnimation;
+        private CardTextureCache artworkCache;
+        private AsyncCardImageView artworkView;
         private bool attached;
         private bool updatingControls;
         private int returnListIndex = -1;
@@ -76,6 +85,9 @@ namespace Gacha.Pokemon.Presentation
         public string SelectedSpeciesId => browser?.SelectedSpecies?.Id;
         public string SelectedFormId => browser?.SelectedForm?.Id;
         public int SelectableFormCount => browser?.SelectableForms.Count ?? 0;
+        public AsyncCardImageState ArtworkState => artworkView?.State ?? AsyncCardImageState.Empty;
+        public Task ArtworkLoadTask => artworkView?.CurrentLoadTask ?? Task.CompletedTask;
+        public int CachedArtworkCount => artworkCache?.Count ?? 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
@@ -198,6 +210,11 @@ namespace Gacha.Pokemon.Presentation
                 PokemonPokedexSnapshotBundle snapshot = SnapshotOverride ??
                     new PokemonPokedexSnapshotRepository().Load(TaxonomyPath, CardSubjectPath);
                 browser = new PokemonPokedexBrowser(snapshot.Catalog, snapshot.SubjectCatalog);
+                taxonomySourceSha256 = snapshot.Taxonomy.SourceSha256;
+                artworkCache = new CardTextureCache(new PrivateContentImageSource(ArtworkRoot), 8);
+                artworkView = new AsyncCardImageView(artworkCache);
+                artworkView.Element.AddToClassList("pokedex-artwork-image");
+                Required<VisualElement>("pokedex-art-slot").Add(artworkView.Element);
                 BuildGenerationChoices();
                 RefreshSpeciesList(false);
                 if (ApplicationServices.IsConfigured)
@@ -218,6 +235,10 @@ namespace Gacha.Pokemon.Presentation
             if (ApplicationServices.IsConfigured)
                 ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
             transitionAnimation?.Pause();
+            artworkView?.Dispose();
+            artworkView = null;
+            artworkCache?.Dispose();
+            artworkCache = null;
         }
 
         private void QueryElements()
@@ -418,6 +439,7 @@ namespace Gacha.Pokemon.Presentation
             detailArtNumber.text = "#" + species.NationalDexNumber.ToString("000");
             detailArtStatus.text = PokemonPokedexText.Get("art_pending", language) + "\n" +
                                    PokemonPokedexText.Get("art_hint", language);
+            BindArtwork(form);
             formsHeading.text = PokemonPokedexText.Get("forms", language);
             cardsHeading.text = PokemonPokedexText.Get("cards", language);
             cardsCount.text = PokemonPokedexText.Format(
@@ -426,6 +448,57 @@ namespace Gacha.Pokemon.Presentation
                 browser.GetFormCards(form.Id).Count);
             detailBackButton.text = PokemonPokedexText.Get("back", language);
             RebuildFormButtons();
+        }
+
+        private void BindArtwork(PokemonFormDefinition form)
+        {
+            if (artworkView == null)
+                return;
+            PokemonArtworkEntry entry = FindArtwork(form);
+            string relativePath = entry == null
+                ? null
+                : form.IntroducedGenerationId + "/" + entry.RelativePath;
+            var printing = new PrintingDefinition(
+                "pokemon-artwork:" + form.Id,
+                "pokemon-artwork-item:" + form.Id,
+                new PrintingIdentity(
+                    "pokemon",
+                    "pokedex",
+                    form.PokemonId.ToString(),
+                    "und",
+                    "artwork"),
+                "artwork",
+                form.Names,
+                relativePath,
+                entry?.Sha256);
+            artworkView.Bind(printing);
+            detailArtNumber.style.display = entry == null ? DisplayStyle.Flex : DisplayStyle.None;
+            detailArtStatus.style.display = DisplayStyle.None;
+        }
+
+        private PokemonArtworkEntry FindArtwork(PokemonFormDefinition form)
+        {
+            string generationId = form.IntroducedGenerationId;
+            if (!artworkCatalogs.TryGetValue(generationId, out PokemonArtworkCatalog catalog) &&
+                !missingArtworkCatalogs.Contains(generationId))
+            {
+                string manifestPath = Path.Combine(ArtworkRoot, generationId, "manifest.json");
+                try
+                {
+                    catalog = new PokemonArtworkManifestReader().LoadFile(manifestPath);
+                    if (!string.Equals(catalog.TaxonomySourceSha256, taxonomySourceSha256, StringComparison.Ordinal))
+                        throw new InvalidDataException("Installed artwork targets a different taxonomy snapshot.");
+                    artworkCatalogs[generationId] = catalog;
+                }
+                catch (Exception exception) when (
+                    exception is IOException || exception is UnauthorizedAccessException ||
+                    exception is InvalidDataException || exception is ArgumentException)
+                {
+                    missingArtworkCatalogs.Add(generationId);
+                    Debug.LogWarning($"Pokédex artwork package is unavailable for {generationId}: {exception.Message}");
+                }
+            }
+            return catalog?.Find(form.Id);
         }
 
         public bool OpenSpeciesForm(string speciesId, string formId)
@@ -585,6 +658,18 @@ namespace Gacha.Pokemon.Presentation
                 return Path.Combine(ProjectRoot, "LocalContent", "Pokedex", "links", "pokemon-card-subject-links.en.json");
 #else
                 return Path.Combine(UnityEngine.Application.persistentDataPath, "Content", "pokedex", "links", "en", "pokemon-card-subject-links.en.json");
+#endif
+            }
+        }
+
+        private static string ArtworkRoot
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return Path.Combine(ProjectRoot, "LocalContent", "Pokedex", "artwork");
+#else
+                return Path.Combine(UnityEngine.Application.persistentDataPath, "Content", "pokedex", "artwork");
 #endif
             }
         }

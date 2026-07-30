@@ -100,6 +100,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-detail-name").text, Is.EqualTo("Pikachu"));
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-card-count").text, Does.Contain("cards"));
                 Assert.That(cues, Does.Contain(FeedbackCue.CardFlip));
+                deadline = Time.realtimeSinceStartup + 5f;
+                while (controller.ArtworkState == AsyncCardImageState.Loading &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.ArtworkState, Is.EqualTo(AsyncCardImageState.Ready));
+                Assert.That(controller.CachedArtworkCount, Is.InRange(1, 8));
 
                 controller.NavigateBack();
                 controller.SetSearch(string.Empty);

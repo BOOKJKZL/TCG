@@ -4,6 +4,7 @@
     "references": [
         "Gacha.Application",
         "Gacha.Domain",
+        "Gacha.Infrastructure",
         "Gacha.Pokemon.Application",
         "Gacha.Pokemon.Domain",
         "Gacha.Pokemon.Infrastructure",
