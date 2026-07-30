@@ -6,7 +6,7 @@
 
 ## 模块边界
 
-当前核心已经整理为以下五个运行时程序集；旧场景适配脚本与组合根暂留在 `Assembly-CSharp`，但通过接口调用核心，不允许 Presentation 反向依赖 Infrastructure。
+当前核心已经整理为以下运行时程序集；旧场景适配脚本与组合根暂留在 `Assembly-CSharp`，但通过接口调用核心，不允许 Presentation 反向依赖 Infrastructure。
 
 ```text
 Gacha.Domain
@@ -23,6 +23,14 @@ Gacha.Infrastructure
 
 Gacha.Presentation
   通用反馈、本地化、产品开包主题/粒子契约与 UI 状态
+
+Gacha.Pokemon.Domain
+  全国图鉴世代、物种、形态、稳定编号与双向关联
+  不依赖 UI、Editor 或外部 API
+
+Gacha.Pokemon.Infrastructure
+  读取并严格验证电脑端生成的确定性图鉴快照
+  手机运行时不直接请求 PokéAPI
 
 Gacha.Pokemon.Presentation
   宝可梦系列到通用开包主题的映射
@@ -43,6 +51,8 @@ Cloud/TCGContentSite（独立部署模块）
 - `Gacha.Infrastructure`：读取私人 manifest，并把外部数据转换成 `UniversalCatalog`。
 - `Gacha.Application`：`CatalogSession`、双层语言、体验设置、产品开启、收藏进度与资源包安装决策均不依赖 Unity。
 - `Gacha.Presentation`：统一按钮动画、音效键、震动、静音、动画速度、减少动态效果、`CardUiText` String Table 解析与英文兜底，以及只观察 Application 快照的内容管理页面；收藏、共享卡图状态和开包流程共用该文本边界，并能在当前页面状态中即时刷新语言。`LegacySceneTextLocalizer` 通过场景级映射接管仍使用 TMP/UGUI 的静态标题和菜单入口，避免把本地化职责重新塞回导航控制器。
+- `Gacha.Pokemon.Domain`：全国图鉴世代、物种、形态与双向关联的纯领域模型；稳定身份和全国编号不依赖显示语言。
+- `Gacha.Pokemon.Infrastructure`：读取并严格验证电脑端生成的确定性图鉴快照；手机运行时不直接依赖 PokéAPI。
 - `IProductOpeningThemeProvider`：通用 Presentation 只定义主题 ID、USS class、音效键、动画参数和稀有强调判断；`Gacha.Pokemon.Presentation` 负责五个宝可梦系列的具体映射，`GameApplicationBootstrap` 只在组合根注入实现。未知游戏或未知产品使用已验证参数范围内的通用后备主题。
 - `ProductOpeningParticleTheme` / `ThemeParticleField`：主题数据只声明经过范围验证的环境与爆发参数；运行时粒子场预建最多 12 个 `VisualElement` 并循环复用，以约 30 FPS 驱动漂浮和径向爆发。控制器只按开包状态启动/停止，不识别宝可梦系列；减少动态效果开启时不会启动调度器，并继续保留静态包装和稀有光环。
 - `ProductOpeningTheme.PackArtworkResourcePath` 是可选的轻量包装皮肤引用；控制器只读取主题声明并通过 `Resources` 加载，加载失败时回退到原有系列卡图，不根据宝可梦系列 ID 分支。当前五张核心皮肤的 APK 总增量约 0.29 MiB，大量卡图仍属于安装后下载内容；若主题数量显著增长，再把包装资产迁入内容包。
@@ -83,7 +93,7 @@ Cloud/TCGContentSite（独立部署模块）
 - 私人 Manifest v2：保存稳定排序字段；v1 只在内存中迁移，来源文件、`PrintingIdentity` 与既有收藏键不会被改写。
 - Editor metadata overrides：版本控制的 Set 世代映射与宝可梦形态分类政策只存在于私人导入流程，不进入运行时核心或 APK。
 
-这些模型已经支撑五个已研究产品的可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效，并能从 218 个英文 Set Manifest 组成全量运行时 Catalog。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A–7E 已完成受限 HTTPS catalog、确定性发布、来源绑定缓存、临时 Site 中继、电脑直传与 owner-only 配对；浏览器不接触本机卡包，手机只有公开 `GET/HEAD`。第二大阶段 Phase 2A–2D 已完成 17 语言 inventory、英文 218 Set/23,444 卡/21,828 张 WebP 的可恢复导入，以及 218 个最小运行时 ZIP 的确定性构建和离线回读；Gen 1 的 11 包 Site pilot 已验证公网 Hash、Range 与只读权限。下一步由独立 Pokémon Taxonomy 模块导入 PokéAPI generation/species/form snapshot；Cloudflare R2 保持为最终全量发布时的可替换存储目标。
+这些模型已经支撑五个已研究产品的可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效，并能从 218 个英文 Set Manifest 组成全量运行时 Catalog。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A–7E 已完成受限 HTTPS catalog、确定性发布、来源绑定缓存、临时 Site 中继、电脑直传与 owner-only 配对；浏览器不接触本机卡包，手机只有公开 `GET/HEAD`。第二大阶段 Phase 2A–2E 已完成 17 语言 inventory、英文 218 Set/23,444 卡/21,828 张 WebP 的可恢复导入、218 个最小运行时 ZIP，以及独立 Pokémon Taxonomy 的 9 世代/1,025 物种/1,579 形态确定性快照；Gen 1 的 11 包 Site pilot 已验证公网只读边界。下一步由 Phase 2F 生成 Card→Species/Form 多对多关联与人工复核队列；Cloudflare R2 保持为最终全量发布时的可替换存储目标。
 
 ## 两阶段路线
 

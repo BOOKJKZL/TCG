@@ -2,7 +2,7 @@
 
 最后更新：2026-07-30
 
-本次修改原因：第一大阶段的软件范围已经完成 100% 验收；第二大阶段 Phase 2A–2D 也已完成，使总计划进入 45%。218 个英文 Set 已形成确定性不可变运行时包并通过全量离线安装回读；第一世代 11 包 Site pilot 的公网 Hash、Range 与只读权限均已通过。最新回归为 PlayMode 7/7、EditMode 270/270。实体震动手感、扬声器音质和真实蜂窝切换继续作为实体机补测限制。验证节奏固定为 Play Mode 优先，普通数据与代码变化不重复构建 APK，只有权限、ABI、存储、图形、触觉等平台边界才构建。
+本次修改原因：第一大阶段的软件范围已经完成 100% 验收；第二大阶段 Phase 2A–2E 也已完成，使总计划进入 57%。218 个英文 Set 已形成确定性不可变运行时包并通过全量离线安装回读；PokéAPI 资料层已固定 9 世代、1,025 物种、1,351 个具体变体与 1,579 个形态，Gen 1 精确为 #001–#151。最新回归为 PlayMode 7/7、EditMode 280/280。实体震动手感、扬声器音质和真实蜂窝切换继续作为实体机补测限制。验证节奏固定为 Play Mode 优先，普通数据与代码变化不重复构建 APK，只有权限、ABI、存储、图形、触觉等平台边界才构建。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。全量卡牌资料库与宝可梦图鉴请参阅[第二大阶段实施计划](PHASE_2_CARD_ARCHIVE_AND_POKEDEX.zh-CN.md)。
 
@@ -67,7 +67,7 @@ AccessibilitySettings
 - 建立 TCGdex 私人导入器。
 - 下载并校验五个英文历史系列。
 - 当前英文私人资料为 218 个 Set、23,444 份卡牌 metadata、21,828 张低清 WebP（345,786,690 bytes）、0 个 Hash 错误；1,616 份来源卡牌记录明确没有图片 URL。
-- 当前核心 EditMode 测试全部通过。
+- 当前核心 EditMode 280/280、PlayMode 7/7 全部通过。
 - 已建立第一个独立程序集 `Gacha.Presentation`，作为后续模块化迁移基线。
 - 已建立统一 `UIFeedbackService`、稳定音效键、震动接口与无障碍偏好。
 - 现有 UGUI 按钮会在运行时自动获得按下、悬停和回弹动画，不需要修改场景引用。
@@ -77,6 +77,7 @@ AccessibilitySettings
 - 第二大阶段 Phase 2B 已完成：17 语言只读清单发现、218 个英文 Set 详情、图片 URL 覆盖率与 12 张容量抽样均已记录；没有下载全量卡图或写入远端。
 - 第二大阶段 Phase 2C 已完成：218 个英文 Set 全部映射；checkpoint、限速、重试、失败隔离和完成 Set 快速跳过均已验证；23,444 份 metadata 与 21,828 张 WebP 完整性审计失败为 0，运行时可实际解码卡图。
 - 第二大阶段 Phase 2D 已完成：218 个最小运行时包连续两次构建 Hash 相同并全部经正式安装器回读；Gen 1 的 11 包 Site pilot 已真实发布，11/11 全包 Hash、11/11 Range 与 8/8 写方法拒绝均通过。
+- 第二大阶段 Phase 2E 已完成：电脑端可恢复 PokéAPI 导入器固定 9 世代、1,025 物种、1,351 个具体变体与 1,579 个形态；确定性快照、双向形态链接、Gen 1 #001–#151 与全量资料审计失败 0。
 - 私人 `manifest.json` 已能在运行时转换为 `UniversalCatalog`，不再只属于编辑器导入流程。
 - 本机五个历史系列已验证为 5 个系列、796 个收藏项目和 12 种稀有度；原始 manifest 可展开 1278 个印刷版本，Scarlet & Violet 的运行时 foil 形态补正后 Catalog 共为 1462 个可分别计数的 Printing，原始私人资料保持不变。
 - 已建立无 Unity 依赖的 `Gacha.Application`，Controller 通过 `CatalogSession` 使用内容，不再直接构造私人导入读取器。
@@ -781,10 +782,11 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 第二大阶段 Phase 2B：metadata-only 全量清单盘点（完成，整体 15%）
 → 第二大阶段 Phase 2C：英文全量可恢复导入与完整性审计（完成，整体 30%）
 → 第二大阶段 Phase 2D：218 包确定性发布与 Gen 1 Site pilot（完成，整体 45%）
-→ 当前下一步：Phase 2E PokéAPI generation/species/form 图鉴资料层
+→ 第二大阶段 Phase 2E：PokéAPI generation/species/form 图鉴资料层（完成，整体 57%）
+→ 当前下一步：Phase 2F Card→Species/Form 多对多关联器
 ```
 
-Phase 2D 已完成 218 包本机确定性发布和第一世代 11 包真实 Site pilot。下一步从 PokéAPI 固定 generation/species/form snapshot 与形态分类，保持手机端不直接依赖外部 API；全量远端 Catalog 在图鉴与关联包完成后的 Phase 2J 一次发布。
+Phase 2E 已完成 generation/species/form snapshot、本地化 fallback、形态分类与全量审计，手机端仍不直接依赖 PokéAPI。下一步从 23,444 张英文卡牌生成稳定的物种/形态关联与人工复核队列；全量远端 Catalog 在图鉴与关联包完成后的 Phase 2J 一次发布。
 
 以下情况必须暂停后续阶段并先修复：
 

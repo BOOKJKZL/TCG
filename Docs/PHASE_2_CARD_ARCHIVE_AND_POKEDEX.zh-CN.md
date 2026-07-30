@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：进行中（Phase 2A–2D 已完成）
+状态：进行中（Phase 2A–2E 已完成）
 
-完成度：45%
+完成度：57%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -229,7 +229,7 @@ dex/{generationId}/images.{quality}.{hash}.zip
 | 2B 全量清单盘点（已完成） | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `8d1c938` |
 | 2C 可恢复批量导入（已完成） | 15% | checkpoint、限速、重试、断点续跑、WebP、Hash、失败队列、完整性审计 | 218/218 Set 完成；23,444/23,444 卡记录；21,828 张图 Hash 全通过 | `e789f3b`–`ef72f14` |
 | 2D 打包与发布（已完成） | 15% | 按语言/Set 建确定性运行时包；离线回读；Gen 1 Site pilot；容量门槛 | 218 包双构建 Hash 相同；11 包公网 Hash/Range/只读权限全通过 | `7d3cbf7`、`34e9481` |
-| 2E 图鉴资料层 | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | Gen 1 为 151 个唯一物种；地区形态双向关系完整 | `feat(pokedex): add species and form taxonomy` |
+| 2E 图鉴资料层（已完成） | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | 9 世代、1,025 物种、1,579 形态；Gen 1 精确 #001–#151；完整审计失败 0 | `770d9d6`、`bc950b1`、`c62cc49`、`19d27ac`、`7fe7c87`、`474c26f` |
 | 2F 卡牌关联器 | 14% | Card→Species/Form 多对多匹配、置信度报告、人工 override | 100% 卡牌具有明确质量状态；抽样无名称误配 | `feat(pokedex): link card printings to pokemon subjects` |
 | 2G 第一世代图鉴 MVP | 12% | #001–#151 列表、搜索、详情、简介、形态跳转、卡牌区 | PlayMode 完成主要旅程；性能与本地化通过 | `feat(pokedex): build generation one pokedex experience` |
 | 2H 全世代与地区形态 | 8% | 扩展全部已导入世代；新形态分区；相关形态导航 | 世代边界、编号、形态分类与跳转全通过 | `feat(pokedex): expand generations and regional forms` |
@@ -319,6 +319,18 @@ dex/{generationId}/images.{quality}.{hash}.zip
 5. 人工确认地区形态、特殊名称、所属训练家与多物种卡牌。
 6. 生成小型 `pokemon-card-subject-links` 包，让图鉴不必扫描所有 Set。
 
+Phase 2E 完成记录（2026-07-30）：
+
+- 新增独立 `Gacha.Pokemon.Domain` 与 `Gacha.Pokemon.Infrastructure` 模块，固定 generation/species/form 身份、全国图鉴编号、首次登场世代、本地化名称/属种/简介、图片来源、地区与形态双向关系；手机运行时只读取本项目快照，不直连 PokéAPI。
+- 电脑端私人图鉴导入器具备 HTTPS 来源限制、限速、重试、并发上限、逐资源原子缓存、失败 checkpoint、断点恢复、确定性原始资料 Hash 与 Editor/命令行入口。中断测试证明第二次运行只补缺失资源。
+- 真实只读导入固定 9 个世代、1,025 个全国图鉴物种、1,351 个 Pokémon 具体变体、1,579 个视觉形态与 32 个版本组；本机原始资料、快照与审计共 320,474,335 bytes，全部位于 Git 忽略的 `LocalContent/Pokedex`。
+- 快照为 2,550,034 bytes；原始资料图 SHA-256 为 `05810b379e9041b7d57365aa64615d8265218b88c23e26da2d9e2042a8f9bc67`，快照文件 SHA-256 为 `7a7624842d1f9696def8242ffc203d98b2535e19d6b683178281f520eb835240`。审计从所有原始 JSON 确定性重编译，并与落盘快照做结构全等比较。
+- 九个世代范围依次为 #001–#151、#152–#251、#252–#386、#387–#493、#494–#649、#650–#721、#722–#809、#810–#905、#906–#1025；Gen 1 恰好为 151 个唯一物种，地区形态不占新全国编号。
+- 地区形态识别为阿罗拉 20、伽勒尔 20、洗翠 16、帕底亚 4。形态政策结果为 `separate-entry` 1,172、`related-variant` 245、`manual-review` 162；Mega、Gigantamax 与战斗限定不会被静默提升为普通独立条目。
+- 简体中文与英文进入同一个稳定快照。资料源缺失具体形态翻译时共记录 884 个显式 fallback 警告；连英文形态名也缺失的来源使用可追踪 slug 名称，不丢弃形态、不伪造翻译。
+- 完整性审计确认缺失资源 0、孤儿资源 0、`.download` 临时文件 0、checkpoint 失败 0、非 HTTPS 图片来源 0、双向关联错误 0。完整证据见 [Phase 2E 图鉴资料审计](PHASE_2_POKEDEX_IMPORT_2026-07-30.zh-CN.md)。
+- 自验证通过：图鉴相关定向 EditMode 14/14、缺失形态名回归 3/3、完整 EditMode 280/280、完整 PlayMode 7/7。此阶段未修改 Android 权限、ABI、图形、存储或触觉边界，因此不重复构建 APK。
+
 ### Phase 2G–2I：先 Gen 1 UI，再扩展
 
 1. 先完成第一世代 151 个物种的完整玩家旅程。
@@ -392,6 +404,6 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 ## 十二、现在应该先做什么
 
-Phase 2A–2D 已完成，整体为 45%。下一步是 **Phase 2E：图鉴资料层**。
+Phase 2A–2E 已完成，整体为 57%。下一步是 **Phase 2F：卡牌关联器**。
 
-先固定 PokéAPI snapshot 的 generation/species/form 数据契约与来源版本，再导入全国图鉴物种、多语言名称/简介和形态候选；随后应用既有形态分类政策，验证第一世代恰好 #001–#151、地区形态不增加全国编号且相关形态链接双向一致。手机仍不直接请求 PokéAPI。
+以已固定的 1,025 物种/1,579 形态快照和 23,444 张英文卡牌 metadata 为输入，生成 Card→Species/Form 多对多关联、置信度与人工复核队列；每张卡必须落入 matched-form、matched-species、multi-species、not-applicable 或 needs-review 之一。关联器不能只靠本地化显示名，切换 UI 语言不得改变关联结果。
