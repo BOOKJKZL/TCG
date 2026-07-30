@@ -125,7 +125,8 @@ public static class PokemonContentOverrideLoader
         "gigantamax",
         "battle-only",
         "gender-difference",
-        "cosmetic"
+        "cosmetic",
+        "alternate"
     };
     private static readonly HashSet<string> AllowedDispositions = new HashSet<string>(
         new[] { "separate-entry", "related-variant", "exclude", "manual-review" },

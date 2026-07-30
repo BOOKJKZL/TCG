@@ -30,6 +30,11 @@
       "formKind": "cosmetic",
       "defaultDisposition": "related-variant",
       "reason": "Cosmetic differences remain related variants unless a manual override promotes one."
+    },
+    {
+      "formKind": "alternate",
+      "defaultDisposition": "separate-entry",
+      "reason": "Stat or type-changing varieties remain distinct entries linked to their shared species."
     }
   ],
   "overrides": []

@@ -109,7 +109,7 @@ public class PokemonContentOverrideTests
         PokemonFormClassificationCatalog catalog = PokemonContentOverrideLoader.LoadFormClassification(
             ProjectPath("form-classification-overrides.json"));
 
-        Assert.That(catalog.PolicyCount, Is.EqualTo(6));
+        Assert.That(catalog.PolicyCount, Is.EqualTo(7));
         Assert.That(catalog.OverrideCount, Is.Zero);
         Assert.That(catalog.GetPolicy("regional").DefaultDisposition, Is.EqualTo("separate-entry"));
         Assert.That(catalog.GetPolicy("mega").DefaultDisposition, Is.EqualTo("manual-review"));
@@ -117,6 +117,7 @@ public class PokemonContentOverrideTests
         Assert.That(catalog.GetPolicy("battle-only").DefaultDisposition, Is.EqualTo("manual-review"));
         Assert.That(catalog.GetPolicy("gender-difference").DefaultDisposition, Is.EqualTo("related-variant"));
         Assert.That(catalog.GetPolicy("cosmetic").DefaultDisposition, Is.EqualTo("related-variant"));
+        Assert.That(catalog.GetPolicy("alternate").DefaultDisposition, Is.EqualTo("separate-entry"));
     }
 
     [Test]
