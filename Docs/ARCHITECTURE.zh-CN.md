@@ -83,7 +83,7 @@ Cloud/TCGContentSite（独立部署模块）
 - 私人 Manifest v2：保存稳定排序字段；v1 只在内存中迁移，来源文件、`PrintingIdentity` 与既有收藏键不会被改写。
 - Editor metadata overrides：版本控制的 Set 世代映射与宝可梦形态分类政策只存在于私人导入流程，不进入运行时核心或 APK。
 
-这些模型已经支撑五个已研究产品的可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效，并能从 218 个英文 Set Manifest 组成全量运行时 Catalog。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A–7E 已完成受限 HTTPS catalog、确定性发布、来源绑定缓存、临时 Site 中继、电脑直传与 owner-only 配对；浏览器不接触本机卡包，手机只有公开 `GET/HEAD`。第二大阶段 Phase 2A–2C 已固定 Set/Manifest/形态政策，完成 17 语言 inventory 及英文 218 Set、23,444 卡、21,828 张 WebP 的可恢复导入和完整性审计；运行时通过固定跨平台 WebP 解码器读取低容量图片。下一步是按语言/Set 生成确定性不可变包、离线回读并执行 Site pilot；独立 Cloudflare R2 保持为可替换存储目标。
+这些模型已经支撑五个已研究产品的可替换规则、独立主题、原创包装、有界粒子与正式烘焙音效，并能从 218 个英文 Set Manifest 组成全量运行时 Catalog。阶段 6A–6C5 已加入安装决策、安全路径、本地收据、可回滚 ZIP 安装/卸载、下载状态机、文件断点缓存、严格 HTTP Range、版本化 catalog、协调器，以及带动画、音效、本地化和主线程派发的玩家内容管理页面；卸载只触及收据登记内容，收藏存档保持独立，并允许同页重装。阶段 7A–7E 已完成受限 HTTPS catalog、确定性发布、来源绑定缓存、临时 Site 中继、电脑直传与 owner-only 配对；浏览器不接触本机卡包，手机只有公开 `GET/HEAD`。第二大阶段 Phase 2A–2D 已完成 17 语言 inventory、英文 218 Set/23,444 卡/21,828 张 WebP 的可恢复导入，以及 218 个最小运行时 ZIP 的确定性构建和离线回读；Gen 1 的 11 包 Site pilot 已验证公网 Hash、Range 与只读权限。下一步由独立 Pokémon Taxonomy 模块导入 PokéAPI generation/species/form snapshot；Cloudflare R2 保持为最终全量发布时的可替换存储目标。
 
 ## 两阶段路线
 

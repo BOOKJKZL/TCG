@@ -113,6 +113,8 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 同日电脑直传版本已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，本机随机凭据已由唯一 owner 邮箱绑定。`en.base1`、`en.neo1` 与 catalog 已由 Unity 直接发布；独立公网客户端完整读回 14,906,006 / 16,437,718 bytes 并得到预期 SHA-256，两包中点续传均返回精确 `206 Content-Range`。catalog 与 package 路由的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`；Git 忽略的 `LocalContent/remote-content.json` 已由验证成功的发布器原子生成。
 
+2026-07-30，公网 Catalog 已升级为 revision 2 的 Gen 1 pilot，共 11 个英文 Set、10,916,516 下载 bytes。11 个归档均由电脑端新上传，发布器完成服务端与公网 Hash 回读后才切换 Catalog；独立客户端再次通过 11/11 全包 SHA-256、11/11 中点 `206 Content-Range`，以及 Catalog/ZIP 的 8/8 写方法 `405 Allow: GET, HEAD`。218 个英文 Set 的全量本机 Catalog 已完成确定性与离线回读，等图鉴/关联包完成后在 Phase 2J 一次执行最终全量远端切换。
+
 部署后手机配置只需：
 
 ```json

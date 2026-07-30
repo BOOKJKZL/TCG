@@ -26,13 +26,13 @@ Tools > Gacha > Import Historical Sample Sets
 
 所有导入内容写入项目根目录的 `LocalContent/Imports`。该目录已经加入 `.gitignore`，不得把卡图或原始 API 数据提交到代码仓库。
 
-导入完成后可打开 `Tools > Universal Gacha > Private Content Publisher`，选择语言/系列并生成确定性 ZIP 与 schema catalog。发布输出位于 `LocalContent/Releases/android`，同样由 `.gitignore` 保护；发布器会用运行时 Planner、原子安装器和私人 Catalog 完整读回后才报告成功。当前 `Publish Base + Neo Fixtures` 批处理只用于最小远程闭环，不会自动发布其余三个系列。
+导入完成后可打开 `Tools > Universal Gacha > Private Content Publisher`，选择语言/系列并生成确定性 ZIP 与 schema catalog。`Publish All English Sets` 会把全部英文 Set 发布到 `LocalContent/Releases/android`；`Publish Generation One Site Pilot` 则生成独立的 11 包 pilot。发布目录均由 `.gitignore` 保护，且发布器会用运行时 Planner、原子安装器和私人 Catalog 完整读回后才报告成功。
 
 ```text
 LocalContent/Imports/en/{set-id}/
   manifest.json
   images/
-    {card-id}.jpg
+    {card-id}.webp
   raw/
     set.json
     cards/
@@ -64,9 +64,11 @@ LocalContent/Imports/en/{set-id}/
 
 真实数据包含 12 种稀有度，证明现有固定 `C/R/SR/UR` 枚举必须在下一阶段替换为字符串 ID 和可排序的 `RarityDefinition`。
 
+2026-07-30 已完成英文全量导入与发布：218 个 Set、23,444 份卡牌 metadata、21,828 张低清 WebP；218 个运行时 ZIP 合计 350,550,171 bytes，两次完整构建的 Catalog 与包 Hash 集合相同。ZIP 只含 Manifest 实际引用的图片，不含 `raw/` 或遗留 JPG。
+
 ## 注意
 
-- 当前图片选择 `low.jpg`，用于开发和手机 UI 验证。
+- 当前全量图片选择 `low.webp`，运行时由固定的跨平台 WebP 解码器读取；旧五系列 JPG 只留在私人来源目录，不进入新 ZIP。
 - 最终高清资源可改用 `high.jpg`，但不应在模型和界面稳定前批量下载。
 - TCGdex 的 `variants` 记录普通、反向闪、闪卡和第一版等可用版本；它不等于真实卡包位置与概率。
 - 导入器保存数据，不负责推测真实开包配列。

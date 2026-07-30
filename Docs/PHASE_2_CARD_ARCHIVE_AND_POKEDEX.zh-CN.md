@@ -2,9 +2,9 @@
 
 最后更新：2026-07-30
 
-状态：进行中（Phase 2A–2C 已完成）
+状态：进行中（Phase 2A–2D 已完成）
 
-完成度：30%
+完成度：45%
 
 前置条件：已满足。第一大阶段的最终 ARM64 构建、静态验收与 100% 完成度审计已于 2026-07-30 通过。
 
@@ -228,7 +228,7 @@ dex/{generationId}/images.{quality}.{hash}.zip
 | 2A 数据契约与排序（已完成） | 8% | Manifest v2、Set 世代/编号/时间字段、稳定排序器、形态分类政策 | Schema/迁移/排序 EditMode 测试 | `be85865`、`905e3ec`、`089e69a` |
 | 2B 全量清单盘点（已完成） | 7% | 自动发现所有 Set；只下载轻量 metadata；统计语言、卡数、预计容量、缺失率 | 可重跑 inventory 报告，零写入远端 | `8d1c938` |
 | 2C 可恢复批量导入（已完成） | 15% | checkpoint、限速、重试、断点续跑、WebP、Hash、失败队列、完整性审计 | 218/218 Set 完成；23,444/23,444 卡记录；21,828 张图 Hash 全通过 | `e789f3b`–`ef72f14` |
-| 2D 打包与发布 | 15% | 按语言/Set 建确定性包；离线回读；Site pilot；容量门槛；R2 target | 同输入同 Hash；远端回读；Catalog 最后发布 | `feat(publisher): publish immutable card packages` |
+| 2D 打包与发布（已完成） | 15% | 按语言/Set 建确定性运行时包；离线回读；Gen 1 Site pilot；容量门槛 | 218 包双构建 Hash 相同；11 包公网 Hash/Range/只读权限全通过 | `7d3cbf7`、`34e9481` |
 | 2E 图鉴资料层 | 12% | 导入 generation/species/form；本地化；形态分类与关联跳转 | Gen 1 为 151 个唯一物种；地区形态双向关系完整 | `feat(pokedex): add species and form taxonomy` |
 | 2F 卡牌关联器 | 14% | Card→Species/Form 多对多匹配、置信度报告、人工 override | 100% 卡牌具有明确质量状态；抽样无名称误配 | `feat(pokedex): link card printings to pokemon subjects` |
 | 2G 第一世代图鉴 MVP | 12% | #001–#151 列表、搜索、详情、简介、形态跳转、卡牌区 | PlayMode 完成主要旅程；性能与本地化通过 | `feat(pokedex): build generation one pokedex experience` |
@@ -296,6 +296,19 @@ dex/{generationId}/images.{quality}.{hash}.zip
 3. 通过后按语言/Set 为 218 个英文 Set 生成不可变包；原始来源 JSON 不进入手机图片包。
 4. 先以 Site 做小规模 pilot 并实测容量/请求门槛；超过门槛时使用同一发布接口切换至 Cloudflare R2，不修改游戏身份或收藏。
 5. 所有资源上传完成并验证后，才更新公开 Catalog。
+
+完成记录（2026-07-30）：
+
+- 发布输入改为严格运行时投影：每个 Set ZIP 只包含一个 `manifest.json` 与该 Manifest 实际引用的 WebP；原始 API JSON、旧 JPG、孤儿图片与报告不会进入手机包。Manifest 图片路径必须位于 `images/`，显式文件清单仍经过路径逃逸、符号链接、重复便携路径和存在性检查。
+- 218 个英文 Set 已生成 218 个不可变 ZIP；Catalog revision 2 为 84,420 bytes。归档合计下载 350,550,171 bytes、安装 365,127,653 bytes、22,046 个文件（218 Manifest + 21,828 WebP），最大单包 `en.B1` 为 5,941,742 bytes。
+- 正式 Planner、原子安装器与运行时 Catalog 已安装/回读全部 218 包。独立审计逐 ZIP 重算 SHA-256，并确认图片集合恰好等于 Manifest 引用集合；失败 0，`.publishing-*`/`.verification-*` 残留 0。旧 Base/Neo 的两个内容寻址归档安全保留但不再被 Catalog 引用。
+- 相同输入连续发布两次，Catalog SHA-256 均为 `76560e4e143c3edfa4c68a0e3be0069ddf21925f3590c0d4d9df2bda9fb58c5f`，218 包身份集合 SHA-256 均为 `9ad09159564fbbe77e5001ecb88baff8b08a06ead13360c2bd64a75a36db3769`。
+- Site pilot 采用第一世代 11 个英文 Set：下载 10,916,516 bytes、安装 11,388,535 bytes、最大包 1,940,883 bytes、Catalog 4,397 bytes。11 个归档均为新上传；每个归档与 Catalog 都通过服务端和公网完整 Hash 回读，Catalog 最后切换。
+- 独立公网复核再次通过 11/11 全包 Hash、11/11 中点 Range `206`/精确 `Content-Range`；对 Catalog 与 ZIP 各执行 `POST/PUT/PATCH/DELETE`，8/8 返回 `405 Allow: GET, HEAD`。
+- 本机发布令牌在 1,219 个 Git 跟踪文件、运行配置和 pilot Catalog 中匹配为 0。手机配置只含公开 HTTPS Catalog URL、15 秒超时与 1 MiB Catalog 上限；没有邮箱、ChatGPT 会话、发布令牌或 R2 凭据。
+- Site 的单包硬上限为 100 MiB、Catalog 为 1 MiB；当前最大包与全量 Catalog 均有充分余量。Site pilot 已通过，Phase 2J 先尝试用同一管线发布最终全量 Catalog；若总储存配额成为真实阻塞，再切换已有 Cloudflare R2 target。
+- 自验证通过：Publisher 定向 EditMode 8/8、Site typecheck/生产构建/19 项测试/lint、完整 EditMode 270/270、完整 PlayMode 7/7。实现提交为 `7d3cbf7`、`34e9481`；详细证据见 [Phase 2D 发布审计](PHASE_2_PUBLISH_2026-07-30.zh-CN.md)。
+- 本阶段只修改 Editor 发布工具和远端资料，没有改变 APK 权限、ABI、运行时储存或图形边界，因此不重复构建 APK。
 
 ### Phase 2E–2F：建立图鉴与卡牌关联
 
@@ -379,6 +392,6 @@ dex/{generationId}/images.{quality}.{hash}.zip
 
 ## 十二、现在应该先做什么
 
-Phase 2A–2C 已完成，整体为 30%。下一步是 **Phase 2D：确定性打包与发布**。
+Phase 2A–2D 已完成，整体为 45%。下一步是 **Phase 2E：图鉴资料层**。
 
-先让现有发布器读取 218 个 Manifest，生成按 `en/{setId}` 拆分的不可变 metadata/images 包，并连续构建验证相同 Hash；随后用正式 Planner、下载器与安装器做离线回读。只有本机确定性、容量报告和只读权限审计通过，才执行 Site pilot；Catalog 必须最后发布。
+先固定 PokéAPI snapshot 的 generation/species/form 数据契约与来源版本，再导入全国图鉴物种、多语言名称/简介和形态候选；随后应用既有形态分类政策，验证第一世代恰好 #001–#151、地区形态不增加全国编号且相关形态链接双向一致。手机仍不直接请求 PokéAPI。
