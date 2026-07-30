@@ -15,6 +15,8 @@ public sealed class PokemonContentOverrideException : Exception
 public sealed class PokemonSetGenerationOverrideFile
 {
     public int SchemaVersion = 1;
+    public string SourceInventorySha256;
+    public string SourceLanguage;
     public List<PokemonSetGenerationOverride> Sets = new List<PokemonSetGenerationOverride>();
 }
 

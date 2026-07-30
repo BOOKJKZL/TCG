@@ -70,6 +70,38 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         }
     }
 
+    [MenuItem("Tools/Gacha/Compile English Set Generation Overrides")]
+    public static void CompileEnglishSetGenerationOverridesFromMenu()
+    {
+        try
+        {
+            PokemonSetGenerationCompileResult result = CompileEnglishSetGenerationOverrides();
+            AssetDatabase.Refresh();
+            Debug.Log($"Compiled {result.SourceSetCount} Set generation overrides from " +
+                      $"{result.PolicyCount} policies.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+    }
+
+    public static void CompileEnglishSetGenerationOverridesFromCommandLine()
+    {
+        try
+        {
+            PokemonSetGenerationCompileResult result = CompileEnglishSetGenerationOverrides();
+            Debug.Log($"Compiled {result.SourceSetCount} Set generation overrides from " +
+                      $"{result.PolicyCount} policies.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+    }
+
     // Entry point for repeatable batch imports from CI or PowerShell.
     public static void ImportHistoricalSamplesFromCommandLine()
     {
@@ -187,6 +219,17 @@ public sealed class PrivateContentImporterWindow : EditorWindow
             MaxConcurrency = 4,
             ImageSampleCount = 12
         }).ConfigureAwait(false);
+    }
+
+    private static PokemonSetGenerationCompileResult CompileEnglishSetGenerationOverrides()
+    {
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        return PokemonSetGenerationCompiler.CompileFiles(
+            Path.Combine(projectRoot, "LocalContent", "Inventory", "tcgdex-inventory.json"),
+            Path.Combine(Application.dataPath, "Editor", "ContentImporter", "Overrides",
+                "set-generation-policies.json"),
+            Path.Combine(Application.dataPath, "Editor", "ContentImporter", "Overrides",
+                "set-generation-overrides.json"));
     }
 
     private static ContentImportOptions CreateOptions(

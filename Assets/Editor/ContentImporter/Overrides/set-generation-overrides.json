@@ -1,13 +1,95 @@
 {
   "schemaVersion": 1,
+  "sourceInventorySha256": "5443dcd1e46babb041432f46b7da46114b1d244a23f18296753861513a3e21a5",
+  "sourceLanguage": "en",
   "sets": [
+    {
+      "setId": "miscp",
+      "setCode": "miscp",
+      "eraId": "misc",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 1
+    },
     {
       "setId": "base1",
       "setCode": "BS",
       "eraId": "base",
       "generationId": "generation-1",
       "generationOrder": 1,
-      "setOrdinal": 1
+      "setOrdinal": 2
+    },
+    {
+      "setId": "base2",
+      "setCode": "JU",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "basep",
+      "setCode": "PR",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "wp",
+      "setCode": "wp",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "base3",
+      "setCode": "FO",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "jumbo",
+      "setCode": "jumbo",
+      "eraId": "misc",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "base4",
+      "setCode": "B2",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "base5",
+      "setCode": "TR",
+      "eraId": "base",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "gym1",
+      "setCode": "G1",
+      "eraId": "gym",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "gym2",
+      "setCode": "G2",
+      "eraId": "gym",
+      "generationId": "generation-1",
+      "generationOrder": 1,
+      "setOrdinal": 11
     },
     {
       "setId": "neo1",
@@ -18,6 +100,86 @@
       "setOrdinal": 1
     },
     {
+      "setId": "neo2",
+      "setCode": "N2",
+      "eraId": "neo",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "si1",
+      "setCode": "SI",
+      "eraId": "neo",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "neo3",
+      "setCode": "N3",
+      "eraId": "neo",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "neo4",
+      "setCode": "N4",
+      "eraId": "neo",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "lc",
+      "setCode": "LC",
+      "eraId": "legendary-collection",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "sp",
+      "setCode": "sp",
+      "eraId": "ecard",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "ecard1",
+      "setCode": "EX",
+      "eraId": "ecard",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "bog",
+      "setCode": "bog",
+      "eraId": "ecard",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "ecard2",
+      "setCode": "AQ",
+      "eraId": "ecard",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "ecard3",
+      "setCode": "SK",
+      "eraId": "ecard",
+      "generationId": "generation-2",
+      "generationOrder": 2,
+      "setOrdinal": 11
+    },
+    {
       "setId": "ex1",
       "setCode": "RS",
       "eraId": "ex",
@@ -26,20 +188,1564 @@
       "setOrdinal": 1
     },
     {
-      "setId": "swsh1",
-      "setCode": "SSH",
-      "eraId": "swsh",
+      "setId": "ex2",
+      "setCode": "SS",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "np",
+      "setCode": "PR-NP",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "ex3",
+      "setCode": "DR",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "ex4",
+      "setCode": "MA",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "ex5",
+      "setCode": "HL",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "ex5.5",
+      "setCode": "ex5.5",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "tk-ex-latia",
+      "setCode": "TK1A",
+      "eraId": "trainer-kit",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "tk-ex-latio",
+      "setCode": "TK1O",
+      "eraId": "trainer-kit",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "ex6",
+      "setCode": "RG",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "pop1",
+      "setCode": "P1",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "ex7",
+      "setCode": "RR",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "ex8",
+      "setCode": "DX",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "ex9",
+      "setCode": "EM",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "pop2",
+      "setCode": "P2",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "ex10",
+      "setCode": "UF",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "exu",
+      "setCode": "exu",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "ex11",
+      "setCode": "DS",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "ex12",
+      "setCode": "LM",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "tk-ex-m",
+      "setCode": "TK2M",
+      "eraId": "trainer-kit",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "tk-ex-p",
+      "setCode": "TK2P",
+      "eraId": "trainer-kit",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "pop3",
+      "setCode": "P3",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "ex13",
+      "setCode": "HP",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "pop4",
+      "setCode": "P4",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 24
+    },
+    {
+      "setId": "ex14",
+      "setCode": "CG",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 25
+    },
+    {
+      "setId": "ex15",
+      "setCode": "DF",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 26
+    },
+    {
+      "setId": "ex16",
+      "setCode": "PK",
+      "eraId": "ex",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 27
+    },
+    {
+      "setId": "pop5",
+      "setCode": "P5",
+      "eraId": "pop",
+      "generationId": "generation-3",
+      "generationOrder": 3,
+      "setOrdinal": 28
+    },
+    {
+      "setId": "dp1",
+      "setCode": "DP",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "dpp",
+      "setCode": "PR-DPP",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "dp2",
+      "setCode": "MT",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "pop6",
+      "setCode": "P6",
+      "eraId": "pop",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "tk-dp-l",
+      "setCode": "TK3L",
+      "eraId": "trainer-kit",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "tk-dp-m",
+      "setCode": "TK3M",
+      "eraId": "trainer-kit",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "dp3",
+      "setCode": "SW",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "dp4",
+      "setCode": "GE",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "pop7",
+      "setCode": "P7",
+      "eraId": "pop",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "dp5",
+      "setCode": "MD",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "dp6",
+      "setCode": "LA",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "pop8",
+      "setCode": "P8",
+      "eraId": "pop",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "dp7",
+      "setCode": "SF",
+      "eraId": "diamond-pearl",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "pl1",
+      "setCode": "PL",
+      "eraId": "platinum",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "pop9",
+      "setCode": "P9",
+      "eraId": "pop",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "pl2",
+      "setCode": "RR",
+      "eraId": "platinum",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "pl3",
+      "setCode": "SV",
+      "eraId": "platinum",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "pl4",
+      "setCode": "AR",
+      "eraId": "platinum",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "ru1",
+      "setCode": "RM",
+      "eraId": "platinum",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "hgss1",
+      "setCode": "HS",
+      "eraId": "heartgold-soulsilver",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "hgssp",
+      "setCode": "PR-HS",
+      "eraId": "heartgold-soulsilver",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "tk-hs-g",
+      "setCode": "TK4G",
+      "eraId": "trainer-kit",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "tk-hs-r",
+      "setCode": "TK4R",
+      "eraId": "trainer-kit",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "hgss2",
+      "setCode": "UL",
+      "eraId": "heartgold-soulsilver",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 24
+    },
+    {
+      "setId": "hgss3",
+      "setCode": "UD",
+      "eraId": "heartgold-soulsilver",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 25
+    },
+    {
+      "setId": "hgss4",
+      "setCode": "TM",
+      "eraId": "heartgold-soulsilver",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 26
+    },
+    {
+      "setId": "col1",
+      "setCode": "CL",
+      "eraId": "call-of-legends",
+      "generationId": "generation-4",
+      "generationOrder": 4,
+      "setOrdinal": 27
+    },
+    {
+      "setId": "bw1",
+      "setCode": "BLW",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "bwp",
+      "setCode": "PR-BLW",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "2011bw",
+      "setCode": "MCD11",
+      "eraId": "mcdonalds",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "bw2",
+      "setCode": "EPO",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "tk-bw-e",
+      "setCode": "TK5E",
+      "eraId": "trainer-kit",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "tk-bw-z",
+      "setCode": "TK5Z",
+      "eraId": "trainer-kit",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "bw3",
+      "setCode": "NVI",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "bw4",
+      "setCode": "NXD",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "bw5",
+      "setCode": "DEX",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "2012bw",
+      "setCode": "MCD12",
+      "eraId": "mcdonalds",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "bw6",
+      "setCode": "DRX",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "dv1",
+      "setCode": "DRV",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "bw7",
+      "setCode": "BCR",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "bw8",
+      "setCode": "PLS",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "bw9",
+      "setCode": "PLF",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "bw10",
+      "setCode": "PLB",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "bw11",
+      "setCode": "LTR",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "rc",
+      "setCode": "rc",
+      "eraId": "black-white",
+      "generationId": "generation-5",
+      "generationOrder": 5,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "xyp",
+      "setCode": "PR-XY",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "xy0",
+      "setCode": "KSS",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "xy1",
+      "setCode": "XY",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "xya",
+      "setCode": "xya",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "tk-xy-n",
+      "setCode": "TK6N",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "tk-xy-sy",
+      "setCode": "TK6S",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "xy2",
+      "setCode": "FLF",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "2014xy",
+      "setCode": "MCD14",
+      "eraId": "mcdonalds",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "xy3",
+      "setCode": "FFI",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "tk-xy-b",
+      "setCode": "TK7A",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "tk-xy-w",
+      "setCode": "TK7B",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "xy4",
+      "setCode": "PHF",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "xy5",
+      "setCode": "PRC",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "dc1",
+      "setCode": "DCR",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "tk-xy-latia",
+      "setCode": "TK8A",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "tk-xy-latio",
+      "setCode": "TK8O",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "xy6",
+      "setCode": "ROS",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "xy7",
+      "setCode": "AOR",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "xy8",
+      "setCode": "BKT",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "2015xy",
+      "setCode": "MCD15",
+      "eraId": "mcdonalds",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "xy9",
+      "setCode": "BKP",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "g1",
+      "setCode": "GEN",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "tk-xy-p",
+      "setCode": "TK9P",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "tk-xy-su",
+      "setCode": "TK9S",
+      "eraId": "trainer-kit",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 24
+    },
+    {
+      "setId": "xy10",
+      "setCode": "FCO",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 25
+    },
+    {
+      "setId": "xy11",
+      "setCode": "STS",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 26
+    },
+    {
+      "setId": "2016xy",
+      "setCode": "MCD16",
+      "eraId": "mcdonalds",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 27
+    },
+    {
+      "setId": "xy12",
+      "setCode": "EVO",
+      "eraId": "xy",
+      "generationId": "generation-6",
+      "generationOrder": 6,
+      "setOrdinal": 28
+    },
+    {
+      "setId": "sm1",
+      "setCode": "SUM",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "smp",
+      "setCode": "PR-SM",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "tk-sm-l",
+      "setCode": "TK10L",
+      "eraId": "trainer-kit",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "tk-sm-r",
+      "setCode": "TK10A",
+      "eraId": "trainer-kit",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "sm2",
+      "setCode": "GRI",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "2017sm",
+      "setCode": "MCD17",
+      "eraId": "mcdonalds",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "sm3",
+      "setCode": "BUS",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "sm3.5",
+      "setCode": "SLG",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "sm4",
+      "setCode": "CIN",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "sm5",
+      "setCode": "UPR",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "sm6",
+      "setCode": "FLI",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "sm7",
+      "setCode": "CES",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "sm7.5",
+      "setCode": "DRM",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "2018sm",
+      "setCode": "MCD18",
+      "eraId": "mcdonalds",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "sm8",
+      "setCode": "LOT",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "sm9",
+      "setCode": "TEU",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "det1",
+      "setCode": "DET",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "sm10",
+      "setCode": "UNB",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "sm11",
+      "setCode": "UNM",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "sm115",
+      "setCode": "HIF",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "sma",
+      "setCode": "sma",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "2019sm",
+      "setCode": "MCD19",
+      "eraId": "mcdonalds",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "sm12",
+      "setCode": "CEC",
+      "eraId": "sun-moon",
+      "generationId": "generation-7",
+      "generationOrder": 7,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "swshp",
+      "setCode": "swshp",
+      "eraId": "sword-shield",
       "generationId": "generation-8",
       "generationOrder": 8,
       "setOrdinal": 1
     },
     {
+      "setId": "swsh1",
+      "setCode": "SSH",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "swsh2",
+      "setCode": "RCL",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "swsh3",
+      "setCode": "DAA",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "fut2020",
+      "setCode": "FUT20",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "swsh3.5",
+      "setCode": "CPA",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "swsh4",
+      "setCode": "VIV",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "2021swsh",
+      "setCode": "MCD21",
+      "eraId": "mcdonalds",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "swsh4.5",
+      "setCode": "SHF",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "swsh4.5sv",
+      "setCode": "SHF",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "swsh5",
+      "setCode": "BST",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "swsh6",
+      "setCode": "CRE",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "swsh7",
+      "setCode": "EVS",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "cel25",
+      "setCode": "CEL",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "cel25cc",
+      "setCode": "CEL",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "swsh8",
+      "setCode": "FST",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "swsh9",
+      "setCode": "BRS",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "swsh9.5tg",
+      "setCode": "BRS",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "swsh10",
+      "setCode": "ASR",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "swsh10.5tg",
+      "setCode": "ASR",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "swsh10.5",
+      "setCode": "PGO",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "2022swsh",
+      "setCode": "MCD22",
+      "eraId": "mcdonalds",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "swsh11",
+      "setCode": "LOR",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "swsh11.5tg",
+      "setCode": "LOR",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 24
+    },
+    {
+      "setId": "swsh12",
+      "setCode": "SIT",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 25
+    },
+    {
+      "setId": "swsh12.5tg",
+      "setCode": "SIT",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 26
+    },
+    {
+      "setId": "swsh12.5",
+      "setCode": "CRZ",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 27
+    },
+    {
+      "setId": "swsh12.5gg",
+      "setCode": "CRZ",
+      "eraId": "sword-shield",
+      "generationId": "generation-8",
+      "generationOrder": 8,
+      "setOrdinal": 28
+    },
+    {
       "setId": "sv01",
       "setCode": "SVI",
-      "eraId": "sv",
+      "eraId": "scarlet-violet",
       "generationId": "generation-9",
       "generationOrder": 9,
       "setOrdinal": 1
+    },
+    {
+      "setId": "sve",
+      "setCode": "SVE",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "svp",
+      "setCode": "SVP",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "sv02",
+      "setCode": "PAL",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "2023sv",
+      "setCode": "MCD23",
+      "eraId": "mcdonalds",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "sv03",
+      "setCode": "OBF",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "sv03.5",
+      "setCode": "MEW",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "mfb",
+      "setCode": "MFB",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "sv04",
+      "setCode": "PAR",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "sv04.5",
+      "setCode": "PAF",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "sv05",
+      "setCode": "TEF",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "sv06",
+      "setCode": "TWM",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "sv06.5",
+      "setCode": "SFA",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "sv07",
+      "setCode": "SCR",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "sv08",
+      "setCode": "SSP",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 15
+    },
+    {
+      "setId": "2024sv",
+      "setCode": "MCD24",
+      "eraId": "mcdonalds",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 16
+    },
+    {
+      "setId": "sv08.5",
+      "setCode": "PRE",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 17
+    },
+    {
+      "setId": "sv09",
+      "setCode": "JTG",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 18
+    },
+    {
+      "setId": "sv10",
+      "setCode": "DRI",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 19
+    },
+    {
+      "setId": "sv10.5b",
+      "setCode": "BLK",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 20
+    },
+    {
+      "setId": "sv10.5w",
+      "setCode": "WHT",
+      "eraId": "scarlet-violet",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 21
+    },
+    {
+      "setId": "mee",
+      "setCode": "MEE",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 22
+    },
+    {
+      "setId": "me01",
+      "setCode": "MEG",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 23
+    },
+    {
+      "setId": "mep",
+      "setCode": "MEP",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 24
+    },
+    {
+      "setId": "me02",
+      "setCode": "PFL",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 25
+    },
+    {
+      "setId": "me02.5",
+      "setCode": "ASC",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 26
+    },
+    {
+      "setId": "me03",
+      "setCode": "POR",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 27
+    },
+    {
+      "setId": "me04",
+      "setCode": "CRI",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 28
+    },
+    {
+      "setId": "me05",
+      "setCode": "PBL",
+      "eraId": "mega-evolution",
+      "generationId": "generation-9",
+      "generationOrder": 9,
+      "setOrdinal": 29
+    },
+    {
+      "setId": "A1",
+      "setCode": "A1",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 1
+    },
+    {
+      "setId": "P-A",
+      "setCode": "P-A",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 2
+    },
+    {
+      "setId": "A1a",
+      "setCode": "A1a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 3
+    },
+    {
+      "setId": "A2",
+      "setCode": "A2",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 4
+    },
+    {
+      "setId": "A2a",
+      "setCode": "A2a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 5
+    },
+    {
+      "setId": "A2b",
+      "setCode": "A2b",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 6
+    },
+    {
+      "setId": "A3",
+      "setCode": "A3",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 7
+    },
+    {
+      "setId": "A3a",
+      "setCode": "A3a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 8
+    },
+    {
+      "setId": "A3b",
+      "setCode": "A3b",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 9
+    },
+    {
+      "setId": "A4",
+      "setCode": "A4",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 10
+    },
+    {
+      "setId": "A4a",
+      "setCode": "A4a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 11
+    },
+    {
+      "setId": "B1",
+      "setCode": "B1",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 12
+    },
+    {
+      "setId": "B1a",
+      "setCode": "B1a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 13
+    },
+    {
+      "setId": "B2",
+      "setCode": "B2",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 14
+    },
+    {
+      "setId": "B2a",
+      "setCode": "B2a",
+      "eraId": "pokemon-tcg-pocket",
+      "generationId": "pokemon-tcg-pocket",
+      "generationOrder": 100,
+      "setOrdinal": 15
     }
   ]
 }

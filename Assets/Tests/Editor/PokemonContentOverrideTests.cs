@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
 using NUnit.Framework;
 
 public class PokemonContentOverrideTests
@@ -41,13 +43,13 @@ public class PokemonContentOverrideTests
             GenerationId = "unmapped"
         };
 
-        Assert.That(catalog.Count, Is.EqualTo(5));
+        Assert.That(catalog.Count, Is.EqualTo(218));
         Assert.That(catalog.Apply(known), Is.True);
         Assert.That(known.SetCode, Is.EqualTo("BS"));
         Assert.That(known.EraId, Is.EqualTo("base"));
         Assert.That(known.GenerationId, Is.EqualTo("generation-1"));
         Assert.That(known.GenerationOrder, Is.EqualTo(1));
-        Assert.That(known.SetOrdinal, Is.EqualTo(1));
+        Assert.That(known.SetOrdinal, Is.EqualTo(2));
         Assert.That(catalog.Apply(unknown), Is.False);
         Assert.That(unknown.GenerationId, Is.EqualTo("unmapped"));
     }
@@ -77,6 +79,28 @@ public class PokemonContentOverrideTests
             Assert.Throws<PokemonContentOverrideException>(() =>
                 PokemonContentOverrideLoader.LoadSetGeneration(invalidPath)).Message,
             Does.Contain("GenerationOrder"));
+    }
+
+    [Test]
+    public void CheckedInSetOverrides_CoverEnglishSnapshotWithDenseGenerationOrdinals()
+    {
+        PokemonSetGenerationOverrideFile file =
+            JsonConvert.DeserializeObject<PokemonSetGenerationOverrideFile>(
+                File.ReadAllText(ProjectPath("set-generation-overrides.json")));
+
+        Assert.That(file.SourceLanguage, Is.EqualTo("en"));
+        Assert.That(file.SourceInventorySha256,
+            Is.EqualTo("5443dcd1e46babb041432f46b7da46114b1d244a23f18296753861513a3e21a5"));
+        Assert.That(file.Sets, Has.Count.EqualTo(218));
+        Assert.That(file.Sets.Select(item => item.SetId).Distinct().Count(), Is.EqualTo(218));
+        Assert.That(file.Sets.Select(item => item.GenerationOrder).Distinct().OrderBy(value => value),
+            Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 100 }));
+        foreach (var generation in file.Sets.GroupBy(item => item.GenerationOrder))
+        {
+            Assert.That(generation.Select(item => item.SetOrdinal).OrderBy(value => value),
+                Is.EqualTo(Enumerable.Range(1, generation.Count())),
+                $"Generation order {generation.Key} must have dense, unique Set ordinals.");
+        }
     }
 
     [Test]
