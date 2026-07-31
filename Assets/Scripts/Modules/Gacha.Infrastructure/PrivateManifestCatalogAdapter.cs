@@ -87,12 +87,14 @@ namespace Gacha.Infrastructure.Content
             public Dictionary<string, string> Names;
             public string ImageRelativePath;
             public string ImageSha256;
+            public PrintingLanguageGroupRecordDto LanguageGroup;
         }
 
         public PrivateCatalogImportResult Build(
             IEnumerable<PrivateContentManifestDocument> documents,
             string gameId = "pokemon-tcg",
-            string gameDisplayName = "Pokémon Trading Card Game")
+            string gameDisplayName = "Pokémon Trading Card Game",
+            PrintingLanguageGroupManifestDto languageGroupManifest = null)
         {
             PrivateContentManifestDocument[] source = (documents ?? throw new ArgumentNullException(nameof(documents)))
                 .OrderBy(document => document.ManifestPath, StringComparer.OrdinalIgnoreCase)
@@ -110,6 +112,8 @@ namespace Gacha.Infrastructure.Content
             Dictionary<string, VariantAccumulator> variants = new Dictionary<string, VariantAccumulator>(StringComparer.Ordinal);
             List<PendingPrinting> pendingPrintings = new List<PendingPrinting>();
             List<string> warnings = new List<string>();
+            Dictionary<string, PrintingLanguageGroupRecordDto> sourceLanguageGroups =
+                IndexLanguageGroups(languageGroupManifest);
 
             foreach (PrivateContentManifestDocument document in source)
             {
@@ -149,7 +153,20 @@ namespace Gacha.Infrastructure.Content
                         continue;
                     }
 
-                    string itemId = Id(gameId, "item", manifest.Set.Id, card.LocalId);
+                    string sourceCardKey = PrintingLanguageGroupManifestReader.SourceKey(
+                        languageId, manifest.Set.Id, card.Id, card.LocalId);
+                    sourceLanguageGroups.TryGetValue(
+                        sourceCardKey, out PrintingLanguageGroupRecordDto languageGroup);
+                    // A Set id and local number are not a safe cross-region card identity.
+                    // Keep source cards distinct; only the reviewed runtime overlay may link
+                    // their printings for language switching.
+                    string itemId = Id(
+                        gameId,
+                        "item",
+                        languageId,
+                        manifest.Set.Id,
+                        card.Id,
+                        card.LocalId);
                     if (!items.TryGetValue(itemId, out ItemAccumulator item))
                     {
                         item = new ItemAccumulator
@@ -194,7 +211,8 @@ namespace Gacha.Infrastructure.Content
                             RarityId = rarityId,
                             Names = Name(languageId, ValueOrFallback(card.Name, card.Id)),
                             ImageRelativePath = ContentPath(languageId, manifest.Set.Id, card.ImageRelativePath),
-                            ImageSha256 = card.ImageSha256
+                            ImageSha256 = card.ImageSha256,
+                            LanguageGroup = languageGroup
                         });
                     }
                 }
@@ -239,6 +257,8 @@ namespace Gacha.Infrastructure.Content
                     printing.ImageRelativePath,
                     printing.ImageSha256))
                 .ToArray();
+            PrintingLanguageGroupDefinition[] languageGroupDefinitions =
+                BuildLanguageGroupDefinitions(pendingPrintings, gameId);
 
             ProductDefinition[] products = setDefinitions.Select(set =>
             {
@@ -268,13 +288,135 @@ namespace Gacha.Infrastructure.Content
                 rarityDefinitions,
                 variantDefinitions,
                 printingDefinitions,
-                products);
+                products,
+                languageGroupDefinitions);
 
             return new PrivateCatalogImportResult(
                 catalog,
                 sets.Count,
                 items.Count,
                 new ReadOnlyCollection<string>(warnings));
+        }
+
+        private static Dictionary<string, PrintingLanguageGroupRecordDto> IndexLanguageGroups(
+            PrintingLanguageGroupManifestDto manifest)
+        {
+            var result = new Dictionary<string, PrintingLanguageGroupRecordDto>(StringComparer.Ordinal);
+            if (manifest == null)
+                return result;
+            foreach (PrintingLanguageGroupRecordDto group in manifest.Groups ??
+                     new List<PrintingLanguageGroupRecordDto>())
+            foreach (PrintingLanguageGroupMemberDto member in group.Members ??
+                     new List<PrintingLanguageGroupMemberDto>())
+            {
+                string key = PrintingLanguageGroupManifestReader.SourceKey(
+                    member.Language, member.SetId, member.CardId, member.LocalId);
+                if (!result.TryAdd(key, group))
+                    throw new PrivateContentManifestException(
+                        $"Printing language group source card '{key}' is duplicated.");
+            }
+            return result;
+        }
+
+        private static PrintingLanguageGroupDefinition[] BuildLanguageGroupDefinitions(
+            IEnumerable<PendingPrinting> printings,
+            string gameId)
+        {
+            var result = new List<PrintingLanguageGroupDefinition>();
+            foreach (IGrouping<string, PendingPrinting> sourceGroup in printings
+                         .Where(value => value.LanguageGroup != null)
+                         .GroupBy(value => value.LanguageGroup.Id, StringComparer.Ordinal)
+                         .OrderBy(value => value.Key, StringComparer.Ordinal))
+            {
+                IGrouping<string, PendingPrinting>[] languages = sourceGroup
+                    .GroupBy(value => value.Identity.LanguageId, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value.Key, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                if (languages.Length < 2)
+                    continue;
+
+                PrintingLanguageGroupRecordDto source = sourceGroup.First().LanguageGroup;
+                string[] commonVariants = languages
+                    .Select(language => new HashSet<string>(
+                        language.Select(value => value.Identity.VariantId), StringComparer.Ordinal))
+                    .Aggregate((left, right) =>
+                    {
+                        left.IntersectWith(right);
+                        return left;
+                    })
+                    .OrderBy(VariantRank)
+                    .ThenBy(value => value, StringComparer.Ordinal)
+                    .ToArray();
+                string primaryVariant = commonVariants.FirstOrDefault();
+                PendingPrinting[] primary = languages.Select(language => language
+                        .OrderBy(value => primaryVariant == null ||
+                                          value.Identity.VariantId != primaryVariant)
+                        .ThenBy(value => VariantRank(value.Identity.VariantId))
+                        .ThenBy(value => value.Identity.VariantId, StringComparer.Ordinal)
+                        .ThenBy(value => value.Id, StringComparer.Ordinal)
+                        .First())
+                    .ToArray();
+                AddLanguageGroupDefinition(
+                    result, gameId, source, "primary", primary);
+
+                var claimed = new HashSet<string>(primary.Select(value => value.Id), StringComparer.Ordinal);
+                foreach (IGrouping<string, PendingPrinting> variant in sourceGroup
+                             .Where(value => !claimed.Contains(value.Id))
+                             .GroupBy(value => value.Identity.VariantId, StringComparer.Ordinal)
+                             .OrderBy(value => VariantRank(value.Key))
+                             .ThenBy(value => value.Key, StringComparer.Ordinal))
+                {
+                    PendingPrinting[] members = variant
+                        .OrderBy(value => value.Identity.LanguageId, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(value => value.Id, StringComparer.Ordinal)
+                        .ToArray();
+                    if (members.Select(value => value.Identity.LanguageId)
+                            .Distinct(StringComparer.OrdinalIgnoreCase).Count() < 2)
+                        continue;
+                    AddLanguageGroupDefinition(result, gameId, source, variant.Key, members);
+                    foreach (PendingPrinting member in members)
+                        claimed.Add(member.Id);
+                }
+            }
+            return result.ToArray();
+        }
+
+        private static void AddLanguageGroupDefinition(
+            ICollection<PrintingLanguageGroupDefinition> result,
+            string gameId,
+            PrintingLanguageGroupRecordDto source,
+            string suffix,
+            IEnumerable<PendingPrinting> members)
+        {
+            result.Add(new PrintingLanguageGroupDefinition(
+                Id(gameId, "printing-language-group", source.Id, suffix),
+                members.Select(value => value.Id),
+                ParseMatchMethod(source.MatchMethod),
+                source.Confidence,
+                ParseReviewStatus(source.ReviewStatus)));
+        }
+
+        private static int VariantRank(string variantId)
+        {
+            string value = variantId ?? string.Empty;
+            if (value.EndsWith(":normal", StringComparison.Ordinal)) return 0;
+            if (value.EndsWith(":holo", StringComparison.Ordinal)) return 1;
+            if (value.EndsWith(":reverse", StringComparison.Ordinal)) return 2;
+            return 3;
+        }
+
+        private static PrintingLanguageMatchMethod ParseMatchMethod(string value)
+        {
+            return string.Equals(value, "manual-override", StringComparison.Ordinal)
+                ? PrintingLanguageMatchMethod.ManualOverride
+                : PrintingLanguageMatchMethod.SourceIdentity;
+        }
+
+        private static PrintingLanguageReviewStatus ParseReviewStatus(string value)
+        {
+            return string.Equals(value, "reviewed", StringComparison.Ordinal)
+                ? PrintingLanguageReviewStatus.Reviewed
+                : PrintingLanguageReviewStatus.AutoAccepted;
         }
 
         private sealed class VariantDescriptor

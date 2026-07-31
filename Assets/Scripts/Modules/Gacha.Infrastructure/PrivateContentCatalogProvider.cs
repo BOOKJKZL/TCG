@@ -28,10 +28,13 @@ namespace Gacha.Infrastructure.Content
         public CatalogLoadResult Load()
         {
             var documents = new PrivateContentManifestReader().LoadCardSetDirectory(contentRoot);
+            PrintingLanguageGroupManifestDto languageGroups =
+                new PrintingLanguageGroupManifestReader().LoadOptional(contentRoot);
             PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter(variantPolicy).Build(
                 documents,
                 gameId,
-                gameDisplayName);
+                gameDisplayName,
+                languageGroups);
 
             return CatalogLoadResult.Success(
                 import.Catalog,

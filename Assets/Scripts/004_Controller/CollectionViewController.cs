@@ -773,13 +773,16 @@ public sealed class CollectionViewController : MonoBehaviour
         if (UIFeedbackService.ReduceMotion)
         {
             detailImage.Element.style.opacity = 1f;
+            detailLanguageSwitcher.style.opacity = 1f;
             return;
         }
 
         detailImage.Element.style.opacity = 0.35f;
+        detailLanguageSwitcher.style.opacity = 0f;
         languageSwapAnimation = detailImage.Element.schedule.Execute(() =>
         {
             detailImage.Element.style.opacity = 1f;
+            detailLanguageSwitcher.style.opacity = 1f;
             languageSwapAnimation = null;
         });
         languageSwapAnimation.ExecuteLater(Mathf.RoundToInt(120f / UIFeedbackService.AnimationSpeed));
@@ -899,7 +902,10 @@ public sealed class CollectionViewController : MonoBehaviour
         currentDetailPrinting = null;
         detailLanguageSwitcher?.Clear();
         if (detailLanguageSwitcher != null)
+        {
             detailLanguageSwitcher.style.display = DisplayStyle.None;
+            detailLanguageSwitcher.style.opacity = 1f;
+        }
         if (detailNewBadge != null)
             detailNewBadge.style.display = DisplayStyle.None;
         if (clearSelection)

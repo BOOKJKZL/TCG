@@ -124,7 +124,13 @@ public static class PokemonCardSubjectLinker
                     throw new InvalidDataException($"Card '{card.Id}' has a missing or unsafe raw path.");
                 JObject raw = JObject.Parse(File.ReadAllText(rawPath, Encoding.UTF8));
                 AddHash(sourceHash, "card:" + card.Id, raw.ToString(Formatting.None));
-                string itemId = RuntimeId(GameId, "item", document.Manifest.Set.Id, card.LocalId);
+                string itemId = RuntimeId(
+                    GameId,
+                    "item",
+                    normalizedLanguage,
+                    document.Manifest.Set.Id,
+                    card.Id,
+                    card.LocalId);
                 if (!printingIds.TryGetValue(itemId, out string[] cardPrintings) || cardPrintings.Length == 0)
                     throw new InvalidDataException($"Card '{card.Id}' has no runtime printing identities.");
                 links.Add(LinkCard(

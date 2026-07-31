@@ -174,7 +174,10 @@ namespace Gacha.Tests.PlayMode
                 BindingFlags.Static | BindingFlags.Public);
             UniversalCatalog testCatalog = BuildCardLanguageCatalog();
             catalogOverride.SetValue(null, testCatalog);
-            storeOverride.SetValue(null, new MemoryCollectionProgressStore());
+            var progressStore = new MemoryCollectionProgressStore();
+            progressStore.Set("card-025-en", 2, false);
+            progressStore.Set("card-025-ja", 5, false);
+            storeOverride.SetValue(null, progressStore);
             Assert.That(ApplicationServices.IsConfigured, Is.True);
             string originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
             string originalCardLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
@@ -210,6 +213,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "DetailLanguageCount"), Is.EqualTo(3));
                 Assert.That(switcher.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(languageButtons.Select(button => button.text), Is.EqualTo(new[] { "中", "EN", "日" }));
+                Assert.That(document.rootVisualElement.Q<Label>("detail-progress").text, Does.Contain("2"));
 
                 bool switched = (bool)controllerType.GetMethod("SwitchDetailCardLanguage")
                     .Invoke(controller, new object[] { "ja" });
@@ -219,7 +223,10 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(GetProperty(controller, "DetailPrintingId"), Is.EqualTo("card-025-ja"));
                 Assert.That(document.rootVisualElement.Q<Label>("detail-name").text, Is.EqualTo("ピカチュウ"));
                 Assert.That(document.rootVisualElement.Q<Label>("detail-metadata").text, Does.Contain("日本語セット"));
+                Assert.That(document.rootVisualElement.Q<Label>("detail-progress").text, Does.Contain("5"),
+                    "Owned counts remain attached to the selected printing, not the language group.");
                 Assert.That(document.rootVisualElement.Q<Button>("detail-language-ja").ClassListContains("is-selected"), Is.True);
+                Assert.That(switcher.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f));
                 Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo(originalUiLanguage));
                 Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("en"));
                 Assert.That(ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId, Is.EqualTo("en"));

@@ -51,16 +51,20 @@ public class ContentCatalogAdapterTests
             Assert.Ignore("Private LocalContent fixture is not installed on this machine.");
 
         IReadOnlyList<PrivateContentManifestDocument> documents = new PrivateContentManifestReader().LoadDirectory(contentRoot);
-        PrivateCatalogImportResult result = new PrivateManifestCatalogAdapter().Build(documents);
+        PrintingLanguageGroupManifestDto languageGroups =
+            new PrintingLanguageGroupManifestReader().LoadOptional(contentRoot);
+        PrivateCatalogImportResult result = new PrivateManifestCatalogAdapter().Build(
+            documents,
+            languageGroupManifest: languageGroups);
 
         int expectedCards = documents.Sum(document => document.Manifest.Cards.Count);
         Assert.That(result.SourceSetCount, Is.EqualTo(result.Catalog.Sets.Count));
         Assert.That(result.SourceSetCount, Is.LessThanOrEqualTo(documents.Count),
             "The same logical set may have separate manifests for each card language.");
         Assert.That(result.SourceSetCount, Is.GreaterThanOrEqualTo(5));
-        Assert.That(result.SourceCardCount, Is.EqualTo(result.Catalog.Items.Count));
-        Assert.That(result.SourceCardCount, Is.LessThanOrEqualTo(expectedCards),
-            "Localized printings of the same set/local number share one logical card item.");
+        Assert.That(result.SourceCardCount, Is.EqualTo(expectedCards));
+        Assert.That(result.Catalog.Items.Count, Is.EqualTo(expectedCards),
+            "Source cards stay distinct; only explicit printing groups provide language switching.");
         Assert.That(result.Catalog.Languages.Count, Is.EqualTo(documents
             .Select(document => document.Manifest.Language)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -73,6 +77,16 @@ public class ContentCatalogAdapterTests
             .All(printing => File.Exists(Path.Combine(
                 contentRoot,
                 printing.ImageRelativePath.Replace('/', Path.DirectorySeparatorChar)))), Is.True);
+        if (languageGroups != null)
+        {
+            Assert.That(languageGroups.Groups, Has.Count.EqualTo(147));
+            Assert.That(result.Catalog.PrintingLanguageGroups.Count,
+                Is.GreaterThanOrEqualTo(languageGroups.Groups.Count),
+                "Every accepted source group must expose at least one common runtime variant.");
+            Assert.That(result.Catalog.PrintingLanguageGroups.All(group =>
+                group.PrintingIds.Select(id => result.Catalog.Printings[id].Identity.LanguageId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).Count() == group.PrintingIds.Count), Is.True);
+        }
     }
 
     [Test]
