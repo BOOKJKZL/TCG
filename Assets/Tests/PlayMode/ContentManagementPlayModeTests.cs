@@ -80,6 +80,24 @@ namespace Gacha.Tests.PlayMode
             public long GetAvailableBytes() => 1024 * 1024;
         }
 
+        private sealed class Network : IContentNetworkProbe
+        {
+            public ContentNetworkType Type = ContentNetworkType.WifiOrEthernet;
+            public ContentNetworkType GetNetworkType() => Type;
+        }
+
+        private sealed class DownloadPreferenceStore : IContentDownloadPreferenceStore
+        {
+            public DownloadPreferenceStore(bool wifiOnly)
+            {
+                Current = new ContentDownloadPreferences(wifiOnly);
+            }
+
+            public ContentDownloadPreferences Current { get; private set; }
+            public ContentDownloadPreferences Load() => Current;
+            public void Save(ContentDownloadPreferences preferences) => Current = preferences;
+        }
+
         private sealed class Transfer : IContentPackageTransfer
         {
             private long bytes;
@@ -195,6 +213,7 @@ namespace Gacha.Tests.PlayMode
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog(), true);
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
+            ContentManagementController.DownloadPolicyOverride = Policy();
             var cues = new List<FeedbackCue>();
             var haptic = new HapticSink();
             UIFeedbackService.FeedbackPlayed += cues.Add;
@@ -431,6 +450,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.OperationFactoryOverride = null;
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
+                ContentManagementController.DownloadPolicyOverride = null;
             }
         }
 
@@ -439,9 +459,12 @@ namespace Gacha.Tests.PlayMode
         {
             var lifecycle = new Lifecycle();
             var factory = new OperationFactory(lifecycle, false);
+            var network = new Network();
+            var policy = Policy(network, true, 100);
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
+            ContentManagementController.DownloadPolicyOverride = policy;
             string originalLanguage = null;
             try
             {
@@ -467,7 +490,31 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.SelectedPackageCount, Is.EqualTo(2));
                 Assert.That(controller.SelectionSummary.DownloadBytes, Is.EqualTo(200));
                 Assert.That(controller.SelectionSummary.InstalledBytes, Is.EqualTo(400));
+                Assert.That(controller.DownloadPreflight.Status,
+                    Is.EqualTo(ContentDownloadPreflightStatus.Ready));
                 Assert.That(controller.StartSelectedPackages(), Is.True);
+                while ((controller.QueueSnapshot == null || controller.QueueSnapshot.RunningCount == 0) &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                network.Type = ContentNetworkType.MobileData;
+                Assert.That(controller.RefreshDownloadNetworkState(), Is.True,
+                    "A Wi-Fi batch must pause before continuing on unconfirmed mobile data.");
+                while ((controller.QueueSnapshot == null || !controller.QueueSnapshot.Paused) &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.QueueSnapshot.Paused, Is.True);
+                Assert.That(controller.DownloadPreflight.Status,
+                    Is.EqualTo(ContentDownloadPreflightStatus.WaitingForWifi));
+                policy.SetWifiOnlyForLargeDownloads(false);
+                Assert.That(controller.DownloadPreflight.Status,
+                    Is.EqualTo(ContentDownloadPreflightStatus.CellularConfirmationRequired));
+                Assert.That(controller.ResumeInstallQueue(), Is.False,
+                    "The first mobile action must arm an explicit size confirmation.");
+                VisualElement mobileDownloadAction = controller.GetComponent<UIDocument>()
+                    .rootVisualElement.Q<VisualElement>("download-selected-button");
+                Assert.That(mobileDownloadAction, Is.Not.Null);
+                Assert.That(ActionText(mobileDownloadAction), Is.EqualTo("Confirm mobile download"));
+                Assert.That(controller.ResumeInstallQueue(), Is.True);
                 while ((controller.QueueSnapshot == null || !controller.QueueSnapshot.IsComplete) &&
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
@@ -501,6 +548,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.OperationFactoryOverride = null;
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
+                ContentManagementController.DownloadPolicyOverride = null;
             }
         }
 
@@ -513,6 +561,7 @@ namespace Gacha.Tests.PlayMode
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateLargeCatalog(packageCount));
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
+            ContentManagementController.DownloadPolicyOverride = Policy();
             try
             {
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
@@ -559,6 +608,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.OperationFactoryOverride = null;
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
+                ContentManagementController.DownloadPolicyOverride = null;
             }
         }
 
@@ -717,6 +767,17 @@ namespace Gacha.Tests.PlayMode
                     new ContentPackageCatalogEntry(second, new Uri("https://fixture.example/" + HashB + ".zip"))
                 });
         }
+
+        private static ContentDownloadPolicyService Policy(
+            Network network = null,
+            bool wifiOnly = true,
+            long threshold = ContentDownloadPolicyService.DefaultLargeDownloadThresholdBytes) =>
+            new ContentDownloadPolicyService(
+                new Storage(),
+                network ?? new Network(),
+                new DownloadPreferenceStore(wifiOnly),
+                threshold,
+                0);
 
         private static ContentPackageCatalog CreateLargeCatalog(int count)
         {

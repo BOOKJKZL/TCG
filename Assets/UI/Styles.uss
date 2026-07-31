@@ -211,6 +211,15 @@
     white-space: normal;
 }
 
+.content-management__wifi-only {
+    margin-top: 8px;
+    color: rgb(220, 239, 252);
+}
+
+.content-management__wifi-only .unity-toggle__input {
+    margin-right: 8px;
+}
+
 .content-management__selection-actions {
     flex-direction: row;
     flex-wrap: wrap;

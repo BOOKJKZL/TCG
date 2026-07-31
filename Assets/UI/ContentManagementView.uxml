@@ -36,6 +36,7 @@
             </ui:VisualElement>
             <ui:VisualElement name="content-selection" class="content-management__selection">
                 <ui:Label name="content-selection-summary" class="content-management__selection-summary" />
+                <ui:Toggle name="content-wifi-only" class="content-management__wifi-only" />
                 <ui:VisualElement name="content-selection-actions" class="content-management__selection-actions">
                     <ui:VisualElement name="select-filtered-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
                     <ui:VisualElement name="clear-selection-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>

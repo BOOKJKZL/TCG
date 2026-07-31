@@ -615,6 +615,62 @@ MonoBehaviour:
     m_Key: content.queue.summary
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428306
+    m_Key: content.policy.wifi_only
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428307
+    m_Key: content.action.confirm_cellular
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428308
+    m_Key: content.preflight.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428309
+    m_Key: content.preflight.current
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428310
+    m_Key: content.preflight.offline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428311
+    m_Key: content.preflight.waiting_wifi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428312
+    m_Key: content.preflight.cellular_confirmation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428313
+    m_Key: content.preflight.insufficient_space
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428314
+    m_Key: content.preflight.storage_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428315
+    m_Key: content.preflight.network_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428316
+    m_Key: content.network.wifi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428317
+    m_Key: content.network.mobile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428318
+    m_Key: content.network.offline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428319
+    m_Key: content.network.unknown
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

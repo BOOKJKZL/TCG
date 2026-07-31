@@ -620,6 +620,62 @@ MonoBehaviour:
     m_Localized: '{0} queued · {1} running · {2} complete · {3} failed'
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428306
+    m_Localized: Wi-Fi only for downloads of 100 MB or more
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428307
+    m_Localized: Confirm mobile download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428308
+    m_Localized: '{0} free · {1} required · {2}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428309
+    m_Localized: Selected content is already installed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428310
+    m_Localized: "Offline · connect to continue."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428311
+    m_Localized: '{0} download is waiting for Wi-Fi.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428312
+    m_Localized: "Mobile data · confirm the {0} download."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428313
+    m_Localized: "Not enough storage · {0} free · {1} required."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428314
+    m_Localized: Available storage could not be read.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428315
+    m_Localized: Network type could not be confirmed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428316
+    m_Localized: Wi-Fi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428317
+    m_Localized: Mobile data
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428318
+    m_Localized: Offline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428319
+    m_Localized: Unknown network
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

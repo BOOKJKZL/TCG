@@ -155,6 +155,7 @@ public class ContentManagementPresentationTests
         Assert.That(root.Q<DropdownField>("content-language-filter"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-generation-filter"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-install-filter"), Is.Not.Null);
+        Assert.That(root.Q<Toggle>("content-wifi-only"), Is.Not.Null);
         Assert.That(root.Q<Label>("content-selection-summary"), Is.Not.Null);
         foreach (string name in new[]
                  {
@@ -187,7 +188,14 @@ public class ContentManagementPresentationTests
                      "content.filter.installed", "content.filter.not_installed", "content.filter.update",
                      "content.action.select_filtered", "content.action.clear_selection",
                      "content.action.download_selected", "content.selection.none",
-                     "content.selection.summary", "content.queue.summary"
+                     "content.selection.summary", "content.queue.summary",
+                     "content.policy.wifi_only", "content.action.confirm_cellular",
+                     "content.preflight.ready", "content.preflight.current",
+                     "content.preflight.offline", "content.preflight.waiting_wifi",
+                     "content.preflight.cellular_confirmation", "content.preflight.insufficient_space",
+                     "content.preflight.storage_unavailable", "content.preflight.network_unavailable",
+                     "content.network.wifi", "content.network.mobile",
+                     "content.network.offline", "content.network.unknown"
                  })
         {
             Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing English key: " + key);

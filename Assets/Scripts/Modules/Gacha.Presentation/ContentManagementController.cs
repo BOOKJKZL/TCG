@@ -52,6 +52,20 @@ namespace Gacha.Presentation
                 ["content.selection.none"] = "Select packs to calculate download and storage size.",
                 ["content.selection.summary"] = "{0} selected + {1} dependencies · {2} download · {3} installed",
                 ["content.queue.summary"] = "{0} queued · {1} running · {2} complete · {3} failed",
+                ["content.policy.wifi_only"] = "Wi-Fi only for downloads of 100 MB or more",
+                ["content.action.confirm_cellular"] = "Confirm mobile download",
+                ["content.preflight.ready"] = "{0} free · {1} required · {2}",
+                ["content.preflight.current"] = "Selected content is already installed.",
+                ["content.preflight.offline"] = "Offline · connect to continue.",
+                ["content.preflight.waiting_wifi"] = "{0} download is waiting for Wi-Fi.",
+                ["content.preflight.cellular_confirmation"] = "Mobile data · confirm the {0} download.",
+                ["content.preflight.insufficient_space"] = "Not enough storage · {0} free · {1} required.",
+                ["content.preflight.storage_unavailable"] = "Available storage could not be read.",
+                ["content.preflight.network_unavailable"] = "Network type could not be confirmed.",
+                ["content.network.wifi"] = "Wi-Fi",
+                ["content.network.mobile"] = "Mobile data",
+                ["content.network.offline"] = "Offline",
+                ["content.network.unknown"] = "Unknown network",
                 ["content.catalog.loading"] = "Checking available content...",
                 ["content.catalog.loaded"] = "{0} content packs available.",
                 ["content.catalog.empty"] = "No downloadable content is listed in this catalog.",
@@ -375,6 +389,7 @@ namespace Gacha.Presentation
         private DropdownField languageFilter;
         private DropdownField generationFilter;
         private DropdownField installFilter;
+        private Toggle wifiOnlyToggle;
         private Label selectionSummaryLabel;
         private Label title;
         private Label subtitle;
@@ -396,9 +411,19 @@ namespace Gacha.Presentation
         private readonly HashSet<string> selectedPackageIds =
             new HashSet<string>(StringComparer.Ordinal);
         private ContentPackageSelectionSummary selectionSummary;
+        private ContentDownloadPolicyService downloadPolicy;
+        private ContentDownloadPreflightResult downloadPreflight;
         private ContentPackageInstallQueue installQueue;
         private ContentPackageQueueSnapshot queueSnapshot;
         private bool queueCompletionNotified;
+        private bool bindingWifiOnly;
+        private bool cellularConfirmationArmed;
+        private bool mobileAuthorizedForBatch;
+        private readonly HashSet<string> mobileAuthorizedPackages =
+            new HashSet<string>(StringComparer.Ordinal);
+        private string pendingCellularPackageId;
+        private ContentNetworkType lastNetworkType = ContentNetworkType.Unknown;
+        private float nextNetworkPollTime;
         private CancellationTokenSource loadCancellation;
         private Coroutine localizationRoutine;
         private Coroutine entranceAnimation;
@@ -411,6 +436,7 @@ namespace Gacha.Presentation
         public static IContentPackageInstallCoordinatorFactory OperationFactoryOverride { private get; set; }
         public static IContentPackageLifecycleService LifecycleOverride { private get; set; }
         public static IUiThreadDispatcher DispatcherOverride { private get; set; }
+        public static ContentDownloadPolicyService DownloadPolicyOverride { private get; set; }
 
         public bool IsReady { get; private set; }
         public string InitializationError { get; private set; }
@@ -419,6 +445,7 @@ namespace Gacha.Presentation
         public int VisibleRowCount => rows.Count;
         public int SelectedPackageCount => selectedPackageIds.Count;
         public ContentPackageSelectionSummary SelectionSummary => selectionSummary;
+        public ContentDownloadPreflightResult DownloadPreflight => downloadPreflight;
         public ContentPackageQueueSnapshot QueueSnapshot => queueSnapshot;
         public int LastAppliedThreadId { get; private set; }
 
@@ -445,7 +472,9 @@ namespace Gacha.Presentation
                 ContentPackageLibrary.IsCurrent(
                     LookupInstalled(packageId), catalog.Find(packageId).Package))
                 return false;
-            PrimaryClicked(packageId);
+            if (!PreparePackageDownload(packageId))
+                return false;
+            StartPreparedPackage(packageId);
             return true;
         }
 
@@ -495,18 +524,21 @@ namespace Gacha.Presentation
         {
             foreach (ContentPackageLibraryItem item in displayedItems)
                 selectedPackageIds.Add(item.Package.PackageId);
+            cellularConfirmationArmed = false;
             RefreshSelectionUi();
         }
 
         public void ClearPackageSelection()
         {
             selectedPackageIds.Clear();
+            cellularConfirmationArmed = false;
             RefreshSelectionUi();
         }
 
         public bool StartSelectedPackages()
         {
-            if (installQueue == null || selectedPackageIds.Count == 0)
+            if (installQueue == null || selectedPackageIds.Count == 0 ||
+                !PrepareBatchDownload())
                 return false;
             if (queueSnapshot?.IsComplete == true)
             {
@@ -516,9 +548,15 @@ namespace Gacha.Presentation
                 queueSnapshot = installQueue.Current;
             }
             queueCompletionNotified = false;
+            mobileAuthorizedForBatch =
+                downloadPreflight?.NetworkType == ContentNetworkType.MobileData;
             installQueue.EnqueueSelection(selectedPackageIds);
             UIFeedbackService.Play(FeedbackCue.DownloadStart);
-            _ = installQueue.StartAsync();
+            if (queueSnapshot?.Paused == true)
+                _ = installQueue.ResumeAsync();
+            else
+                _ = installQueue.StartAsync();
+            cellularConfirmationArmed = false;
             return true;
         }
 
@@ -534,17 +572,62 @@ namespace Gacha.Presentation
         {
             if (installQueue == null || queueSnapshot == null || !queueSnapshot.Paused)
                 return false;
-            _ = installQueue.ResumeAsync();
-            return true;
+            return StartSelectedPackages();
         }
 
         public bool RetryFailedQueueItems()
         {
-            if (installQueue == null || queueSnapshot?.FailedCount <= 0)
+            if (installQueue == null || queueSnapshot?.FailedCount <= 0 ||
+                !PrepareBatchDownload())
                 return false;
             queueCompletionNotified = false;
+            mobileAuthorizedForBatch =
+                downloadPreflight?.NetworkType == ContentNetworkType.MobileData;
             _ = installQueue.RetryFailedAsync();
+            cellularConfirmationArmed = false;
             return true;
+        }
+
+        public bool RefreshDownloadNetworkState()
+        {
+            if (destroyed || downloadPolicy == null)
+                return false;
+            ContentNetworkType current = downloadPolicy.GetNetworkType();
+            if (current != lastNetworkType)
+            {
+                if (current == ContentNetworkType.WifiOrEthernet)
+                {
+                    mobileAuthorizedForBatch = false;
+                    mobileAuthorizedPackages.Clear();
+                }
+                lastNetworkType = current;
+                cellularConfirmationArmed = false;
+                pendingCellularPackageId = null;
+                RefreshSelectionUi();
+            }
+
+            bool pauseQueue = queueSnapshot?.RunningCount > 0 && ShouldPauseBatchForNetwork(current);
+            if (pauseQueue)
+                _ = installQueue.PauseAsync();
+
+            var queuedRunning = new HashSet<string>(
+                queueSnapshot?.Items
+                    .Where(value => value.State == ContentPackageQueueItemState.Running)
+                    .Select(value => value.PackageId) ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            bool pausedSingle = false;
+            foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
+            {
+                if (queuedRunning.Contains(pair.Key) ||
+                    pair.Value.Current.State != ContentPackageOperationState.Downloading ||
+                    !ShouldPausePackageForNetwork(pair.Key, current))
+                    continue;
+                _ = pair.Value.PauseAsync();
+                pausedSingle = true;
+            }
+            if (pauseQueue || pausedSingle)
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+            return pauseQueue || pausedSingle;
         }
 
         public bool CancelInstallQueue()
@@ -563,6 +646,7 @@ namespace Gacha.Presentation
             OperationFactoryOverride = null;
             LifecycleOverride = null;
             DispatcherOverride = null;
+            DownloadPolicyOverride = null;
         }
 
         private void Awake()
@@ -583,6 +667,13 @@ namespace Gacha.Presentation
                 catalogProvider = CatalogProviderOverride ?? ApplicationServices.ContentPackageCatalogs;
                 operationFactory = OperationFactoryOverride ?? ApplicationServices.ContentPackageOperations;
                 lifecycleService = LifecycleOverride ?? ApplicationServices.ContentPackageLifecycle;
+                downloadPolicy = DownloadPolicyOverride ?? ApplicationServices.ContentDownloadPolicy;
+                if (downloadPolicy != null)
+                {
+                    downloadPolicy.Changed += OnDownloadPreferencesChanged;
+                    lastNetworkType = downloadPolicy.GetNetworkType();
+                    ApplyDownloadPreferences(downloadPolicy.Current);
+                }
                 experienceSettings = ApplicationServices.ExperienceSettings;
                 if (experienceSettings != null)
                     experienceSettings.Changed += OnExperienceSettingsChanged;
@@ -613,6 +704,9 @@ namespace Gacha.Presentation
             if (experienceSettings != null)
                 experienceSettings.Changed -= OnExperienceSettingsChanged;
             experienceSettings = null;
+            if (downloadPolicy != null)
+                downloadPolicy.Changed -= OnDownloadPreferencesChanged;
+            downloadPolicy = null;
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
@@ -635,6 +729,7 @@ namespace Gacha.Presentation
             languageFilter = pageRoot.Q<DropdownField>("content-language-filter");
             generationFilter = pageRoot.Q<DropdownField>("content-generation-filter");
             installFilter = pageRoot.Q<DropdownField>("content-install-filter");
+            wifiOnlyToggle = pageRoot.Q<Toggle>("content-wifi-only");
             selectionSummaryLabel = pageRoot.Q<Label>("content-selection-summary");
             title = pageRoot.Q<Label>("content-title");
             subtitle = pageRoot.Q<Label>("content-subtitle");
@@ -651,7 +746,7 @@ namespace Gacha.Presentation
             VisualElement queueCancelRoot = pageRoot.Q<VisualElement>("queue-cancel-button");
             if (shell == null || packageList == null || searchFilter == null ||
                 languageFilter == null || generationFilter == null || installFilter == null ||
-                selectionSummaryLabel == null || selectFilteredRoot == null ||
+                wifiOnlyToggle == null || selectionSummaryLabel == null || selectFilteredRoot == null ||
                 clearSelectionRoot == null || downloadSelectedRoot == null ||
                 queuePauseRoot == null || queueResumeRoot == null || queueRetryRoot == null ||
                 queueCancelRoot == null ||
@@ -702,8 +797,17 @@ namespace Gacha.Presentation
             languageFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
             generationFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
             installFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
+            wifiOnlyToggle.RegisterValueChangedCallback(OnWifiOnlyChanged);
             ConfigureFilterChoices();
             ApplyLocalizedChrome();
+        }
+
+        private void Update()
+        {
+            if (destroyed || downloadPolicy == null || Time.unscaledTime < nextNetworkPollTime)
+                return;
+            nextNetworkPollTime = Time.unscaledTime + 1f;
+            RefreshDownloadNetworkState();
         }
 
         private async Task ReloadCatalogAsync()
@@ -771,6 +875,10 @@ namespace Gacha.Presentation
             installQueue.Changed += OnQueueChanged;
             queueSnapshot = installQueue.Current;
             queueCompletionNotified = false;
+            cellularConfirmationArmed = false;
+            mobileAuthorizedForBatch = false;
+            mobileAuthorizedPackages.Clear();
+            pendingCellularPackageId = null;
             ClearOperations();
             rows.Clear();
             displayedItems.Clear();
@@ -988,6 +1096,7 @@ namespace Gacha.Presentation
                 selectedPackageIds.Add(packageId);
             else
                 selectedPackageIds.Remove(packageId);
+            cellularConfirmationArmed = false;
             UIFeedbackService.Play(FeedbackCue.ButtonClick);
             RefreshSelectionUi();
         }
@@ -1009,6 +1118,9 @@ namespace Gacha.Presentation
                     selectionSummary.DependencyCount,
                     FormatBytes(selectionSummary.DownloadBytes),
                     FormatBytes(selectionSummary.InstalledBytes));
+            downloadPreflight = downloadPolicy?.Evaluate(selectionSummary);
+            if (downloadPreflight != null && selectionSummary != null)
+                selectionText += "\n" + DescribePreflight(downloadPreflight);
             if (queueSnapshot != null && queueSnapshot.Items.Count > 0)
             {
                 selectionText += "\n" + string.Format(
@@ -1022,10 +1134,18 @@ namespace Gacha.Presentation
 
             ConfigureGlobalAction(selectFilteredAction, displayedItems.Count > 0);
             ConfigureGlobalAction(clearSelectionAction, selectedPackageIds.Count > 0);
-            ConfigureGlobalAction(downloadSelectedAction, selectedPackageIds.Count > 0);
+            bool canAttemptDownload = downloadPreflight?.CanStart == true ||
+                                      downloadPreflight?.Status ==
+                                      ContentDownloadPreflightStatus.CellularConfirmationRequired;
+            downloadSelectedAction.SetLabel(L(cellularConfirmationArmed
+                ? "content.action.confirm_cellular"
+                : "content.action.download_selected"));
+            ConfigureGlobalAction(downloadSelectedAction, canAttemptDownload);
             ConfigureGlobalAction(queuePauseAction, queueSnapshot?.RunningCount > 0);
-            ConfigureGlobalAction(queueResumeAction, queueSnapshot?.Paused == true);
-            ConfigureGlobalAction(queueRetryAction, queueSnapshot?.FailedCount > 0);
+            ConfigureGlobalAction(queueResumeAction,
+                queueSnapshot?.Paused == true && canAttemptDownload);
+            ConfigureGlobalAction(queueRetryAction,
+                queueSnapshot?.FailedCount > 0 && canAttemptDownload);
             ConfigureGlobalAction(queueCancelAction,
                 queueSnapshot != null && queueSnapshot.Items.Count > 0 && !queueSnapshot.IsComplete);
 
@@ -1038,6 +1158,203 @@ namespace Gacha.Presentation
                 row.Selection.SetValueWithoutNotify(selected);
                 row.Root.EnableInClassList("is-selected", selected);
             }
+        }
+
+        private bool PrepareBatchDownload()
+        {
+            if (downloadPolicy == null || selectionSummary == null)
+                return false;
+            ContentDownloadPreflightResult result = downloadPolicy.Evaluate(
+                selectionSummary,
+                cellularConfirmationArmed);
+            downloadPreflight = result;
+            if (result.Status == ContentDownloadPreflightStatus.CellularConfirmationRequired &&
+                !cellularConfirmationArmed)
+            {
+                cellularConfirmationArmed = true;
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                RefreshSelectionUi();
+                return false;
+            }
+            if (!result.CanStart)
+            {
+                UIFeedbackService.Play(result.Status == ContentDownloadPreflightStatus.WaitingForWifi
+                    ? FeedbackCue.Confirm
+                    : FeedbackCue.Error);
+                RefreshSelectionUi();
+                return false;
+            }
+            return true;
+        }
+
+        private bool PreparePackageDownload(string packageId)
+        {
+            if (downloadPolicy == null || catalog?.Find(packageId) == null)
+                return false;
+            ContentPackageSelectionSummary summary = ContentPackageLibrary.SummarizeSelection(
+                catalog,
+                new[] { packageId },
+                LookupInstalled);
+            bool confirmed = mobileAuthorizedPackages.Contains(packageId) ||
+                             string.Equals(
+                                 pendingCellularPackageId,
+                                 packageId,
+                                 StringComparison.Ordinal);
+            ContentDownloadPreflightResult result = downloadPolicy.Evaluate(summary, confirmed);
+            if (result.Status == ContentDownloadPreflightStatus.CellularConfirmationRequired &&
+                !confirmed)
+            {
+                pendingCellularPackageId = packageId;
+                ShowPackagePreflight(packageId, result);
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                return false;
+            }
+            if (!result.CanStart)
+            {
+                ShowPackagePreflight(packageId, result);
+                UIFeedbackService.Play(result.Status == ContentDownloadPreflightStatus.WaitingForWifi
+                    ? FeedbackCue.Confirm
+                    : FeedbackCue.Error);
+                return false;
+            }
+            pendingCellularPackageId = null;
+            if (result.NetworkType == ContentNetworkType.MobileData)
+                mobileAuthorizedPackages.Add(packageId);
+            return true;
+        }
+
+        private void ShowPackagePreflight(
+            string packageId,
+            ContentDownloadPreflightResult result)
+        {
+            if (!rows.TryGetValue(packageId, out PackageRow row))
+                return;
+            row.Status.text = DescribePreflight(result);
+            bool error = result.Status == ContentDownloadPreflightStatus.InsufficientSpace ||
+                         result.Status == ContentDownloadPreflightStatus.StorageUnavailable ||
+                         result.Status == ContentDownloadPreflightStatus.NetworkUnavailable ||
+                         result.Status == ContentDownloadPreflightStatus.Offline;
+            row.Status.EnableInClassList("is-error", error);
+            AnimateRow(row, error);
+        }
+
+        private bool ShouldPauseBatchForNetwork(ContentNetworkType networkType)
+        {
+            if (networkType == ContentNetworkType.Offline ||
+                networkType == ContentNetworkType.Unknown)
+                return true;
+            if (networkType != ContentNetworkType.MobileData)
+                return false;
+            if (!mobileAuthorizedForBatch)
+                return true;
+            return downloadPolicy.Current.WifiOnlyForLargeDownloads &&
+                   (selectionSummary?.DownloadBytes ?? 0) >=
+                   downloadPolicy.LargeDownloadThresholdBytes;
+        }
+
+        private bool ShouldPausePackageForNetwork(
+            string packageId,
+            ContentNetworkType networkType)
+        {
+            if (networkType == ContentNetworkType.Offline ||
+                networkType == ContentNetworkType.Unknown)
+                return true;
+            if (networkType != ContentNetworkType.MobileData)
+                return false;
+            if (!mobileAuthorizedPackages.Contains(packageId))
+                return true;
+            ContentPackageSelectionSummary summary = ContentPackageLibrary.SummarizeSelection(
+                catalog,
+                new[] { packageId },
+                LookupInstalled);
+            return downloadPolicy.Current.WifiOnlyForLargeDownloads &&
+                   summary.DownloadBytes >= downloadPolicy.LargeDownloadThresholdBytes;
+        }
+
+        private string DescribePreflight(ContentDownloadPreflightResult result)
+        {
+            switch (result.Status)
+            {
+                case ContentDownloadPreflightStatus.Ready:
+                    return string.Format(
+                        L("content.preflight.ready"),
+                        FormatBytes(result.AvailableBytes),
+                        FormatBytes(result.RequiredBytes),
+                        NetworkName(result.NetworkType));
+                case ContentDownloadPreflightStatus.AlreadyCurrent:
+                    return L("content.preflight.current");
+                case ContentDownloadPreflightStatus.Offline:
+                    return L("content.preflight.offline");
+                case ContentDownloadPreflightStatus.WaitingForWifi:
+                    return string.Format(
+                        L("content.preflight.waiting_wifi"),
+                        FormatBytes(result.DownloadBytes));
+                case ContentDownloadPreflightStatus.CellularConfirmationRequired:
+                    return string.Format(
+                        L("content.preflight.cellular_confirmation"),
+                        FormatBytes(result.DownloadBytes));
+                case ContentDownloadPreflightStatus.InsufficientSpace:
+                    return string.Format(
+                        L("content.preflight.insufficient_space"),
+                        FormatBytes(result.AvailableBytes),
+                        FormatBytes(result.RequiredBytes));
+                case ContentDownloadPreflightStatus.StorageUnavailable:
+                    return L("content.preflight.storage_unavailable");
+                case ContentDownloadPreflightStatus.NetworkUnavailable:
+                    return L("content.preflight.network_unavailable");
+                default:
+                    return L("content.selection.none");
+            }
+        }
+
+        private string NetworkName(ContentNetworkType networkType)
+        {
+            switch (networkType)
+            {
+                case ContentNetworkType.WifiOrEthernet: return L("content.network.wifi");
+                case ContentNetworkType.MobileData: return L("content.network.mobile");
+                case ContentNetworkType.Offline: return L("content.network.offline");
+                default: return L("content.network.unknown");
+            }
+        }
+
+        private void OnWifiOnlyChanged(ChangeEvent<bool> evt)
+        {
+            if (bindingWifiOnly || downloadPolicy == null)
+                return;
+            try
+            {
+                downloadPolicy.SetWifiOnlyForLargeDownloads(evt.newValue);
+                cellularConfirmationArmed = false;
+                mobileAuthorizedForBatch = false;
+                mobileAuthorizedPackages.Clear();
+                UIFeedbackService.Play(FeedbackCue.ButtonClick);
+                RefreshSelectionUi();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Content download preference could not be saved: " + exception.Message);
+                ApplyDownloadPreferences(downloadPolicy.Current);
+                UIFeedbackService.Play(FeedbackCue.Error);
+            }
+        }
+
+        private void OnDownloadPreferencesChanged(ContentDownloadPreferences preferences)
+        {
+            ApplyDownloadPreferences(preferences);
+            cellularConfirmationArmed = false;
+            mobileAuthorizedForBatch = false;
+            mobileAuthorizedPackages.Clear();
+            RefreshSelectionUi();
+        }
+
+        private void ApplyDownloadPreferences(ContentDownloadPreferences preferences)
+        {
+            if (wifiOnlyToggle == null || preferences == null)
+                return;
+            bindingWifiOnly = true;
+            wifiOnlyToggle.SetValueWithoutNotify(preferences.WifiOnlyForLargeDownloads);
+            bindingWifiOnly = false;
         }
 
         private static void ConfigureGlobalAction(StableActionControl action, bool allowed)
@@ -1064,6 +1381,8 @@ namespace Gacha.Presentation
             if (snapshot == null || !snapshot.IsComplete || queueCompletionNotified)
                 return;
             queueCompletionNotified = true;
+            cellularConfirmationArmed = false;
+            mobileAuthorizedForBatch = false;
             if (snapshot.FailedCount == 0)
             {
                 UIFeedbackService.Play(FeedbackCue.DownloadComplete, true);
@@ -1095,6 +1414,10 @@ namespace Gacha.Presentation
             installQueue = null;
             queueSnapshot = null;
             queueCompletionNotified = false;
+            cellularConfirmationArmed = false;
+            mobileAuthorizedForBatch = false;
+            mobileAuthorizedPackages.Clear();
+            pendingCellularPackageId = null;
             selectedPackageIds.Clear();
             selectionSummary = null;
             if (selectionSummaryLabel != null)
@@ -1139,6 +1462,16 @@ namespace Gacha.Presentation
             ContentPackageItemPresentation item = ContentPackageItemPresentation.Create(row.Entry, snapshot);
             ContentPackageOperationState? previous = row.LastState;
             row.LastState = snapshot.State;
+            if (snapshot.State == ContentPackageOperationState.Succeeded ||
+                snapshot.State == ContentPackageOperationState.AlreadyCurrent ||
+                snapshot.State == ContentPackageOperationState.Cancelled ||
+                snapshot.State == ContentPackageOperationState.Failed ||
+                snapshot.State == ContentPackageOperationState.Blocked)
+            {
+                mobileAuthorizedPackages.Remove(packageId);
+                if (string.Equals(pendingCellularPackageId, packageId, StringComparison.Ordinal))
+                    pendingCellularPackageId = null;
+            }
 
             string packageIdentity = string.IsNullOrWhiteSpace(row.Entry.Metadata.SetCode)
                 ? row.Entry.Package.PackageId
@@ -1214,7 +1547,13 @@ namespace Gacha.Presentation
                 ReloadLocalCatalog();
         }
 
-        private async void PrimaryClicked(string packageId)
+        private void PrimaryClicked(string packageId)
+        {
+            if (PreparePackageDownload(packageId))
+                StartPreparedPackage(packageId);
+        }
+
+        private async void StartPreparedPackage(string packageId)
         {
             if (!operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
@@ -1483,6 +1822,7 @@ namespace Gacha.Presentation
             languageFilter.label = L("content.filter.language");
             generationFilter.label = L("content.filter.generation");
             installFilter.label = L("content.filter.install");
+            wifiOnlyToggle.label = L("content.policy.wifi_only");
             selectFilteredAction.SetLabel(L("content.action.select_filtered"));
             clearSelectionAction.SetLabel(L("content.action.clear_selection"));
             downloadSelectedAction.SetLabel(L("content.action.download_selected"));
