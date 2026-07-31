@@ -163,7 +163,42 @@
     margin-top: 14px;
 }
 
+.content-management__filters {
+    flex-direction: row;
+    align-items: flex-end;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-width: 1px;
+    border-radius: 14px;
+    border-color: rgba(88, 161, 174, 0.55);
+    background-color: rgba(10, 25, 38, 0.72);
+}
+
+.content-management__search {
+    flex-grow: 1;
+    min-width: 220px;
+    margin-right: 8px;
+}
+
+.content-management__filter {
+    width: 190px;
+    margin-left: 8px;
+}
+
+.content-management__filters .unity-base-field__label {
+    color: rgb(177, 211, 235);
+    min-width: 72px;
+}
+
+.content-management__filters .unity-base-field__input {
+    min-height: 42px;
+    border-radius: 10px;
+    color: rgb(21, 43, 67);
+    background-color: rgb(243, 247, 250);
+}
+
 .content-package-row {
+    height: 148px;
     min-height: 148px;
     margin: 6px 4px;
     padding: 18px;

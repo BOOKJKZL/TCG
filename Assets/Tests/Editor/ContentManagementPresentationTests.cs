@@ -141,6 +141,24 @@ public class ContentManagementPresentationTests
     }
 
     [Test]
+    public void ContentLibrary_UsesFixedHeightVirtualizedListAndPlayerFilters()
+    {
+        VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+            "Assets/UI/ContentManagementView.uxml");
+        VisualElement root = asset.CloneTree();
+        ListView list = root.Q<ListView>("package-list");
+
+        Assert.That(list, Is.Not.Null);
+        Assert.That(list.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+        Assert.That(list.fixedItemHeight, Is.EqualTo(160f));
+        Assert.That(root.Q<TextField>("content-search"), Is.Not.Null);
+        Assert.That(root.Q<DropdownField>("content-language-filter"), Is.Not.Null);
+        Assert.That(root.Q<DropdownField>("content-generation-filter"), Is.Not.Null);
+        Assert.That(root.Q<DropdownField>("content-install-filter"), Is.Not.Null);
+        Assert.That(root.Q<ScrollView>("package-list"), Is.Null);
+    }
+
+    [Test]
     public void OfflineCatalogLocalization_HasEnglishAndChineseEntries()
     {
         StringTable english = AssetDatabase.LoadAssetAtPath<StringTable>(
@@ -148,7 +166,14 @@ public class ContentManagementPresentationTests
         StringTable chinese = AssetDatabase.LoadAssetAtPath<StringTable>(
             "Assets/Resources/Data/Localization/Card_UI_zh.asset");
 
-        foreach (string key in new[] { "content.catalog.cached", "content.catalog.cache_warning" })
+        foreach (string key in new[]
+                 {
+                     "content.catalog.cached", "content.catalog.cache_warning",
+                     "content.filter.search", "content.filter.language", "content.filter.generation",
+                     "content.filter.install", "content.filter.all", "content.filter.language.en",
+                     "content.filter.language.ja", "content.filter.language.zh-cn",
+                     "content.filter.installed", "content.filter.not_installed", "content.filter.update"
+                 })
         {
             Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing English key: " + key);
             Assert.That(chinese.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing Chinese key: " + key);

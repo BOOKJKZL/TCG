@@ -28,8 +28,14 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="catalog-status" class="content-management__catalog-status" />
+            <ui:VisualElement name="content-filters" class="content-management__filters">
+                <ui:TextField name="content-search" class="content-management__search" />
+                <ui:DropdownField name="content-language-filter" class="content-management__filter" />
+                <ui:DropdownField name="content-generation-filter" class="content-management__filter" />
+                <ui:DropdownField name="content-install-filter" class="content-management__filter" />
+            </ui:VisualElement>
             <ui:Label name="content-empty" class="content-management__empty" />
-            <ui:ScrollView name="package-list" class="content-management__list" />
+            <ui:ListView name="package-list" class="content-management__list" fixed-item-height="160" virtualization-method="FixedHeight" selection-type="None" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

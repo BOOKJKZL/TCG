@@ -160,8 +160,11 @@ namespace Gacha.Tests.PlayMode
                 transfers[RetryId] = new Transfer { FailNext = true };
             }
 
+            public int CreateCalls { get; private set; }
+
             public ContentPackageInstallCoordinator Create(ContentPackageCatalog catalog, string packageId)
             {
+                CreateCalls++;
                 ContentPackageCatalogEntry entry = catalog.Find(packageId) ??
                     throw new InvalidOperationException("Fixture package was not found.");
                 if (!transfers.TryGetValue(packageId, out Transfer transfer))
@@ -217,6 +220,7 @@ namespace Gacha.Tests.PlayMode
                 float deadline = Time.realtimeSinceStartup + 5f;
                 while (!controller.IsReady && Time.realtimeSinceStartup < deadline)
                     yield return null;
+                yield return null;
 
                 Assert.That(controller.IsReady, Is.True, controller.InitializationError);
                 Assert.That(controller.PackageCount, Is.EqualTo(2));
@@ -397,8 +401,15 @@ namespace Gacha.Tests.PlayMode
                         yield return null;
                     Assert.That(title.text, Is.EqualTo("内容库"));
                     Assert.That(catalogStatus.text, Does.StartWith("离线模式"));
+                    yield return null;
+                    successRow = document.rootVisualElement.Q<VisualElement>("package-" + SuccessId);
+                    download = successRow.Q<VisualElement>("download-button");
+                    pause = successRow.Q<VisualElement>("pause-button");
+                    remove = successRow.Q<VisualElement>("remove-button");
+                    cancel = successRow.Q<VisualElement>("cancel-button");
+                    actions = download.parent;
                     Assert.That(ActionText(download), Is.EqualTo("下载"));
-                    AssertPersistentActionBar(actions, download, pause, remove, cancel, false, persistentGeometry);
+                    AssertPersistentActionBar(actions, download, pause, remove, cancel, false);
                 }
 
                 LogAssert.NoUnexpectedReceived();
@@ -424,12 +435,13 @@ namespace Gacha.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ContentScene_BuildsLargeCatalogAcrossFramesWithoutBlockingThePage()
+        public IEnumerator ContentScene_VirtualizesTwoThousandPackagesAndCreatesOnlyVisibleOperations()
         {
-            const int packageCount = 48;
+            const int packageCount = 2000;
             var lifecycle = new Lifecycle();
+            var factory = new OperationFactory(lifecycle);
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateLargeCatalog(packageCount));
-            ContentManagementController.OperationFactoryOverride = new OperationFactory(lifecycle);
+            ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
             try
             {
@@ -440,20 +452,25 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController controller = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
                 Assert.That(controller, Is.Not.Null);
                 float deadline = Time.realtimeSinceStartup + 5f;
-                while (controller.PackageCount == 0 && Time.realtimeSinceStartup < deadline)
-                    yield return null;
-
-                Assert.That(controller.PackageCount, Is.InRange(1, packageCount - 1));
-                Assert.That(controller.IsReady, Is.False,
-                    "A large package catalog should yield between row batches instead of blocking one frame.");
                 while (!controller.IsReady && Time.realtimeSinceStartup < deadline)
                     yield return null;
+                yield return null;
 
                 Assert.That(controller.IsReady, Is.True, controller.InitializationError);
                 Assert.That(controller.PackageCount, Is.EqualTo(packageCount));
+                Assert.That(controller.FilteredPackageCount, Is.EqualTo(packageCount));
+                Assert.That(controller.VisibleRowCount, Is.InRange(1, 24));
+                Assert.That(factory.CreateCalls, Is.InRange(1, 24));
                 UIDocument document = controller.GetComponent<UIDocument>();
+                Assert.That(document.rootVisualElement.Q<ListView>("package-list"), Is.Not.Null);
                 Assert.That(document.rootVisualElement.Query<VisualElement>(className: "content-package-row").ToList(),
-                    Has.Count.EqualTo(packageCount));
+                    Has.Count.InRange(1, 24));
+                TextField search = document.rootVisualElement.Q<TextField>("content-search");
+                search.value = "large-1999";
+                yield return null;
+                Assert.That(controller.FilteredPackageCount, Is.EqualTo(1));
+                Assert.That(document.rootVisualElement.Query<VisualElement>(className: "content-package-row").ToList(),
+                    Has.Count.EqualTo(1));
             }
             finally
             {

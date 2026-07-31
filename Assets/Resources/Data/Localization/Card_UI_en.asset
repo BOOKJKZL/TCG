@@ -552,6 +552,50 @@ MonoBehaviour:
     m_Localized: Japanese
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428289
+    m_Localized: Search name or set number
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428290
+    m_Localized: Card language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428291
+    m_Localized: Generation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428292
+    m_Localized: Status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428293
+    m_Localized: All
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428294
+    m_Localized: English cards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428295
+    m_Localized: Japanese cards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428296
+    m_Localized: Simplified Chinese cards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428297
+    m_Localized: Installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428298
+    m_Localized: Not installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428299
+    m_Localized: Update available
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

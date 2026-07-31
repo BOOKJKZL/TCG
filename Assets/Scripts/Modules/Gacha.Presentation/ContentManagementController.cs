@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -15,7 +16,7 @@ namespace Gacha.Presentation
     public sealed class ContentManagementController : MonoBehaviour
     {
         private const string StringTable = "Card_UI";
-        private const int RowsBuiltPerFrame = 12;
+        private const float VirtualRowHeight = 160f;
 
         private static readonly IReadOnlyDictionary<string, string> EnglishFallbacks =
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -34,6 +35,17 @@ namespace Gacha.Presentation
                 ["content.action.download"] = "Download",
                 ["content.action.remove"] = "Remove",
                 ["content.action.confirm_remove"] = "Confirm remove",
+                ["content.filter.search"] = "Search name or set number",
+                ["content.filter.language"] = "Card language",
+                ["content.filter.generation"] = "Generation",
+                ["content.filter.install"] = "Status",
+                ["content.filter.all"] = "All",
+                ["content.filter.language.en"] = "English cards",
+                ["content.filter.language.ja"] = "Japanese cards",
+                ["content.filter.language.zh-cn"] = "Simplified Chinese cards",
+                ["content.filter.installed"] = "Installed",
+                ["content.filter.not_installed"] = "Not installed",
+                ["content.filter.update"] = "Update available",
                 ["content.catalog.loading"] = "Checking available content...",
                 ["content.catalog.loaded"] = "{0} content packs available.",
                 ["content.catalog.empty"] = "No downloadable content is listed in this catalog.",
@@ -198,19 +210,17 @@ namespace Gacha.Presentation
         private sealed class PackageRow
         {
             public PackageRow(
-                ContentPackageCatalogEntry entry,
                 Action<string> primary,
                 Action<string> pause,
                 Action<string> cancel,
                 Action<string> remove)
             {
-                Entry = entry;
-                Root = new VisualElement { name = "package-" + entry.Package.PackageId };
+                Root = new VisualElement();
                 Root.AddToClassList("content-package-row");
 
                 var copy = new VisualElement();
                 copy.AddToClassList("content-package-row__copy");
-                Name = new Label(entry.Package.PackageId);
+                Name = new Label();
                 Name.AddToClassList("content-package-row__name");
                 Metadata = new Label();
                 Metadata.AddToClassList("content-package-row__metadata");
@@ -227,10 +237,10 @@ namespace Gacha.Presentation
                 var actions = new VisualElement();
                 actions.AddToClassList("content-package-row__actions");
                 Actions = actions;
-                Download = ActionControl("download", () => primary(entry.Package.PackageId));
-                Pause = ActionControl("pause", () => pause(entry.Package.PackageId));
-                Remove = ActionControl("remove", () => remove(entry.Package.PackageId));
-                Cancel = ActionControl("cancel", () => cancel(entry.Package.PackageId));
+                Download = ActionControl("download", () => primary(Entry?.Package.PackageId));
+                Pause = ActionControl("pause", () => pause(Entry?.Package.PackageId));
+                Remove = ActionControl("remove", () => remove(Entry?.Package.PackageId));
+                Cancel = ActionControl("cancel", () => cancel(Entry?.Package.PackageId));
                 Download.Root.AddToClassList("content-button--primary");
                 Pause.Root.AddToClassList("content-button--quiet");
                 Remove.Root.AddToClassList("content-button--danger");
@@ -249,7 +259,7 @@ namespace Gacha.Presentation
                 Root.Add(controls);
             }
 
-            public ContentPackageCatalogEntry Entry { get; }
+            public ContentPackageCatalogEntry Entry { get; private set; }
             public VisualElement Root { get; }
             public Label Name { get; }
             public Label Metadata { get; }
@@ -271,6 +281,42 @@ namespace Gacha.Presentation
             public bool PauseAllowed { get => Pause.Allowed; set => Pause.Allowed = value; }
             public bool RemoveAllowed { get => Remove.Allowed; set => Remove.Allowed = value; }
             public bool CancelAllowed { get => Cancel.Allowed; set => Cancel.Allowed = value; }
+
+            public void Bind(ContentPackageCatalogEntry entry, string displayName)
+            {
+                RemovalConfirmationTimeout?.Pause();
+                Animation?.Pause();
+                Entry = entry ?? throw new ArgumentNullException(nameof(entry));
+                Root.name = "package-" + entry.Package.PackageId;
+                Name.text = string.IsNullOrWhiteSpace(displayName)
+                    ? entry.Package.PackageId
+                    : displayName;
+                Metadata.text = string.Empty;
+                Status.text = string.Empty;
+                Installed = null;
+                LifecycleError = null;
+                AwaitingRemovalConfirmation = false;
+                Removing = false;
+                RemovalConfirmationTimeout = null;
+                LastState = null;
+                Animation = null;
+                Root.style.opacity = 1f;
+                Root.style.translate = new Translate(0f, 0f, 0f);
+            }
+
+            public void Unbind()
+            {
+                RemovalConfirmationTimeout?.Pause();
+                Animation?.Pause();
+                Entry = null;
+                Installed = null;
+                LifecycleError = null;
+                AwaitingRemovalConfirmation = false;
+                Removing = false;
+                RemovalConfirmationTimeout = null;
+                LastState = null;
+                Animation = null;
+            }
 
             private static StableActionControl ActionControl(string name, Action clicked)
             {
@@ -303,7 +349,11 @@ namespace Gacha.Presentation
         private ExperienceSettingsService experienceSettings;
         private VisualElement pageRoot;
         private VisualElement shell;
-        private ScrollView packageList;
+        private ListView packageList;
+        private TextField searchFilter;
+        private DropdownField languageFilter;
+        private DropdownField generationFilter;
+        private DropdownField installFilter;
         private Label title;
         private Label subtitle;
         private Label catalogStatus;
@@ -311,10 +361,12 @@ namespace Gacha.Presentation
         private StableActionControl backAction;
         private StableActionControl refreshAction;
         private ContentPackageCatalog catalog;
+        private ContentPackageLibrarySnapshot library;
+        private readonly List<ContentPackageLibraryItem> displayedItems =
+            new List<ContentPackageLibraryItem>();
         private CancellationTokenSource loadCancellation;
         private Coroutine localizationRoutine;
         private Coroutine entranceAnimation;
-        private Coroutine rowPopulationRoutine;
         private int loadGeneration;
         private bool destroyed;
         private bool catalogUsedCache;
@@ -327,22 +379,33 @@ namespace Gacha.Presentation
 
         public bool IsReady { get; private set; }
         public string InitializationError { get; private set; }
-        public int PackageCount => rows.Count;
+        public int PackageCount => catalog?.Packages.Count ?? 0;
+        public int FilteredPackageCount => library?.FilteredCount ?? 0;
+        public int VisibleRowCount => rows.Count;
         public int LastAppliedThreadId { get; private set; }
 
         public ContentPackageOperationState? GetPackageState(string packageId)
         {
-            return packageId != null && operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation)
+            if (packageId == null || catalog?.Find(packageId) == null)
+                return null;
+            return operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation)
                 ? operation.Current.State
-                : (ContentPackageOperationState?)null;
+                : ContentPackageOperationState.Idle;
         }
 
         public bool StartOrRetryPackage(string packageId)
         {
-            if (packageId == null ||
-                !rows.TryGetValue(packageId, out PackageRow row) ||
-                !row.DownloadAllowed ||
-                !operations.ContainsKey(packageId))
+            if (packageId == null || catalog?.Find(packageId) == null)
+                return false;
+            ContentPackageInstallCoordinator operation = EnsureOperation(packageId);
+            ContentPackageOperationState state = operation.Current.State;
+            if (state == ContentPackageOperationState.Planning ||
+                state == ContentPackageOperationState.Downloading ||
+                state == ContentPackageOperationState.Installing ||
+                state == ContentPackageOperationState.Succeeded ||
+                state == ContentPackageOperationState.AlreadyCurrent ||
+                ContentPackageLibrary.IsCurrent(
+                    LookupInstalled(packageId), catalog.Find(packageId).Package))
                 return false;
             PrimaryClicked(packageId);
             return true;
@@ -351,9 +414,8 @@ namespace Gacha.Presentation
         public bool PausePackage(string packageId)
         {
             if (packageId == null ||
-                !rows.TryGetValue(packageId, out PackageRow row) ||
-                !row.PauseAllowed ||
-                !operations.ContainsKey(packageId))
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation) ||
+                !operation.Current.CanPause)
                 return false;
             PauseClicked(packageId);
             return true;
@@ -361,10 +423,16 @@ namespace Gacha.Presentation
 
         public bool CancelPackage(string packageId)
         {
+            if (packageId != null &&
+                rows.TryGetValue(packageId, out PackageRow row) &&
+                row.AwaitingRemovalConfirmation)
+            {
+                CancelClicked(packageId);
+                return true;
+            }
             if (packageId == null ||
-                !rows.TryGetValue(packageId, out PackageRow row) ||
-                !row.CancelAllowed ||
-                !operations.ContainsKey(packageId))
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation) ||
+                !CanShowCancel(operation.Current.State))
                 return false;
             CancelClicked(packageId);
             return true;
@@ -382,7 +450,7 @@ namespace Gacha.Presentation
 
         public bool IsPackageInstalled(string packageId)
         {
-            return packageId != null && rows.TryGetValue(packageId, out PackageRow row) && row.Installed != null;
+            return packageId != null && LookupInstalled(packageId) != null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -438,7 +506,6 @@ namespace Gacha.Presentation
                 StopCoroutine(localizationRoutine);
             localizationRoutine = null;
             StopEntranceAnimation();
-            StopRowPopulation();
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
             if (experienceSettings != null)
                 experienceSettings.Changed -= OnExperienceSettingsChanged;
@@ -454,19 +521,36 @@ namespace Gacha.Presentation
             if (pageRoot == null)
                 throw new InvalidOperationException("ContentManagementView.uxml is not attached to the UIDocument.");
             shell = pageRoot.Q<VisualElement>("content-shell");
-            packageList = pageRoot.Q<ScrollView>("package-list");
+            packageList = pageRoot.Q<ListView>("package-list");
+            searchFilter = pageRoot.Q<TextField>("content-search");
+            languageFilter = pageRoot.Q<DropdownField>("content-language-filter");
+            generationFilter = pageRoot.Q<DropdownField>("content-generation-filter");
+            installFilter = pageRoot.Q<DropdownField>("content-install-filter");
             title = pageRoot.Q<Label>("content-title");
             subtitle = pageRoot.Q<Label>("content-subtitle");
             catalogStatus = pageRoot.Q<Label>("catalog-status");
             emptyState = pageRoot.Q<Label>("content-empty");
             VisualElement backRoot = pageRoot.Q<VisualElement>("back-button");
             VisualElement refreshRoot = pageRoot.Q<VisualElement>("refresh-button");
-            if (shell == null || packageList == null || title == null || subtitle == null ||
+            if (shell == null || packageList == null || searchFilter == null ||
+                languageFilter == null || generationFilter == null || installFilter == null ||
+                title == null || subtitle == null ||
                 catalogStatus == null || emptyState == null || backRoot == null || refreshRoot == null)
                 throw new InvalidOperationException("Content management view is missing required named elements.");
 
             backAction = new StableActionControl(backRoot, BackToMenu);
             refreshAction = new StableActionControl(refreshRoot, RefreshClicked);
+            packageList.fixedItemHeight = VirtualRowHeight;
+            packageList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
+            packageList.selectionType = SelectionType.None;
+            packageList.makeItem = MakePackageRow;
+            packageList.bindItem = BindPackageRow;
+            packageList.unbindItem = UnbindPackageRow;
+            searchFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
+            languageFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
+            generationFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
+            installFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
+            ConfigureFilterChoices();
             ApplyLocalizedChrome();
         }
 
@@ -526,92 +610,209 @@ namespace Gacha.Presentation
             catalogHasCacheWarning = !string.IsNullOrWhiteSpace(result.WarningMessage);
             if (catalogHasCacheWarning)
                 Debug.LogWarning("Content package catalog warning: " + result.WarningMessage);
-            StopRowPopulation();
             ClearOperations();
-            packageList.Clear();
             rows.Clear();
+            displayedItems.Clear();
             notifiedFailures.Clear();
-            rowPopulationRoutine = StartCoroutine(PopulateRowsIncrementally(generation));
+            ConfigureFilterChoices();
+            ApplyLibraryQuery();
         }
 
-        private IEnumerator PopulateRowsIncrementally(int generation)
+        private void ApplyLibraryQuery(bool rebuild = true)
         {
-            int index = 0;
-            while (!destroyed && generation == loadGeneration && index < catalog.Packages.Count)
+            if (destroyed || catalog == null || packageList == null)
+                return;
+            try
             {
-                Exception failure = null;
-                int frameEnd = Math.Min(index + RowsBuiltPerFrame, catalog.Packages.Count);
-                try
-                {
-                    while (index < frameEnd)
-                        AddPackageRow(catalog.Packages[index++]);
-                }
-                catch (Exception exception)
-                {
-                    failure = exception;
-                }
-
-                if (failure != null)
-                {
-                    rowPopulationRoutine = null;
-                    ClearOperations();
-                    rows.Clear();
-                    packageList.Clear();
-                    ApplyCatalogFailure(generation, failure.Message);
-                    yield break;
-                }
-
-                if (index < catalog.Packages.Count)
-                {
-                    SetCatalogStatus($"{L("content.catalog.loading")} {index}/{catalog.Packages.Count}", false);
-                    yield return null;
-                }
+                library = ContentPackageLibrary.Project(
+                    catalog,
+                    LookupInstalled,
+                    new ContentPackageLibraryQuery(
+                        CurrentUiLanguageId(),
+                        searchFilter?.value,
+                        SelectedLanguage(),
+                        SelectedGeneration(),
+                        installFilter: SelectedInstallFilter()));
+                displayedItems.Clear();
+                displayedItems.AddRange(library.Items);
+                rows.Clear();
+                packageList.itemsSource = displayedItems;
+                if (rebuild)
+                    packageList.Rebuild();
+                else
+                    packageList.RefreshItems();
+                bool empty = displayedItems.Count == 0;
+                emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
+                packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
+                IsReady = true;
+                InitializationError = null;
+                ApplyReadyCatalogStatus();
+                refreshAction.Allowed = true;
             }
-
-            rowPopulationRoutine = null;
-            if (destroyed || generation != loadGeneration)
-                yield break;
-            bool empty = rows.Count == 0;
-            emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
-            packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
-            IsReady = true;
-            InitializationError = null;
-            ApplyReadyCatalogStatus();
-            refreshAction.Allowed = true;
+            catch (Exception exception)
+            {
+                ApplyCatalogFailure(loadGeneration, exception.Message);
+            }
         }
 
-        private void AddPackageRow(ContentPackageCatalogEntry entry)
+        private VisualElement MakePackageRow()
         {
-            ContentPackageInstallCoordinator operation = operationFactory.Create(
-                catalog,
-                entry.Package.PackageId);
+            var row = new PackageRow(PrimaryClicked, PauseClicked, CancelClicked, RemoveClicked);
+            row.Root.userData = row;
+            return row.Root;
+        }
+
+        private void BindPackageRow(VisualElement element, int index)
+        {
+            if (destroyed || index < 0 || index >= displayedItems.Count)
+                return;
+            var row = (PackageRow)element.userData;
+            RemoveVisibleBinding(row);
+            ContentPackageLibraryItem item = displayedItems[index];
+            row.Bind(item.Entry, item.DisplayName);
+            string packageId = item.Package.PackageId;
+            rows[packageId] = row;
+            ContentPackageInstallCoordinator operation = EnsureOperation(packageId);
+            RefreshInstalledState(row);
+            ApplyOperation(packageId, operation.Current);
+        }
+
+        private void UnbindPackageRow(VisualElement element, int index)
+        {
+            if (!(element.userData is PackageRow row))
+                return;
+            RemoveVisibleBinding(row);
+            row.Unbind();
+        }
+
+        private void RemoveVisibleBinding(PackageRow row)
+        {
+            string packageId = row?.Entry?.Package.PackageId;
+            if (packageId == null)
+                return;
+            if (rows.TryGetValue(packageId, out PackageRow current) && ReferenceEquals(current, row))
+                rows.Remove(packageId);
+            ReleaseIdleOperation(packageId);
+        }
+
+        private ContentPackageInstallCoordinator EnsureOperation(string packageId)
+        {
+            if (operations.TryGetValue(packageId, out ContentPackageInstallCoordinator existing))
+                return existing;
+            if (catalog?.Find(packageId) == null)
+                throw new KeyNotFoundException("Content package is not in the active catalog: " + packageId);
+            ContentPackageInstallCoordinator operation = operationFactory.Create(catalog, packageId);
             var bridge = new ContentPackageOperationUiBridge(operation, dispatcher);
-            string packageId = entry.Package.PackageId;
             bridge.Changed += snapshot => ApplyOperation(packageId, snapshot);
             bridge.FailureReported += ReportFailure;
             operations.Add(packageId, operation);
             bridges.Add(packageId, bridge);
-
-            var row = new PackageRow(entry, PrimaryClicked, PauseClicked, CancelClicked, RemoveClicked);
-            RefreshInstalledState(row);
-            rows.Add(packageId, row);
-            packageList.Add(row.Root);
-            ApplyOperation(packageId, operation.Current);
+            return operation;
         }
 
-        private void StopRowPopulation()
+        private void ReleaseIdleOperation(string packageId)
         {
-            if (rowPopulationRoutine == null)
+            if (rows.ContainsKey(packageId) ||
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
-            StopCoroutine(rowPopulationRoutine);
-            rowPopulationRoutine = null;
+            ContentPackageOperationState state = operation.Current.State;
+            if (state == ContentPackageOperationState.Planning ||
+                state == ContentPackageOperationState.Downloading ||
+                state == ContentPackageOperationState.Installing ||
+                state == ContentPackageOperationState.Paused ||
+                state == ContentPackageOperationState.Failed)
+                return;
+            if (bridges.TryGetValue(packageId, out ContentPackageOperationUiBridge bridge))
+                bridge.Dispose();
+            bridges.Remove(packageId);
+            operations.Remove(packageId);
+        }
+
+        private void ConfigureFilterChoices()
+        {
+            if (languageFilter == null || generationFilter == null || installFilter == null)
+                return;
+            int languageIndex = Math.Max(0, languageFilter.index);
+            int generationIndex = Math.Max(0, generationFilter.index);
+            int installIndex = Math.Max(0, installFilter.index);
+            languageFilter.choices = new List<string>
+            {
+                L("content.filter.all"),
+                L("content.filter.language.en"),
+                L("content.filter.language.ja"),
+                L("content.filter.language.zh-cn")
+            };
+            var generations = new List<string> { L("content.filter.all") };
+            if (catalog != null)
+                generations.AddRange(catalog.Packages
+                    .Where(value => value.Metadata.GenerationOrder.HasValue)
+                    .Select(value => value.Metadata.GenerationOrder.Value)
+                    .Distinct()
+                    .OrderBy(value => value)
+                    .Select(value => value.ToString()));
+            generationFilter.choices = generations;
+            installFilter.choices = new List<string>
+            {
+                L("content.filter.all"),
+                L("content.filter.installed"),
+                L("content.filter.not_installed"),
+                L("content.filter.update")
+            };
+            SetDropdownIndex(languageFilter, languageIndex);
+            SetDropdownIndex(generationFilter, generationIndex);
+            SetDropdownIndex(installFilter, installIndex);
+        }
+
+        private static void SetDropdownIndex(DropdownField field, int index)
+        {
+            int safeIndex = Mathf.Clamp(index, 0, Math.Max(0, field.choices.Count - 1));
+            field.index = safeIndex;
+            field.SetValueWithoutNotify(field.choices.Count == 0 ? string.Empty : field.choices[safeIndex]);
+        }
+
+        private string SelectedLanguage()
+        {
+            switch (languageFilter?.index ?? 0)
+            {
+                case 1: return "en";
+                case 2: return "ja";
+                case 3: return "zh-cn";
+                default: return null;
+            }
+        }
+
+        private int? SelectedGeneration()
+        {
+            if (generationFilter == null || generationFilter.index <= 0)
+                return null;
+            return int.TryParse(generationFilter.value, out int generation) ? generation : (int?)null;
+        }
+
+        private ContentPackageInstallFilter SelectedInstallFilter()
+        {
+            switch (installFilter?.index ?? 0)
+            {
+                case 1: return ContentPackageInstallFilter.Installed;
+                case 2: return ContentPackageInstallFilter.NotInstalled;
+                case 3: return ContentPackageInstallFilter.UpdateAvailable;
+                default: return ContentPackageInstallFilter.All;
+            }
+        }
+
+        private static string CurrentUiLanguageId()
+        {
+            string code = LocalizationSettings.SelectedLocale?.Identifier.Code?.ToLowerInvariant();
+            if (code != null && code.StartsWith("zh", StringComparison.Ordinal))
+                return "zh-cn";
+            if (code != null && code.StartsWith("ja", StringComparison.Ordinal))
+                return "ja";
+            return "en";
         }
 
         private void ApplyCatalogFailure(int generation, string message)
         {
             if (destroyed || generation != loadGeneration)
                 return;
-            StopRowPopulation();
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
             catalogUsedCache = false;
             catalogHasCacheWarning = false;
@@ -621,7 +822,14 @@ namespace Gacha.Presentation
             IsReady = false;
             emptyState.style.display = DisplayStyle.Flex;
             emptyState.text = string.Format(L("content.catalog.unavailable"), InitializationError);
-            packageList.style.display = DisplayStyle.None;
+            if (packageList != null)
+            {
+                displayedItems.Clear();
+                rows.Clear();
+                packageList.itemsSource = displayedItems;
+                packageList.Rebuild();
+                packageList.style.display = DisplayStyle.None;
+            }
             SetCatalogStatus(emptyState.text, true);
             if (refreshAction != null)
                 refreshAction.Allowed = true;
@@ -629,14 +837,29 @@ namespace Gacha.Presentation
 
         private void ApplyOperation(string packageId, ContentPackageOperationSnapshot snapshot)
         {
-            if (destroyed || !rows.TryGetValue(packageId, out PackageRow row))
+            if (destroyed)
                 return;
+            if (!rows.TryGetValue(packageId, out PackageRow row))
+            {
+                if (snapshot.State == ContentPackageOperationState.Succeeded)
+                {
+                    UIFeedbackService.Play(FeedbackCue.DownloadComplete, true);
+                    ReloadLocalCatalog();
+                }
+                ReleaseIdleOperation(packageId);
+                return;
+            }
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
             ContentPackageItemPresentation item = ContentPackageItemPresentation.Create(row.Entry, snapshot);
             ContentPackageOperationState? previous = row.LastState;
             row.LastState = snapshot.State;
 
-            row.Metadata.text = string.Format(
+            string packageIdentity = string.IsNullOrWhiteSpace(row.Entry.Metadata.SetCode)
+                ? row.Entry.Package.PackageId
+                : row.Entry.Metadata.SetCode;
+            string generation = row.Entry.Metadata.GenerationOrder?.ToString() ?? "—";
+            string releaseDate = row.Entry.Metadata.ReleaseDate?.ToString("yyyy-MM-dd") ?? "—";
+            row.Metadata.text = packageIdentity + " · G" + generation + " · " + releaseDate + " · " + string.Format(
                 L("content.package.metadata"),
                 item.Version,
                 FormatBytes(item.DownloadBytes));
@@ -931,9 +1154,34 @@ namespace Gacha.Presentation
             }
             ApplyLocalizedChrome();
             if (IsReady)
+            {
+                ConfigureFilterChoices();
+                foreach (VisualElement element in packageList
+                             .Query<VisualElement>(className: "content-package-row").ToList())
+                {
+                    if (!(element.userData is PackageRow row) || row.Entry == null)
+                        continue;
+                    string packageId = row.Entry.Package.PackageId;
+                    row.Name.text = row.Entry.Metadata.GetDisplayName(
+                        CurrentUiLanguageId(), row.Entry.Package.PackageId);
+                    if (operations.TryGetValue(
+                            packageId, out ContentPackageInstallCoordinator operation))
+                        ApplyOperation(packageId, operation.Current);
+                    else
+                    {
+                        row.Download.SetLabel(L("content.action.download"));
+                        row.Pause.SetLabel(L("content.action.pause"));
+                        row.Remove.SetLabel(L("content.action.remove"));
+                        row.Cancel.SetLabel(L("content.action.cancel"));
+                    }
+                }
                 ApplyReadyCatalogStatus();
-            foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
-                ApplyOperation(pair.Key, pair.Value.Current);
+            }
+            else
+            {
+                foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
+                    ApplyOperation(pair.Key, pair.Value.Current);
+            }
             localizationRoutine = null;
         }
 
@@ -945,6 +1193,10 @@ namespace Gacha.Presentation
             subtitle.text = L("content.subtitle");
             backAction.SetLabel(L("content.action.back"));
             refreshAction.SetLabel(L("content.action.refresh"));
+            searchFilter.label = L("content.filter.search");
+            languageFilter.label = L("content.filter.language");
+            generationFilter.label = L("content.filter.generation");
+            installFilter.label = L("content.filter.install");
             emptyState.text = L("content.catalog.empty");
         }
 
@@ -964,7 +1216,7 @@ namespace Gacha.Presentation
             if (catalogUsedCache)
             {
                 SetCatalogStatus(
-                    string.Format(L("content.catalog.cached"), rows.Count),
+                    string.Format(L("content.catalog.cached"), FilteredPackageCount),
                     false,
                     true);
                 return;
@@ -972,14 +1224,14 @@ namespace Gacha.Presentation
             if (catalogHasCacheWarning)
             {
                 SetCatalogStatus(
-                    string.Format(L("content.catalog.cache_warning"), rows.Count),
+                    string.Format(L("content.catalog.cache_warning"), FilteredPackageCount),
                     false,
                     true);
                 return;
             }
-            SetCatalogStatus(rows.Count == 0
+            SetCatalogStatus(FilteredPackageCount == 0
                 ? L("content.catalog.empty")
-                : string.Format(L("content.catalog.loaded"), rows.Count), false);
+                : string.Format(L("content.catalog.loaded"), FilteredPackageCount), false);
         }
 
         private void SetCatalogStatus(string value, bool error, bool warning = false)
@@ -1166,12 +1418,16 @@ namespace Gacha.Presentation
             }
         }
 
+        private InstalledContentPackage LookupInstalled(string packageId)
+        {
+            if (lifecycleService == null || string.IsNullOrWhiteSpace(packageId))
+                return null;
+            return lifecycleService.FindInstalled(packageId);
+        }
+
         private static bool Matches(InstalledContentPackage installed, ContentPackageDescriptor package)
         {
-            return installed != null && package != null &&
-                   installed.Revision >= package.Revision &&
-                   string.Equals(installed.InstallRelativePath, package.InstallRelativePath, StringComparison.Ordinal) &&
-                   string.Equals(installed.Sha256, package.Sha256, StringComparison.OrdinalIgnoreCase);
+            return ContentPackageLibrary.IsCurrent(installed, package);
         }
 
         private static void ReloadLocalCatalog()
