@@ -222,6 +222,10 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(openedCardCount));
                 Assert.That((int)GetProperty(controller, "CachedTextureCount"), Is.GreaterThan(0));
+                long cachedBytes = (long)GetProperty(controller, "CachedTextureBytes");
+                long budgetBytes = (long)GetProperty(controller, "CachedTextureBudgetBytes");
+                Assert.That(cachedBytes, Is.GreaterThan(0L));
+                Assert.That(cachedBytes, Is.LessThanOrEqualTo(budgetBytes));
                 Assert.That((bool)GetProperty(controller, "IsCurrentRevealHighlighted"), Is.True);
                 Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.True);
                 Assert.That((int)GetProperty(controller, "RevealParticleCount"), Is.EqualTo(10));

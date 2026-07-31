@@ -123,10 +123,14 @@ namespace Gacha.Pokemon.Presentation
         public AsyncCardImageState ArtworkState => artworkView?.State ?? AsyncCardImageState.Empty;
         public Task ArtworkLoadTask => artworkView?.CurrentLoadTask ?? Task.CompletedTask;
         public int CachedArtworkCount => artworkCache?.Count ?? 0;
+        public long CachedArtworkBytes => artworkCache?.DecodedBytes ?? 0L;
+        public long CachedArtworkBudgetBytes => artworkCache?.MaximumDecodedBytes ?? 0L;
         public int VisibleCardCount => visibleCards.Count;
         public int InstalledVisibleCardCount => visibleCards.Count(value => value.Printing != null);
         public bool ShowingAllSpeciesCards => showAllSpeciesCards;
         public int CachedCardTextureCount => cardTextureCache?.Count ?? 0;
+        public long CachedCardTextureBytes => cardTextureCache?.DecodedBytes ?? 0L;
+        public long CachedCardTextureBudgetBytes => cardTextureCache?.MaximumDecodedBytes ?? 0L;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()

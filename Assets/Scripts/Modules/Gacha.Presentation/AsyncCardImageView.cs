@@ -23,6 +23,7 @@ namespace Gacha.Presentation
         private readonly Label status;
         private readonly Button retry;
         private CancellationTokenSource cancellation;
+        private CardTextureLoadResult textureLease;
         private IVisualElementScheduledItem pulse;
         private int requestVersion;
         private bool disposed;
@@ -66,8 +67,8 @@ namespace Gacha.Presentation
         {
             requestVersion++;
             CancelCurrent();
+            ReleaseTexture();
             Printing = null;
-            art.style.backgroundImage = new StyleBackground(StyleKeyword.None);
             StopPulse();
             SetState(AsyncCardImageState.Empty);
             CurrentLoadTask = Task.CompletedTask;
@@ -120,17 +121,21 @@ namespace Gacha.Presentation
             if (disposed || cancellationToken.IsCancellationRequested ||
                 version != requestVersion || !ReferenceEquals(Printing, printing))
             {
+                result.Dispose();
                 return;
             }
 
             StopPulse();
             if (result.Succeeded)
             {
+                ReleaseTexture();
+                textureLease = result;
                 art.style.backgroundImage = new StyleBackground(result.Texture);
                 SetState(AsyncCardImageState.Ready);
                 return;
             }
 
+            result.Dispose();
             status.text = FailureMessage(result.Status);
             SetState(AsyncCardImageState.Failed, preserveStatus: true);
             if (userInitiated)
@@ -188,9 +193,17 @@ namespace Gacha.Presentation
         {
             requestVersion++;
             CancelCurrent();
+            ReleaseTexture();
             Printing = null;
             StopPulse();
             CurrentLoadTask = Task.CompletedTask;
+        }
+
+        private void ReleaseTexture()
+        {
+            art.style.backgroundImage = new StyleBackground(StyleKeyword.None);
+            textureLease?.Dispose();
+            textureLease = null;
         }
 
         private static string FailureMessage(ContentImageLoadStatus status)

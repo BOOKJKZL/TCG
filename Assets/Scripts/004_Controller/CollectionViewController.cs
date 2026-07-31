@@ -97,6 +97,8 @@ public sealed class CollectionViewController : MonoBehaviour
     public int OwnedCardCount => CurrentSetCards.Count(printing => Progress(printing).IsOwned);
     public int NewCardCount => CurrentSetCards.Count(printing => Progress(printing).IsNew);
     public int CachedTextureCount => textureCache?.Count ?? 0;
+    public long CachedTextureBytes => textureCache?.DecodedBytes ?? 0L;
+    public long CachedTextureBudgetBytes => textureCache?.MaximumDecodedBytes ?? 0L;
     public string DetailPrintingId => currentDetailPrinting?.Id;
     public int DetailLanguageCount => currentDetailPrinting == null
         ? 0

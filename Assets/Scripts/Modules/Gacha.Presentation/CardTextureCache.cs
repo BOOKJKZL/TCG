@@ -16,18 +16,22 @@ namespace Gacha.Presentation
             CancellationToken cancellationToken = default);
     }
 
-    public sealed class CardTextureLoadResult
+    public sealed class CardTextureLoadResult : IDisposable
     {
+        private Action release;
+
         private CardTextureLoadResult(
             ContentImageLoadStatus status,
             Texture2D texture,
             string errorMessage,
-            bool fromCache)
+            bool fromCache,
+            Action release)
         {
             Status = status;
             Texture = texture;
             ErrorMessage = errorMessage;
             FromCache = fromCache;
+            this.release = release;
         }
 
         public ContentImageLoadStatus Status { get; }
@@ -36,49 +40,89 @@ namespace Gacha.Presentation
         public bool FromCache { get; }
         public bool Succeeded => Status == ContentImageLoadStatus.Succeeded && Texture != null;
 
-        public static CardTextureLoadResult Success(Texture2D texture, bool fromCache)
+        public static CardTextureLoadResult Success(
+            Texture2D texture,
+            bool fromCache,
+            Action release = null)
         {
             return new CardTextureLoadResult(
                 ContentImageLoadStatus.Succeeded,
                 texture,
                 null,
-                fromCache);
+                fromCache,
+                release);
         }
 
         public static CardTextureLoadResult Failure(ContentImageLoadStatus status, string errorMessage)
         {
-            return new CardTextureLoadResult(status, null, errorMessage, false);
+            return new CardTextureLoadResult(status, null, errorMessage, false, null);
+        }
+
+        public void Dispose()
+        {
+            Action releaseOnce = release;
+            release = null;
+            releaseOnce?.Invoke();
         }
     }
 
     public sealed class CardTextureCache : ICardTextureCache, IDisposable
     {
+        public const long DefaultMaximumDecodedBytes = 48L * 1024L * 1024L;
+
         private sealed class CacheEntry
         {
             public Texture2D Texture;
             public LinkedListNode<string> Node;
+            public long DecodedBytes;
+            public int LeaseCount;
+            public bool RemoveWhenReleased;
         }
 
         private readonly object gate = new object();
         private readonly IContentImageSource source;
         private readonly int capacity;
+        private readonly long maximumDecodedBytes;
         private readonly Func<byte[], Texture2D> decode;
+        private readonly Func<Texture2D, long> estimateDecodedBytes;
         private readonly Dictionary<string, CacheEntry> entries = new Dictionary<string, CacheEntry>(StringComparer.Ordinal);
         private readonly Dictionary<string, Task<CardTextureLoadResult>> inFlight = new Dictionary<string, Task<CardTextureLoadResult>>(StringComparer.Ordinal);
         private readonly LinkedList<string> lru = new LinkedList<string>();
+        private long decodedBytes;
+        private int trimGeneration;
         private volatile bool disposed;
 
-        public CardTextureCache(IContentImageSource source, int capacity = 32, Func<byte[], Texture2D> decoder = null)
+        public CardTextureCache(
+            IContentImageSource source,
+            int capacity = 32,
+            Func<byte[], Texture2D> decoder = null,
+            long maximumDecodedBytes = DefaultMaximumDecodedBytes,
+            Func<Texture2D, long> decodedSizeEstimator = null)
         {
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             if (capacity < 1)
                 throw new ArgumentOutOfRangeException(nameof(capacity), "Texture cache capacity must be at least one.");
+            if (maximumDecodedBytes < 1)
+                throw new ArgumentOutOfRangeException(nameof(maximumDecodedBytes), "Texture cache byte budget must be at least one.");
 
             this.capacity = capacity;
+            this.maximumDecodedBytes = maximumDecodedBytes;
             decode = decoder ?? DecodeTexture;
+            estimateDecodedBytes = decodedSizeEstimator ?? EstimateDecodedBytes;
+            UnityEngine.Application.lowMemory += TrimForMemoryPressure;
         }
 
         public int Capacity => capacity;
+        public long MaximumDecodedBytes => maximumDecodedBytes;
+
+        public long DecodedBytes
+        {
+            get
+            {
+                lock (gate)
+                    return decodedBytes;
+            }
+        }
 
         public int Count
         {
@@ -120,48 +164,50 @@ namespace Gacha.Presentation
                 if (entries.TryGetValue(key, out CacheEntry cached))
                 {
                     Touch(cached);
-                    return Task.FromResult(CardTextureLoadResult.Success(cached.Texture, true));
+                    return Task.FromResult(AcquireLease(key, cached, true));
                 }
 
                 if (!inFlight.TryGetValue(key, out sharedTask))
                 {
-                    sharedTask = LoadAndCacheAsync(key, printing);
+                    sharedTask = LoadAndCacheAsync(key, printing, trimGeneration);
                     inFlight.Add(key, sharedTask);
                 }
             }
 
-            return AwaitWithCancellation(sharedTask, cancellationToken);
+            return AwaitWithCancellationAndAcquire(key, sharedTask, cancellationToken);
         }
 
         public void Clear()
         {
-            List<Texture2D> textures;
-            lock (gate)
-            {
-                textures = new List<Texture2D>(entries.Count);
-                foreach (CacheEntry entry in entries.Values)
-                    textures.Add(entry.Texture);
-                entries.Clear();
-                lru.Clear();
-            }
+            DestroyTextures(ClearEntriesAndInvalidateLoads());
+        }
 
-            foreach (Texture2D texture in textures)
-                DestroyTexture(texture);
+        public void TrimForMemoryPressure()
+        {
+            Clear();
         }
 
         public void Dispose()
         {
+            List<Texture2D> textures;
             lock (gate)
             {
                 if (disposed)
                     return;
+
                 disposed = true;
+                trimGeneration++;
+                textures = RemoveAllEntries();
             }
 
-            Clear();
+            UnityEngine.Application.lowMemory -= TrimForMemoryPressure;
+            DestroyTextures(textures);
         }
 
-        private async Task<CardTextureLoadResult> LoadAndCacheAsync(string key, PrintingDefinition printing)
+        private async Task<CardTextureLoadResult> LoadAndCacheAsync(
+            string key,
+            PrintingDefinition printing,
+            int loadGeneration)
         {
             // Ensure the shared task is registered before a synchronously-completing source can finish it.
             await Task.Yield();
@@ -171,50 +217,7 @@ namespace Gacha.Presentation
                     printing.ImageRelativePath,
                     printing.ImageSha256,
                     CancellationToken.None);
-                if (!image.Succeeded)
-                    return CardTextureLoadResult.Failure(image.Status, image.ErrorMessage);
-
-                Texture2D texture;
-                try
-                {
-                    texture = decode(image.Data);
-                }
-                catch (Exception exception)
-                {
-                    return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, exception.Message);
-                }
-
-                if (texture == null)
-                {
-                    return CardTextureLoadResult.Failure(
-                        ContentImageLoadStatus.Failed,
-                        $"The installed image could not be decoded: {printing.ImageRelativePath}");
-                }
-
-                texture.name = $"Card_{printing.Id}";
-                texture.wrapMode = TextureWrapMode.Clamp;
-                texture.filterMode = FilterMode.Bilinear;
-
-                Texture2D evicted = null;
-                lock (gate)
-                {
-                    if (disposed)
-                    {
-                        evicted = texture;
-                    }
-                    else
-                    {
-                        var node = lru.AddFirst(key);
-                        entries.Add(key, new CacheEntry { Texture = texture, Node = node });
-                        if (entries.Count > capacity)
-                            evicted = RemoveLeastRecentlyUsed();
-                    }
-                }
-
-                DestroyTexture(evicted);
-                return disposed
-                    ? CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, "The texture cache was disposed during loading.")
-                    : CardTextureLoadResult.Success(texture, false);
+                return DecodeAndCache(key, printing, loadGeneration, image);
             }
             finally
             {
@@ -223,21 +226,228 @@ namespace Gacha.Presentation
             }
         }
 
+        private CardTextureLoadResult DecodeAndCache(
+            string key,
+            PrintingDefinition printing,
+            int loadGeneration,
+            ContentImageLoadResult image)
+        {
+            if (!image.Succeeded)
+                return CardTextureLoadResult.Failure(image.Status, image.ErrorMessage);
+
+            Texture2D texture = null;
+            long textureDecodedBytes;
+            try
+            {
+                texture = decode(image.Data);
+                textureDecodedBytes = texture == null ? 0L : Math.Max(1L, estimateDecodedBytes(texture));
+            }
+            catch (Exception exception)
+            {
+                DestroyTexture(texture);
+                return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, exception.Message);
+            }
+
+            if (texture == null)
+            {
+                return CardTextureLoadResult.Failure(
+                    ContentImageLoadStatus.Failed,
+                    $"The installed image could not be decoded: {printing.ImageRelativePath}");
+            }
+
+            texture.name = $"Card_{printing.Id}";
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            var evicted = new List<Texture2D>();
+            string rejectedReason = null;
+            Texture2D redundant = null;
+            Texture2D resultTexture = texture;
+            bool fromCache = false;
+            lock (gate)
+            {
+                if (disposed)
+                {
+                    rejectedReason = "The texture cache was disposed during loading.";
+                }
+                else if (loadGeneration != trimGeneration)
+                {
+                    rejectedReason = "The texture load was discarded after a memory-pressure trim.";
+                }
+                else if (textureDecodedBytes > maximumDecodedBytes)
+                {
+                    rejectedReason =
+                        $"The decoded texture requires {textureDecodedBytes} bytes, exceeding the {maximumDecodedBytes}-byte cache budget.";
+                }
+                else if (entries.TryGetValue(key, out CacheEntry existing))
+                {
+                    redundant = texture;
+                    resultTexture = existing.Texture;
+                    fromCache = true;
+                    Touch(existing);
+                }
+                else
+                {
+                    var node = lru.AddFirst(key);
+                    entries.Add(key, new CacheEntry
+                    {
+                        Texture = texture,
+                        Node = node,
+                        DecodedBytes = textureDecodedBytes
+                    });
+                    decodedBytes += textureDecodedBytes;
+                    while (entries.Count > capacity || decodedBytes > maximumDecodedBytes)
+                    {
+                        Texture2D removed = RemoveLeastRecentlyUsed();
+                        if (removed == null)
+                            break;
+                        evicted.Add(removed);
+                    }
+                }
+            }
+
+            DestroyTexture(redundant);
+            if (rejectedReason != null)
+            {
+                DestroyTexture(texture);
+                return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, rejectedReason);
+            }
+
+            DestroyTextures(evicted);
+            return CardTextureLoadResult.Success(resultTexture, fromCache);
+        }
+
         private Texture2D RemoveLeastRecentlyUsed()
         {
-            LinkedListNode<string> last = lru.Last;
-            if (last == null || !entries.TryGetValue(last.Value, out CacheEntry entry))
-                return null;
+            LinkedListNode<string> candidate = lru.Last;
+            while (candidate != null)
+            {
+                LinkedListNode<string> previous = candidate.Previous;
+                if (entries.TryGetValue(candidate.Value, out CacheEntry entry) && entry.LeaseCount == 0)
+                {
+                    RemoveEntry(candidate.Value, entry);
+                    return entry.Texture;
+                }
 
-            lru.Remove(last);
-            entries.Remove(last.Value);
-            return entry.Texture;
+                candidate = previous;
+            }
+
+            return null;
+        }
+
+        private List<Texture2D> ClearEntriesAndInvalidateLoads()
+        {
+            lock (gate)
+            {
+                trimGeneration++;
+                var textures = new List<Texture2D>(entries.Count);
+                var removableKeys = new List<string>();
+                foreach (KeyValuePair<string, CacheEntry> pair in entries)
+                {
+                    if (pair.Value.LeaseCount == 0)
+                    {
+                        removableKeys.Add(pair.Key);
+                        textures.Add(pair.Value.Texture);
+                    }
+                    else
+                    {
+                        pair.Value.RemoveWhenReleased = true;
+                    }
+                }
+
+                foreach (string key in removableKeys)
+                {
+                    if (entries.TryGetValue(key, out CacheEntry entry))
+                        RemoveEntry(key, entry);
+                }
+
+                return textures;
+            }
+        }
+
+        private List<Texture2D> RemoveAllEntries()
+        {
+            var textures = new List<Texture2D>(entries.Count);
+            foreach (CacheEntry entry in entries.Values)
+                textures.Add(entry.Texture);
+            entries.Clear();
+            lru.Clear();
+            decodedBytes = 0L;
+            return textures;
         }
 
         private void Touch(CacheEntry entry)
         {
             lru.Remove(entry.Node);
             lru.AddFirst(entry.Node);
+        }
+
+        private CardTextureLoadResult AcquireLease(string key, CacheEntry entry, bool fromCache)
+        {
+            entry.LeaseCount++;
+            Texture2D texture = entry.Texture;
+            return CardTextureLoadResult.Success(
+                texture,
+                fromCache,
+                () => ReleaseLease(key, texture));
+        }
+
+        private CardTextureLoadResult TryAcquireLoadedTexture(
+            string key,
+            CardTextureLoadResult loaded)
+        {
+            if (!loaded.Succeeded)
+                return loaded;
+
+            lock (gate)
+            {
+                if (!disposed &&
+                    entries.TryGetValue(key, out CacheEntry entry) &&
+                    entry.Texture == loaded.Texture)
+                {
+                    return AcquireLease(key, entry, loaded.FromCache);
+                }
+            }
+
+            return CardTextureLoadResult.Failure(
+                ContentImageLoadStatus.Failed,
+                "The decoded texture was reclaimed before it could be displayed.");
+        }
+
+        private void ReleaseLease(string key, Texture2D texture)
+        {
+            var evicted = new List<Texture2D>();
+            lock (gate)
+            {
+                if (!entries.TryGetValue(key, out CacheEntry entry) || entry.Texture != texture)
+                    return;
+
+                entry.LeaseCount = Math.Max(0, entry.LeaseCount - 1);
+                if (entry.LeaseCount == 0 && entry.RemoveWhenReleased)
+                {
+                    RemoveEntry(key, entry);
+                    evicted.Add(texture);
+                }
+                else
+                {
+                    while (entries.Count > capacity || decodedBytes > maximumDecodedBytes)
+                    {
+                        Texture2D removed = RemoveLeastRecentlyUsed();
+                        if (removed == null)
+                            break;
+                        evicted.Add(removed);
+                    }
+                }
+            }
+
+            DestroyTextures(evicted);
+        }
+
+        private void RemoveEntry(string key, CacheEntry entry)
+        {
+            lru.Remove(entry.Node);
+            entries.Remove(key);
+            decodedBytes = Math.Max(0L, decodedBytes - entry.DecodedBytes);
         }
 
         private static string CacheKey(PrintingDefinition printing)
@@ -270,6 +480,18 @@ namespace Gacha.Presentation
             return null;
         }
 
+        private static long EstimateDecodedBytes(Texture2D texture)
+        {
+            try
+            {
+                return checked((long)texture.width * texture.height * 4L);
+            }
+            catch (OverflowException)
+            {
+                return long.MaxValue;
+            }
+        }
+
         private static bool IsWebP(byte[] data)
         {
             return data != null &&
@@ -291,12 +513,19 @@ namespace Gacha.Presentation
                 UnityEngine.Object.DestroyImmediate(texture);
         }
 
-        private static async Task<CardTextureLoadResult> AwaitWithCancellation(
+        private static void DestroyTextures(IEnumerable<Texture2D> textures)
+        {
+            foreach (Texture2D texture in textures)
+                DestroyTexture(texture);
+        }
+
+        private async Task<CardTextureLoadResult> AwaitWithCancellationAndAcquire(
+            string key,
             Task<CardTextureLoadResult> task,
             CancellationToken cancellationToken)
         {
             if (!cancellationToken.CanBeCanceled)
-                return await task;
+                return TryAcquireLoadedTexture(key, await task);
 
             var cancelled = new TaskCompletionSource<bool>();
             using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
@@ -305,7 +534,7 @@ namespace Gacha.Presentation
                     throw new OperationCanceledException(cancellationToken);
             }
 
-            return await task;
+            return TryAcquireLoadedTexture(key, await task);
         }
 
         private void ThrowIfDisposed()

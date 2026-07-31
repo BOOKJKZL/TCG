@@ -76,4 +76,27 @@ public class PrivateContentImageSourceTests
         Assert.That(result.Status, Is.EqualTo(ContentImageLoadStatus.IntegrityMismatch));
         Assert.That(result.Data, Is.Null);
     }
+
+    [Test]
+    public async Task LoadAsync_RejectsFileBeforeReadingWhenItExceedsSafetyLimit()
+    {
+        string relativePath = "en/sample/images/oversized.jpg";
+        string fullPath = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+        File.WriteAllBytes(fullPath, new byte[] { 1, 2, 3, 4, 5 });
+        var source = new PrivateContentImageSource(root, maximumImageBytes: 4L);
+
+        ContentImageLoadResult result = await source.LoadAsync(relativePath);
+
+        Assert.That(source.MaximumImageBytes, Is.EqualTo(4L));
+        Assert.That(result.Status, Is.EqualTo(ContentImageLoadStatus.Failed));
+        Assert.That(result.ErrorMessage, Does.Contain("safety limit"));
+        Assert.That(result.Data, Is.Null);
+    }
+
+    [Test]
+    public void Constructor_RejectsNonPositiveSafetyLimit()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PrivateContentImageSource(root, 0L));
+    }
 }

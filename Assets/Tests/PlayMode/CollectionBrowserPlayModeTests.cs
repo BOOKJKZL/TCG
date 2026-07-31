@@ -136,6 +136,10 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(cached, Is.GreaterThan(0));
                 Assert.That(cached, Is.LessThanOrEqualTo(32));
                 Assert.That(cached, Is.LessThan(available));
+                long cachedBytes = (long)GetProperty(controller, "CachedTextureBytes");
+                long budgetBytes = (long)GetProperty(controller, "CachedTextureBudgetBytes");
+                Assert.That(cachedBytes, Is.GreaterThan(0L));
+                Assert.That(cachedBytes, Is.LessThanOrEqualTo(budgetBytes));
 
                 progressStore.Set(availableCards[1].Id, 1, true);
                 progressStore.ThrowOnMarkSeen = true;

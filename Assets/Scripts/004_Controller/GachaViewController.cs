@@ -138,6 +138,8 @@ public sealed class GachaViewController : MonoBehaviour
     public int RecentHistoryCount => openingService?.GetOpeningHistory(10).Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
+    public long CachedTextureBytes => textureCache?.DecodedBytes ?? 0L;
+    public long CachedTextureBudgetBytes => textureCache?.MaximumDecodedBytes ?? 0L;
     public bool IsSummaryVisible => summaryStage != null && summaryStage.resolvedStyle.display == DisplayStyle.Flex;
 
     public event Action<ProductDrawResult> PackOpened;

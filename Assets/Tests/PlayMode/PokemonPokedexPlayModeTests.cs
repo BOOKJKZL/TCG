@@ -139,6 +139,9 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That(controller.ArtworkState, Is.EqualTo(AsyncCardImageState.Ready));
                 Assert.That(controller.CachedArtworkCount, Is.InRange(1, 8));
+                Assert.That(controller.CachedArtworkBytes, Is.GreaterThan(0L));
+                Assert.That(controller.CachedArtworkBytes,
+                    Is.LessThanOrEqualTo(controller.CachedArtworkBudgetBytes));
                 Assert.That(controller.ShowingAllSpeciesCards, Is.False);
                 Assert.That(controller.VisibleCardCount, Is.EqualTo(0));
                 controller.ShowAllSpeciesCards(true);
