@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L4 玩家控制器程序集边界完成，下一步收拢剩余展示辅助并退役组合根；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4J 与 4L 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 实体机长时验收待执行；4K Cloudflare R2 迁移按用户要求暂停；4M 最终平台验收等待这些外部检查点（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -87,7 +87,7 @@ flowchart TD
 | 4I 内存与实体机 | 字节级图片缓存、低内存处理、Profiler 指标和真机体验 | 中端 Android 长时运行；触觉/音频/蜂窝证据 | 本机实现完成；真实设备验收待执行 |
 | 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
-| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1–4L4 根、Core、Foundation、Controllers 边界完成 |
+| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 已完成（2026-07-31） |
 | 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 待开始 |
 
 ## 六、4A–4D：资料语义与跨语言卡牌
@@ -441,6 +441,12 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 5 个脚本及其 `.meta` 均保持原路径和 GUID；编译前确认每个 GUID 都有一处真实 Scene 引用。动态编译图测试验证控制器源码精确归属于新程序集，并以引用契约阻止以后重新依赖杂糅根程序集。
 - Controllers 独立编译 0 warning / 0 error；边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过，开包、收藏、主菜单、返回、启动与场景 soak 没有 Missing Script。没有构建 APK，也没有访问 Site/R2。组合根现在只剩单一 `GradientBackground` 展示辅助，下一切片收拢后即可退役。
 
+#### 4L5 空组合根退役与模块化完成记录（2026-07-31）
+
+- 最后留在组合根的 `GradientBackground` 经 class 名与 meta GUID 全仓库复查，在 Scene、Prefab、源码和其他资产中均为 0 引用；当前玩家背景由现有 UI Toolkit 主题实现。该未使用脚本及 meta 已安全删除，不建立无意义的单脚本兼容模块。
+- `Gacha.Runtime` 根 asmdef 的 GUID 同样只有自身 meta 一处，且没有程序集再引用它；根 asmdef/meta 已退役。剩余 38 个旧应用脚本全部精确归属于 `Gacha.Runtime.Core`、`Gacha.Runtime.Foundation`、`Gacha.Runtime.Utility` 或 `Gacha.Runtime.Controllers`，既不回落到 `Assembly-CSharp`，也不存在空组合根。
+- 最终边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过，日志没有 Missing Script；存档 v4、云端 key、PlayerPrefs、场景 GUID、动画、点击音效和玩家行为没有改变。4L 本机模块化到此完成；没有构建 APK，也没有访问 Site/R2。
+
 ## 十四、验证矩阵
 
 每个切片至少执行定向测试；涉及玩家行为时优先 PlayMode。最终验收包括：
@@ -506,4 +512,4 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 新 revision 在 R2 或被明确接受的正式托管目标完成完整只读审计，并保留回滚。
 - 模块依赖、完整 EditMode/PlayMode、最终 ARM64 APK、隐私边界和完成度审计全部为新鲜证据。
 
-当前下一步为可在本机继续的 4I 图片内存预算与 4L 模块化收尾；4H 本机实现已完成，等取得 Unity Player Accounts Client ID 后再做真实邮箱与换机验收。4I 的实体震动、扬声器、蜂窝和长时温度结论仍等待真实手机。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。
+4I 图片内存预算与 4L 本机模块化已经完成；4H 本机实现也已完成，等取得 Unity Player Accounts Client ID 后再做真实邮箱与换机验收。4I 的实体震动、扬声器、蜂窝和长时温度结论仍等待真实手机。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。4M 只能先执行不冒充外部收据的本机源码审计，不能在这些检查点缺失时宣称最终平台 100%。
