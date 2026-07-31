@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；下一步进入 4L 模块化收尾；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L1 组合根程序集边界完成，下一步拆分存档/身份与玩家控制器；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -34,7 +34,7 @@
 | 内容管理压力 | 正式 537 包；现有大目录 PlayMode 仅 48 包 | 当前 `ScrollView` 最终常驻全部行和协调器 |
 | 卡包规则 | 3 套历史验证、2 套来源指导模拟，其余通用模拟 | 资料库规模远大于真实配列覆盖 |
 | 云存档身份 | Unity 匿名登录 | 卸载或换机后不保证恢复同一云端身份 |
-| 代码边界 | 64 个模块内 C#、33 个模块外旧 C# | 仍有控制器、Bootstrap、存档和设置旧边界 |
+| 代码边界 | 阶段开始为 64 个模块内 C#、33 个模块外旧 C#；4H 后模块外增至 40 个 | 仍有控制器、Bootstrap、存档和设置旧边界 |
 
 第三阶段的 100% 结论继续有效，其含义是代码、测试、发布、协议和 Android 软件范围完成。第四阶段新增“资料语义覆盖、玩家内容管理、跨设备恢复和长期运维”完成标准，不倒写历史结论。
 
@@ -87,7 +87,7 @@ flowchart TD
 | 4I 内存与实体机 | 字节级图片缓存、低内存处理、Profiler 指标和真机体验 | 中端 Android 长时运行；触觉/音频/蜂窝证据 | 本机实现完成；真实设备验收待执行 |
 | 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
-| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 待开始 |
+| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1 组合根边界完成 |
 | 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 待开始 |
 
 ## 六、4A–4D：资料语义与跨语言卡牌
@@ -415,6 +415,13 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - Domain 不依赖 Unity；Application 不依赖 HTTP、文件系统、R2 或场景；Presentation 不直接调用导入器和远端发布器。
 - 先添加新组件并迁移场景引用，再删除无调用旧实现；检查 Scene、Prefab、GUID、序列化字段和存档版本。
 - 不以一次大重写完成。每个模块迁移都是独立 Git 切片，并通过编译、引用与场景回归后提交。
+
+#### 4L1 组合根程序集边界记录（2026-07-31）
+
+- `Assets/Scripts/Gacha.Runtime.asmdef` 已把模块目录外的 39 个应用组合脚本从隐式 `Assembly-CSharp` 纳入明确的 `Gacha.Runtime` Player 程序集；原有七个 Domain/Application/Infrastructure/Presentation asmdef 继续由更近的嵌套边界接管，不会被组合根吞并。
+- 所有 `.cs` 仍保留原路径和 `.meta` GUID，Scene/Prefab 引用不迁移。新增编译图测试动态枚举模块目录外全部脚本，并要求它们逐一由 `Gacha.Runtime` 拥有、不得回落到 `Assembly-CSharp`；历史 33 个基线也被保留为最低门槛。
+- 无引用的旧 `CardFlip` 及其 meta 已删除。其 GUID 在全部 Scene/Prefab 和源码中均无引用；当前收藏、图鉴和开包翻卡动画/音效由 UI Toolkit 与统一反馈系统实现，因此没有兼容层或玩家效果损失。`SettingManager` 同时移除未使用的 Visual Scripting 引用，避免扩大组合根依赖。
+- `Gacha.Runtime` 独立编译 0 error，边界定向测试 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过；完整 PlayMode 包含全部场景往返和控制器重建，未出现 Missing Script。没有构建 APK，也没有访问 Site/R2。
 
 ## 十四、验证矩阵
 

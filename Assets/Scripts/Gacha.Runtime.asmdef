@@ -1,0 +1,29 @@
+{
+    "name": "Gacha.Runtime",
+    "rootNamespace": "Gacha.Runtime",
+    "references": [
+        "Gacha.Application",
+        "Gacha.Domain",
+        "Gacha.Infrastructure",
+        "Gacha.Pokemon.Presentation",
+        "Gacha.Presentation",
+        "Unity.Addressables",
+        "Unity.Localization",
+        "Unity.ResourceManager",
+        "Unity.Services.Authentication",
+        "Unity.Services.Authentication.PlayerAccounts",
+        "Unity.Services.CloudSave",
+        "Unity.Services.Core",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
