@@ -675,6 +675,54 @@ MonoBehaviour:
     m_Key: content.queue.restore_warning
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428321
+    m_Key: gacha.action.open_one
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428322
+    m_Key: gacha.action.open_ten
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428323
+    m_Key: gacha.action.open_ten_again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428324
+    m_Key: gacha.pack.batch_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428325
+    m_Key: gacha.pack.batch_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428326
+    m_Key: gacha.reveal.batch_progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428327
+    m_Key: gacha.summary.batch_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428328
+    m_Key: gacha.summary.batch_metadata
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428329
+    m_Key: gacha.statistics.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428330
+    m_Key: gacha.statistics.summary
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428331
+    m_Key: gacha.history.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428332
+    m_Key: gacha.history.row
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

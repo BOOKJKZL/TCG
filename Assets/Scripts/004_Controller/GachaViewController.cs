@@ -22,6 +22,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         public PrintingDefinition Printing;
         public InventoryAward Award;
+        public int ProductIndex;
     }
 
     [SerializeField] private UIDocument uiDocument;
@@ -40,9 +41,10 @@ public sealed class GachaViewController : MonoBehaviour
     private ProductRuleProfile selectedProfile;
     private ProductOddsSummary selectedOdds;
     private ProductOpeningTheme selectedTheme = ProductOpeningThemeService.DefaultTheme;
-    private ProductOpeningOutcome currentOutcome;
+    private ProductOpeningBatchOutcome currentBatchOutcome;
     private CardTextureCache textureCache;
     private int revealIndex = -1;
+    private int preparedProductCount = 1;
     private bool packAnimating;
     private bool revealAnimating;
     private bool currentRevealHighlighted;
@@ -70,6 +72,7 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement summaryStage;
     private ListView productList;
     private ScrollView summaryList;
+    private ScrollView openingHistory;
     private Label title;
     private Label subtitle;
     private Label status;
@@ -87,8 +90,10 @@ public sealed class GachaViewController : MonoBehaviour
     private Label revealNewBadge;
     private Label summaryTitle;
     private Label summaryMetadata;
+    private Label openingStatistics;
     private Button menuButton;
     private Button prepareButton;
+    private Button prepareTenButton;
     private Button tearButton;
     private Button revealButton;
     private Button revealAllButton;
@@ -127,7 +132,10 @@ public sealed class GachaViewController : MonoBehaviour
     public int RevealParticleCount => revealParticles?.ActiveParticleCount ?? 0;
     public bool ArePackParticlesRunning => packParticles?.IsRunning ?? false;
     public bool AreRevealParticlesRunning => revealParticles?.IsRunning ?? false;
-    public int LastOpenedCardCount => currentOutcome?.Draw.Printings.Count ?? 0;
+    public int LastOpenedCardCount => currentBatchOutcome?.Draws.Sum(draw => draw.Printings.Count) ?? 0;
+    public int LastOpenedProductCount => currentBatchOutcome?.Draws.Count ?? 0;
+    public int PreparedProductCount => preparedProductCount;
+    public int RecentHistoryCount => openingService?.GetOpeningHistory(10).Count ?? 0;
     public int RevealedCount => revealIndex + 1;
     public int CachedTextureCount => textureCache?.Count ?? 0;
     public bool IsSummaryVisible => summaryStage != null && summaryStage.resolvedStyle.display == DisplayStyle.Flex;
@@ -239,12 +247,23 @@ public sealed class GachaViewController : MonoBehaviour
 
     public bool PrepareSelectedProduct()
     {
+        return PrepareSelectedBatch(1);
+    }
+
+    public bool PrepareTenProducts()
+    {
+        return PrepareSelectedBatch(10);
+    }
+
+    private bool PrepareSelectedBatch(int productCount)
+    {
         if (!IsReady || selectedProduct == null || selectedProfile == null || packAnimating)
             return false;
 
+        preparedProductCount = productCount;
         UIFeedbackService.Play(FeedbackCue.Confirm);
         SetStatus(string.Empty, false);
-        currentOutcome = null;
+        currentBatchOutcome = null;
         revealEntries.Clear();
         revealIndex = -1;
         selectionPage.style.display = DisplayStyle.None;
@@ -261,8 +280,12 @@ public sealed class GachaViewController : MonoBehaviour
         revealParticles.Stop();
         packParticles.PlayAmbient(selectedTheme.ParticleTheme);
         tearButton.SetEnabled(true);
-        packTitle.text = DisplayName(selectedProduct);
-        packHint.text = CardUiText.Get("gacha.pack.hint");
+        packTitle.text = productCount == 1
+            ? DisplayName(selectedProduct)
+            : CardUiText.Format("gacha.pack.batch_title", productCount, DisplayName(selectedProduct));
+        packHint.text = productCount == 1
+            ? CardUiText.Get("gacha.pack.hint")
+            : CardUiText.Format("gacha.pack.batch_hint", productCount);
         if (selectedThemeArtwork != null)
             packImage.Unbind();
         else
@@ -279,14 +302,16 @@ public sealed class GachaViewController : MonoBehaviour
 
     public bool TearPack()
     {
-        if (!IsReady || selectedProduct == null || packAnimating || currentOutcome != null)
+        if (!IsReady || selectedProduct == null || packAnimating || currentBatchOutcome != null)
             return false;
 
         try
         {
-            currentOutcome = openingService.Open(selectedProduct.Id);
+            currentBatchOutcome = openingService.OpenBatch(selectedProduct.Id, preparedProductCount);
             BuildRevealEntries();
-            PackOpened?.Invoke(currentOutcome.Draw);
+            foreach (ProductDrawResult draw in currentBatchOutcome.Draws)
+                PackOpened?.Invoke(draw);
+            RefreshOpeningJournal();
             tearButton.SetEnabled(false);
             packAnimating = true;
             UIFeedbackService.Play(FeedbackCue.PackOpen, selectedTheme.PackOpenAudioKey, true);
@@ -295,7 +320,7 @@ public sealed class GachaViewController : MonoBehaviour
         }
         catch (Exception exception)
         {
-            currentOutcome = null;
+            currentBatchOutcome = null;
             SetStatus(CardUiText.Format("gacha.status.open_failed", exception.Message), true);
             Debug.LogWarning($"Pack opening failed: {exception.Message}");
             InitializationFailed?.Invoke(exception.Message);
@@ -306,7 +331,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     public bool RevealNextCard()
     {
-        if (currentOutcome == null || packAnimating || revealAnimating)
+        if (currentBatchOutcome == null || packAnimating || revealAnimating)
             return false;
         if (revealIndex >= revealEntries.Count - 1)
         {
@@ -323,10 +348,14 @@ public sealed class GachaViewController : MonoBehaviour
             ? CardUiText.Get("common.badge.new")
             : CardUiText.Get("gacha.badge.owned");
         revealNewBadge.EnableInClassList("is-new", entry.Award.IsNew);
-        revealProgress.text = CardUiText.Format(
-            "gacha.reveal.progress",
-            revealIndex + 1,
-            revealEntries.Count);
+        revealProgress.text = preparedProductCount > 1
+            ? CardUiText.Format(
+                "gacha.reveal.batch_progress",
+                entry.ProductIndex + 1,
+                preparedProductCount,
+                revealIndex + 1,
+                revealEntries.Count)
+            : CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
         revealButton.text = revealIndex == revealEntries.Count - 1
             ? CardUiText.Get("gacha.action.view_results")
             : CardUiText.Get("gacha.action.reveal_next");
@@ -344,13 +373,13 @@ public sealed class GachaViewController : MonoBehaviour
         {
             UIFeedbackService.Play(FeedbackCue.RareReveal, selectedTheme.RareRevealAudioKey, true);
         }
-        AnimateRevealCard(currentRevealHighlighted);
+        AnimateRevealCard(currentRevealHighlighted, entry.ProductIndex > 0);
         return true;
     }
 
     public bool RevealAllCards()
     {
-        if (currentOutcome == null || packAnimating || revealEntries.Count == 0 || IsSummaryVisible)
+        if (currentBatchOutcome == null || packAnimating || revealEntries.Count == 0 || IsSummaryVisible)
             return false;
 
         revealAnimation?.Pause();
@@ -392,6 +421,7 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage = Required<VisualElement>("summary-stage");
         productList = Required<ListView>("product-list");
         summaryList = Required<ScrollView>("summary-list");
+        openingHistory = Required<ScrollView>("opening-history");
         title = Required<Label>("gacha-title");
         subtitle = Required<Label>("gacha-subtitle");
         status = Required<Label>("gacha-status");
@@ -409,8 +439,10 @@ public sealed class GachaViewController : MonoBehaviour
         revealNewBadge = Required<Label>("reveal-new-badge");
         summaryTitle = Required<Label>("summary-title");
         summaryMetadata = Required<Label>("summary-metadata");
+        openingStatistics = Required<Label>("opening-statistics");
         menuButton = Required<Button>("gacha-menu-button");
         prepareButton = Required<Button>("prepare-pack-button");
+        prepareTenButton = Required<Button>("prepare-ten-button");
         tearButton = Required<Button>("tear-pack-button");
         revealButton = Required<Button>("reveal-next-button");
         revealAllButton = Required<Button>("reveal-all-button");
@@ -439,6 +471,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         menuButton.clicked += MenuBtnClick;
         prepareButton.clicked += () => PrepareSelectedProduct();
+        prepareTenButton.clicked += () => PrepareTenProducts();
         tearButton.clicked += () => TearPack();
         revealButton.clicked += () => RevealNextCard();
         revealAllButton.clicked += () => RevealAllCards();
@@ -447,7 +480,7 @@ public sealed class GachaViewController : MonoBehaviour
             UIFeedbackService.Play(FeedbackCue.Back);
             ShowSelectionPage();
         };
-        openAgainButton.clicked += () => PrepareSelectedProduct();
+        openAgainButton.clicked += () => PrepareSelectedBatch(preparedProductCount);
         summaryProductsButton.clicked += () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
@@ -488,13 +521,16 @@ public sealed class GachaViewController : MonoBehaviour
             selectedProduct = null;
             selectedProfile = null;
             prepareButton.SetEnabled(false);
+            prepareTenButton.SetEnabled(false);
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
+            RefreshOpeningJournal();
             return;
         }
 
         SelectProduct(next);
         int index = products.IndexOf(next);
         productList.SetSelectionWithoutNotify(new[] { index });
+        RefreshOpeningJournal();
     }
 
     private VisualElement MakeProductRow()
@@ -582,6 +618,7 @@ public sealed class GachaViewController : MonoBehaviour
             : selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId);
         BuildRuleEvidence();
         prepareButton.SetEnabled(true);
+        prepareTenButton.SetEnabled(true);
         PrintingDefinition cover = CoverFor(product);
         if (cover != null)
             selectedImage.Bind(cover);
@@ -633,22 +670,89 @@ public sealed class GachaViewController : MonoBehaviour
         }
     }
 
+    private void RefreshOpeningJournal()
+    {
+        if (openingService == null || openingStatistics == null || openingHistory == null)
+            return;
+
+        ProductOpeningStatistics statistics = openingService.GetOpeningStatistics();
+        openingStatistics.text = statistics.TotalProductsOpened == 0
+            ? CardUiText.Get("gacha.statistics.empty")
+            : CardUiText.Format(
+                "gacha.statistics.summary",
+                statistics.TotalProductsOpened,
+                statistics.TotalCardsDrawn,
+                FormatCounts(statistics.ProductsByLanguage, id => id),
+                FormatCounts(statistics.ProductsBySet, id =>
+                    catalog.Sets.TryGetValue(id, out SetDefinition set) ? DisplayName(set) : id),
+                FormatCounts(statistics.CardsByRarity, id =>
+                    catalog.Rarities.TryGetValue(id, out RarityDefinition rarity) ? DisplayName(rarity) : id));
+
+        openingHistory.Clear();
+        IReadOnlyList<ProductOpeningHistoryEntry> history = openingService.GetOpeningHistory(8);
+        if (history.Count == 0)
+        {
+            var empty = new Label(CardUiText.Get("gacha.history.empty"));
+            empty.AddToClassList("gacha-history-row");
+            openingHistory.Add(empty);
+            return;
+        }
+
+        foreach (ProductOpeningHistoryEntry entry in history)
+        {
+            string productName = catalog.Products.TryGetValue(entry.ProductId, out ProductDefinition product)
+                ? DisplayName(product)
+                : entry.ProductId;
+            var row = new Label(CardUiText.Format(
+                "gacha.history.row",
+                entry.OpenedAtUtc.ToLocalTime().ToString("MM-dd HH:mm", CultureInfo.CurrentCulture),
+                productName,
+                entry.ProductCount,
+                entry.CardCount,
+                entry.NewPrintingCount,
+                entry.LanguageId));
+            row.AddToClassList("gacha-history-row");
+            openingHistory.Add(row);
+        }
+    }
+
+    private static string FormatCounts(
+        IReadOnlyDictionary<string, int> counts,
+        Func<string, string> getName)
+    {
+        if (counts == null || counts.Count == 0)
+            return "—";
+        return string.Join(", ", counts
+            .OrderByDescending(pair => pair.Value)
+            .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+            .Take(4)
+            .Select(pair => $"{getName(pair.Key)} ×{pair.Value}"));
+    }
+
     private void BuildRevealEntries()
     {
         revealEntries.Clear();
-        if (currentOutcome.Inventory.Awards.Count != currentOutcome.Draw.Printings.Count)
-            throw new InvalidOperationException("Inventory awards do not match the drawn cards.");
-        for (int index = 0; index < currentOutcome.Draw.Printings.Count; index++)
+        if (currentBatchOutcome.Inventory.Products.Count != currentBatchOutcome.Draws.Count)
+            throw new InvalidOperationException("Inventory product commits do not match the batch draws.");
+        for (int productIndex = 0; productIndex < currentBatchOutcome.Draws.Count; productIndex++)
         {
-            DrawnPrinting drawn = currentOutcome.Draw.Printings[index];
-            InventoryAward award = currentOutcome.Inventory.Awards[index];
-            if (!string.Equals(drawn.PrintingId, award.PrintingId, StringComparison.Ordinal))
-                throw new InvalidOperationException("Inventory award order does not match the draw result.");
-            revealEntries.Add(new RevealEntry
+            ProductDrawResult draw = currentBatchOutcome.Draws[productIndex];
+            ProductInventoryCommit commit = currentBatchOutcome.Inventory.Products[productIndex];
+            if (commit.Awards.Count != draw.Printings.Count)
+                throw new InvalidOperationException("Inventory awards do not match the drawn cards.");
+            for (int index = 0; index < draw.Printings.Count; index++)
             {
-                Printing = catalog.Printings[drawn.PrintingId],
-                Award = award
-            });
+                DrawnPrinting drawn = draw.Printings[index];
+                InventoryAward award = commit.Awards[index];
+                if (!string.Equals(drawn.PrintingId, award.PrintingId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("Inventory award order does not match the draw result.");
+                revealEntries.Add(new RevealEntry
+                {
+                    Printing = catalog.Printings[drawn.PrintingId],
+                    Award = award,
+                    ProductIndex = productIndex
+                });
+            }
         }
     }
 
@@ -687,7 +791,7 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage.style.display = DisplayStyle.Flex;
         ApplySummaryText();
         BuildSummaryList();
-        if (currentOutcome.Inventory.NewPrintingCount > 0)
+        if (currentBatchOutcome.Inventory.NewPrintingCount > 0)
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
         else
             UIFeedbackService.Play(FeedbackCue.Confirm);
@@ -727,7 +831,7 @@ public sealed class GachaViewController : MonoBehaviour
         revealAnimation?.Pause();
         packAnimating = false;
         revealAnimating = false;
-        currentOutcome = null;
+        currentBatchOutcome = null;
         revealEntries.Clear();
         revealIndex = -1;
         currentRevealHighlighted = false;
@@ -810,7 +914,7 @@ public sealed class GachaViewController : MonoBehaviour
         }).Every(16);
     }
 
-    private void AnimateRevealCard(bool highlighted)
+    private void AnimateRevealCard(bool highlighted, bool shortTransition)
     {
         revealAnimation?.Pause();
         if (UIFeedbackService.ReduceMotion)
@@ -834,7 +938,9 @@ public sealed class GachaViewController : MonoBehaviour
         revealAura.style.opacity = 0f;
         revealAura.style.scale = new Scale(new Vector3(0.72f, 0.72f, 1f));
         float startedAt = Time.realtimeSinceStartup;
-        float duration = selectedTheme.RevealDurationSeconds / UIFeedbackService.AnimationSpeed;
+        float duration = (shortTransition
+            ? Math.Min(selectedTheme.RevealDurationSeconds, 0.14f)
+            : selectedTheme.RevealDurationSeconds) / UIFeedbackService.AnimationSpeed;
         revealAnimation = revealCard.schedule.Execute(() =>
         {
             float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
@@ -869,18 +975,21 @@ public sealed class GachaViewController : MonoBehaviour
         title.text = CardUiText.Get("gacha.title");
         subtitle.text = CardUiText.Get("gacha.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
-        prepareButton.text = CardUiText.Get("gacha.action.prepare");
+        prepareButton.text = CardUiText.Get("gacha.action.open_one");
+        prepareTenButton.text = CardUiText.Get("gacha.action.open_ten");
         tearButton.text = CardUiText.Get("gacha.action.tear");
         revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
         backToProductsButton.text = CardUiText.Get("gacha.action.all_products");
-        openAgainButton.text = CardUiText.Get("gacha.action.open_another");
+        openAgainButton.text = preparedProductCount == 1
+            ? CardUiText.Get("gacha.action.open_another")
+            : CardUiText.Get("gacha.action.open_ten_again");
         summaryProductsButton.text = CardUiText.Get("gacha.action.choose_another");
         oddsHeading.text = CardUiText.Get("gacha.odds.heading");
         if (selectedProduct != null)
             SelectProduct(selectedProduct);
         else if (products.Count == 0)
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
-        if (currentOutcome != null)
+        if (currentBatchOutcome != null)
             ApplyRevealText();
         if (IsSummaryVisible)
         {
@@ -888,7 +997,12 @@ public sealed class GachaViewController : MonoBehaviour
             BuildSummaryList();
         }
         if (packStage.resolvedStyle.display == DisplayStyle.Flex)
-            packHint.text = CardUiText.Get("gacha.pack.hint");
+        {
+            packHint.text = preparedProductCount == 1
+                ? CardUiText.Get("gacha.pack.hint")
+                : CardUiText.Format("gacha.pack.batch_hint", preparedProductCount);
+        }
+        RefreshOpeningJournal();
         productList?.RefreshItems();
     }
 
@@ -1062,7 +1176,14 @@ public sealed class GachaViewController : MonoBehaviour
         revealNewBadge.text = entry.Award.IsNew
             ? CardUiText.Get("common.badge.new")
             : CardUiText.Get("gacha.badge.owned");
-        revealProgress.text = CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
+        revealProgress.text = preparedProductCount > 1
+            ? CardUiText.Format(
+                "gacha.reveal.batch_progress",
+                entry.ProductIndex + 1,
+                preparedProductCount,
+                revealIndex + 1,
+                revealEntries.Count)
+            : CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
         revealButton.text = revealIndex == revealEntries.Count - 1
             ? CardUiText.Get("gacha.action.view_results")
             : CardUiText.Get("gacha.action.reveal_next");
@@ -1070,13 +1191,22 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ApplySummaryText()
     {
-        if (currentOutcome == null)
+        if (currentBatchOutcome == null)
             return;
-        summaryTitle.text = CardUiText.Get("gacha.summary.title");
-        summaryMetadata.text = CardUiText.Format(
-            "gacha.summary.metadata",
-            revealEntries.Count,
-            currentOutcome.Inventory.NewPrintingCount,
-            currentOutcome.Inventory.ProductsOpened);
+        summaryTitle.text = preparedProductCount == 1
+            ? CardUiText.Get("gacha.summary.title")
+            : CardUiText.Get("gacha.summary.batch_title");
+        summaryMetadata.text = preparedProductCount == 1
+            ? CardUiText.Format(
+                "gacha.summary.metadata",
+                revealEntries.Count,
+                currentBatchOutcome.Inventory.NewPrintingCount,
+                currentBatchOutcome.Inventory.ProductsOpened)
+            : CardUiText.Format(
+                "gacha.summary.batch_metadata",
+                preparedProductCount,
+                revealEntries.Count,
+                currentBatchOutcome.Inventory.NewPrintingCount,
+                currentBatchOutcome.Inventory.ProductsOpened);
     }
 }

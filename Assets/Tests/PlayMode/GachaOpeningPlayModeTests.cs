@@ -79,7 +79,8 @@ namespace Gacha.Tests.PlayMode
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("准备卡包"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("开 1 包"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-ten-button").text, Is.EqualTo("十连开包"));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
                     Does.Contain("已佐证").And.Contain("2026-07-23"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
@@ -89,7 +90,8 @@ namespace Gacha.Tests.PlayMode
                 ApplicationServices.Languages.SelectUiLanguage("en");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("Open a Pack"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("Prepare pack"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("Open 1 pack"));
+                Assert.That(document.rootVisualElement.Q<Button>("prepare-ten-button").text, Is.EqualTo("Open 10 packs"));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
                     Does.Contain("Corroborated").And.Contain("2026-07-23"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
@@ -277,6 +279,30 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "RevealedCount"), Is.EqualTo(11));
                 Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
                 Assert.That(InvokeBool(controller, "RevealAllCards"), Is.False);
+
+                Assert.That(InvokeBool(controller, "PrepareTenProducts"), Is.True);
+                Assert.That((int)GetProperty(controller, "PreparedProductCount"), Is.EqualTo(10));
+                Assert.That(document.rootVisualElement.Q<Label>("pack-hint").text,
+                    Does.Contain("first of 10 packs"));
+                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                deadline = Time.realtimeSinceStartup + 3f;
+                while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That((int)GetProperty(controller, "LastOpenedProductCount"), Is.EqualTo(10));
+                Assert.That((int)GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(110));
+                Assert.That(store.ProductsOpened, Is.EqualTo(12));
+                Assert.That(InvokeBool(controller, "RevealAllCards"), Is.True);
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("summary-title").text,
+                    Is.EqualTo("Batch complete"));
+                Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text,
+                    Does.Contain("10 packs").And.Contain("110 cards"));
+                Assert.That((int)GetProperty(controller, "RecentHistoryCount"), Is.EqualTo(3));
+                Assert.That(document.rootVisualElement.Q<Label>("opening-statistics").text,
+                    Does.Contain("12 packs").And.Contain("132 cards"));
+                Assert.That(document.rootVisualElement.Q<ScrollView>("opening-history").contentContainer.childCount,
+                    Is.EqualTo(3));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.PackOpen), Is.EqualTo(3));
             }
             finally
             {
@@ -300,6 +326,10 @@ namespace Gacha.Tests.PlayMode
         private sealed class MemoryProgressStore : IInventoryProgressStore
         {
             private readonly Dictionary<string, int> cards = new Dictionary<string, int>();
+            private readonly List<ProductOpeningHistoryEntry> history = new List<ProductOpeningHistoryEntry>();
+            private readonly Dictionary<string, int> productsByLanguage = new Dictionary<string, int>();
+            private readonly Dictionary<string, int> productsBySet = new Dictionary<string, int>();
+            private readonly Dictionary<string, int> cardsByRarity = new Dictionary<string, int>();
             public int ProductsOpened { get; private set; }
             public int TotalCards => cards.Values.Sum();
             public IReadOnlyList<string> LastCommittedIds { get; private set; } = Array.Empty<string>();
@@ -326,14 +356,43 @@ namespace Gacha.Tests.PlayMode
                     ProductsOpened++;
                     commits.Add(new ProductInventoryCommit(result.ProductId, ProductsOpened, awards.AsReadOnly()));
                 }
+                Add(productsByLanguage, request.LanguageId, request.Draws.Count);
+                Add(productsBySet, request.SetId, request.Draws.Count);
+                var rarityCounts = new Dictionary<string, int>();
+                foreach (DrawnPrinting drawn in request.Draws.SelectMany(draw => draw.Printings))
+                {
+                    string rarityId = request.RarityByPrintingId[drawn.PrintingId];
+                    Add(cardsByRarity, rarityId, 1);
+                    Add(rarityCounts, rarityId, 1);
+                }
+                history.Add(new ProductOpeningHistoryEntry(
+                    request.TransactionId,
+                    request.OpenedAtUtc,
+                    request.ProductId,
+                    request.SetId,
+                    request.LanguageId,
+                    request.ProfileId,
+                    request.Draws.Count,
+                    request.Draws.Sum(draw => draw.Printings.Count),
+                    commits.Sum(commit => commit.NewPrintingCount),
+                    rarityCounts));
                 return new ProductInventoryBatchCommit(request.TransactionId, commits.AsReadOnly());
             }
 
-            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) =>
-                Array.Empty<ProductOpeningHistoryEntry>();
+            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) => history
+                .AsEnumerable()
+                .Reverse()
+                .Take(maximumCount)
+                .ToList()
+                .AsReadOnly();
 
             public ProductOpeningStatistics GetOpeningStatistics() =>
-                new ProductOpeningStatistics(null, null, null);
+                new ProductOpeningStatistics(productsByLanguage, productsBySet, cardsByRarity);
+
+            private static void Add(Dictionary<string, int> counts, string id, int amount)
+            {
+                counts[id] = counts.TryGetValue(id, out int current) ? current + amount : amount;
+            }
         }
     }
 }

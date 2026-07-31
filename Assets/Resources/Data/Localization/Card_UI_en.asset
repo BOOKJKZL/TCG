@@ -680,6 +680,54 @@ MonoBehaviour:
     m_Localized: 'Queue recovery warning: {0}'
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428321
+    m_Localized: Open 1 pack
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428322
+    m_Localized: Open 10 packs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428323
+    m_Localized: Open 10 again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428324
+    m_Localized: '{1} ×{0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428325
+    m_Localized: The first of {0} packs keeps the full ceremony; later cards use short transitions. Reveal all to skip.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428326
+    m_Localized: 'Pack {0}/{1} · Card {2}/{3}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428327
+    m_Localized: Batch complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428328
+    m_Localized: '{0} packs · {1} cards · {2} new · Pack #{3}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428329
+    m_Localized: No opening history yet.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428330
+    m_Localized: "{0} packs · {1} cards\nLanguages: {2}\nSets: {3}\nRarities: {4}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428331
+    m_Localized: Recent batches will appear here.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428332
+    m_Localized: '{0} · {1} ×{2} · {3} cards · {4} new · {5}'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

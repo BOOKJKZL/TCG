@@ -37,7 +37,12 @@
                         <ui:ScrollView class="gacha-odds-scroll" mode="Vertical">
                             <ui:VisualElement name="odds-list" class="gacha-odds-list" />
                         </ui:ScrollView>
-                        <ui:Button name="prepare-pack-button" class="gacha-button gacha-button--primary" />
+                        <ui:VisualElement class="gacha-batch-actions">
+                            <ui:Button name="prepare-pack-button" class="gacha-button gacha-button--primary" />
+                            <ui:Button name="prepare-ten-button" class="gacha-button" />
+                        </ui:VisualElement>
+                        <ui:Label name="opening-statistics" class="gacha-opening-statistics" />
+                        <ui:ScrollView name="opening-history" class="gacha-opening-history" mode="Vertical" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

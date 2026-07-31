@@ -413,7 +413,8 @@
 .gacha-selected-product,
 .gacha-odds-row,
 .gacha-summary-row,
-.gacha-summary__actions {
+.gacha-summary__actions,
+.gacha-batch-actions {
     flex-direction: row;
     align-items: center;
 }
@@ -610,6 +611,42 @@
     flex-grow: 1;
     max-height: 260px;
     margin-bottom: 16px;
+}
+
+.gacha-batch-actions {
+    justify-content: stretch;
+}
+
+.gacha-batch-actions .gacha-button {
+    flex-grow: 1;
+    min-width: 0;
+    margin-right: 8px;
+}
+
+.gacha-opening-statistics {
+    margin-top: 12px;
+    color: rgb(196, 220, 241);
+    font-size: 13px;
+    white-space: normal;
+}
+
+.gacha-opening-history {
+    max-height: 116px;
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-width: 1px;
+    border-radius: 10px;
+    border-color: rgba(103, 196, 241, 0.45);
+    background-color: rgba(7, 24, 45, 0.62);
+}
+
+.gacha-history-row {
+    min-height: 24px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    color: rgb(190, 218, 239);
+    font-size: 12px;
+    white-space: normal;
 }
 
 .gacha-odds-row {
