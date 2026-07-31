@@ -54,7 +54,11 @@ namespace Gacha.Application
             string regionId,
             IReadOnlyDictionary<string, string> localizedRegionNames,
             IEnumerable<ProductRuleEvidence> evidence,
-            IReadOnlyDictionary<string, string> localizedDescriptions)
+            IReadOnlyDictionary<string, string> localizedDescriptions,
+            string definitionRevision = null,
+            string languageId = null,
+            DateTime? releaseDate = null,
+            IEnumerable<string> exclusions = null)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("A rule profile needs an id.", nameof(id));
@@ -96,6 +100,16 @@ namespace Gacha.Application
                 .Select(item => item.SourceReference)
                 .ToArray());
             LocalizedDescriptions = CopyLocalizedValues(localizedDescriptions, Id);
+            DefinitionRevision = string.IsNullOrWhiteSpace(definitionRevision)
+                ? null
+                : definitionRevision.Trim();
+            LanguageId = string.IsNullOrWhiteSpace(languageId) ? null : languageId.Trim();
+            ReleaseDate = releaseDate?.Date;
+            Exclusions = new ReadOnlyCollection<string>((exclusions ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray());
         }
 
         public string Id { get; }
@@ -107,6 +121,10 @@ namespace Gacha.Application
         public IReadOnlyList<ProductRuleEvidence> Evidence { get; }
         public IReadOnlyList<string> SourceReferences { get; }
         public IReadOnlyDictionary<string, string> LocalizedDescriptions { get; }
+        public string DefinitionRevision { get; }
+        public string LanguageId { get; }
+        public DateTime? ReleaseDate { get; }
+        public IReadOnlyList<string> Exclusions { get; }
         public string SourceReference => SourceReferences.FirstOrDefault();
         public DateTime? LastCheckedOn => Evidence.Count == 0
             ? (DateTime?)null

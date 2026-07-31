@@ -1,0 +1,274 @@
+{
+  "SchemaVersion": 1,
+  "Revision": "pokemon-product-rules-2026-07-31.1",
+  "Rules": [
+    {
+      "ProfileId": "pokemon-base1-unlimited-empirical-v1",
+      "RuleNamespace": "historical:base1-unlimited",
+      "SetId": "pokemon-tcg:set:base1",
+      "LanguageId": "en",
+      "ReleaseDate": "1999-01-09",
+      "Trust": "HistoricallyVerified",
+      "Confidence": "Corroborated",
+      "RegionId": "pokemon-international-en",
+      "RegionNames": {
+        "en": "International English market",
+        "zh": "国际英文市场",
+        "ja": "英語圏の国際市場"
+      },
+      "Descriptions": {
+        "en": "Base Set Unlimited · 5 Common / 2 Energy / 3 Uncommon / 1 Rare · Holo ≈ 1 in 3",
+        "zh": "Base Set 无限版 · 5 普通 / 2 能量 / 3 非普通 / 1 稀有 · 闪卡约 3 包 1 张",
+        "ja": "Base Set アンリミテッド · コモン5 / エネルギー2 / アンコモン3 / レア1 · ホロは約3パックに1枚"
+      },
+      "Exclusions": ["first-edition", "w-promo", "theme-deck-machamp-8"],
+      "Eligibility": {
+        "ExcludedTraits": ["first-edition", "w-promo"]
+      },
+      "Evidence": [
+        {
+          "Title": "SJSU Base Set empirical study",
+          "SourceReference": "https://www.cs.sjsu.edu/~stamp/cv/papers/pokemon.pdf",
+          "CheckedOn": "2026-07-23"
+        },
+        {
+          "Title": "PokéBeach Base Set theme deck reference",
+          "SourceReference": "https://www.pokebeach.com/tcg/base-set/theme-decks",
+          "CheckedOn": "2026-07-23"
+        }
+      ],
+      "Pools": [
+        {
+          "Id": "pool:common",
+          "Components": [{
+            "Id": "common",
+            "ExpectedPrintingCount": 32,
+            "TotalWeight": 32,
+            "AnyOf": [{"RaritySlugs": ["common"], "ExcludedItemCategories": ["Energy"]}]
+          }]
+        },
+        {
+          "Id": "pool:energy",
+          "Components": [{
+            "Id": "energy",
+            "ExpectedPrintingCount": 6,
+            "TotalWeight": 6,
+            "AnyOf": [{"RaritySlugs": ["common"], "ItemCategories": ["Energy"]}]
+          }]
+        },
+        {
+          "Id": "pool:uncommon",
+          "Components": [{
+            "Id": "uncommon",
+            "ExpectedPrintingCount": 32,
+            "TotalWeight": 32,
+            "AnyOf": [{"RaritySlugs": ["uncommon"]}]
+          }]
+        },
+        {
+          "Id": "pool:rare",
+          "Components": [
+            {
+              "Id": "holo-rare",
+              "ExpectedPrintingCount": 15,
+              "TotalWeight": 240,
+              "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["holo"], "ExcludedCardNumbers": ["8"]}]
+            },
+            {
+              "Id": "non-holo-rare",
+              "ExpectedPrintingCount": 16,
+              "TotalWeight": 480,
+              "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["normal"]}]
+            }
+          ]
+        }
+      ],
+      "Slots": [
+        {"Id": "slot:common", "PoolId": "pool:common", "DrawCount": 5, "RevealOrder": 0, "AllowDuplicates": false},
+        {"Id": "slot:energy", "PoolId": "pool:energy", "DrawCount": 2, "RevealOrder": 5, "AllowDuplicates": false},
+        {"Id": "slot:uncommon", "PoolId": "pool:uncommon", "DrawCount": 3, "RevealOrder": 7, "AllowDuplicates": false},
+        {"Id": "slot:rare", "PoolId": "pool:rare", "DrawCount": 1, "RevealOrder": 10, "AllowDuplicates": true}
+      ]
+    },
+    {
+      "ProfileId": "pokemon-ex1-psa-empirical-v1",
+      "RuleNamespace": "historical:ex1",
+      "SetId": "pokemon-tcg:set:ex1",
+      "LanguageId": "en",
+      "ReleaseDate": "2003-07-01",
+      "Trust": "HistoricallyVerified",
+      "Confidence": "Corroborated",
+      "RegionId": "pokemon-international-en",
+      "RegionNames": {"en": "International English market", "zh": "国际英文市场", "ja": "英語圏の国際市場"},
+      "Descriptions": {
+        "en": "EX Ruby & Sapphire · 5 Common / 2 Uncommon / 1 Reverse Holo / 1 Rare · empirical Holo ≈ 6.5/36 and Pokémon-ex ≈ 3/36",
+        "zh": "EX 红宝石与蓝宝石 · 5 普通 / 2 非普通 / 1 反向闪 / 1 稀有 · 经验值：普通闪约 6.5/36、Pokémon-ex 约 3/36",
+        "ja": "EX ルビー＆サファイア · コモン5 / アンコモン2 / リバースホロ1 / レア1 · 実測ホロ約6.5/36、Pokémon-ex約3/36"
+      },
+      "Exclusions": ["first-edition", "w-promo"],
+      "Eligibility": {"ExcludedTraits": ["first-edition", "w-promo"]},
+      "Evidence": [{
+        "Title": "PSA EX Ruby & Sapphire set guide",
+        "SourceReference": "https://www.psacard.com/articles/articleview/9800/psa-set-registry-collecting-2003-poke-mon-ex-ruby-sapphire-first-nintendo-card-issue",
+        "CheckedOn": "2026-07-25"
+      }],
+      "Pools": [
+        {"Id": "pool:common", "Components": [{"Id": "common", "ExpectedPrintingCount": 40, "TotalWeight": 40, "AnyOf": [{"RaritySlugs": ["common"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:uncommon", "Components": [{"Id": "uncommon", "ExpectedPrintingCount": 34, "TotalWeight": 34, "AnyOf": [{"RaritySlugs": ["uncommon"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:reverse", "Components": [{"Id": "reverse", "ExpectedPrintingCount": 101, "TotalWeight": 101, "AnyOf": [{"RequiredTraits": ["reverse"]}]}]},
+        {
+          "Id": "pool:rare",
+          "Components": [
+            {"Id": "non-holo-rare", "ExpectedPrintingCount": 13, "TotalWeight": 53, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["normal"]}]},
+            {"Id": "holo-rare", "ExpectedPrintingCount": 16, "TotalWeight": 13, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["holo"], "ExcludedItemNameSuffixes": [" ex"]}]},
+            {"Id": "pokemon-ex", "ExpectedPrintingCount": 8, "TotalWeight": 6, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["holo"], "ItemNameSuffixes": [" ex"]}]}
+          ]
+        }
+      ],
+      "Slots": [
+        {"Id": "slot:common", "PoolId": "pool:common", "DrawCount": 5, "RevealOrder": 0, "AllowDuplicates": false},
+        {"Id": "slot:uncommon", "PoolId": "pool:uncommon", "DrawCount": 2, "RevealOrder": 5, "AllowDuplicates": false},
+        {"Id": "slot:reverse", "PoolId": "pool:reverse", "DrawCount": 1, "RevealOrder": 7, "AllowDuplicates": true},
+        {"Id": "slot:rare", "PoolId": "pool:rare", "DrawCount": 1, "RevealOrder": 8, "AllowDuplicates": true}
+      ]
+    },
+    {
+      "ProfileId": "pokemon-neo1-first-edition-psa-v1",
+      "RuleNamespace": "historical:neo1-first-edition",
+      "SetId": "pokemon-tcg:set:neo1",
+      "LanguageId": "en",
+      "ReleaseDate": "2000-12-16",
+      "Trust": "HistoricallyVerified",
+      "Confidence": "Corroborated",
+      "RegionId": "pokemon-international-en",
+      "RegionNames": {"en": "International English market", "zh": "国际英文市场", "ja": "英語圏の国際市場"},
+      "Descriptions": {
+        "en": "Neo Genesis First Edition · 7 Common / 3 Uncommon / 1 Rare · Holo ≈ 1 in 3",
+        "zh": "Neo Genesis 第一版 · 7 普通 / 3 非普通 / 1 稀有 · 闪卡约 3 包 1 张",
+        "ja": "Neo Genesis 初版 · コモン7 / アンコモン3 / レア1 · ホロは約3パックに1枚"
+      },
+      "Exclusions": ["unlimited", "w-promo"],
+      "Eligibility": {"RequiredTraits": ["first-edition"], "ExcludedTraits": ["w-promo"]},
+      "Evidence": [{
+        "Title": "PSA Neo Genesis guide",
+        "SourceReference": "https://www.psacard.com/articles/articleview/9409/public/locales",
+        "CheckedOn": "2026-07-23"
+      }],
+      "Pools": [
+        {"Id": "pool:common", "Components": [{"Id": "common", "ExpectedPrintingCount": 41, "TotalWeight": 41, "AnyOf": [{"RaritySlugs": ["common"]}]}]},
+        {"Id": "pool:uncommon", "Components": [{"Id": "uncommon", "ExpectedPrintingCount": 35, "TotalWeight": 35, "AnyOf": [{"RaritySlugs": ["uncommon"]}]}]},
+        {
+          "Id": "pool:rare",
+          "Components": [
+            {"Id": "holo-rare", "ExpectedPrintingCount": 19, "TotalWeight": 304, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "non-holo-rare", "ExpectedPrintingCount": 16, "TotalWeight": 608, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["normal"]}]}
+          ]
+        }
+      ],
+      "Slots": [
+        {"Id": "slot:common", "PoolId": "pool:common", "DrawCount": 7, "RevealOrder": 0, "AllowDuplicates": false},
+        {"Id": "slot:uncommon", "PoolId": "pool:uncommon", "DrawCount": 3, "RevealOrder": 7, "AllowDuplicates": false},
+        {"Id": "slot:rare", "PoolId": "pool:rare", "DrawCount": 1, "RevealOrder": 10, "AllowDuplicates": true}
+      ]
+    },
+    {
+      "ProfileId": "pokemon-swsh1-sourced-simulation-v1",
+      "RuleNamespace": "sourced:swsh1",
+      "SetId": "pokemon-tcg:set:swsh1",
+      "LanguageId": "en",
+      "ReleaseDate": "2020-02-07",
+      "Trust": "SourceInformedSimulation",
+      "Confidence": "Corroborated",
+      "RegionId": "pokemon-international-en",
+      "RegionNames": {"en": "International English market", "zh": "国际英文市场", "ja": "英語圏の国際市場"},
+      "Descriptions": {
+        "en": "Sword & Shield sourced simulation · 5 Common / 3 Uncommon / 1 Reverse / 1 Rare · 10 collected set cards; Basic Energy and code inserts omitted",
+        "zh": "剑与盾有来源模拟 · 5 普通 / 3 非普通 / 1 反向闪 / 1 稀有 · 收藏 10 张系列卡；不计基础能量与代码卡插入物",
+        "ja": "ソード＆シールド出典付きシミュレーション · コモン5 / アンコモン3 / リバース1 / レア1 · 収集カード10枚、基本エネルギーとコードカードは除外"
+      },
+      "Exclusions": ["first-edition", "w-promo", "basic-energy-insert", "code-card-insert"],
+      "Eligibility": {"ExcludedTraits": ["first-edition", "w-promo"]},
+      "Evidence": [
+        {"Title": "Official Pokémon booster support", "SourceReference": "https://support.pokemon.com/hc/en-us/articles/360000981613-What-can-I-expect-in-a-Pok%C3%A9mon-Trading-Card-Game-booster-pack", "CheckedOn": "2026-07-25"},
+        {"Title": "Elite Fourum 4,628-pack pull-rate study", "SourceReference": "https://www.elitefourum.com/t/pull-rates-in-sun-moon-sword-shield-sets/25220", "CheckedOn": "2026-07-25"},
+        {"Title": "CardCodex Sword & Shield pack breakdown", "SourceReference": "https://cardcodex.com/pokemon/sword-shield/sword-shield-base/", "CheckedOn": "2026-07-25"}
+      ],
+      "Pools": [
+        {"Id": "pool:common", "Components": [{"Id": "common", "ExpectedPrintingCount": 60, "TotalWeight": 60, "AnyOf": [{"RaritySlugs": ["common"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:uncommon", "Components": [{"Id": "uncommon", "ExpectedPrintingCount": 56, "TotalWeight": 56, "AnyOf": [{"RaritySlugs": ["uncommon"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:reverse", "Components": [{"Id": "reverse", "ExpectedPrintingCount": 164, "TotalWeight": 164, "AnyOf": [{"RequiredTraits": ["reverse"]}]}]},
+        {
+          "Id": "pool:rare",
+          "Components": [
+            {"Id": "non-holo-rare", "ExpectedPrintingCount": 32, "TotalWeight": 59.52, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["normal"]}]},
+            {"Id": "regular-holo-rare", "ExpectedPrintingCount": 17, "TotalWeight": 18.20, "AnyOf": [
+              {"RaritySlugs": ["holo-rare"], "RequiredTraits": ["holo"]},
+              {"RaritySlugs": ["holo-rare-vmax"], "RequiredTraits": ["holo"], "CardNumbers": ["34", "35"], "ItemNames": ["Cinderace"]}
+            ]},
+            {"Id": "holo-rare-v", "ExpectedPrintingCount": 17, "TotalWeight": 14.20, "AnyOf": [{"RaritySlugs": ["holo-rare-v"], "RequiredTraits": ["holo"]}]},
+            {"Id": "holo-rare-vmax", "ExpectedPrintingCount": 4, "TotalWeight": 2.20, "AnyOf": [{"RaritySlugs": ["holo-rare-vmax"], "RequiredTraits": ["holo"], "ExcludedCardNumbers": ["34", "35"]}]},
+            {"Id": "ultra-rare", "ExpectedPrintingCount": 16, "TotalWeight": 3.74, "AnyOf": [{"RaritySlugs": ["ultra-rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "secret-rare", "ExpectedPrintingCount": 14, "TotalWeight": 2.14, "AnyOf": [{"RaritySlugs": ["secret-rare"], "RequiredTraits": ["holo"]}]}
+          ]
+        }
+      ],
+      "Slots": [
+        {"Id": "slot:common", "PoolId": "pool:common", "DrawCount": 5, "RevealOrder": 0, "AllowDuplicates": false},
+        {"Id": "slot:uncommon", "PoolId": "pool:uncommon", "DrawCount": 3, "RevealOrder": 5, "AllowDuplicates": false},
+        {"Id": "slot:reverse", "PoolId": "pool:reverse", "DrawCount": 1, "RevealOrder": 8, "AllowDuplicates": true},
+        {"Id": "slot:rare", "PoolId": "pool:rare", "DrawCount": 1, "RevealOrder": 9, "AllowDuplicates": true}
+      ]
+    },
+    {
+      "ProfileId": "pokemon-sv01-sourced-simulation-v1",
+      "RuleNamespace": "sourced:sv01",
+      "SetId": "pokemon-tcg:set:sv01",
+      "LanguageId": "en",
+      "ReleaseDate": "2023-03-31",
+      "Trust": "SourceInformedSimulation",
+      "Confidence": "Corroborated",
+      "RegionId": "pokemon-international-en",
+      "RegionNames": {"en": "International English market", "zh": "国际英文市场", "ja": "英語圏の国際市場"},
+      "Descriptions": {
+        "en": "Scarlet & Violet sourced simulation · 4 Common / 3 Uncommon / 2 foil slots / 1 Rare-or-higher · 10 collected set cards; Basic Energy and code inserts omitted",
+        "zh": "朱与紫有来源模拟 · 4 普通 / 3 非普通 / 2 闪卡位 / 1 稀有以上 · 收藏 10 张系列卡；不计基础能量与代码卡插入物",
+        "ja": "スカーレット＆バイオレット出典付きシミュレーション · コモン4 / アンコモン3 / フォイル2枠 / レア以上1 · 収集カード10枚、基本エネルギーとコードカードは除外"
+      },
+      "Exclusions": ["first-edition", "w-promo", "basic-energy-insert", "code-card-insert"],
+      "Eligibility": {"ExcludedTraits": ["first-edition", "w-promo"]},
+      "Evidence": [
+        {"Title": "Official Pokémon booster support", "SourceReference": "https://support.pokemon.com/hc/en-us/articles/360000981613-What-can-I-expect-in-a-Pok%C3%A9mon-Trading-Card-Game-booster-pack", "CheckedOn": "2026-07-25"},
+        {"Title": "TCGplayer 8,000+ pack pull-rate study", "SourceReference": "https://www.tcgplayer.com/content/article/Pok%C3%A9mon-TCG-Scarlet-Violet-Pull-Rates/a7702fce-dd64-4a58-beb1-0f871c853215/", "CheckedOn": "2026-07-25"}
+      ],
+      "Pools": [
+        {"Id": "pool:common", "Components": [{"Id": "common", "ExpectedPrintingCount": 105, "TotalWeight": 105, "AnyOf": [{"RaritySlugs": ["common"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:uncommon", "Components": [{"Id": "uncommon", "ExpectedPrintingCount": 60, "TotalWeight": 60, "AnyOf": [{"RaritySlugs": ["uncommon"], "RequiredTraits": ["normal"]}]}]},
+        {"Id": "pool:first-reverse", "Components": [{"Id": "standard-reverse", "ExpectedPrintingCount": 186, "TotalWeight": 186, "AnyOf": [{"RaritySlugs": ["common", "uncommon", "rare"], "RequiredTraits": ["reverse"]}]}]},
+        {
+          "Id": "pool:second-foil",
+          "Components": [
+            {"Id": "standard-reverse", "ExpectedPrintingCount": 186, "TotalWeight": 87.33, "AnyOf": [{"RaritySlugs": ["common", "uncommon", "rare"], "RequiredTraits": ["reverse"]}]},
+            {"Id": "illustration-rare", "ExpectedPrintingCount": 24, "TotalWeight": 7.67, "AnyOf": [{"RaritySlugs": ["illustration-rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "special-illustration-rare", "ExpectedPrintingCount": 10, "TotalWeight": 3.15, "AnyOf": [{"RaritySlugs": ["special-illustration-rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "hyper-rare", "ExpectedPrintingCount": 6, "TotalWeight": 1.85, "AnyOf": [{"RaritySlugs": ["hyper-rare"], "RequiredTraits": ["holo"]}]}
+          ]
+        },
+        {
+          "Id": "pool:rare",
+          "Components": [
+            {"Id": "regular-rare", "ExpectedPrintingCount": 21, "TotalWeight": 79.67, "AnyOf": [{"RaritySlugs": ["rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "double-rare", "ExpectedPrintingCount": 12, "TotalWeight": 13.76, "AnyOf": [{"RaritySlugs": ["double-rare"], "RequiredTraits": ["holo"]}]},
+            {"Id": "ultra-rare", "ExpectedPrintingCount": 20, "TotalWeight": 6.57, "AnyOf": [{"RaritySlugs": ["ultra-rare"], "RequiredTraits": ["holo"]}]}
+          ]
+        }
+      ],
+      "Slots": [
+        {"Id": "slot:common", "PoolId": "pool:common", "DrawCount": 4, "RevealOrder": 0, "AllowDuplicates": false},
+        {"Id": "slot:uncommon", "PoolId": "pool:uncommon", "DrawCount": 3, "RevealOrder": 4, "AllowDuplicates": false},
+        {"Id": "slot:first-reverse", "PoolId": "pool:first-reverse", "DrawCount": 1, "RevealOrder": 7, "AllowDuplicates": false},
+        {"Id": "slot:second-foil", "PoolId": "pool:second-foil", "DrawCount": 1, "RevealOrder": 8, "AllowDuplicates": false},
+        {"Id": "slot:rare", "PoolId": "pool:rare", "DrawCount": 1, "RevealOrder": 9, "AllowDuplicates": false}
+      ]
+    }
+  ]
+}

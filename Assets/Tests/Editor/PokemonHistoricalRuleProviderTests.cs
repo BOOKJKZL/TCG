@@ -24,6 +24,11 @@ public class PokemonHistoricalRuleProviderTests
         Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
         Assert.That(profile.RegionId, Is.EqualTo(PokemonHistoricalRuleProvider.InternationalRegionId));
         Assert.That(profile.GetRegionName("zh"), Is.EqualTo("国际英文市场"));
+        Assert.That(profile.GetRegionName("ja"), Is.EqualTo("英語圏の国際市場"));
+        Assert.That(profile.DefinitionRevision, Is.EqualTo("pokemon-product-rules-2026-07-31.1"));
+        Assert.That(profile.LanguageId, Is.EqualTo("en"));
+        Assert.That(profile.ReleaseDate, Is.EqualTo(new DateTime(1999, 1, 9)));
+        Assert.That(profile.Exclusions, Does.Contain("theme-deck-machamp-8"));
         Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 23)));
         Assert.That(profile.Evidence.Select(item => item.Title), Is.EquivalentTo(new[]
         {
@@ -125,6 +130,9 @@ public class PokemonHistoricalRuleProviderTests
         Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
         Assert.That(profile.RegionId, Is.EqualTo(PokemonHistoricalRuleProvider.InternationalRegionId));
         Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
+        Assert.That(profile.DefinitionRevision, Is.EqualTo("pokemon-product-rules-2026-07-31.1"));
+        Assert.That(profile.LanguageId, Is.EqualTo("en"));
+        Assert.That(profile.ReleaseDate, Is.EqualTo(new DateTime(2003, 7, 1)));
         Assert.That(profile.SourceReferences, Is.EqualTo(new[]
         {
             PokemonHistoricalRuleProvider.ExRubySapphireSourceUrl

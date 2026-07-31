@@ -5,16 +5,15 @@ namespace Gacha.Infrastructure.Rules
 {
     public sealed class PokemonRuleProvider : IProductRuleProvider
     {
-        private readonly IProductRuleProvider historical = new PokemonHistoricalRuleProvider();
-        private readonly IProductRuleProvider modern = new PokemonModernRuleProvider();
+        private readonly DataDrivenProductRuleProvider provider =
+            PokemonRuleDefinitionLoader.CreateProvider();
 
         public ProductRuleProfile GetProfile(
             UniversalCatalog catalog,
             string productId,
             string languageId = null)
         {
-            return historical.GetProfile(catalog, productId, languageId) ??
-                   modern.GetProfile(catalog, productId, languageId);
+            return provider.GetProfile(catalog, productId, languageId);
         }
     }
 }

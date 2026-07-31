@@ -24,6 +24,11 @@ public class PokemonModernRuleProviderTests
         Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.SourceInformedSimulation));
         Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
         Assert.That(profile.IsSimulation, Is.True);
+        Assert.That(profile.DefinitionRevision, Is.EqualTo("pokemon-product-rules-2026-07-31.1"));
+        Assert.That(profile.LanguageId, Is.EqualTo("en"));
+        Assert.That(profile.ReleaseDate, Is.EqualTo(new DateTime(2020, 2, 7)));
+        Assert.That(profile.Exclusions, Does.Contain("code-card-insert"));
+        Assert.That(profile.GetDescription("ja"), Does.Contain("ソード＆シールド"));
         Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
         Assert.That(profile.SourceReferences, Is.EquivalentTo(new[]
         {
@@ -86,6 +91,9 @@ public class PokemonModernRuleProviderTests
         Assert.That(profile.Trust, Is.EqualTo(ProductRuleTrust.SourceInformedSimulation));
         Assert.That(profile.Confidence, Is.EqualTo(ProductRuleConfidence.Corroborated));
         Assert.That(profile.LastCheckedOn, Is.EqualTo(new DateTime(2026, 7, 25)));
+        Assert.That(profile.DefinitionRevision, Is.EqualTo("pokemon-product-rules-2026-07-31.1"));
+        Assert.That(profile.LanguageId, Is.EqualTo("en"));
+        Assert.That(profile.ReleaseDate, Is.EqualTo(new DateTime(2023, 3, 31)));
         Assert.That(profile.SourceReferences, Is.EquivalentTo(new[]
         {
             PokemonModernRuleProvider.OfficialBoosterSupportUrl,
