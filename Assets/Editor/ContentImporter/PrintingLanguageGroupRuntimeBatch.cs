@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Gacha.Infrastructure.Content;
+using Gacha.Infrastructure.Rules;
 using UnityEditor;
 using UnityEngine;
 
@@ -51,7 +52,8 @@ public static class PrintingLanguageGroupRuntimeBatch
             var reader = new PrintingLanguageGroupManifestReader();
             PrintingLanguageGroupManifestDto overlay = reader.LoadFile(OutputPath);
             var documents = new PrivateContentManifestReader().LoadCardSetDirectory(ImportRoot);
-            PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter().Build(
+            PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter(
+                new PokemonImportedCardVariantPolicy()).Build(
                 documents,
                 languageGroupManifest: overlay);
             result.RuntimeDefinitionCount = import.Catalog.PrintingLanguageGroups.Count;

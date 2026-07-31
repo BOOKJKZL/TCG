@@ -28,8 +28,8 @@ public static class PokemonCardSubjectLinkerBatch
         {
             PokemonCardSubjectIntegrityReport report = Run("en", 218, 23444, true);
             Debug.Log(Format("en", report));
-            if (!report.IsValid && Application.isBatchMode)
-                EditorApplication.Exit(2);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(report.IsValid ? 0 : 2);
         }
         catch (Exception exception)
         {
@@ -65,8 +65,8 @@ public static class PokemonCardSubjectLinkerBatch
                     Debug.Log(Format(job.language, report));
                     return report;
                 }).ToArray();
-            if (reports.Any(value => !value.IsValid) && Application.isBatchMode)
-                EditorApplication.Exit(2);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(reports.All(value => value.IsValid) ? 0 : 2);
         }
         catch (Exception exception)
         {
@@ -82,8 +82,8 @@ public static class PokemonCardSubjectLinkerBatch
         {
             PokemonCardSubjectIntegrityReport report = Run("zh-cn", 129, 12473, false);
             Debug.Log(Format("zh-cn", report));
-            if (!report.IsValid && Application.isBatchMode)
-                EditorApplication.Exit(2);
+            if (Application.isBatchMode)
+                EditorApplication.Exit(report.IsValid ? 0 : 2);
         }
         catch (Exception exception)
         {
