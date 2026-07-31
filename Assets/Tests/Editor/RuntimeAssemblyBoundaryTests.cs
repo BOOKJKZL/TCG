@@ -18,8 +18,12 @@ public class RuntimeAssemblyBoundaryTests
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var expectedCore = new HashSet<string>(expected.Where(path =>
             Normalize(path).Contains("Assets/Scripts/002_Core/")), StringComparer.OrdinalIgnoreCase);
+        var expectedFoundation = new HashSet<string>(expected.Where(path =>
+            Normalize(path).Contains("Assets/Scripts/001_Baisc/")), StringComparer.OrdinalIgnoreCase);
+        var expectedUtility = new HashSet<string>(expected.Where(path =>
+            Normalize(path).Contains("Assets/Scripts/005_Helper/")), StringComparer.OrdinalIgnoreCase);
         var expectedCompositionRoot = new HashSet<string>(expected.Except(
-            expectedCore,
+            expectedCore.Concat(expectedFoundation).Concat(expectedUtility),
             StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
         UnityEditor.Compilation.Assembly[] playerAssemblies =
@@ -28,30 +32,57 @@ public class RuntimeAssemblyBoundaryTests
             string.Equals(assembly.name, "Gacha.Runtime", StringComparison.Ordinal));
         UnityEditor.Compilation.Assembly core = playerAssemblies.SingleOrDefault(assembly =>
             string.Equals(assembly.name, "Gacha.Runtime.Core", StringComparison.Ordinal));
+        UnityEditor.Compilation.Assembly foundation = playerAssemblies.SingleOrDefault(assembly =>
+            string.Equals(assembly.name, "Gacha.Runtime.Foundation", StringComparison.Ordinal));
+        UnityEditor.Compilation.Assembly utility = playerAssemblies.SingleOrDefault(assembly =>
+            string.Equals(assembly.name, "Gacha.Runtime.Utility", StringComparison.Ordinal));
 
         Assert.That(runtime, Is.Not.Null, "Gacha.Runtime must be present in the player compilation graph.");
         Assert.That(core, Is.Not.Null, "Gacha.Runtime.Core must be present in the player compilation graph.");
+        Assert.That(foundation, Is.Not.Null,
+            "Gacha.Runtime.Foundation must be present in the player compilation graph.");
+        Assert.That(utility, Is.Not.Null,
+            "Gacha.Runtime.Utility must be present in the player compilation graph.");
         var actualCompositionRoot = new HashSet<string>(runtime.sourceFiles
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var actualCore = new HashSet<string>(core.sourceFiles
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
+        var actualFoundation = new HashSet<string>(foundation.sourceFiles
+            .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
+        var actualUtility = new HashSet<string>(utility.sourceFiles
+            .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var actual = new HashSet<string>(actualCompositionRoot, StringComparer.OrdinalIgnoreCase);
         actual.UnionWith(actualCore);
+        actual.UnionWith(actualFoundation);
+        actual.UnionWith(actualUtility);
 
         Assert.That(actualCompositionRoot, Is.EquivalentTo(expectedCompositionRoot));
         Assert.That(actualCore, Is.EquivalentTo(expectedCore));
+        Assert.That(actualFoundation, Is.EquivalentTo(expectedFoundation));
+        Assert.That(actualUtility, Is.EquivalentTo(expectedUtility));
         Assert.That(actual, Is.EquivalentTo(expected));
         Assert.That(actual.Count, Is.GreaterThanOrEqualTo(33));
 
         string runtimeDefinition = File.ReadAllText(Path.Combine(scriptsRoot, "Gacha.Runtime.asmdef"));
         string coreDefinition = File.ReadAllText(Path.Combine(scriptsRoot, "002_Core", "Gacha.Runtime.Core.asmdef"));
-        StringAssert.Contains("\"Gacha.Runtime.Core\"", runtimeDefinition);
-        Assert.That(Regex.IsMatch(
-                coreDefinition,
-                "\\\"references\\\"\\s*:\\s*\\[[^\\]]*\\\"Gacha\\.Runtime\\\"\\s*(?:,|\\])",
-                RegexOptions.Singleline),
-            Is.False,
+        string foundationDefinition = File.ReadAllText(Path.Combine(
+            scriptsRoot,
+            "001_Baisc",
+            "Gacha.Runtime.Foundation.asmdef"));
+        string utilityDefinition = File.ReadAllText(Path.Combine(
+            scriptsRoot,
+            "005_Helper",
+            "Gacha.Runtime.Utility.asmdef"));
+        Assert.That(ReferencesAssembly(runtimeDefinition, "Gacha.Runtime.Core"), Is.True);
+        Assert.That(ReferencesAssembly(runtimeDefinition, "Gacha.Runtime.Foundation"), Is.True);
+        Assert.That(ReferencesAssembly(coreDefinition, "Gacha.Runtime"), Is.False,
             "The core runtime boundary must not reference its composition root.");
+        Assert.That(ReferencesAssembly(foundationDefinition, "Gacha.Runtime.Core"), Is.True);
+        Assert.That(ReferencesAssembly(foundationDefinition, "Gacha.Runtime.Utility"), Is.True);
+        Assert.That(ReferencesAssembly(foundationDefinition, "Gacha.Runtime"), Is.False,
+            "The foundation must not reference its composition root.");
+        Assert.That(ReferencesAssembly(utilityDefinition, "Gacha.Runtime"), Is.False);
+        Assert.That(ReferencesAssembly(utilityDefinition, "Gacha.Runtime.Foundation"), Is.False);
 
         UnityEditor.Compilation.Assembly predefined = playerAssemblies.SingleOrDefault(assembly =>
             string.Equals(assembly.name, "Assembly-CSharp", StringComparison.Ordinal));
@@ -74,5 +105,13 @@ public class RuntimeAssemblyBoundaryTests
     private static string Normalize(string path)
     {
         return path.Replace('\\', '/');
+    }
+
+    private static bool ReferencesAssembly(string definition, string assemblyName)
+    {
+        return Regex.IsMatch(
+            definition,
+            "\\\"references\\\"\\s*:\\s*\\[[^\\]]*\\\"" + Regex.Escape(assemblyName) + "\\\"\\s*(?:,|\\])",
+            RegexOptions.Singleline);
     }
 }

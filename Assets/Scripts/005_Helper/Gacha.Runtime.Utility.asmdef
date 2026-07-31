@@ -1,0 +1,14 @@
+{
+    "name": "Gacha.Runtime.Utility",
+    "rootNamespace": "Gacha.Runtime.Utility",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
