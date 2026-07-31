@@ -25,6 +25,17 @@ public sealed class PokemonCompleteReleasePublisherTests
         Assert.That(definitions.Count(value => value.PackageId.StartsWith("pokemon.card-subject-links.")),
             Is.EqualTo(3));
         Assert.That(definitions.Count(value => value.PackageId.StartsWith("pokemon.pokedex.artwork.")), Is.EqualTo(9));
+        Assert.That(definitions.All(value => value.Metadata != null && !value.Metadata.IsLegacy), Is.True);
+        ContentPackagePublishDefinition[] cardSets = definitions.Where(value =>
+            value.Metadata.Kind == "card-set").ToArray();
+        Assert.That(cardSets, Has.Length.EqualTo(524));
+        Assert.That(cardSets.All(value => value.Metadata.GameId == "pokemon-tcg" &&
+                                          value.Metadata.GenerationOrder.HasValue &&
+                                          value.Metadata.SortOrdinal.HasValue &&
+                                          !string.IsNullOrWhiteSpace(value.Metadata.SetId) &&
+                                          !string.IsNullOrWhiteSpace(value.Metadata.SetCode)), Is.True);
+        Assert.That(cardSets.Count(value => value.Metadata.ReleaseDate.HasValue), Is.EqualTo(421));
+        Assert.That(cardSets.Count(value => !value.Metadata.ReleaseDate.HasValue), Is.EqualTo(103));
         ContentPackagePublishDefinition languageGroups = definitions.Single(value =>
             value.PackageId == PrintingLanguageGroupPackagePublisher.PackageId);
         Assert.That(languageGroups.InstallRelativePath,
@@ -35,12 +46,16 @@ public sealed class PokemonCompleteReleasePublisherTests
         ContentPackagePublishDefinition[] updatedLinks = definitions.Where(value =>
             value.PackageId.StartsWith("pokemon.card-subject-links.")).ToArray();
         Assert.That(updatedLinks, Has.Length.EqualTo(3));
-        Assert.That(updatedLinks.All(value => value.Revision == 5 && value.Version == "4.1.0"),
+        Assert.That(updatedLinks.All(value => value.Revision == 5 && value.Version == "4.1.0" &&
+                                                  value.Metadata.Dependencies.SequenceEqual(
+                                                      new[] { "pokemon.pokedex.taxonomy" })),
             Is.True);
         Assert.That(definitions.Where(value => value != languageGroups &&
                                               !updatedLinks.Contains(value))
             .All(value => value.Revision == 4 && value.Version == "4.0.0"), Is.True,
             "The other 534 descriptors must remain unchanged so phones do not redownload card images.");
+        Assert.That(PokemonCompleteReleasePublisher.CatalogRevision, Is.EqualTo(6));
+        Assert.That(PokemonCompleteReleasePublisher.PreviousCatalogRevision, Is.EqualTo(5));
         Assert.That(definitions.Single(value => value.PackageId == "pokemon.pokedex.taxonomy")
             .IncludedRelativePaths, Is.EqualTo(new[] { "pokemon-taxonomy.json" }));
         Assert.That(definitions.Single(value => string.Equals(

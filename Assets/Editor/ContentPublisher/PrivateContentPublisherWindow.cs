@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Gacha.EditorTools.Content;
@@ -243,7 +244,8 @@ public static class ContentPackagePublisherBatch
                 item.Language + "/" + item.SetId,
                 packageRevision,
                 version,
-                RuntimePackagePaths(item)))
+                RuntimePackagePaths(item),
+                BuildCardSetMetadata(item)))
             .ToArray();
         ContentPackagePublishResult result = new DeterministicContentPackagePublisher().Publish(new ContentPackagePublishRequest(
             outputRoot,
@@ -255,14 +257,7 @@ public static class ContentPackagePublisherBatch
 
     public static IReadOnlyList<string> RuntimePackagePaths(ImportedSet importedSet)
     {
-        string manifestPath = Path.Combine(importedSet.SourceDirectory, "manifest.json");
-        PrivateContentManifestDocument document = new PrivateContentManifestReader().LoadFile(manifestPath);
-        if (!string.Equals(document.Manifest.Language, importedSet.Language, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(document.Manifest.Set.Id, importedSet.SetId, StringComparison.Ordinal))
-        {
-            throw new InvalidDataException(
-                $"Imported Set identity does not match its manifest: {importedSet.Language}/{importedSet.SetId}.");
-        }
+        PrivateContentManifestDocument document = LoadMatchingManifest(importedSet);
 
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "manifest.json" };
         foreach (string imagePath in document.Manifest.Cards
@@ -278,6 +273,69 @@ public static class ContentPackagePublisherBatch
             paths.Add(portablePath);
         }
         return paths.OrderBy(path => path, StringComparer.Ordinal).ToArray();
+    }
+
+    public static Gacha.Application.ContentPackageMetadata BuildCardSetMetadata(
+        ImportedSet importedSet,
+        string gameId = null,
+        IEnumerable<string> additionalTags = null)
+    {
+        PrivateContentManifestDto manifest = LoadMatchingManifest(importedSet).Manifest;
+        ImportedSetDto set = manifest.Set;
+        DateTime? releaseDate = null;
+        if (!string.IsNullOrWhiteSpace(set.ReleaseDate))
+        {
+            if (!DateTime.TryParseExact(
+                    set.ReleaseDate.Trim(),
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out DateTime parsed))
+                throw new InvalidDataException(
+                    $"Imported Set release date must use yyyy-MM-dd: {manifest.Language}/{set.Id}.");
+            releaseDate = parsed;
+        }
+
+        var tags = new List<string>(additionalTags ?? Array.Empty<string>());
+        AddTag(tags, "source", manifest.Source);
+        AddTag(tags, "series", set.SeriesId);
+        AddTag(tags, "era", set.EraId);
+        AddTag(tags, "generation", set.GenerationId);
+        return new Gacha.Application.ContentPackageMetadata(
+            "card-set",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [manifest.Language] = set.Name
+            },
+            gameId,
+            manifest.Language,
+            set.Id,
+            set.SetCode,
+            releaseDate,
+            set.GenerationOrder,
+            set.SetOrdinal,
+            tags);
+    }
+
+    private static PrivateContentManifestDocument LoadMatchingManifest(ImportedSet importedSet)
+    {
+        if (importedSet == null)
+            throw new ArgumentNullException(nameof(importedSet));
+        string manifestPath = Path.Combine(importedSet.SourceDirectory, "manifest.json");
+        PrivateContentManifestDocument document = new PrivateContentManifestReader().LoadFile(manifestPath);
+        if (!string.Equals(document.Manifest.Language, importedSet.Language, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(document.Manifest.Set.Id, importedSet.SetId, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Imported Set identity does not match its manifest: {importedSet.Language}/{importedSet.SetId}.");
+        }
+        return document;
+    }
+
+    private static void AddTag(ICollection<string> tags, string category, string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            tags.Add(category + ":" + value.Trim());
     }
 
     private static void VerifyRuntimeInstallation(

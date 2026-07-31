@@ -142,6 +142,67 @@ namespace Gacha.EditorTools.Content
             }
         }
 
+        public ContentPackagePublishResult PublishCatalogFromExisting(
+            ContentPackagePublishRequest request,
+            ContentPackageCatalog existingCatalog,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateRequest(request);
+            if (existingCatalog == null)
+                throw new ArgumentNullException(nameof(existingCatalog));
+            if (existingCatalog.Packages.Count != request.Packages.Count)
+                throw new InvalidDataException(
+                    "Metadata-only publication must preserve the complete package set.");
+
+            string outputRoot = Path.GetFullPath(request.OutputDirectory);
+            Directory.CreateDirectory(outputRoot);
+            Dictionary<string, ContentPackagePublishDefinition> definitions = request.Packages
+                .ToDictionary(value => value.PackageId, value => value, StringComparer.Ordinal);
+            var published = new List<PublishedContentPackage>();
+            foreach (ContentPackageCatalogEntry entry in existingCatalog.Packages
+                         .OrderBy(value => value.Package.PackageId, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!definitions.TryGetValue(
+                        entry.Package.PackageId, out ContentPackagePublishDefinition definition))
+                    throw new InvalidDataException(
+                        "Metadata-only publication is missing package: " + entry.Package.PackageId);
+                ContentPackageDescriptor package = entry.Package;
+                if (package.Revision != definition.Revision ||
+                    !string.Equals(package.Version, definition.Version, StringComparison.Ordinal) ||
+                    !string.Equals(
+                        package.InstallRelativePath,
+                        definition.InstallRelativePath,
+                        StringComparison.Ordinal))
+                    throw new InvalidDataException(
+                        "Metadata-only publication cannot change package descriptor: " + package.PackageId);
+
+                string archiveUrl = "packages/" + package.PackageId + "/" + package.Sha256 + ".zip";
+                string archivePath = Path.Combine(
+                    outputRoot, "packages", package.PackageId, package.Sha256 + ".zip");
+                VerifyExistingArchive(archivePath, package, cancellationToken);
+                published.Add(new PublishedContentPackage(
+                    package, archivePath, archiveUrl, definition.Metadata));
+            }
+
+            string catalogJson = SerializeCatalog(request.CatalogRevision, published);
+            ContentPackageCatalogLoadResult validation = new JsonContentPackageCatalogReader().Read(
+                catalogJson,
+                new Uri("https://publisher.invalid/releases/catalog.json"));
+            if (!validation.Succeeded)
+                throw new InvalidDataException(
+                    "Generated package catalog failed validation: " + validation.ErrorMessage);
+            string catalogPath = Path.Combine(outputRoot, "catalog.json");
+            WriteTextAtomic(catalogPath, catalogJson);
+            return new ContentPackagePublishResult(
+                catalogPath, catalogJson, published.AsReadOnly());
+        }
+
+        internal static string SerializeCatalogSnapshot(
+            long revision,
+            IReadOnlyList<PublishedContentPackage> packages) =>
+            SerializeCatalog(revision, packages);
+
         private static PublishedContentPackage PublishPackage(
             string outputRoot,
             string temporaryRoot,
@@ -309,6 +370,40 @@ namespace Gacha.EditorTools.Content
                 throw new InvalidDataException(
                     $"Published archive verification failed: files {files}/{expectedFiles}, bytes {bytes}/{expectedBytes}.");
             }
+        }
+
+        private static void VerifyExistingArchive(
+            string archivePath,
+            ContentPackageDescriptor package,
+            CancellationToken cancellationToken)
+        {
+            if (!File.Exists(archivePath))
+                throw new FileNotFoundException(
+                    "Existing content-addressed archive was not found.", archivePath);
+            if (new FileInfo(archivePath).Length != package.DownloadBytes)
+                throw new InvalidDataException(
+                    "Existing archive size differs from its descriptor: " + package.PackageId);
+            long installedBytes = 0;
+            int files = 0;
+            using (FileStream stream = File.OpenRead(archivePath))
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, false, Encoding.UTF8))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                        continue;
+                    files++;
+                    checked { installedBytes += entry.Length; }
+                }
+            }
+            if (files == 0 || installedBytes != package.InstalledBytes)
+                throw new InvalidDataException(
+                    "Existing archive contents differ from its descriptor: " + package.PackageId);
+            string hash = ComputeSha256(archivePath, cancellationToken);
+            if (!string.Equals(hash, package.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    "Existing archive SHA-256 differs from its descriptor: " + package.PackageId);
         }
 
         private static long SumInstalledBytes(IReadOnlyList<SourceFile> files)

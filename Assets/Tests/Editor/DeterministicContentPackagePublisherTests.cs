@@ -67,6 +67,47 @@ public class DeterministicContentPackagePublisherTests
     }
 
     [Test]
+    public void PublishCatalogFromExisting_ChangesMetadataWithoutRebuildingArchiveIdentity()
+    {
+        ContentPackagePublishResult first = Publisher().Publish(Request());
+        ContentPackageCatalogLoadResult existing = new JsonContentPackageCatalogReader().Read(
+            first.CatalogJson,
+            new Uri("https://cdn.example.test/releases/catalog.json"));
+        Assert.That(existing.Succeeded, Is.True, existing.ErrorMessage);
+        byte[] archiveBytes = File.ReadAllBytes(first.Packages[0].ArchivePath);
+        DateTime archiveWriteTime = File.GetLastWriteTimeUtc(first.Packages[0].ArchivePath);
+        var metadata = new ContentPackageMetadata(
+            "card-set",
+            new Dictionary<string, string> { ["en"] = "Fixture Set" },
+            "fixture-game",
+            "en",
+            "fixture",
+            "FIX");
+        var migration = new ContentPackagePublishRequest(
+            output,
+            2,
+            new[]
+            {
+                new ContentPackagePublishDefinition(
+                    "en.fixture", source, "en/fixture", 1, "1.0.0", metadata: metadata)
+            });
+
+        ContentPackagePublishResult second = Publisher().PublishCatalogFromExisting(
+            migration, existing.Catalog);
+        ContentPackageCatalogLoadResult migrated = new JsonContentPackageCatalogReader().Read(
+            second.CatalogJson,
+            new Uri("https://cdn.example.test/releases/catalog.json"));
+
+        Assert.That(migrated.Succeeded, Is.True, migrated.ErrorMessage);
+        Assert.That(migrated.Catalog.Revision, Is.EqualTo(2));
+        Assert.That(migrated.Catalog.Packages[0].Metadata.Kind, Is.EqualTo("card-set"));
+        Assert.That(second.Packages[0].Package.Sha256, Is.EqualTo(first.Packages[0].Package.Sha256));
+        Assert.That(File.ReadAllBytes(second.Packages[0].ArchivePath), Is.EqualTo(archiveBytes));
+        Assert.That(File.GetLastWriteTimeUtc(second.Packages[0].ArchivePath), Is.EqualTo(archiveWriteTime));
+        Assert.That(Directory.GetDirectories(output, ".publishing-*"), Is.Empty);
+    }
+
+    [Test]
     public async Task Publish_OutputInstallsThroughRuntimePlannerAndInstaller()
     {
         ContentPackagePublishResult publication = Publisher().Publish(Request());

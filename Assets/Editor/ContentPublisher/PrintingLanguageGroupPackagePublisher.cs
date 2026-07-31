@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Gacha.Application;
 using Gacha.Infrastructure.Content;
 
 namespace Gacha.EditorTools.Content
@@ -10,7 +11,9 @@ namespace Gacha.EditorTools.Content
         public const string Version = "1.0.0";
         public const long Revision = 1;
 
-        public static ContentPackagePublishDefinition BuildDefinition(string importRoot)
+        public static ContentPackagePublishDefinition BuildDefinition(
+            string importRoot,
+            ContentPackageMetadata metadata = null)
         {
             if (string.IsNullOrWhiteSpace(importRoot))
                 throw new ArgumentException("Import root is required.", nameof(importRoot));
@@ -24,7 +27,8 @@ namespace Gacha.EditorTools.Content
                 PrintingLanguageGroupManifestReader.InstallRelativeDirectory,
                 Revision,
                 Version,
-                new[] { PrintingLanguageGroupManifestReader.FileName });
+                new[] { PrintingLanguageGroupManifestReader.FileName },
+                metadata);
         }
     }
 }
