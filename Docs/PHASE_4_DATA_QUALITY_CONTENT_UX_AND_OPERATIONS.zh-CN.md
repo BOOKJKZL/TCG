@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J 与 4L 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 实体机长时验收待执行；4K Cloudflare R2 迁移按用户要求暂停；4M 最终平台验收等待这些外部检查点（2026-07-31）。
+状态：4A–4J、4L 与 4M 本机静态范围已完成，完成度审计达到本机上限 92%；4H 真实邮箱等待外部 Client ID，4I 实体机长时验收待执行，4K Cloudflare R2 迁移按用户要求暂停，正式远端发行也未自动上传（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -88,7 +88,7 @@ flowchart TD
 | 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
 | 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 已完成（2026-07-31） |
-| 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 进行中；本机审计 81%，最新 APK 待构建，远端/真机等待外部条件 |
+| 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 本机静态范围完成（92%）；远端与实体机各 4% 待外部条件 |
 
 ## 六、4A–4D：资料语义与跨语言卡牌
 
@@ -466,6 +466,13 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - Android 权限白名单补入内容网络策略实际需要的 `ACCESS_NETWORK_STATE`；广泛存储权限仍失败关闭。现有 ARM64 APK 的 ABI、四项允许权限、私人内容 0 命中、签名、zipalign 和 10/10 时代音效通过，但 APK 早于最新运行时代码，因此仍标为 stale，不冒充最终包。
 - 远端状态不再只凭一个 HTTPS URL 判定成功；运行配置、HEAD/Range/8 次匿名写拒绝报告、当前本地 Catalog URL/包数/SHA-256 必须全部一致。现有 Site 报告覆盖旧 537 包，和 revision 6 的 538 包 Catalog Hash 不同，因此正确保持阻塞；这不是恢复 R2 工作。
 - 审计器自测 5/5，当前完整审计为 81%。433/433 EditMode、11/11 PlayMode、本地 538/538 包、权限/隐私/签名均通过；本机下一步只制作一次最新 ARM64 APK。R2、真实邮箱与实体手机证据继续作为独立外部检查点。
+
+### 4M2 最终本机 ARM64 静态验收（2026-07-31）
+
+- 在所有本机源码切片和 PlayMode 完成后只执行一次 Clean ARM64 构建，用时约 9 分 25 秒。最终 APK 为 53,043,803 bytes（50.59 MiB），SHA-256 `6373b69a7c8b37cbebbd4561fe96da7064db7440019a4e15eb2d252497844836`；相较 4H 基线只增加 194,676 bytes（0.19 MiB）。
+- APK 共 419 个 ZIP 条目，只有 `lib/arm64-v8a/libil2cpp.so`；`aapt` 验证 target SDK 36 及 `ACCESS_NETWORK_STATE`、`INTERNET`、`VIBRATE`、应用动态 receiver 保护权限，广泛存储权限为 0。`apksigner`、`zipalign`、私人内容名称扫描全部通过。
+- DEX 已确认 `com.universalgacha.recovery.RecoveryDocumentBridge` 与 Picker Fragment 存在；Storage Access Framework 恢复能力没有被 IL2CPP/代码裁剪移除。Addressables 构建生成的临时 `link.xml` 已在产物完成后清理，未混入源码提交。
+- 最新 433/433 EditMode 与 11/11 PlayMode 已提升为默认 `final-*` 审计证据；无参数完成度审计得到本机 9/9 全通过和 92% 上限。现有远端报告仍对应旧 537 包，未连接实体 Android，因此各自 4% 正确保持阻塞；没有上传 Site/R2，也没有宣称 100%。
 
 ## 十五、Git 检查点
 

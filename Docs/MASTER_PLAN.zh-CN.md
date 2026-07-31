@@ -797,7 +797,7 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 第二大阶段 Phase 2J：229 包全量发布、远端与 Android 验收（完成，整体 100%）
 → 第三阶段：原创训练家终端 UI、中英日实体卡、顺畅度和语言隔离（完成，整体 100%）
 → 第四阶段计划：资料语义、内容体验、存档恢复、R2、实体机与模块化（4A–4J、4L 本机范围完成；4K R2 暂停）
-→ 当前下一步：4M 只构建一次最新 ARM64 APK并完成本机静态审计；4H 真实邮箱、4I 真机性能与 4K R2 等待外部条件
+→ 当前状态：本机源码与 ARM64 静态审计完成至 92%；正式远端发行、真实邮箱和实体 Android 各等待用户恢复/提供外部条件
 ```
 
 Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP，不直接请求 TCGdex、PokéAPI 或 GitHub；电脑端导入、转换、压缩、Hash 与发布继续保持私人写入边界。
@@ -845,6 +845,8 @@ Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP
 第四阶段 4L5 空组合根退役已于 2026-07-31 完成：最后的 `GradientBackground` class/meta GUID 在 Scene、Prefab、源码及其他资产均为 0 引用，现行玩家背景由 UI Toolkit 主题实现，因此安全删除；`Gacha.Runtime` 根 asmdef GUID 也只有自身 meta 且无人引用，随之退役。剩余 38 个旧应用脚本全部精确归属于 Core、Foundation、Utility 或 Controllers，不回落 `Assembly-CSharp`。最终边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过且无 Missing Script；存档、场景 GUID、动画、音效与玩家行为不变，没有构建 APK，也没有访问 Site/R2。4L 本机模块化到此完成。
 
 第四阶段 4M1 本机完成度审计基线已于 2026-07-31 完成：完成度审计器从旧 218 包/schema v1 改为严格验证正式 538 包/revision 6/schema v2 及 1.30 GB 归档 Hash；Android 权限契约接受内容网络策略需要的 `ACCESS_NETWORK_STATE`，仍拒绝广泛存储权限。远端不再只凭 HTTPS URL 通过，必须由运行配置、HEAD/Range/8 次写拒绝报告和当前 Catalog URL/包数/Hash 三方一致；现有 Site 报告仍对应旧 537 包，因此正确阻塞。审计自测 5/5，433/433 EditMode、11/11 PlayMode、538/538 本地归档、现有 APK 的 ARM64/隐私/权限/签名均通过；因 APK 早于最新源码且无连接设备，当前审计为 81%。下一步只构建一次最新 ARM64 APK完成本机静态收口，不访问 R2。
+
+第四阶段 4M2 最终本机 ARM64 静态验收已于 2026-07-31 完成：全部本机源码与 PlayMode 收口后只执行一次 Clean ARM64 构建，用时约 9 分 25 秒。APK 为 53,043,803 bytes（50.59 MiB），SHA-256 `6373b69a7c8b37cbebbd4561fe96da7064db7440019a4e15eb2d252497844836`，较 4H 增加 194,676 bytes（0.19 MiB）；419 个条目、仅 ARM64、target SDK 36、四项允许权限、私人内容 0、签名和 zipalign 全通过，恢复文件桥与 Picker Fragment 也实际进入 DEX。默认最终证据已刷新为 EditMode 433/433、PlayMode 11/11；无参数审计本机 9/9 全通过并达到 92% 上限。现有远端仍是旧 537 包报告且没有实体 Android，两个 4% 保持阻塞；没有上传 Site/R2，也没有宣称 100%。
 
 以下情况必须暂停后续阶段并先修复：
 
