@@ -21,7 +21,8 @@ namespace Gacha.EditorTools.Content
             string installRelativePath,
             long revision,
             string version,
-            IEnumerable<string> includedRelativePaths = null)
+            IEnumerable<string> includedRelativePaths = null,
+            ContentPackageMetadata metadata = null)
         {
             PackageId = packageId;
             SourceDirectory = sourceDirectory;
@@ -29,6 +30,7 @@ namespace Gacha.EditorTools.Content
             Revision = revision;
             Version = version;
             IncludedRelativePaths = includedRelativePaths?.ToArray();
+            Metadata = metadata;
         }
 
         public string PackageId { get; }
@@ -37,6 +39,7 @@ namespace Gacha.EditorTools.Content
         public long Revision { get; }
         public string Version { get; }
         public IReadOnlyList<string> IncludedRelativePaths { get; }
+        public ContentPackageMetadata Metadata { get; }
     }
 
     public sealed class ContentPackagePublishRequest
@@ -58,16 +61,22 @@ namespace Gacha.EditorTools.Content
 
     public sealed class PublishedContentPackage
     {
-        public PublishedContentPackage(ContentPackageDescriptor package, string archivePath, string archiveUrl)
+        public PublishedContentPackage(
+            ContentPackageDescriptor package,
+            string archivePath,
+            string archiveUrl,
+            ContentPackageMetadata metadata = null)
         {
             Package = package;
             ArchivePath = archivePath;
             ArchiveUrl = archiveUrl;
+            Metadata = metadata ?? ContentPackageMetadata.Legacy(package.PackageId);
         }
 
         public ContentPackageDescriptor Package { get; }
         public string ArchivePath { get; }
         public string ArchiveUrl { get; }
+        public ContentPackageMetadata Metadata { get; }
     }
 
     public sealed class ContentPackagePublishResult
@@ -181,7 +190,8 @@ namespace Gacha.EditorTools.Content
             }
 
             ValidateArchive(archivePath, files.Count, installedBytes, cancellationToken);
-            return new PublishedContentPackage(descriptor, archivePath, archiveUrl);
+            return new PublishedContentPackage(
+                descriptor, archivePath, archiveUrl, definition.Metadata);
         }
 
         private static IReadOnlyList<SourceFile> EnumerateSourceFiles(
@@ -328,7 +338,8 @@ namespace Gacha.EditorTools.Content
                     downloadBytes = item.Package.DownloadBytes,
                     installedBytes = item.Package.InstalledBytes,
                     sha256 = item.Package.Sha256,
-                    archiveUrl = item.ArchiveUrl
+                    archiveUrl = item.ArchiveUrl,
+                    metadata = Metadata(item.Metadata)
                 }).ToArray()
             };
 
@@ -344,6 +355,25 @@ namespace Gacha.EditorTools.Content
                 JsonSerializer.CreateDefault().Serialize(json, dto);
             }
             return builder.ToString().TrimEnd('\r', '\n') + "\n";
+        }
+
+        private static MetadataDto Metadata(ContentPackageMetadata source)
+        {
+            return new MetadataDto
+            {
+                kind = source.Kind,
+                gameId = source.GameId,
+                contentLanguageId = source.ContentLanguageId,
+                localizedNames = source.LocalizedNames.ToDictionary(
+                    value => value.Key, value => value.Value, StringComparer.OrdinalIgnoreCase),
+                setId = source.SetId,
+                setCode = source.SetCode,
+                releaseDate = source.ReleaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                generationOrder = source.GenerationOrder,
+                sortOrdinal = source.SortOrdinal,
+                tags = source.Tags.ToArray(),
+                dependencies = source.Dependencies.ToArray()
+            };
         }
 
         private static string ComputeSha256(string path, CancellationToken cancellationToken)
@@ -471,6 +501,22 @@ namespace Gacha.EditorTools.Content
             public long installedBytes;
             public string sha256;
             public string archiveUrl;
+            public MetadataDto metadata;
+        }
+
+        private sealed class MetadataDto
+        {
+            public string kind;
+            public string gameId;
+            public string contentLanguageId;
+            public Dictionary<string, string> localizedNames;
+            public string setId;
+            public string setCode;
+            public string releaseDate;
+            public int? generationOrder;
+            public int? sortOrdinal;
+            public string[] tags;
+            public string[] dependencies;
         }
     }
 }

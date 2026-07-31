@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -266,7 +267,7 @@ namespace Gacha.Infrastructure.Content
             foreach (ContentPackageCatalogEntry entry in catalog.Packages)
             {
                 ContentPackageDescriptor package = entry.Package;
-                packages.Add(new JObject
+                var packageObject = new JObject
                 {
                     ["packageId"] = package.PackageId,
                     ["installRelativePath"] = package.InstallRelativePath,
@@ -276,13 +277,38 @@ namespace Gacha.Infrastructure.Content
                     ["installedBytes"] = package.InstalledBytes,
                     ["sha256"] = package.Sha256,
                     ["archiveUrl"] = entry.ArchiveUri.AbsoluteUri
-                });
+                };
+                if (catalog.SchemaVersion >= 2)
+                    packageObject["metadata"] = SerializeMetadata(entry.Metadata);
+                packages.Add(packageObject);
             }
             return new JObject
             {
                 ["schemaVersion"] = catalog.SchemaVersion,
                 ["revision"] = catalog.Revision,
                 ["packages"] = packages
+            };
+        }
+
+        private static JObject SerializeMetadata(ContentPackageMetadata metadata)
+        {
+            var localizedNames = new JObject();
+            foreach (var pair in metadata.LocalizedNames)
+                localizedNames[pair.Key] = pair.Value;
+            return new JObject
+            {
+                ["kind"] = metadata.Kind,
+                ["gameId"] = metadata.GameId,
+                ["contentLanguageId"] = metadata.ContentLanguageId,
+                ["localizedNames"] = localizedNames,
+                ["setId"] = metadata.SetId,
+                ["setCode"] = metadata.SetCode,
+                ["releaseDate"] = metadata.ReleaseDate?.ToString(
+                    "yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["generationOrder"] = metadata.GenerationOrder,
+                ["sortOrdinal"] = metadata.SortOrdinal,
+                ["tags"] = new JArray(metadata.Tags),
+                ["dependencies"] = new JArray(metadata.Dependencies)
             };
         }
 

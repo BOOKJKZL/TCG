@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,10 @@ namespace Gacha.Infrastructure.Content
                 CatalogDto dto = JsonConvert.DeserializeObject<CatalogDto>(json);
                 if (dto == null)
                     return ContentPackageCatalogLoadResult.Failure("Content package catalog JSON has no root object.");
+                if (dto.SchemaVersion < ContentPackageCatalog.MinimumSupportedSchemaVersion ||
+                    dto.SchemaVersion > ContentPackageCatalog.SupportedSchemaVersion)
+                    throw new InvalidDataException(
+                        $"Content package catalog schema {dto.SchemaVersion} is not supported.");
 
                 var entries = new List<ContentPackageCatalogEntry>();
                 if (dto.Packages != null)
@@ -69,7 +74,10 @@ namespace Gacha.Infrastructure.Content
                                 $"Package '{package.PackageId}' archive URL must contain its SHA-256 for immutable resume.");
                         }
 
-                        entries.Add(new ContentPackageCatalogEntry(package, archiveUri));
+                        ContentPackageMetadata metadata = dto.SchemaVersion >= 2
+                            ? ParseMetadata(item, package.PackageId)
+                            : null;
+                        entries.Add(new ContentPackageCatalogEntry(package, archiveUri, metadata));
                     }
                 }
 
@@ -102,6 +110,53 @@ namespace Gacha.Infrastructure.Content
             public long InstalledBytes;
             public string Sha256;
             public string ArchiveUrl;
+            public MetadataDto Metadata;
+        }
+
+        private sealed class MetadataDto
+        {
+            public string Kind;
+            public string GameId;
+            public string ContentLanguageId;
+            public Dictionary<string, string> LocalizedNames;
+            public string SetId;
+            public string SetCode;
+            public string ReleaseDate;
+            public int? GenerationOrder;
+            public int? SortOrdinal;
+            public List<string> Tags;
+            public List<string> Dependencies;
+        }
+
+        private static ContentPackageMetadata ParseMetadata(PackageDto item, string packageId)
+        {
+            MetadataDto source = item.Metadata ?? throw new InvalidDataException(
+                $"Package '{packageId}' has no schema v2 metadata.");
+            DateTime? releaseDate = null;
+            if (!string.IsNullOrWhiteSpace(source.ReleaseDate))
+            {
+                if (!DateTime.TryParseExact(
+                        source.ReleaseDate.Trim(),
+                        "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out DateTime parsed))
+                    throw new InvalidDataException(
+                        $"Package '{packageId}' releaseDate must use yyyy-MM-dd.");
+                releaseDate = parsed;
+            }
+            return new ContentPackageMetadata(
+                source.Kind,
+                source.LocalizedNames,
+                source.GameId,
+                source.ContentLanguageId,
+                source.SetId,
+                source.SetCode,
+                releaseDate,
+                source.GenerationOrder,
+                source.SortOrdinal,
+                source.Tags,
+                source.Dependencies);
         }
     }
 

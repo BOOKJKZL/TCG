@@ -26,7 +26,65 @@ public class ContentPackageCatalogTests
         Assert.That(entry, Is.Not.Null);
         Assert.That(entry.ArchiveUri.AbsoluteUri, Is.EqualTo(
             "https://content.example.test/catalog/v7/packages/en.base1/" + HashA + ".zip"));
+        Assert.That(entry.Metadata.IsLegacy, Is.True);
         Assert.That(result.Catalog.Resolve(entry.Package), Is.EqualTo(entry.ArchiveUri));
+    }
+
+    [Test]
+    public void Reader_ParsesSchemaV2PlayerMetadataWithoutChangingPackageIdentity()
+    {
+        string metadata = "{\"kind\":\"card-set\",\"gameId\":\"pokemon-tcg\"," +
+                          "\"contentLanguageId\":\"ja\",\"localizedNames\":{" +
+                          "\"en\":\"Japanese Set\",\"ja\":\"日本語セット\"}," +
+                          "\"setId\":\"sv10\",\"setCode\":\"SV10\"," +
+                          "\"releaseDate\":\"2025-06-06\",\"generationOrder\":9," +
+                          "\"sortOrdinal\":42,\"tags\":[\"pokemon\",\"booster\"]," +
+                          "\"dependencies\":[]}";
+        ContentPackageCatalogLoadResult result = Reader().Read(
+            Json(PackageJson("ja.sv10", HashA, "packages/ja.sv10/" + HashA + ".zip", metadata), 2),
+            new Uri("https://content.example.test/catalog.json"));
+
+        Assert.That(result.Succeeded, Is.True, result.ErrorMessage);
+        ContentPackageCatalogEntry entry = result.Catalog.Find("ja.sv10");
+        Assert.That(entry.Package.Sha256, Is.EqualTo(HashA));
+        Assert.That(entry.Metadata.Kind, Is.EqualTo("card-set"));
+        Assert.That(entry.Metadata.ContentLanguageId, Is.EqualTo("ja"));
+        Assert.That(entry.Metadata.GetDisplayName("ja", null), Is.EqualTo("日本語セット"));
+        Assert.That(entry.Metadata.ReleaseDate, Is.EqualTo(new DateTime(2025, 6, 6)));
+        Assert.That(entry.Metadata.GenerationOrder, Is.EqualTo(9));
+        Assert.That(entry.Metadata.Tags, Is.EqualTo(new[] { "booster", "pokemon" }));
+    }
+
+    [Test]
+    public void Reader_RejectsSchemaV2MissingMetadata()
+    {
+        ContentPackageCatalogLoadResult result = Reader().Read(
+            Json(PackageJson("en.base1", HashA, "packages/" + HashA + ".zip"), 2),
+            new Uri("https://content.example.test/catalog.json"));
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.ErrorMessage, Does.Contain("no schema v2 metadata"));
+    }
+
+    [Test]
+    public void Reader_RejectsMissingAndCyclicDependencies()
+    {
+        string missingMetadata = Metadata("Missing", "missing.package");
+        ContentPackageCatalogLoadResult missing = Reader().Read(
+            Json(PackageJson("en.base1", HashA, "packages/" + HashA + ".zip", missingMetadata), 2),
+            new Uri("https://content.example.test/catalog.json"));
+        Assert.That(missing.Succeeded, Is.False);
+        Assert.That(missing.ErrorMessage, Does.Contain("depends on missing"));
+
+        string first = PackageJson("en.base1", HashA, "packages/" + HashA + ".zip",
+            Metadata("Base", "en.other"));
+        string second = PackageJson("en.other", HashB, "packages/" + HashB + ".zip",
+            Metadata("Other", "en.base1"));
+        ContentPackageCatalogLoadResult cyclic = Reader().Read(
+            Json(first + "," + second, 2),
+            new Uri("https://content.example.test/catalog.json"));
+        Assert.That(cyclic.Succeeded, Is.False);
+        Assert.That(cyclic.ErrorMessage, Does.Contain("dependency cycle"));
     }
 
     [Test]
@@ -69,7 +127,7 @@ public class ContentPackageCatalogTests
     }
 
     [TestCase(0)]
-    [TestCase(2)]
+    [TestCase(3)]
     public void Reader_RejectsUnsupportedSchema(int schemaVersion)
     {
         ContentPackageCatalogLoadResult result = Reader().Read(
@@ -162,13 +220,25 @@ public class ContentPackageCatalogTests
                ",\"revision\":7,\"packages\":[" + packages + "]}";
     }
 
-    private static string PackageJson(string packageId, string hash, string archiveUrl)
+    private static string PackageJson(
+        string packageId,
+        string hash,
+        string archiveUrl,
+        string metadata = null)
     {
         return "{\"packageId\":\"" + packageId +
                "\",\"installRelativePath\":\"en/base1\"" +
                ",\"revision\":3,\"version\":\"3.0.0\"" +
                ",\"downloadBytes\":100,\"installedBytes\":200" +
                ",\"sha256\":\"" + hash +
-               "\",\"archiveUrl\":\"" + archiveUrl + "\"}";
+               "\",\"archiveUrl\":\"" + archiveUrl + "\"" +
+               (metadata == null ? string.Empty : ",\"metadata\":" + metadata) + "}";
+    }
+
+    private static string Metadata(string name, params string[] dependencies)
+    {
+        return "{\"kind\":\"fixture\",\"localizedNames\":{\"en\":\"" + name +
+               "\"},\"tags\":[],\"dependencies\":[" +
+               string.Join(",", Array.ConvertAll(dependencies, value => "\"" + value + "\"")) + "]}";
     }
 }

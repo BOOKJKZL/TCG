@@ -8,10 +8,14 @@ namespace Gacha.Application
 {
     public sealed class ContentPackageCatalogEntry
     {
-        public ContentPackageCatalogEntry(ContentPackageDescriptor package, Uri archiveUri)
+        public ContentPackageCatalogEntry(
+            ContentPackageDescriptor package,
+            Uri archiveUri,
+            ContentPackageMetadata metadata = null)
         {
             Package = package ?? throw new ArgumentNullException(nameof(package));
             ArchiveUri = archiveUri ?? throw new ArgumentNullException(nameof(archiveUri));
+            Metadata = metadata ?? ContentPackageMetadata.Legacy(package.PackageId);
             if (!archiveUri.IsAbsoluteUri)
                 throw new ArgumentException("Content package archive URI must be absolute.", nameof(archiveUri));
             if (!string.IsNullOrEmpty(archiveUri.UserInfo))
@@ -22,6 +26,7 @@ namespace Gacha.Application
 
         public ContentPackageDescriptor Package { get; }
         public Uri ArchiveUri { get; }
+        public ContentPackageMetadata Metadata { get; }
     }
 
     /// <summary>
@@ -31,7 +36,8 @@ namespace Gacha.Application
     /// </summary>
     public sealed class ContentPackageCatalog : IContentPackageUriResolver
     {
-        public const int SupportedSchemaVersion = 1;
+        public const int MinimumSupportedSchemaVersion = 1;
+        public const int SupportedSchemaVersion = 2;
 
         private readonly ReadOnlyCollection<ContentPackageCatalogEntry> packages;
         private readonly Dictionary<string, ContentPackageCatalogEntry> packagesById;
@@ -41,11 +47,13 @@ namespace Gacha.Application
             long revision,
             IEnumerable<ContentPackageCatalogEntry> packages)
         {
-            if (schemaVersion != SupportedSchemaVersion)
+            if (schemaVersion < MinimumSupportedSchemaVersion ||
+                schemaVersion > SupportedSchemaVersion)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(schemaVersion),
-                    $"Content package catalog schema {schemaVersion} is not supported.");
+                    $"Content package catalog schema {schemaVersion} is not supported; " +
+                    $"expected {MinimumSupportedSchemaVersion}-{SupportedSchemaVersion}.");
             }
             if (revision <= 0)
                 throw new ArgumentOutOfRangeException(nameof(revision), "Catalog revision must be greater than zero.");
@@ -66,6 +74,7 @@ namespace Gacha.Application
                 packagesById.Add(entry.Package.PackageId, entry);
                 copy.Add(entry);
             }
+            ValidateDependencies(copy, packagesById);
 
             SchemaVersion = schemaVersion;
             Revision = revision;
@@ -107,6 +116,45 @@ namespace Gacha.Application
                    string.Equals(expected.InstallRelativePath, actual.InstallRelativePath, StringComparison.Ordinal) &&
                    string.Equals(expected.Version, actual.Version, StringComparison.Ordinal) &&
                    string.Equals(expected.Sha256, actual.Sha256, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void ValidateDependencies(
+            IReadOnlyCollection<ContentPackageCatalogEntry> entries,
+            IReadOnlyDictionary<string, ContentPackageCatalogEntry> byId)
+        {
+            foreach (ContentPackageCatalogEntry entry in entries)
+            foreach (string dependency in entry.Metadata.Dependencies)
+            {
+                if (string.Equals(dependency, entry.Package.PackageId, StringComparison.Ordinal))
+                    throw new ArgumentException(
+                        $"Package '{entry.Package.PackageId}' cannot depend on itself.", nameof(entries));
+                if (!byId.ContainsKey(dependency))
+                    throw new ArgumentException(
+                        $"Package '{entry.Package.PackageId}' depends on missing '{dependency}'.",
+                        nameof(entries));
+            }
+
+            var visiting = new HashSet<string>(StringComparer.Ordinal);
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ContentPackageCatalogEntry entry in entries)
+                Visit(entry.Package.PackageId, byId, visiting, visited);
+        }
+
+        private static void Visit(
+            string packageId,
+            IReadOnlyDictionary<string, ContentPackageCatalogEntry> byId,
+            ISet<string> visiting,
+            ISet<string> visited)
+        {
+            if (visited.Contains(packageId))
+                return;
+            if (!visiting.Add(packageId))
+                throw new ArgumentException(
+                    $"Content package dependency cycle contains '{packageId}'.", nameof(byId));
+            foreach (string dependency in byId[packageId].Metadata.Dependencies)
+                Visit(dependency, byId, visiting, visited);
+            visiting.Remove(packageId);
+            visited.Add(packageId);
         }
     }
 

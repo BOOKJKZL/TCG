@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,6 +74,9 @@ public class CachedContentPackageCatalogProviderTests
             Assert.That(fallback.Catalog.Revision, Is.EqualTo(7));
             Assert.That(fallback.Catalog.Packages[0].ArchiveUri.AbsoluteUri,
                 Is.EqualTo(onlineCatalog.Packages[0].ArchiveUri.AbsoluteUri));
+            Assert.That(fallback.Catalog.Packages[0].Metadata.Kind, Is.EqualTo("fixture"));
+            Assert.That(fallback.Catalog.Packages[0].Metadata.ContentLanguageId, Is.EqualTo("en"));
+            Assert.That(fallback.Catalog.Packages[0].Metadata.SetCode, Is.EqualTo("BASE1"));
         }
     }
 
@@ -217,7 +221,18 @@ public class CachedContentPackageCatalogProviderTests
             {
                 new ContentPackageCatalogEntry(
                     package,
-                    new Uri("https://cdn.example.test/packages/en.base1/" + hash + ".zip"))
+                    new Uri("https://cdn.example.test/packages/en.base1/" + hash + ".zip"),
+                    new ContentPackageMetadata(
+                        "fixture",
+                        new Dictionary<string, string> { ["en"] = "Base Set" },
+                        "fixture-game",
+                        "en",
+                        "base1",
+                        "BASE1",
+                        new DateTime(1999, 1, 9),
+                        1,
+                        1,
+                        new[] { "fixture" }))
             });
     }
 }
