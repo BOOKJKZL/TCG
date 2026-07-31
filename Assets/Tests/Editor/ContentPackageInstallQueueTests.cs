@@ -254,6 +254,27 @@ public sealed class ContentPackageInstallQueueTests
         Assert.That(factory.CreateCalls, Is.EqualTo(2));
     }
 
+    [Test]
+    public async Task Queue_PublishesTerminalSnapshotWhenDependencyFails()
+    {
+        ContentPackageCatalog catalog = Catalog(
+            Entry("required"),
+            Entry("dependent", "required"));
+        using var factory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>(), "required");
+        var queue = new ContentPackageInstallQueue(catalog, factory, 2);
+        var snapshots = new List<ContentPackageQueueSnapshot>();
+        queue.Changed += snapshots.Add;
+
+        queue.EnqueueSelection(new[] { "dependent" });
+        ContentPackageQueueSnapshot result = await queue.StartAsync();
+
+        Assert.That(result.IsComplete, Is.True);
+        Assert.That(result.FailedCount, Is.EqualTo(2));
+        Assert.That(snapshots.Last().IsComplete, Is.True);
+        Assert.That(snapshots.Last().FailedCount, Is.EqualTo(2));
+    }
+
     [TestCase(0)]
     [TestCase(4)]
     public void Queue_RejectsConcurrencyOutsideOneToThree(int value)

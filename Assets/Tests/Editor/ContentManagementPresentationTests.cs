@@ -155,6 +155,18 @@ public class ContentManagementPresentationTests
         Assert.That(root.Q<DropdownField>("content-language-filter"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-generation-filter"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-install-filter"), Is.Not.Null);
+        Assert.That(root.Q<Label>("content-selection-summary"), Is.Not.Null);
+        foreach (string name in new[]
+                 {
+                     "select-filtered-button", "clear-selection-button", "download-selected-button",
+                     "queue-pause-button", "queue-resume-button", "queue-retry-button",
+                     "queue-cancel-button"
+                 })
+        {
+            VisualElement action = root.Q<VisualElement>(name);
+            Assert.That(action, Is.Not.Null, name);
+            Assert.That(action, Is.Not.TypeOf<Button>(), name);
+        }
         Assert.That(root.Q<ScrollView>("package-list"), Is.Null);
     }
 
@@ -172,7 +184,10 @@ public class ContentManagementPresentationTests
                      "content.filter.search", "content.filter.language", "content.filter.generation",
                      "content.filter.install", "content.filter.all", "content.filter.language.en",
                      "content.filter.language.ja", "content.filter.language.zh-cn",
-                     "content.filter.installed", "content.filter.not_installed", "content.filter.update"
+                     "content.filter.installed", "content.filter.not_installed", "content.filter.update",
+                     "content.action.select_filtered", "content.action.clear_selection",
+                     "content.action.download_selected", "content.selection.none",
+                     "content.selection.summary", "content.queue.summary"
                  })
         {
             Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing English key: " + key);

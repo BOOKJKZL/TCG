@@ -153,11 +153,11 @@ namespace Gacha.Tests.PlayMode
                 new Dictionary<string, Transfer>(StringComparer.Ordinal);
             private readonly Lifecycle lifecycle;
 
-            public OperationFactory(Lifecycle lifecycle)
+            public OperationFactory(Lifecycle lifecycle, bool failRetry = true)
             {
                 this.lifecycle = lifecycle;
                 transfers[SuccessId] = new Transfer();
-                transfers[RetryId] = new Transfer { FailNext = true };
+                transfers[RetryId] = new Transfer { FailNext = failRetry };
             }
 
             public int CreateCalls { get; private set; }
@@ -435,6 +435,76 @@ namespace Gacha.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ContentScene_BatchSelectionDownloadsAllPackagesAndUpdatesCapacity()
+        {
+            var lifecycle = new Lifecycle();
+            var factory = new OperationFactory(lifecycle, false);
+            ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
+            ContentManagementController.OperationFactoryOverride = factory;
+            ContentManagementController.LifecycleOverride = lifecycle;
+            string originalLanguage = null;
+            try
+            {
+                if (ApplicationServices.Languages != null)
+                {
+                    originalLanguage = ApplicationServices.Languages.UiLanguageId;
+                    ApplicationServices.Languages.SelectUiLanguage("en");
+                    yield return null;
+                }
+                AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                yield return load;
+                yield return null;
+
+                ContentManagementController controller =
+                    UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                Assert.That(controller, Is.Not.Null);
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (!controller.IsReady && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+
+                Assert.That(controller.IsReady, Is.True, controller.InitializationError);
+                controller.SelectAllFilteredPackages();
+                Assert.That(controller.SelectedPackageCount, Is.EqualTo(2));
+                Assert.That(controller.SelectionSummary.DownloadBytes, Is.EqualTo(200));
+                Assert.That(controller.SelectionSummary.InstalledBytes, Is.EqualTo(400));
+                Assert.That(controller.StartSelectedPackages(), Is.True);
+                while ((controller.QueueSnapshot == null || !controller.QueueSnapshot.IsComplete) &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                yield return null;
+
+                Assert.That(controller.QueueSnapshot, Is.Not.Null);
+                Assert.That(controller.QueueSnapshot.IsComplete, Is.True);
+                Assert.That(controller.QueueSnapshot.SucceededCount, Is.EqualTo(2));
+                Assert.That(controller.QueueSnapshot.FailedCount, Is.Zero);
+                Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
+                Assert.That(controller.IsPackageInstalled(RetryId), Is.True);
+                Assert.That(controller.SelectionSummary.DownloadBytes, Is.Zero);
+                Assert.That(controller.SelectionSummary.InstalledBytes, Is.Zero);
+
+                VisualElement root = controller.GetComponent<UIDocument>().rootVisualElement;
+                Assert.That(root.Q<Label>("content-selection-summary").text, Does.Contain("2 selected"));
+                foreach (string name in new[]
+                         {
+                             "select-filtered-button", "clear-selection-button", "download-selected-button",
+                             "queue-pause-button", "queue-resume-button", "queue-retry-button",
+                             "queue-cancel-button"
+                         })
+                    AssertStableActionControl(root.Q<VisualElement>(name));
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                if (originalLanguage != null && ApplicationServices.Languages != null)
+                    ApplicationServices.Languages.SelectUiLanguage(originalLanguage);
+                ContentManagementController.CatalogProviderOverride = null;
+                ContentManagementController.OperationFactoryOverride = null;
+                ContentManagementController.LifecycleOverride = null;
+                ContentManagementController.DispatcherOverride = null;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ContentScene_VirtualizesTwoThousandPackagesAndCreatesOnlyVisibleOperations()
         {
             const int packageCount = 2000;
@@ -461,10 +531,21 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.FilteredPackageCount, Is.EqualTo(packageCount));
                 Assert.That(controller.VisibleRowCount, Is.InRange(1, 24));
                 Assert.That(factory.CreateCalls, Is.InRange(1, 24));
+                controller.SelectAllFilteredPackages();
+                Assert.That(controller.SelectedPackageCount, Is.EqualTo(packageCount));
+                Assert.That(controller.SelectionSummary.SelectedCount, Is.EqualTo(packageCount));
+                Assert.That(controller.SelectionSummary.DependencyCount, Is.Zero);
+                Assert.That(controller.SelectionSummary.DownloadBytes, Is.EqualTo(packageCount * 100L));
+                Assert.That(controller.SelectionSummary.InstalledBytes, Is.EqualTo(packageCount * 200L));
+                Assert.That(factory.CreateCalls, Is.InRange(1, 24),
+                    "Selecting 2,000 packages must not create offscreen install coordinators.");
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document.rootVisualElement.Q<ListView>("package-list"), Is.Not.Null);
                 Assert.That(document.rootVisualElement.Query<VisualElement>(className: "content-package-row").ToList(),
                     Has.Count.InRange(1, 24));
+                controller.ClearPackageSelection();
+                Assert.That(controller.SelectedPackageCount, Is.Zero);
+                Assert.That(controller.SelectionSummary, Is.Null);
                 TextField search = document.rootVisualElement.Q<TextField>("content-search");
                 search.value = "large-1999";
                 yield return null;

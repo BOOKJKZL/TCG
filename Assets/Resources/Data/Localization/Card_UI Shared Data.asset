@@ -591,6 +591,30 @@ MonoBehaviour:
     m_Key: content.filter.update
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428300
+    m_Key: content.action.select_filtered
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428301
+    m_Key: content.action.clear_selection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428302
+    m_Key: content.action.download_selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428303
+    m_Key: content.selection.none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428304
+    m_Key: content.selection.summary
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428305
+    m_Key: content.queue.summary
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -34,6 +34,18 @@
                 <ui:DropdownField name="content-generation-filter" class="content-management__filter" />
                 <ui:DropdownField name="content-install-filter" class="content-management__filter" />
             </ui:VisualElement>
+            <ui:VisualElement name="content-selection" class="content-management__selection">
+                <ui:Label name="content-selection-summary" class="content-management__selection-summary" />
+                <ui:VisualElement name="content-selection-actions" class="content-management__selection-actions">
+                    <ui:VisualElement name="select-filtered-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="clear-selection-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="download-selected-button" class="content-button content-button--primary"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="queue-pause-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="queue-resume-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="queue-retry-button" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="queue-cancel-button" class="content-button content-button--danger"><ui:Label class="content-button__label" /></ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
             <ui:Label name="content-empty" class="content-management__empty" />
             <ui:ListView name="package-list" class="content-management__list" fixed-item-height="160" virtualization-method="FixedHeight" selection-type="None" />
         </ui:VisualElement>

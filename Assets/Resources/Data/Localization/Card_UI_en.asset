@@ -596,6 +596,30 @@ MonoBehaviour:
     m_Localized: Update available
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428300
+    m_Localized: Select shown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428301
+    m_Localized: Clear selection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428302
+    m_Localized: Download selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428303
+    m_Localized: Select packs to calculate download and storage size.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428304
+    m_Localized: '{0} selected + {1} dependencies · {2} download · {3} installed'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428305
+    m_Localized: '{0} queued · {1} running · {2} complete · {3} failed'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

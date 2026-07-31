@@ -220,6 +220,7 @@ namespace Gacha.Application
             while (true)
             {
                 ContentPackageQueueSnapshot changed = null;
+                ContentPackageQueueSnapshot complete = null;
                 lock (gate)
                 {
                     running.RemoveAll(task => task.IsCompleted);
@@ -241,13 +242,17 @@ namespace Gacha.Application
                     if (running.Count == 0)
                     {
                         FailBlockedDependentsLocked();
-                        ContentPackageQueueSnapshot complete = SnapshotLocked();
+                        complete = SnapshotLocked();
                         activeRun = null;
-                        return complete;
                     }
                 }
                 if (changed != null)
                     Publish(changed);
+                if (complete != null)
+                {
+                    Publish(complete);
+                    return complete;
+                }
                 await Task.WhenAny(running);
             }
         }
