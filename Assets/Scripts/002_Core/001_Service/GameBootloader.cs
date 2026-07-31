@@ -6,8 +6,6 @@ public class GameBootloader : MonoBehaviour
 {
     [SerializeField] private Inventory inventoryPrefab;
 
-    private readonly IInventoryConflictResolver _conflictResolver =
-        new LatestWriteWinsInventoryConflictResolver();
     private bool _cloudReady;
 
     public static bool IsReady { get; private set; }
@@ -15,6 +13,7 @@ public class GameBootloader : MonoBehaviour
 
     private async void Awake()
     {
+        GameCloudConflictSession.Current.Changed += OnCloudConflictChanged;
         EnsureCoreObjectsExist();
 
         // Local data is available immediately and is always the offline fallback.
@@ -27,11 +26,21 @@ public class GameBootloader : MonoBehaviour
             CloudInventoryLoadResult cloudLoad = await CloudSaveServiceWrapper.LoadInventoryAsync();
             if (cloudLoad.Succeeded)
             {
-                InventoryData resolved = _conflictResolver.Resolve(local, cloudLoad.Data);
-                Inventory.Instance.ReplaceData(resolved);
-
-                // Persist migrations and the conflict decision to both locations.
-                await SaveAsync();
+                InventoryConflictPreparation preparation =
+                    GameCloudConflictSession.Current.Prepare(local, cloudLoad.Data, cloudLoad.Found);
+                Inventory.Instance.ReplaceData(preparation.Selected);
+                if (preparation.RequiresChoice)
+                {
+                    // Keep the verified local save available for play, but do not
+                    // overwrite either side until the player reviews the conflict.
+                    _cloudReady = false;
+                    LocalSaveService.Save(Inventory.Instance.Data);
+                }
+                else
+                {
+                    // Persist migrations and automatic no-conflict decisions.
+                    await SaveAsync();
+                }
             }
             else
             {
@@ -58,6 +67,17 @@ public class GameBootloader : MonoBehaviour
     {
         if (pause)
             _ = SaveAsync();
+    }
+
+    private void OnDestroy()
+    {
+        GameCloudConflictSession.Current.Changed -= OnCloudConflictChanged;
+    }
+
+    private void OnCloudConflictChanged()
+    {
+        if (!GameCloudConflictSession.Current.HasPending)
+            _cloudReady = CloudSaveServiceWrapper.IsReady;
     }
 
     private void OnApplicationQuit()

@@ -96,9 +96,14 @@ namespace Gacha.Tests.PlayMode
                     FindObjectsInactive.Include,
                     FindObjectsSortMode.None)
                 .SingleOrDefault(component => component.GetType().Name == "SaveRecoverySettingsPanel");
+            MonoBehaviour conflictDialog = Object.FindObjectsByType<MonoBehaviour>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None)
+                .SingleOrDefault(component => component.GetType().Name == "CloudConflictSettingsDialog");
             Assert.That(panel, Is.Not.Null);
             Assert.That(experiencePanel, Is.Not.Null);
             Assert.That(recoveryPanel, Is.Not.Null);
+            Assert.That(conflictDialog, Is.Not.Null);
             RectTransform languageRect = panel.GetComponent<RectTransform>();
             RectTransform experienceRect = experiencePanel.GetComponent<RectTransform>();
             RectTransform recoveryRect = recoveryPanel.GetComponent<RectTransform>();
@@ -118,9 +123,19 @@ namespace Gacha.Tests.PlayMode
             {
                 "ExportSaveButton",
                 "ChooseImportButton",
-                "ConfirmImportButton"
+                "ConfirmImportButton",
+                "CloudConflictButton"
             }));
             Assert.That(recoveryButtons.Single(button => button.name == "ConfirmImportButton").interactable, Is.False);
+            Button cloudButton = recoveryButtons.Single(button => button.name == "CloudConflictButton");
+            cloudButton.onClick.Invoke();
+            yield return null;
+            Assert.That(conflictDialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
+            Button[] conflictButtons = conflictDialog.GetComponentsInChildren<Button>(true);
+            Assert.That(conflictButtons.Single(button => button.name == "KeepLocalButton").interactable, Is.False);
+            conflictButtons.Single(button => button.name == "CloseConflictButton").onClick.Invoke();
+            yield return new WaitForSecondsRealtime(0.25f);
+            Assert.That(conflictDialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
 
             Button uiButton = panel.GetComponentsInChildren<Button>(true)
                 .Single(button => button.name == "UiLanguageButton");

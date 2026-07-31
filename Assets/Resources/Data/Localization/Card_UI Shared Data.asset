@@ -775,6 +775,70 @@ MonoBehaviour:
     m_Key: settings.recovery.preview
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428346
+    m_Key: settings.recovery.action.cloud
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428347
+    m_Key: settings.cloud.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428348
+    m_Key: settings.cloud.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428349
+    m_Key: settings.cloud.status.none
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428350
+    m_Key: settings.cloud.local
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428351
+    m_Key: settings.cloud.remote
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428352
+    m_Key: settings.cloud.summary
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428353
+    m_Key: settings.cloud.action.local
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428354
+    m_Key: settings.cloud.action.remote
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428355
+    m_Key: settings.cloud.action.merge
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428356
+    m_Key: settings.cloud.action.close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428357
+    m_Key: settings.cloud.merge_notice
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428358
+    m_Key: settings.cloud.status.resolving
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428359
+    m_Key: settings.cloud.status.resolved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428360
+    m_Key: settings.cloud.status.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428361
+    m_Key: settings.cloud.status.backup_failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

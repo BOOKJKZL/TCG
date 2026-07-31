@@ -780,6 +780,70 @@ MonoBehaviour:
     m_Localized: '{0} · {1} printings / {2} cards · {3} packs · {4} batches · UI {5} / cards {6}'
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428346
+    m_Localized: Cloud sync
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428347
+    m_Localized: Cloud save conflict
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428348
+    m_Localized: Review both saves before choosing. Downloaded card images are not affected.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428349
+    m_Localized: No unresolved cloud conflict.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428350
+    m_Localized: Local progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428351
+    m_Localized: Cloud progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428352
+    m_Localized: "{0}\n{1} printings / {2} cards · {3} packs · {4} batches"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428353
+    m_Localized: Keep local
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428354
+    m_Localized: Use cloud
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428355
+    m_Localized: Safe merge
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428356
+    m_Localized: Close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428357
+    m_Localized: Safe merge keeps the highest count for each card and unites distinct recent batches; it never adds duplicate snapshot counts.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428358
+    m_Localized: Saving your choice…
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428359
+    m_Localized: 'Conflict resolved. Safety backup: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428360
+    m_Localized: 'Nothing changed: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428361
+    m_Localized: 'Could not create a safety backup: {0}'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

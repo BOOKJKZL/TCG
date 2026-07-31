@@ -62,6 +62,10 @@ namespace Gacha.Tests.PlayMode
                             FindObjectsInactive.Include,
                             FindObjectsSortMode.None)
                         .Count(component => component.GetType().Name == "SaveRecoverySettingsPanel"), Is.EqualTo(1));
+                    Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.None)
+                        .Count(component => component.GetType().Name == "CloudConflictSettingsDialog"), Is.EqualTo(1));
 
                     yield return Resources.UnloadUnusedAssets();
                     GC.Collect();

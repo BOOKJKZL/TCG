@@ -21,6 +21,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     private Button exportButton;
     private Button chooseImportButton;
     private Button confirmImportButton;
+    private Button cloudConflictButton;
     private InventoryRecoveryService recovery;
     private RecoveryDocumentPicker picker;
     private string pendingImportPath;
@@ -51,9 +52,10 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         panel.canvasGroup = root.AddComponent<CanvasGroup>();
         panel.titleText = CreateText(root.transform, "RecoveryTitle", new Vector2(0f, 130f), new Vector2(740f, 42f), 32f, FontStyles.Bold);
         panel.descriptionText = CreateText(root.transform, "RecoveryDescription", new Vector2(0f, 91f), new Vector2(740f, 38f), 18f, FontStyles.Normal);
-        panel.exportButton = CreateButton(root.transform, "ExportSaveButton", new Vector2(-250f, 33f), out _);
-        panel.chooseImportButton = CreateButton(root.transform, "ChooseImportButton", new Vector2(0f, 33f), out _);
-        panel.confirmImportButton = CreateButton(root.transform, "ConfirmImportButton", new Vector2(250f, 33f), out _);
+        panel.exportButton = CreateButton(root.transform, "ExportSaveButton", new Vector2(-285f, 33f), out _);
+        panel.chooseImportButton = CreateButton(root.transform, "ChooseImportButton", new Vector2(-95f, 33f), out _);
+        panel.confirmImportButton = CreateButton(root.transform, "ConfirmImportButton", new Vector2(95f, 33f), out _);
+        panel.cloudConflictButton = CreateButton(root.transform, "CloudConflictButton", new Vector2(285f, 33f), out _);
         panel.previewText = CreateText(root.transform, "RecoveryPreview", new Vector2(0f, -48f), new Vector2(740f, 58f), 17f, FontStyles.Normal);
         panel.statusText = CreateText(root.transform, "RecoveryStatus", new Vector2(0f, -124f), new Vector2(740f, 42f), 16f, FontStyles.Italic);
         panel.previewText.color = new Color(0.82f, 0.92f, 0.98f, 1f);
@@ -61,6 +63,8 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         panel.exportButton.onClick.AddListener(panel.ExportSave);
         panel.chooseImportButton.onClick.AddListener(panel.ChooseImport);
         panel.confirmImportButton.onClick.AddListener(() => panel.ConfirmImport());
+        CloudConflictSettingsDialog conflictDialog = CloudConflictSettingsDialog.Create(parent);
+        panel.cloudConflictButton.onClick.AddListener(conflictDialog.Open);
         root.SetActive(true);
         return panel;
     }
@@ -263,6 +267,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         exportButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.recovery.action.export");
         chooseImportButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.recovery.action.preview");
         confirmImportButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.recovery.action.confirm");
+        cloudConflictButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.recovery.action.cloud");
         previewText.text = pendingPreview == null ? string.Empty : FormatPreview(pendingPreview);
     }
 
@@ -284,6 +289,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         exportButton.interactable = !busy && CanUseRecovery();
         chooseImportButton.interactable = !busy && CanUseRecovery();
         confirmImportButton.interactable = !busy && pendingPreview != null;
+        cloudConflictButton.interactable = !busy;
     }
 
     private void SetInteractable(bool interactable)
@@ -291,6 +297,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         exportButton.interactable = interactable;
         chooseImportButton.interactable = interactable;
         confirmImportButton.interactable = interactable && pendingPreview != null;
+        cloudConflictButton.interactable = true;
     }
 
     private static bool CanUseRecovery() =>
@@ -347,14 +354,14 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(220f, 58f);
+        rect.sizeDelta = new Vector2(175f, 58f);
         Image image = buttonObject.AddComponent<Image>();
         image.color = new Color(0.10f, 0.42f, 0.38f, 0.98f);
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = image;
         button.navigation = new Navigation { mode = Navigation.Mode.None };
         buttonObject.AddComponent<GameFeedbackButton>().Configure(FeedbackCue.Confirm);
-        label = CreateText(buttonObject.transform, "Label", Vector2.zero, new Vector2(205f, 46f), 19f, FontStyles.Bold);
+        label = CreateText(buttonObject.transform, "Label", Vector2.zero, new Vector2(165f, 46f), 17f, FontStyles.Bold);
         return button;
     }
 

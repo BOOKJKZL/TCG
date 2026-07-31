@@ -107,7 +107,23 @@ namespace Gacha.Presentation
                 ["settings.recovery.status.preview_ready"] = "Preview verified. Confirm to replace current progress.",
                 ["settings.recovery.status.imported"] = "Import complete. Pre-import backup: {0}",
                 ["settings.recovery.status.unavailable"] = "Save recovery is unavailable.",
-                ["settings.recovery.preview"] = "{0} · {1} printings / {2} cards · {3} packs · {4} batches · UI {5} / cards {6}"
+                ["settings.recovery.preview"] = "{0} · {1} printings / {2} cards · {3} packs · {4} batches · UI {5} / cards {6}",
+                ["settings.recovery.action.cloud"] = "Cloud sync",
+                ["settings.cloud.title"] = "Cloud save conflict",
+                ["settings.cloud.description"] = "Review both saves before choosing. Downloaded card images are not affected.",
+                ["settings.cloud.status.none"] = "No unresolved cloud conflict.",
+                ["settings.cloud.local"] = "Local progress",
+                ["settings.cloud.remote"] = "Cloud progress",
+                ["settings.cloud.summary"] = "{0}\n{1} printings / {2} cards · {3} packs · {4} batches",
+                ["settings.cloud.action.local"] = "Keep local",
+                ["settings.cloud.action.remote"] = "Use cloud",
+                ["settings.cloud.action.merge"] = "Safe merge",
+                ["settings.cloud.action.close"] = "Close",
+                ["settings.cloud.merge_notice"] = "Safe merge keeps the highest count for each card and unites distinct recent batches; it never adds duplicate snapshot counts.",
+                ["settings.cloud.status.resolving"] = "Saving your choice…",
+                ["settings.cloud.status.resolved"] = "Conflict resolved. Safety backup: {0}",
+                ["settings.cloud.status.failed"] = "Nothing changed: {0}",
+                ["settings.cloud.status.backup_failed"] = "Could not create a safety backup: {0}"
             };
 
         private static readonly Dictionary<string, string> LocalizedCache =

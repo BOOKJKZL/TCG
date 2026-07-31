@@ -142,7 +142,8 @@ public class LanguageSettingsPresentationTests
             {
                 "ExportSaveButton",
                 "ChooseImportButton",
-                "ConfirmImportButton"
+                "ConfirmImportButton",
+                "CloudConflictButton"
             }));
             Assert.That(buttons.All(button => button.GetComponent<GameFeedbackButton>() != null), Is.True);
             Assert.That(recovery.GetComponent<CanvasGroup>(), Is.Not.Null);
@@ -162,6 +163,52 @@ public class LanguageSettingsPresentationTests
         }
         finally
         {
+            Object.DestroyImmediate(canvasObject);
+        }
+    }
+
+    [Test]
+    public void CloudConflictDialog_CreatesSafeExplicitChoices()
+    {
+        GameObject canvasObject = new GameObject("Test Canvas", typeof(RectTransform), typeof(Canvas));
+        canvasObject.SetActive(false);
+        GameCloudConflictSession.Current.Reset();
+
+        try
+        {
+            InventoryData local = new InventoryData { LastModifiedUtcTicks = 20 };
+            local.Cards["local-card"] = 2;
+            InventoryData cloud = new InventoryData { LastModifiedUtcTicks = 10 };
+            cloud.Cards["cloud-card"] = 3;
+            GameCloudConflictSession.Current.Prepare(local, cloud, true);
+
+            CloudConflictSettingsDialog dialog = CloudConflictSettingsDialog.Create(canvasObject.transform);
+            Button[] buttons = dialog.GetComponentsInChildren<Button>(true);
+
+            Assert.That(buttons.Select(button => button.name), Is.EquivalentTo(new[]
+            {
+                "KeepLocalButton",
+                "UseCloudButton",
+                "SafeMergeButton",
+                "CloseConflictButton"
+            }));
+            Assert.That(buttons.All(button => button.GetComponent<GameFeedbackButton>() != null), Is.True);
+            Assert.That(buttons.Where(button => button.name != "CloseConflictButton")
+                .All(button => button.interactable), Is.True);
+            Assert.That(dialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+
+            dialog.Open();
+
+            Assert.That(dialog.IsOpen, Is.True);
+            Assert.That(dialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
+            Assert.That(dialog.GetComponentsInChildren<TMPro.TMP_Text>(true)
+                .Single(text => text.name == "LocalSaveSummary").text, Does.Contain("2"));
+            Assert.That(dialog.GetComponentsInChildren<TMPro.TMP_Text>(true)
+                .Single(text => text.name == "CloudSaveSummary").text, Does.Contain("3"));
+        }
+        finally
+        {
+            GameCloudConflictSession.Current.Reset();
             Object.DestroyImmediate(canvasObject);
         }
     }

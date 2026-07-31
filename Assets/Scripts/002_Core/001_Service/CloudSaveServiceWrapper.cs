@@ -43,6 +43,18 @@ public static class CloudSaveServiceWrapper
 
     public static async Task<bool> SaveInventoryAsync(InventoryData inventory)
     {
+        if (GameCloudConflictSession.Current.HasPending)
+            return false;
+        return await SaveInventoryInternalAsync(inventory);
+    }
+
+    public static Task<bool> SaveInventoryForConflictResolutionAsync(InventoryData inventory)
+    {
+        return SaveInventoryInternalAsync(inventory);
+    }
+
+    private static async Task<bool> SaveInventoryInternalAsync(InventoryData inventory)
+    {
         if (!IsReady || inventory == null)
             return false;
 

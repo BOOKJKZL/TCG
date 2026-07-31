@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4G 已完成；4H 本地安全导出/导入已完成，下一步为可恢复身份与云冲突选择；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4G 已完成；4H 本地安全恢复与云冲突选择已完成，下一步为可恢复身份；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -360,7 +360,9 @@ Google Drive 不是必需前置。若未来选择 Drive 自动备份，必须另
 
 Android 使用系统 Storage Access Framework 的 `ACTION_CREATE_DOCUMENT` / `ACTION_OPEN_DOCUMENT`，由玩家选择文件位置；APK 不申请 `READ_EXTERNAL_STORAGE`、`WRITE_EXTERNAL_STORAGE` 或 `MANAGE_EXTERNAL_STORAGE`。16 MiB 原生桥会立即把授权 URI 复制到应用 staging 后再校验，且同一时间只允许一个文件操作。完整 EditMode 406/406、PlayMode 11/11 通过；ARM64 Clean Build 成功，APK 为 52,849,127 bytes（50.40 MiB）、418 个 ZIP 条目、SHA-256 `3405495aca82c1f5325d83eb1232fa627573a8df4fe0aca8dd20a4566ae21fac`。`apkanalyzer` 已确认 `com.universalgacha.recovery.RecoveryDocumentBridge` 和内部 Picker Fragment 实际进入 DEX；清单只有 Internet、震动、网络状态和 Android 动态 receiver 保护权限，没有广泛存储权限。本切片没有访问、上传或配置 Site/R2。
 
-4H 剩余范围是独立游戏账号的可恢复身份，以及本地/云端摘要与时间的明确冲突选择；在外部 OIDC 项目尚未提供前，先实现不依赖真实邮箱凭据的冲突模型、合并策略和界面验证，不把 Unity 匿名身份冒充为换机可恢复账号。
+4H 云冲突选择已于 2026-07-31 完成：启动读取到两份都有进度且内容不同的存档时，不再按时间自动覆盖。游戏保留已验证本地进度继续运行，同时暂停所有普通云端写入，直到玩家在设置页查看双方时间、卡版/卡数、开包数和历史摘要，并明确选择“保留当前”“使用其他”或“安全合并”。安全合并按每个卡版和统计计数取较大值、合并不同交易 ID 的最近历史并联合 NEW，不把两个完整快照直接相加。每次选择前另建完整恢复 envelope；云写入未确认时会把本地恢复到选择前状态并保留待处理冲突，不会把失败当成成功。中英弹层包含打开/关闭动画、按压/成功/失败音效和减少动态效果。冲突/合并/回滚定向 EditMode 8/8，完整 EditMode 412/412、PlayMode 11/11 通过；本切片未重建 APK，也没有访问 Site/R2。
+
+4H 剩余范围只有独立游戏账号的可恢复身份。当前 Authentication 仍使用 Unity 匿名登录；项目虽已包含 Unity Player Accounts 运行库，但 `UnityPlayerAccountSettings` 的 Client ID 为空，因此真实邮箱流程必须保持关闭，不能把尚未配置的外部身份或匿名 Player ID 冒充为换机可恢复账号。下一切片先实现配置预检、安全账号 Profile 切换和“新账号绑定 / 已有账号恢复”边界，再把实际 Client ID 配置列为外部检查点。
 
 ## 十一、4J：独立日文应用界面
 
@@ -464,4 +466,4 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 新 revision 在 R2 或被明确接受的正式托管目标完成完整只读审计，并保留回滚。
 - 模块依赖、完整 EditMode/PlayMode、最终 ARM64 APK、隐私边界和完成度审计全部为新鲜证据。
 
-当前下一步为 4H：可恢复身份、冲突摘要/选择与合并回滚；本地导出/导入已经完成。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。
+当前下一步为 4H 可恢复身份；本地导出/导入、冲突摘要、三种选择、合并和回滚已经完成。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。
