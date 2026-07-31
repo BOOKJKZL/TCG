@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Threading;
 using Gacha.Application;
 
 namespace Gacha.Infrastructure.Content
@@ -22,6 +23,7 @@ namespace Gacha.Infrastructure.Content
         private readonly bool ownsClient;
         private readonly Dictionary<string, CachedOperation> operations =
             new Dictionary<string, CachedOperation>(StringComparer.Ordinal);
+        private readonly SemaphoreSlim installationGate = new SemaphoreSlim(1, 1);
         private bool disposed;
 
         public HttpContentPackageInstallCoordinatorFactory(
@@ -72,7 +74,8 @@ namespace Gacha.Infrastructure.Content
                     entry.Package,
                     planner,
                     transfer,
-                    installer);
+                    installer,
+                    installationGate);
                 operations.Add(
                     entry.Package.PackageId,
                     new CachedOperation(entry.Package, coordinator));
@@ -90,6 +93,7 @@ namespace Gacha.Infrastructure.Content
                 operations.Clear();
                 if (ownsClient)
                     client.Dispose();
+                installationGate.Dispose();
             }
         }
 

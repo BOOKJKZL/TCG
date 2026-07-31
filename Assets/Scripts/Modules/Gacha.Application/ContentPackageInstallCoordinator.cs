@@ -111,6 +111,7 @@ namespace Gacha.Application
         private readonly ContentPackagePlanner planner;
         private readonly IContentPackageTransfer transfer;
         private readonly IContentPackageInstaller installer;
+        private readonly SemaphoreSlim installationGate;
         private readonly ContentPackageDownloadTask downloadTask;
 
         private ContentPackageOperationState state = ContentPackageOperationState.Idle;
@@ -129,12 +130,14 @@ namespace Gacha.Application
             ContentPackageDescriptor package,
             ContentPackagePlanner planner,
             IContentPackageTransfer transfer,
-            IContentPackageInstaller installer)
+            IContentPackageInstaller installer,
+            SemaphoreSlim installationGate = null)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.planner = planner ?? throw new ArgumentNullException(nameof(planner));
             this.transfer = transfer ?? throw new ArgumentNullException(nameof(transfer));
             this.installer = installer ?? throw new ArgumentNullException(nameof(installer));
+            this.installationGate = installationGate;
             downloadTask = new ContentPackageDownloadTask(package, transfer);
             download = downloadTask.Current;
             downloadTask.Changed += OnDownloadChanged;
@@ -330,10 +333,29 @@ namespace Gacha.Application
 
                 token.ThrowIfCancellationRequested();
                 Transition(runAttempt, ContentPackageOperationState.Installing, null, null);
-                ContentPackageInstallResult installed = await installer.InstallAsync(
-                    nextPlan,
-                    downloaded.ArchivePath,
-                    token);
+                ContentPackageInstallResult installed;
+                if (installationGate == null)
+                {
+                    installed = await installer.InstallAsync(
+                        nextPlan,
+                        downloaded.ArchivePath,
+                        token);
+                }
+                else
+                {
+                    await installationGate.WaitAsync(token);
+                    try
+                    {
+                        installed = await installer.InstallAsync(
+                            nextPlan,
+                            downloaded.ArchivePath,
+                            token);
+                    }
+                    finally
+                    {
+                        installationGate.Release();
+                    }
+                }
                 SetInstallResult(runAttempt, installed);
 
                 if (installed == null)
