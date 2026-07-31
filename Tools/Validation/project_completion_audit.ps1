@@ -3,8 +3,9 @@ param(
     [string]$ApkPath = "Builds/Android/UniversalGachaSimulator-smoke.apk",
     [string]$EditModeResults = "TestResults/final-editmode.xml",
     [string]$PlayModeResults = "TestResults/final-playmode.xml",
-    [string]$ReleaseCatalog = "LocalContent/Releases/android/catalog.json",
+    [string]$ReleaseCatalog = "LocalContent/Releases/android-complete/catalog.json",
     [string]$RemoteConfig = "LocalContent/remote-content.json",
+    [string]$RemoteAuditReport = "LocalContent/Releases/android-complete/remote-release-audit.json",
     [string]$AndroidReceipt = "LocalContent/FinalAcceptance/android-device.json",
     [string]$PackageId = "com.personal.universalgacha",
     [switch]$RequireComplete,
@@ -168,6 +169,7 @@ function Test-AaptBadgingContract {
     $permissions = @([regex]::Matches($Text, "(?m)^uses-permission:\s+name='([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     $allowedPermissions = @(
+        "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.INTERNET",
         "android.permission.VIBRATE",
         "$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
@@ -320,26 +322,50 @@ function Test-AndroidReceiptJson {
 }
 
 function Test-ReleaseCatalogFiles {
-    param([string]$CatalogPath)
+    param(
+        [string]$CatalogPath,
+        [int]$ExpectedPackageCount = 538
+    )
     if (-not (Test-Path -LiteralPath $CatalogPath)) {
         return New-AuditResult "Deterministic release fixtures" "Local" $false "Missing catalog: $CatalogPath"
     }
     try {
         $catalog = Get-Content -LiteralPath $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
-        if ([int]$catalog.schemaVersion -ne 1) {
-            throw "Release catalog schemaVersion must be 1."
+        if ([int]$catalog.schemaVersion -ne 2 -or [int]$catalog.revision -lt 6) {
+            throw "Release catalog must be schemaVersion 2 at revision 6 or newer."
         }
         $packages = @($catalog.packages)
+        if ($packages.Count -ne $ExpectedPackageCount) {
+            throw "Release catalog package count is $($packages.Count); expected $ExpectedPackageCount."
+        }
         $ids = @($packages | ForEach-Object { [string]$_.packageId })
-        foreach ($required in @("en.base1", "en.neo1")) {
-            if ($ids -notcontains $required) {
-                throw "Release catalog is missing $required."
+        if (@($ids | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0 -or
+            @($ids | Sort-Object -Unique).Count -ne $ids.Count) {
+            throw "Release catalog package IDs must be non-empty and unique."
+        }
+        if ($ExpectedPackageCount -eq 538) {
+            foreach ($required in @(
+                "en.base1",
+                "en.neo1",
+                "pokemon.pokedex.taxonomy",
+                "pokemon.printing-language-groups")) {
+                if ($ids -notcontains $required) {
+                    throw "Release catalog is missing $required."
+                }
             }
         }
         $catalogRoot = Split-Path -Parent $CatalogPath
+        $catalogRootPrefix = [IO.Path]::GetFullPath($catalogRoot).TrimEnd(
+            [IO.Path]::DirectorySeparatorChar,
+            [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
         foreach ($package in $packages) {
+            if ($null -eq $package.metadata -or
+                [string]::IsNullOrWhiteSpace([string]$package.metadata.kind) -or
+                [string]::IsNullOrWhiteSpace([string]$package.metadata.gameId)) {
+                throw "Release package metadata is incomplete: $($package.packageId)."
+            }
             $archive = [IO.Path]::GetFullPath((Join-Path $catalogRoot ([string]$package.archiveUrl)))
-            if (-not $archive.StartsWith([IO.Path]::GetFullPath($catalogRoot), [StringComparison]::OrdinalIgnoreCase)) {
+            if (-not $archive.StartsWith($catalogRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Release archive escapes its catalog directory: $($package.packageId)."
             }
             if (-not (Test-Path -LiteralPath $archive)) {
@@ -354,10 +380,63 @@ function Test-ReleaseCatalogFiles {
                 throw "Release archive hash mismatch: $($package.packageId)."
             }
         }
-        return New-AuditResult "Deterministic release fixtures" "Local" $true "$($packages.Count) archives match catalog size and SHA-256."
+        return New-AuditResult "Deterministic release fixtures" "Local" $true `
+            "schema=$($catalog.schemaVersion), revision=$($catalog.revision); $($packages.Count) archives match size and SHA-256."
     }
     catch {
         return New-AuditResult "Deterministic release fixtures" "Local" $false $_.Exception.Message
+    }
+}
+
+function Test-RemoteReleaseEvidence {
+    param(
+        [string]$RemoteConfigPath,
+        [string]$ReportPath,
+        [string]$CatalogPath
+    )
+    try {
+        foreach ($requiredPath in @($RemoteConfigPath, $ReportPath, $CatalogPath)) {
+            if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+                throw "Required remote evidence is missing: $requiredPath"
+            }
+        }
+
+        $configJson = Get-Content -LiteralPath $RemoteConfigPath -Raw -Encoding utf8
+        $configContract = Test-RemoteConfigurationJson $configJson
+        if (-not $configContract.Passed) {
+            throw $configContract.Detail
+        }
+        $config = $configJson | ConvertFrom-Json
+        $report = Get-Content -LiteralPath $ReportPath -Raw -Encoding utf8 | ConvertFrom-Json
+        $catalog = Get-Content -LiteralPath $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
+        $packageCount = @($catalog.packages).Count
+        $catalogHash = (Get-FileHash -LiteralPath $CatalogPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $configuredUri = [Uri]::new([string]$config.catalogUrl, [UriKind]::Absolute).AbsoluteUri
+        $reportedUri = [Uri]::new([string]$report.catalogUrl, [UriKind]::Absolute).AbsoluteUri
+
+        if ([int]$report.schemaVersion -ne 1 -or $report.valid -ne $true) {
+            throw "Remote audit report is not a valid schemaVersion 1 receipt."
+        }
+        if ($reportedUri -ne $configuredUri) {
+            throw "Remote audit URL does not match the runtime configuration."
+        }
+        if ([string]$report.catalogSha256 -ne $catalogHash) {
+            throw "Remote audit Catalog SHA-256 does not match the current local release."
+        }
+        if ([int]$report.packageCount -ne $packageCount -or
+            [int]$report.headPassed -ne $packageCount -or
+            [int]$report.rangePassed -ne $packageCount) {
+            throw "Remote audit does not cover all $packageCount packages with HEAD and Range."
+        }
+        if ([int]$report.writeMethodsRejected -ne 8 -or $report.authorizationHeaderUsed -ne $false) {
+            throw "Remote audit must reject all 8 anonymous writes without an authorization header."
+        }
+
+        return New-AuditResult "Verified remote HTTPS release" "Remote" $true `
+            "$packageCount/$packageCount HEAD and Range; current Catalog SHA-256; 8/8 writes rejected."
+    }
+    catch {
+        return New-AuditResult "Verified remote HTTPS release" "Remote" $false $_.Exception.Message
     }
 }
 
@@ -435,6 +514,7 @@ function Invoke-SelfTest {
 
     $validBadging = @"
 targetSdkVersion:'36'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
 uses-permission: name='android.permission.INTERNET'
 uses-permission: name='android.permission.VIBRATE'
 uses-permission: name='$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
@@ -442,6 +522,7 @@ native-code: 'arm64-v8a'
 "@
     $invalidAbiBadging = @"
 targetSdkVersion:'36'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
 uses-permission: name='android.permission.INTERNET'
 uses-permission: name='android.permission.VIBRATE'
 uses-permission: name='$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
@@ -461,7 +542,68 @@ native-code: 'arm64-v8a'
         throw "Self-test failed: Android APK static contract validation."
     }
     $passed++
-    Write-Output "Project completion audit self-test passed: $passed/4."
+
+    $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ("gacha-audit-" + [Guid]::NewGuid().ToString("N"))
+    try {
+        $packageDirectory = Join-Path $fixtureRoot "packages/test"
+        [IO.Directory]::CreateDirectory($packageDirectory) | Out-Null
+        $archivePath = Join-Path $packageDirectory "fixture.zip"
+        [IO.File]::WriteAllBytes($archivePath, [byte[]](1, 2, 3, 4))
+        $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $catalogPath = Join-Path $fixtureRoot "catalog.json"
+        $catalogJson = [ordered]@{
+            schemaVersion = 2
+            revision = 6
+            packages = @([ordered]@{
+                packageId = "test.fixture"
+                archiveUrl = "packages/test/fixture.zip"
+                downloadBytes = 4
+                sha256 = $archiveHash
+                metadata = [ordered]@{ kind = "test"; gameId = "test-game" }
+            })
+        } | ConvertTo-Json -Depth 6
+        [IO.File]::WriteAllText($catalogPath, $catalogJson, [Text.UTF8Encoding]::new($false))
+        $catalogHash = (Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $configPath = Join-Path $fixtureRoot "remote-content.json"
+        [IO.File]::WriteAllText(
+            $configPath,
+            '{"catalogUrl":"https://content.example.test/catalog.json"}',
+            [Text.UTF8Encoding]::new($false))
+        $reportPath = Join-Path $fixtureRoot "remote-release-audit.json"
+        $reportJson = [ordered]@{
+            schemaVersion = 1
+            catalogUrl = "https://content.example.test/catalog.json"
+            catalogSha256 = $catalogHash
+            packageCount = 1
+            headPassed = 1
+            rangePassed = 1
+            writeMethodsRejected = 8
+            authorizationHeaderUsed = $false
+            valid = $true
+        } | ConvertTo-Json
+        [IO.File]::WriteAllText($reportPath, $reportJson, [Text.UTF8Encoding]::new($false))
+
+        if (-not (Test-ReleaseCatalogFiles -CatalogPath $catalogPath -ExpectedPackageCount 1).Passed -or
+            -not (Test-RemoteReleaseEvidence $configPath $reportPath $catalogPath).Passed) {
+            throw "Self-test failed: current release and remote evidence were rejected."
+        }
+        $badReport = $reportJson | ConvertFrom-Json
+        $badReport.catalogSha256 = ("0" * 64)
+        [IO.File]::WriteAllText(
+            $reportPath,
+            ($badReport | ConvertTo-Json),
+            [Text.UTF8Encoding]::new($false))
+        if ((Test-RemoteReleaseEvidence $configPath $reportPath $catalogPath).Passed) {
+            throw "Self-test failed: stale remote evidence was accepted."
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $fixtureRoot) {
+            Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        }
+    }
+    $passed++
+    Write-Output "Project completion audit self-test passed: $passed/5."
 }
 
 if ($SelfTest) {
@@ -475,6 +617,7 @@ $playPath = Resolve-RepoPath $PlayModeResults
 $apkFullPath = Resolve-RepoPath $ApkPath
 $catalogFullPath = Resolve-RepoPath $ReleaseCatalog
 $remoteFullPath = Resolve-RepoPath $RemoteConfig
+$remoteAuditFullPath = Resolve-RepoPath $RemoteAuditReport
 $receiptFullPath = Resolve-RepoPath $AndroidReceipt
 
 $results.Add((Test-UnityResultFile $editPath "Full EditMode tests"))
@@ -558,15 +701,7 @@ else {
 $results.Add((New-AuditResult -Name "R2 publisher prerequisites" -Scope "Prerequisite" `
     -Passed ($missingR2.Count -eq 0) -Detail $r2Detail -RequiredFor100 $false))
 
-if (Test-Path -LiteralPath $remoteFullPath) {
-    $remote = Test-RemoteConfigurationJson (Get-Content -LiteralPath $remoteFullPath -Raw -Encoding utf8)
-    $results.Add((New-AuditResult "Verified remote runtime config" "Remote" $remote.Passed $remote.Detail))
-}
-else {
-    $remoteDetail = "Missing $remoteFullPath; create it only after the Site or R2 catalog passes public HTTPS verification."
-    $results.Add((New-AuditResult -Name "Verified remote runtime config" -Scope "Remote" `
-        -Passed $false -Detail $remoteDetail))
-}
+$results.Add((Test-RemoteReleaseEvidence $remoteFullPath $remoteAuditFullPath $catalogFullPath))
 
 $adb = Resolve-AdbPath
 $serials = @()
