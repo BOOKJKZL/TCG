@@ -9,13 +9,18 @@ public class InventoryData
     public Dictionary<string, int> Cards = new Dictionary<string, int>();
     public Dictionary<string, int> PacksOpened = new Dictionary<string, int>();
     public HashSet<string> UnseenPrintings = new HashSet<string>(StringComparer.Ordinal);
+    public List<OpeningHistoryData> OpeningHistory = new List<OpeningHistoryData>();
+    public Dictionary<string, int> ProductsOpenedByLanguage = new Dictionary<string, int>();
+    public Dictionary<string, int> ProductsOpenedBySet = new Dictionary<string, int>();
+    public Dictionary<string, int> CardsDrawnByRarity = new Dictionary<string, int>();
     public int Gold = 0;
     public long LastModifiedUtcTicks;
 
     public bool HasProgress => Gold != 0 ||
                                (Cards != null && Cards.Count != 0) ||
                                (PacksOpened != null && PacksOpened.Count != 0) ||
-                               (UnseenPrintings != null && UnseenPrintings.Count != 0);
+                               (UnseenPrintings != null && UnseenPrintings.Count != 0) ||
+                               (OpeningHistory != null && OpeningHistory.Count != 0);
 
     public void Touch()
     {
@@ -51,6 +56,18 @@ public class InventoryData
             }
         }
 
+        if (OpeningHistory != null)
+        {
+            foreach (OpeningHistoryData entry in OpeningHistory)
+            {
+                if (entry != null)
+                    snapshot.OpeningHistory.Add(entry.ToSnapshot());
+            }
+        }
+        CopyDictionary(ProductsOpenedByLanguage, snapshot.ProductsOpenedByLanguage);
+        CopyDictionary(ProductsOpenedBySet, snapshot.ProductsOpenedBySet);
+        CopyDictionary(CardsDrawnByRarity, snapshot.CardsDrawnByRarity);
+
         return snapshot;
     }
 
@@ -75,7 +92,34 @@ public class InventoryData
                 }
             }
         }
+        if (snapshot.Version >= 4)
+        {
+            if (snapshot.OpeningHistory != null)
+            {
+                foreach (OpeningHistorySnapshot entry in snapshot.OpeningHistory)
+                {
+                    OpeningHistoryData restored = OpeningHistoryData.FromSnapshot(entry);
+                    if (restored != null)
+                        data.OpeningHistory.Add(restored);
+                }
+            }
+            CopyEntries(snapshot.ProductsOpenedByLanguage, data.ProductsOpenedByLanguage);
+            CopyEntries(snapshot.ProductsOpenedBySet, data.ProductsOpenedBySet);
+            CopyEntries(snapshot.CardsDrawnByRarity, data.CardsDrawnByRarity);
+        }
         return data;
+    }
+
+    private static void CopyDictionary(
+        Dictionary<string, int> source,
+        List<InventoryEntry> target)
+    {
+        if (source == null) return;
+        foreach (KeyValuePair<string, int> pair in source.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (!string.IsNullOrWhiteSpace(pair.Key) && pair.Value >= 0)
+                target.Add(new InventoryEntry(pair.Key, pair.Value));
+        }
     }
 
     private static void CopyEntries(List<InventoryEntry> source, Dictionary<string, int> target)
@@ -88,6 +132,77 @@ public class InventoryData
             if (entry != null && !string.IsNullOrWhiteSpace(entry.Id) && entry.Amount >= 0)
                 target[entry.Id] = entry.Amount;
         }
+    }
+}
+
+[System.Serializable]
+public sealed class OpeningHistoryData
+{
+    public string TransactionId;
+    public long OpenedAtUtcTicks;
+    public string ProductId;
+    public string SetId;
+    public string LanguageId;
+    public string ProfileId;
+    public int ProductCount;
+    public int CardCount;
+    public int NewPrintingCount;
+    public Dictionary<string, int> RarityCounts = new Dictionary<string, int>();
+
+    public OpeningHistorySnapshot ToSnapshot()
+    {
+        var snapshot = new OpeningHistorySnapshot
+        {
+            TransactionId = TransactionId,
+            OpenedAtUtcTicks = OpenedAtUtcTicks,
+            ProductId = ProductId,
+            SetId = SetId,
+            LanguageId = LanguageId,
+            ProfileId = ProfileId,
+            ProductCount = ProductCount,
+            CardCount = CardCount,
+            NewPrintingCount = NewPrintingCount
+        };
+        if (RarityCounts != null)
+        {
+            foreach (KeyValuePair<string, int> pair in RarityCounts.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                snapshot.RarityCounts.Add(new InventoryEntry(pair.Key, pair.Value));
+        }
+        return snapshot;
+    }
+
+    public static OpeningHistoryData FromSnapshot(OpeningHistorySnapshot snapshot)
+    {
+        if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TransactionId) ||
+            string.IsNullOrWhiteSpace(snapshot.ProductId) || string.IsNullOrWhiteSpace(snapshot.SetId) ||
+            string.IsNullOrWhiteSpace(snapshot.LanguageId) || string.IsNullOrWhiteSpace(snapshot.ProfileId) ||
+            snapshot.OpenedAtUtcTicks <= 0 || snapshot.ProductCount <= 0 || snapshot.CardCount <= 0 ||
+            snapshot.NewPrintingCount < 0 || snapshot.NewPrintingCount > snapshot.CardCount)
+        {
+            return null;
+        }
+
+        var data = new OpeningHistoryData
+        {
+            TransactionId = snapshot.TransactionId.Trim(),
+            OpenedAtUtcTicks = snapshot.OpenedAtUtcTicks,
+            ProductId = snapshot.ProductId.Trim(),
+            SetId = snapshot.SetId.Trim(),
+            LanguageId = snapshot.LanguageId.Trim(),
+            ProfileId = snapshot.ProfileId.Trim(),
+            ProductCount = snapshot.ProductCount,
+            CardCount = snapshot.CardCount,
+            NewPrintingCount = snapshot.NewPrintingCount
+        };
+        if (snapshot.RarityCounts != null)
+        {
+            foreach (InventoryEntry entry in snapshot.RarityCounts)
+            {
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.Id) && entry.Amount > 0)
+                    data.RarityCounts[entry.Id.Trim()] = entry.Amount;
+            }
+        }
+        return data;
     }
 }
 
@@ -109,12 +224,31 @@ public sealed class InventoryEntry
 [System.Serializable]
 public sealed class InventorySnapshot
 {
-    public int Version = 3;
+    public int Version = 4;
     public List<InventoryEntry> Cards = new List<InventoryEntry>();
     public List<InventoryEntry> PacksOpened = new List<InventoryEntry>();
     public List<string> UnseenPrintings = new List<string>();
+    public List<OpeningHistorySnapshot> OpeningHistory = new List<OpeningHistorySnapshot>();
+    public List<InventoryEntry> ProductsOpenedByLanguage = new List<InventoryEntry>();
+    public List<InventoryEntry> ProductsOpenedBySet = new List<InventoryEntry>();
+    public List<InventoryEntry> CardsDrawnByRarity = new List<InventoryEntry>();
     public int Gold;
     public long LastModifiedUtcTicks;
+}
+
+[System.Serializable]
+public sealed class OpeningHistorySnapshot
+{
+    public string TransactionId;
+    public long OpenedAtUtcTicks;
+    public string ProductId;
+    public string SetId;
+    public string LanguageId;
+    public string ProfileId;
+    public int ProductCount;
+    public int CardCount;
+    public int NewPrintingCount;
+    public List<InventoryEntry> RarityCounts = new List<InventoryEntry>();
 }
 
 public class Inventory : MonoBehaviour
@@ -200,6 +334,10 @@ public class Inventory : MonoBehaviour
             : new HashSet<string>(Data.UnseenPrintings.Where(id =>
                 !string.IsNullOrWhiteSpace(id) &&
                 Data.Cards.TryGetValue(id, out int count) && count > 0), StringComparer.Ordinal);
+        Data.OpeningHistory = Data.OpeningHistory ?? new List<OpeningHistoryData>();
+        Data.ProductsOpenedByLanguage = Data.ProductsOpenedByLanguage ?? new Dictionary<string, int>();
+        Data.ProductsOpenedBySet = Data.ProductsOpenedBySet ?? new Dictionary<string, int>();
+        Data.CardsDrawnByRarity = Data.CardsDrawnByRarity ?? new Dictionary<string, int>();
     }
 
 }

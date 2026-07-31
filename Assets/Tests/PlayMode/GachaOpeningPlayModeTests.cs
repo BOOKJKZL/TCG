@@ -309,19 +309,31 @@ namespace Gacha.Tests.PlayMode
                 return ProductsOpened;
             }
 
-            public ProductInventoryCommit Commit(ProductDrawResult result)
+            public ProductInventoryBatchCommit CommitBatch(ProductOpeningBatchCommitRequest request)
             {
-                var awards = new List<InventoryAward>();
-                LastCommittedIds = result.Printings.Select(printing => printing.PrintingId).ToArray();
-                foreach (DrawnPrinting printing in result.Printings)
+                var commits = new List<ProductInventoryCommit>();
+                LastCommittedIds = request.Draws.SelectMany(draw => draw.Printings)
+                    .Select(printing => printing.PrintingId).ToArray();
+                foreach (ProductDrawResult result in request.Draws)
                 {
-                    int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;
-                    cards[printing.PrintingId] = previous + 1;
-                    awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
+                    var awards = new List<InventoryAward>();
+                    foreach (DrawnPrinting printing in result.Printings)
+                    {
+                        int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;
+                        cards[printing.PrintingId] = previous + 1;
+                        awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
+                    }
+                    ProductsOpened++;
+                    commits.Add(new ProductInventoryCommit(result.ProductId, ProductsOpened, awards.AsReadOnly()));
                 }
-                ProductsOpened++;
-                return new ProductInventoryCommit(result.ProductId, ProductsOpened, awards.AsReadOnly());
+                return new ProductInventoryBatchCommit(request.TransactionId, commits.AsReadOnly());
             }
+
+            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) =>
+                Array.Empty<ProductOpeningHistoryEntry>();
+
+            public ProductOpeningStatistics GetOpeningStatistics() =>
+                new ProductOpeningStatistics(null, null, null);
         }
     }
 }

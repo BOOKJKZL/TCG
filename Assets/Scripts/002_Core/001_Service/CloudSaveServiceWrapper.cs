@@ -12,8 +12,9 @@ using UnityEngine;
 /// </summary>
 public static class CloudSaveServiceWrapper
 {
-    private const string SnapshotKey = "inventory_v3";
-    private const string PreviousSnapshotKey = "inventory_v2";
+    private const string SnapshotKey = "inventory_v4";
+    private const string PreviousSnapshotKey = "inventory_v3";
+    private const string OlderSnapshotKey = "inventory_v2";
     private const string LegacyInventoryKey = "inventory";
     private const string LegacyGoldKey = "gold";
 
@@ -70,6 +71,7 @@ public static class CloudSaveServiceWrapper
             {
                 SnapshotKey,
                 PreviousSnapshotKey,
+                OlderSnapshotKey,
                 LegacyInventoryKey,
                 LegacyGoldKey
             };
@@ -85,6 +87,13 @@ public static class CloudSaveServiceWrapper
             if (results.TryGetValue(PreviousSnapshotKey, out var previousSnapshotItem))
             {
                 string json = previousSnapshotItem.Value.GetAs<string>();
+                InventorySnapshot snapshot = JsonUtility.FromJson<InventorySnapshot>(json);
+                return CloudInventoryLoadResult.Success(InventoryData.FromSnapshot(snapshot));
+            }
+
+            if (results.TryGetValue(OlderSnapshotKey, out var olderSnapshotItem))
+            {
+                string json = olderSnapshotItem.Value.GetAs<string>();
                 InventorySnapshot snapshot = JsonUtility.FromJson<InventorySnapshot>(json);
                 return CloudInventoryLoadResult.Success(InventoryData.FromSnapshot(snapshot));
             }

@@ -153,18 +153,97 @@ public class ProductOpeningApplicationTests
             var service = new ProductOpeningService(
                 fixture.Catalog,
                 new UniformSimulationRuleProvider(2),
-                new PlayerInventoryProgressStore(inventory, _ => throw new InvalidOperationException("disk full")));
+                new PlayerInventoryProgressStore(inventory, _ => throw new InvalidOperationException("disk full")),
+                contentLanguageId: "en");
 
             Assert.Throws<InvalidOperationException>(() =>
-                service.Open(fixture.Product.Id, new FixedRandom()));
+                service.OpenBatch(fixture.Product.Id, 10, new FixedRandom()));
             Assert.That(inventory.Data.Cards, Is.Empty);
             Assert.That(inventory.Data.PacksOpened, Is.Empty);
             Assert.That(inventory.Data.UnseenPrintings, Is.Empty);
+            Assert.That(inventory.Data.OpeningHistory, Is.Empty);
+            Assert.That(inventory.Data.ProductsOpenedByLanguage, Is.Empty);
+            Assert.That(inventory.Data.ProductsOpenedBySet, Is.Empty);
+            Assert.That(inventory.Data.CardsDrawnByRarity, Is.Empty);
         }
         finally
         {
             UnityEngine.Object.DestroyImmediate(gameObject);
         }
+    }
+
+    [Test]
+    public void OpeningService_TenPackBatchSavesOnceAndRecordsHistoryAndStatistics()
+    {
+        var gameObject = new GameObject("Batch Inventory Test");
+        Inventory inventory = gameObject.AddComponent<Inventory>();
+        try
+        {
+            Fixture fixture = CreateFixture();
+            int saveCalls = 0;
+            DateTime openedAt = new DateTime(2026, 7, 31, 6, 45, 0, DateTimeKind.Utc);
+            var store = new PlayerInventoryProgressStore(inventory, _ => saveCalls++);
+            var service = new ProductOpeningService(
+                fixture.Catalog,
+                new UniformSimulationRuleProvider(3),
+                store,
+                contentLanguageId: "en",
+                utcNow: () => openedAt);
+
+            ProductOpeningBatchOutcome outcome = service.OpenBatch(
+                fixture.Product.Id,
+                10,
+                new FixedRandom());
+
+            Assert.That(saveCalls, Is.EqualTo(1));
+            Assert.That(outcome.Draws, Has.Count.EqualTo(10));
+            Assert.That(outcome.Inventory.ProductCount, Is.EqualTo(10));
+            Assert.That(outcome.Inventory.CardCount, Is.EqualTo(30));
+            Assert.That(outcome.Inventory.ProductsOpened, Is.EqualTo(10));
+            Assert.That(inventory.Data.PacksOpened[fixture.Product.Id], Is.EqualTo(10));
+            Assert.That(inventory.Data.Cards.Values.Sum(), Is.EqualTo(30));
+
+            ProductOpeningHistoryEntry history = service.GetOpeningHistory(10).Single();
+            Assert.That(history.TransactionId, Is.EqualTo(outcome.Inventory.TransactionId));
+            Assert.That(history.OpenedAtUtc, Is.EqualTo(openedAt));
+            Assert.That(history.ProductCount, Is.EqualTo(10));
+            Assert.That(history.CardCount, Is.EqualTo(30));
+            Assert.That(history.LanguageId, Is.EqualTo("en"));
+            Assert.That(history.SetId, Is.EqualTo(fixture.Product.SetId));
+            Assert.That(history.RarityCounts[fixture.Common.RarityId], Is.EqualTo(30));
+
+            ProductOpeningStatistics statistics = service.GetOpeningStatistics();
+            Assert.That(statistics.TotalProductsOpened, Is.EqualTo(10));
+            Assert.That(statistics.TotalCardsDrawn, Is.EqualTo(30));
+            Assert.That(statistics.ProductsByLanguage["en"], Is.EqualTo(10));
+            Assert.That(statistics.ProductsBySet[fixture.Product.SetId], Is.EqualTo(10));
+            Assert.That(statistics.CardsByRarity[fixture.Common.RarityId], Is.EqualTo(30));
+
+            InventoryData restored = InventoryData.FromSnapshot(inventory.Data.ToSnapshot());
+            Assert.That(restored.OpeningHistory, Has.Count.EqualTo(1));
+            Assert.That(restored.ProductsOpenedByLanguage["en"], Is.EqualTo(10));
+            Assert.That(restored.CardsDrawnByRarity[fixture.Common.RarityId], Is.EqualTo(30));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(gameObject);
+        }
+    }
+
+    [Test]
+    public void OpeningService_RejectsBatchLargerThanTenBeforeMutation()
+    {
+        Fixture fixture = CreateFixture();
+        var inventory = new MemoryInventory();
+        var service = new ProductOpeningService(
+            fixture.Catalog,
+            new UniformSimulationRuleProvider(3),
+            inventory,
+            contentLanguageId: "en");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            service.OpenBatch(fixture.Product.Id, 11, new FixedRandom()));
+        Assert.That(inventory.Counts, Is.Empty);
     }
 
     [Test]
@@ -287,19 +366,30 @@ public class ProductOpeningApplicationTests
             return products.TryGetValue(productId, out int value) ? value : 0;
         }
 
-        public ProductInventoryCommit Commit(ProductDrawResult result)
+        public ProductInventoryBatchCommit CommitBatch(ProductOpeningBatchCommitRequest request)
         {
-            var awards = new List<InventoryAward>();
-            foreach (DrawnPrinting printing in result.Printings)
+            var commits = new List<ProductInventoryCommit>(request.Draws.Count);
+            foreach (ProductDrawResult result in request.Draws)
             {
-                int previous = Counts.TryGetValue(printing.PrintingId, out int value) ? value : 0;
-                Counts[printing.PrintingId] = previous + 1;
-                awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
-            }
+                var awards = new List<InventoryAward>();
+                foreach (DrawnPrinting printing in result.Printings)
+                {
+                    int previous = Counts.TryGetValue(printing.PrintingId, out int value) ? value : 0;
+                    Counts[printing.PrintingId] = previous + 1;
+                    awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
+                }
 
-            int opened = GetProductsOpened(result.ProductId) + 1;
-            products[result.ProductId] = opened;
-            return new ProductInventoryCommit(result.ProductId, opened, awards.AsReadOnly());
+                int opened = GetProductsOpened(result.ProductId) + 1;
+                products[result.ProductId] = opened;
+                commits.Add(new ProductInventoryCommit(result.ProductId, opened, awards.AsReadOnly()));
+            }
+            return new ProductInventoryBatchCommit(request.TransactionId, commits.AsReadOnly());
         }
+
+        public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) =>
+            Array.Empty<ProductOpeningHistoryEntry>();
+
+        public ProductOpeningStatistics GetOpeningStatistics() =>
+            new ProductOpeningStatistics(null, null, null);
     }
 }

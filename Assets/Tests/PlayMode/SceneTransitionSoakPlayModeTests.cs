@@ -131,20 +131,31 @@ namespace Gacha.Tests.PlayMode
                 return products.TryGetValue(productId, out int value) ? value : 0;
             }
 
-            public ProductInventoryCommit Commit(ProductDrawResult result)
+            public ProductInventoryBatchCommit CommitBatch(ProductOpeningBatchCommitRequest request)
             {
-                var awards = new List<InventoryAward>(result.Printings.Count);
-                foreach (DrawnPrinting printing in result.Printings)
+                var commits = new List<ProductInventoryCommit>(request.Draws.Count);
+                foreach (ProductDrawResult result in request.Draws)
                 {
-                    int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;
-                    cards[printing.PrintingId] = previous + 1;
-                    awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
-                }
+                    var awards = new List<InventoryAward>(result.Printings.Count);
+                    foreach (DrawnPrinting printing in result.Printings)
+                    {
+                        int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;
+                        cards[printing.PrintingId] = previous + 1;
+                        awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
+                    }
 
-                int opened = GetProductsOpened(result.ProductId) + 1;
-                products[result.ProductId] = opened;
-                return new ProductInventoryCommit(result.ProductId, opened, awards.AsReadOnly());
+                    int opened = GetProductsOpened(result.ProductId) + 1;
+                    products[result.ProductId] = opened;
+                    commits.Add(new ProductInventoryCommit(result.ProductId, opened, awards.AsReadOnly()));
+                }
+                return new ProductInventoryBatchCommit(request.TransactionId, commits.AsReadOnly());
             }
+
+            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) =>
+                Array.Empty<ProductOpeningHistoryEntry>();
+
+            public ProductOpeningStatistics GetOpeningStatistics() =>
+                new ProductOpeningStatistics(null, null, null);
         }
 
         private sealed class MemoryCollectionStore : ICollectionProgressStore
