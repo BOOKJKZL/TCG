@@ -74,4 +74,21 @@ public class ExperienceSettingsApplicationTests
         Assert.That(service.Current.AnimationSpeed, Is.EqualTo(1f));
         Assert.That(changeCount, Is.Zero);
     }
+
+    [Test]
+    public void Apply_StoresWholeRecoverySnapshotInOneUpdate()
+    {
+        var store = new MemoryStore { Stored = new ExperienceSettings() };
+        var service = new ExperienceSettingsService(store);
+
+        ExperienceSettingsUpdateResult result = service.Apply(
+            new ExperienceSettings(false, true, false, 1.5f));
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(store.SaveCount, Is.EqualTo(1));
+        Assert.That(service.Current.SoundEnabled, Is.False);
+        Assert.That(service.Current.ReduceMotion, Is.True);
+        Assert.That(service.Current.HapticsEnabled, Is.False);
+        Assert.That(service.Current.AnimationSpeed, Is.EqualTo(1.5f));
+    }
 }

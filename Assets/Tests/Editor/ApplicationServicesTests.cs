@@ -268,6 +268,29 @@ public class ApplicationServicesTests
     }
 
     [Test]
+    public void LanguageSelection_RecoveryPreferencesSaveOnceAndPublishBothChanges()
+    {
+        var store = new PreferenceStore("en", "en");
+        var service = new LanguageSelectionService(store, new[] { "en", "zh" });
+        UniversalCatalog catalog = CreateCatalog("en", "ja");
+        service.RefreshContentLanguage(catalog);
+        int uiEvents = 0;
+        int contentEvents = 0;
+        service.UiLanguageChanged += _ => uiEvents++;
+        service.ContentLanguageChanged += _ => contentEvents++;
+
+        service.ApplyPreferences(new LanguagePreferences("zh", "ja"), catalog);
+
+        Assert.That(store.SaveCalls, Is.EqualTo(1));
+        Assert.That(store.Saved.UiLanguageId, Is.EqualTo("zh"));
+        Assert.That(store.Saved.ContentLanguageId, Is.EqualTo("ja"));
+        Assert.That(service.UiLanguageId, Is.EqualTo("zh"));
+        Assert.That(service.ContentLanguage.ResolvedLanguageId, Is.EqualTo("ja"));
+        Assert.That(uiEvents, Is.EqualTo(1));
+        Assert.That(contentEvents, Is.EqualTo(1));
+    }
+
+    [Test]
     public void LanguageSelection_UsesParentUiLocaleAndEnglishContentFallback()
     {
         var store = new PreferenceStore("zh-CN", "zh-CN");

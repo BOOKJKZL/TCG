@@ -104,6 +104,46 @@ namespace Gacha.Application
             return ResolveContentLanguage(catalog, false);
         }
 
+        public void ApplyPreferences(LanguagePreferences preferences, UniversalCatalog catalog)
+        {
+            if (preferences == null)
+                throw new ArgumentNullException(nameof(preferences));
+
+            string nextUiLanguageId = ResolveUiLanguage(preferences.UiLanguageId);
+            string nextRequestedContentLanguageId = NormalizeOrDefault(
+                preferences.ContentLanguageId,
+                defaultContentLanguageId);
+            string nextResolvedContentLanguageId = ResolveAvailableContentLanguage(
+                nextRequestedContentLanguageId,
+                catalog);
+            var nextContentLanguage = new ContentLanguageSelection(
+                nextRequestedContentLanguageId,
+                nextResolvedContentLanguageId);
+            store.Save(new LanguagePreferences(
+                nextUiLanguageId,
+                nextRequestedContentLanguageId));
+
+            bool uiChanged = !string.Equals(
+                UiLanguageId,
+                nextUiLanguageId,
+                StringComparison.OrdinalIgnoreCase);
+            bool contentChanged = ContentLanguage == null ||
+                !string.Equals(
+                    ContentLanguage.RequestedLanguageId,
+                    nextContentLanguage.RequestedLanguageId,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(
+                    ContentLanguage.ResolvedLanguageId,
+                    nextContentLanguage.ResolvedLanguageId,
+                    StringComparison.OrdinalIgnoreCase);
+            currentCatalog = catalog;
+            UiLanguageId = nextUiLanguageId;
+            RequestedContentLanguageId = nextRequestedContentLanguageId;
+            ContentLanguage = nextContentLanguage;
+            if (uiChanged) UiLanguageChanged?.Invoke(UiLanguageId);
+            if (contentChanged) ContentLanguageChanged?.Invoke(ContentLanguage);
+        }
+
         public string GetDisplayName(Definition definition)
         {
             if (definition == null)

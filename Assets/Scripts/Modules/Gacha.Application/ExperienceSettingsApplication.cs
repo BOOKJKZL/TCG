@@ -115,6 +115,17 @@ namespace Gacha.Application
                 speed));
         }
 
+        public ExperienceSettingsUpdateResult Apply(ExperienceSettings settings)
+        {
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+            return Update(new ExperienceSettings(
+                settings.SoundEnabled,
+                settings.ReduceMotion,
+                settings.HapticsEnabled,
+                settings.AnimationSpeed));
+        }
+
         private ExperienceSettingsUpdateResult Update(ExperienceSettings next)
         {
             if (Matches(Current, next))
