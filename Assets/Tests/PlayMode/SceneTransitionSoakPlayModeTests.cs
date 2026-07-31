@@ -58,6 +58,10 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(UnityEngine.Object.FindObjectsByType<ExperienceSettingsPanel>(
                         FindObjectsInactive.Include,
                         FindObjectsSortMode.None), Has.Length.EqualTo(1));
+                    Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.None)
+                        .Count(component => component.GetType().Name == "SaveRecoverySettingsPanel"), Is.EqualTo(1));
 
                     yield return Resources.UnloadUnusedAssets();
                     GC.Collect();

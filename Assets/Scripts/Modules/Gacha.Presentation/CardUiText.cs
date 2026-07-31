@@ -94,7 +94,20 @@ namespace Gacha.Presentation
                 ["main_menu.action.collection"] = "Collection",
                 ["main_menu.action.content"] = "Content",
                 ["main_menu.action.settings"] = "Settings",
-                ["settings.title"] = "Settings"
+                ["settings.title"] = "Settings",
+                ["settings.recovery.title"] = "Save recovery",
+                ["settings.recovery.description"] = "Export a verified backup or preview a file before importing.",
+                ["settings.recovery.action.export"] = "Export backup",
+                ["settings.recovery.action.preview"] = "Choose backup",
+                ["settings.recovery.action.confirm"] = "Confirm import",
+                ["settings.recovery.status.ready"] = "Ready. Downloaded card images are never included.",
+                ["settings.recovery.status.exported"] = "Exported to {0}",
+                ["settings.recovery.status.cancelled"] = "File selection cancelled.",
+                ["settings.recovery.status.error"] = "Recovery failed: {0}",
+                ["settings.recovery.status.preview_ready"] = "Preview verified. Confirm to replace current progress.",
+                ["settings.recovery.status.imported"] = "Import complete. Pre-import backup: {0}",
+                ["settings.recovery.status.unavailable"] = "Save recovery is unavailable.",
+                ["settings.recovery.preview"] = "{0} · {1} printings / {2} cards · {3} packs · {4} batches · UI {5} / cards {6}"
             };
 
         private static readonly Dictionary<string, string> LocalizedCache =

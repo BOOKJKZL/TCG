@@ -64,4 +64,19 @@ public class AndroidBuildReadinessTests
             "The project uses InputSystemUIInputModule and must keep only the new Input System enabled.");
         Assert.That(settings, Does.Not.Contain("  activeInputHandler: 2"));
     }
+
+    [Test]
+    public void AndroidRecovery_UsesSystemDocumentPickerWithoutBroadStoragePermission()
+    {
+        const string bridgePath = "Assets/Plugins/Android/RecoveryDocumentBridge.java";
+        Assert.That(File.Exists(bridgePath), Is.True);
+        string bridge = File.ReadAllText(bridgePath);
+
+        Assert.That(bridge, Does.Contain("Intent.ACTION_CREATE_DOCUMENT"));
+        Assert.That(bridge, Does.Contain("Intent.ACTION_OPEN_DOCUMENT"));
+        Assert.That(bridge, Does.Contain("MAXIMUM_BYTES"));
+        Assert.That(bridge, Does.Not.Contain("READ_EXTERNAL_STORAGE"));
+        Assert.That(bridge, Does.Not.Contain("WRITE_EXTERNAL_STORAGE"));
+        Assert.That(bridge, Does.Not.Contain("MANAGE_EXTERNAL_STORAGE"));
+    }
 }

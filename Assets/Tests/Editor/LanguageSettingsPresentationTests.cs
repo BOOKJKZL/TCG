@@ -124,4 +124,45 @@ public class LanguageSettingsPresentationTests
             Object.DestroyImmediate(canvasObject);
         }
     }
+
+    [Test]
+    public void RecoveryPanel_CreatesThreeFeedbackControlsAndFitsReferenceCanvas()
+    {
+        GameObject canvasObject = new GameObject("Test Canvas", typeof(RectTransform), typeof(Canvas));
+        canvasObject.SetActive(false);
+
+        try
+        {
+            LanguageSettingsPanel language = LanguageSettingsPanel.Create(canvasObject.transform);
+            ExperienceSettingsPanel experience = ExperienceSettingsPanel.Create(canvasObject.transform);
+            SaveRecoverySettingsPanel recovery = SaveRecoverySettingsPanel.Create(canvasObject.transform);
+            Button[] buttons = recovery.GetComponentsInChildren<Button>(true);
+
+            Assert.That(buttons.Select(button => button.name), Is.EquivalentTo(new[]
+            {
+                "ExportSaveButton",
+                "ChooseImportButton",
+                "ConfirmImportButton"
+            }));
+            Assert.That(buttons.All(button => button.GetComponent<GameFeedbackButton>() != null), Is.True);
+            Assert.That(recovery.GetComponent<CanvasGroup>(), Is.Not.Null);
+
+            RectTransform languageRect = language.GetComponent<RectTransform>();
+            RectTransform experienceRect = experience.GetComponent<RectTransform>();
+            RectTransform recoveryRect = recovery.GetComponent<RectTransform>();
+            float languageTop = languageRect.anchoredPosition.y + languageRect.rect.height * 0.5f;
+            float experienceBottom = experienceRect.anchoredPosition.y - experienceRect.rect.height * 0.5f;
+            float recoveryTop = recoveryRect.anchoredPosition.y + recoveryRect.rect.height * 0.5f;
+            float recoveryBottom = recoveryRect.anchoredPosition.y - recoveryRect.rect.height * 0.5f;
+
+            Assert.That(languageTop, Is.LessThanOrEqualTo(1000f));
+            Assert.That(recoveryTop, Is.LessThan(experienceBottom), "Recovery and experience panels must not overlap.");
+            Assert.That(recoveryBottom, Is.GreaterThanOrEqualTo(-1000f),
+                "Recovery controls must remain inside the 1000x2000 reference canvas.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(canvasObject);
+        }
+    }
 }

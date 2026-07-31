@@ -723,6 +723,58 @@ MonoBehaviour:
     m_Key: gacha.history.row
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428333
+    m_Key: settings.recovery.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428334
+    m_Key: settings.recovery.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428335
+    m_Key: settings.recovery.action.export
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428336
+    m_Key: settings.recovery.action.preview
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428337
+    m_Key: settings.recovery.action.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428338
+    m_Key: settings.recovery.status.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428339
+    m_Key: settings.recovery.status.exported
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428340
+    m_Key: settings.recovery.status.cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428341
+    m_Key: settings.recovery.status.error
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428342
+    m_Key: settings.recovery.status.preview_ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428343
+    m_Key: settings.recovery.status.imported
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428344
+    m_Key: settings.recovery.status.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428345
+    m_Key: settings.recovery.preview
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

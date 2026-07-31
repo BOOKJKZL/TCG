@@ -153,6 +153,7 @@ public sealed class InventoryRecoveryService
 
         try
         {
+            incoming.Preview.State.Inventory.Touch();
             target.Apply(incoming.Preview.State);
             return new InventoryRecoveryImportResult(incoming.Preview, Path.GetFullPath(backupPath));
         }

@@ -92,15 +92,35 @@ namespace Gacha.Tests.PlayMode
 
             LanguageSettingsPanel panel = Object.FindFirstObjectByType<LanguageSettingsPanel>(FindObjectsInactive.Include);
             ExperienceSettingsPanel experiencePanel = Object.FindFirstObjectByType<ExperienceSettingsPanel>(FindObjectsInactive.Include);
+            MonoBehaviour recoveryPanel = Object.FindObjectsByType<MonoBehaviour>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None)
+                .SingleOrDefault(component => component.GetType().Name == "SaveRecoverySettingsPanel");
             Assert.That(panel, Is.Not.Null);
             Assert.That(experiencePanel, Is.Not.Null);
+            Assert.That(recoveryPanel, Is.Not.Null);
             RectTransform languageRect = panel.GetComponent<RectTransform>();
             RectTransform experienceRect = experiencePanel.GetComponent<RectTransform>();
+            RectTransform recoveryRect = recoveryPanel.GetComponent<RectTransform>();
             float languageBottom = languageRect.anchoredPosition.y - languageRect.rect.height * 0.5f;
             float experienceTop = experienceRect.anchoredPosition.y + experienceRect.rect.height * 0.5f;
+            float experienceBottom = experienceRect.anchoredPosition.y - experienceRect.rect.height * 0.5f;
+            float recoveryTop = recoveryRect.anchoredPosition.y + recoveryRect.rect.height * 0.5f;
+            float recoveryBottom = recoveryRect.anchoredPosition.y - recoveryRect.rect.height * 0.5f;
             Assert.That(experienceTop, Is.LessThan(languageBottom), "Settings panels must not overlap.");
+            Assert.That(recoveryTop, Is.LessThan(experienceBottom), "Recovery and experience panels must not overlap.");
+            Assert.That(recoveryBottom, Is.GreaterThanOrEqualTo(-1000f));
             Assert.That(LocalizationSettings.HasSettings, Is.True);
             yield return LocalizationSettings.InitializationOperation;
+
+            Button[] recoveryButtons = recoveryPanel.GetComponentsInChildren<Button>(true);
+            Assert.That(recoveryButtons.Select(button => button.name), Is.EquivalentTo(new[]
+            {
+                "ExportSaveButton",
+                "ChooseImportButton",
+                "ConfirmImportButton"
+            }));
+            Assert.That(recoveryButtons.Single(button => button.name == "ConfirmImportButton").interactable, Is.False);
 
             Button uiButton = panel.GetComponentsInChildren<Button>(true)
                 .Single(button => button.name == "UiLanguageButton");
@@ -117,14 +137,18 @@ namespace Gacha.Tests.PlayMode
             uiButton.onClick.Invoke();
             TMP_Text title = panel.GetComponentsInChildren<TMP_Text>(true)
                 .Single(text => text.name == "Title");
+            TMP_Text recoveryTitle = recoveryPanel.GetComponentsInChildren<TMP_Text>(true)
+                .Single(text => text.name == "RecoveryTitle");
             float timeout = Time.realtimeSinceStartup + 3f;
-            while (title.text != expectedTitle && Time.realtimeSinceStartup < timeout)
+            while ((title.text != expectedTitle || recoveryTitle.text != "\u4FDD\u5B58\u8BBE\u7F6E") &&
+                   Time.realtimeSinceStartup < timeout)
                 yield return null;
 
             Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo(expectedUi));
             Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo(originalContent));
             Assert.That(LocalizationSettings.SelectedLocale.Identifier.Code, Is.EqualTo(expectedUi));
             Assert.That(title.text, Is.EqualTo(expectedTitle));
+            Assert.That(recoveryTitle.text, Is.EqualTo("\u4FDD\u5B58\u8BBE\u7F6E"));
 
             ApplicationServices.Languages.SelectUiLanguage(persistedUi);
             yield return new WaitForSecondsRealtime(0.3f);
