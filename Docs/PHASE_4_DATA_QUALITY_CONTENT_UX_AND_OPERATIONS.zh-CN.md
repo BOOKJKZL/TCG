@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L1 组合根程序集边界完成，下一步拆分存档/身份与玩家控制器；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L2 玩家资料、存档与身份核心程序集边界完成，下一步拆分玩家控制器；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -87,7 +87,7 @@ flowchart TD
 | 4I 内存与实体机 | 字节级图片缓存、低内存处理、Profiler 指标和真机体验 | 中端 Android 长时运行；触觉/音频/蜂窝证据 | 本机实现完成；真实设备验收待执行 |
 | 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
-| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1 组合根边界完成 |
+| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1 根边界、4L2 Core 边界完成 |
 | 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 待开始 |
 
 ## 六、4A–4D：资料语义与跨语言卡牌
@@ -422,6 +422,12 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 所有 `.cs` 仍保留原路径和 `.meta` GUID，Scene/Prefab 引用不迁移。新增编译图测试动态枚举模块目录外全部脚本，并要求它们逐一由 `Gacha.Runtime` 拥有、不得回落到 `Assembly-CSharp`；历史 33 个基线也被保留为最低门槛。
 - 无引用的旧 `CardFlip` 及其 meta 已删除。其 GUID 在全部 Scene/Prefab 和源码中均无引用；当前收藏、图鉴和开包翻卡动画/音效由 UI Toolkit 与统一反馈系统实现，因此没有兼容层或玩家效果损失。`SettingManager` 同时移除未使用的 Visual Scripting 引用，避免扩大组合根依赖。
 - `Gacha.Runtime` 独立编译 0 error，边界定向测试 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过；完整 PlayMode 包含全部场景往返和控制器重建，未出现 Missing Script。没有构建 APK，也没有访问 Site/R2。
+
+#### 4L2 玩家资料、存档与身份核心边界记录（2026-07-31）
+
+- `Assets/Scripts/002_Core/Gacha.Runtime.Core.asmdef` 现在独立拥有库存数据、Local/Cloud Save、云冲突、恢复文件、可恢复身份、Bootstrap、内容交付和玩家进度 Store。组合根只单向引用 Core；Core 不引用旧设置、场景控制器或组合根，因此没有循环依赖。
+- 这次只增加嵌套程序集边界，不移动任何 `.cs`/`.meta`，不修改 `InventorySnapshot` v4、PlayerPrefs key、云端 key、序列化字段或 Scene/Prefab GUID。动态编译图测试现在按目录验证 `Gacha.Runtime` 与 `Gacha.Runtime.Core` 的精确源码归属，并继续要求 39 个旧应用脚本不得回落到 `Assembly-CSharp`。
+- `Gacha.Runtime.Core` 独立编译 0 error；边界定向 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过，PlayMode 日志没有 Missing Script。没有构建 APK，也没有访问、配置或上传 Site/R2。下一切片拆分 `004_Controller` 玩家控制器程序集。
 
 ## 十四、验证矩阵
 

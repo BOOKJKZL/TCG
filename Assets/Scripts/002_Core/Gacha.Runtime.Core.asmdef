@@ -1,8 +1,7 @@
 {
-    "name": "Gacha.Runtime",
-    "rootNamespace": "Gacha.Runtime",
+    "name": "Gacha.Runtime.Core",
+    "rootNamespace": "Gacha.Runtime.Core",
     "references": [
-        "Gacha.Runtime.Core",
         "Gacha.Application",
         "Gacha.Domain",
         "Gacha.Infrastructure",
