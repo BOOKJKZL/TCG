@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L3 设置、场景与音频基础程序集边界完成，下一步拆分玩家控制器；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；4I 本机图片内存保护完成、实体机长时验收待执行；4L4 玩家控制器程序集边界完成，下一步收拢剩余展示辅助并退役组合根；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -87,7 +87,7 @@ flowchart TD
 | 4I 内存与实体机 | 字节级图片缓存、低内存处理、Profiler 指标和真机体验 | 中端 Android 长时运行；触觉/音频/蜂窝证据 | 本机实现完成；真实设备验收待执行 |
 | 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
-| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1–4L3 根、Core、Foundation 边界完成 |
+| 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 进行中；4L1–4L4 根、Core、Foundation、Controllers 边界完成 |
 | 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 待开始 |
 
 ## 六、4A–4D：资料语义与跨语言卡牌
@@ -434,6 +434,12 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - `Assets/Scripts/001_Baisc/Gacha.Runtime.Foundation.asmdef` 独立拥有 GameManager、设置、文件读写辅助、场景加载/分辨率和音频组件，并只依赖 Core、通用 Domain/Application/Presentation 与明确的 Unity UI 程序集。
 - 定向编译识别到设置和场景加载共同依赖 `Fade`；该单一辅助组件由 `Gacha.Runtime.Utility` 接管，Foundation 单向引用 Utility，从结构上禁止 Foundation 反向依赖组合根。所有脚本和 `.meta` 保持原路径/GUID，场景序列化字段、设置 PlayerPrefs、动画与音效行为均未改变。
 - Foundation 与 Utility 独立编译均为 0 warning / 0 error；边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过，场景往返没有 Missing Script。没有构建 APK，也没有访问 Site/R2。下一切片现在可以让玩家控制器只依赖 Foundation/Core，而不依赖杂糅根程序集。
+
+#### 4L4 玩家控制器边界记录（2026-07-31）
+
+- `Assets/Scripts/004_Controller/Gacha.Runtime.Controllers.asmdef` 独立拥有开包、收藏、主菜单、返回与启动 5 个场景控制器；它只依赖 Foundation/Core 与既有 Domain/Application/Presentation，不引用 `Gacha.Runtime` 组合根。
+- 5 个脚本及其 `.meta` 均保持原路径和 GUID；编译前确认每个 GUID 都有一处真实 Scene 引用。动态编译图测试验证控制器源码精确归属于新程序集，并以引用契约阻止以后重新依赖杂糅根程序集。
+- Controllers 独立编译 0 warning / 0 error；边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过，开包、收藏、主菜单、返回、启动与场景 soak 没有 Missing Script。没有构建 APK，也没有访问 Site/R2。组合根现在只剩单一 `GradientBackground` 展示辅助，下一切片收拢后即可退役。
 
 ## 十四、验证矩阵
 

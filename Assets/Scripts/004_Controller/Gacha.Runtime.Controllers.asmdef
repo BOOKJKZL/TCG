@@ -1,0 +1,22 @@
+{
+    "name": "Gacha.Runtime.Controllers",
+    "rootNamespace": "Gacha.Runtime.Controllers",
+    "references": [
+        "Gacha.Runtime.Foundation",
+        "Gacha.Runtime.Core",
+        "Gacha.Application",
+        "Gacha.Domain",
+        "Gacha.Pokemon.Presentation",
+        "Gacha.Presentation",
+        "Unity.Localization"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

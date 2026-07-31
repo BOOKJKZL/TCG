@@ -797,7 +797,7 @@ Token 仅能估算累计工作量，平台没有固定可见的单任务总上�
 → 第二大阶段 Phase 2J：229 包全量发布、远端与 Android 验收（完成，整体 100%）
 → 第三阶段：原创训练家终端 UI、中英日实体卡、顺畅度和语言隔离（完成，整体 100%）
 → 第四阶段计划：资料语义、内容体验、存档恢复、R2、实体机与模块化（4A–4J 本机范围完成；4K R2 暂停）
-→ 当前下一步：4L 拆分玩家控制器与剩余展示辅助；4H 真实邮箱及 4I 真机性能等待外部条件
+→ 当前下一步：4L 收拢剩余展示辅助并退役空组合根；4H 真实邮箱及 4I 真机性能等待外部条件
 ```
 
 Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP，不直接请求 TCGdex、PokéAPI 或 GitHub；电脑端导入、转换、压缩、Hash 与发布继续保持私人写入边界。
@@ -839,6 +839,8 @@ Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP
 第四阶段 4L2 玩家资料、存档与身份核心边界已于 2026-07-31 完成：`002_Core` 的库存模型、Local/Cloud Save、冲突/恢复、可恢复身份、Bootstrap、内容交付与玩家进度 Store 全部进入独立 `Gacha.Runtime.Core`；组合根单向引用 Core，Core 不反向引用设置、控制器或组合根。脚本与 meta GUID、存档 v4、云端 key、PlayerPrefs 和场景序列化均未改变。动态编译图验证 39 个旧应用脚本精确归属于两个 Runtime 程序集且不回落到 `Assembly-CSharp`。Core 独立编译 0 error，边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过；没有构建 APK，也没有访问 Site/R2。下一切片拆分玩家控制器。
 
 第四阶段 4L3 设置、场景与音频基础边界已于 2026-07-31 完成：`001_Baisc` 的 GameManager、设置、文件辅助、场景/分辨率和音频脚本进入 `Gacha.Runtime.Foundation`；被设置与加载共同使用的 `Fade` 进入无反向依赖的 `Gacha.Runtime.Utility`。Foundation 只单向引用 Core/Utility 与既有通用模块，不引用组合根；脚本/meta 路径、场景 GUID、设置状态、动画和音效不变。两个新程序集独立编译均为 0 warning / 0 error，边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过且无 Missing Script；没有构建 APK，也没有访问 Site/R2。下一切片拆分玩家控制器。
+
+第四阶段 4L4 玩家控制器边界已于 2026-07-31 完成：开包、收藏、主菜单、返回与启动 5 个场景控制器进入独立 `Gacha.Runtime.Controllers`，只引用 Foundation/Core 与既有通用模块，不引用组合根。5 个原 meta GUID 与各自 Scene 引用均保持不变；编译图契约精确验证源码归属和依赖方向。Controllers 独立编译 0 warning / 0 error，边界 EditMode 1/1、完整 EditMode 433/433、完整 PlayMode 11/11 通过且无 Missing Script；没有构建 APK，也没有访问 Site/R2。组合根只剩 `GradientBackground`，下一切片收拢它并退役空根。
 
 以下情况必须暂停后续阶段并先修复：
 

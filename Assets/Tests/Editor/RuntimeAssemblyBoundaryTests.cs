@@ -22,8 +22,10 @@ public class RuntimeAssemblyBoundaryTests
             Normalize(path).Contains("Assets/Scripts/001_Baisc/")), StringComparer.OrdinalIgnoreCase);
         var expectedUtility = new HashSet<string>(expected.Where(path =>
             Normalize(path).Contains("Assets/Scripts/005_Helper/")), StringComparer.OrdinalIgnoreCase);
+        var expectedControllers = new HashSet<string>(expected.Where(path =>
+            Normalize(path).Contains("Assets/Scripts/004_Controller/")), StringComparer.OrdinalIgnoreCase);
         var expectedCompositionRoot = new HashSet<string>(expected.Except(
-            expectedCore.Concat(expectedFoundation).Concat(expectedUtility),
+            expectedCore.Concat(expectedFoundation).Concat(expectedUtility).Concat(expectedControllers),
             StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
         UnityEditor.Compilation.Assembly[] playerAssemblies =
@@ -36,6 +38,8 @@ public class RuntimeAssemblyBoundaryTests
             string.Equals(assembly.name, "Gacha.Runtime.Foundation", StringComparison.Ordinal));
         UnityEditor.Compilation.Assembly utility = playerAssemblies.SingleOrDefault(assembly =>
             string.Equals(assembly.name, "Gacha.Runtime.Utility", StringComparison.Ordinal));
+        UnityEditor.Compilation.Assembly controllers = playerAssemblies.SingleOrDefault(assembly =>
+            string.Equals(assembly.name, "Gacha.Runtime.Controllers", StringComparison.Ordinal));
 
         Assert.That(runtime, Is.Not.Null, "Gacha.Runtime must be present in the player compilation graph.");
         Assert.That(core, Is.Not.Null, "Gacha.Runtime.Core must be present in the player compilation graph.");
@@ -43,6 +47,8 @@ public class RuntimeAssemblyBoundaryTests
             "Gacha.Runtime.Foundation must be present in the player compilation graph.");
         Assert.That(utility, Is.Not.Null,
             "Gacha.Runtime.Utility must be present in the player compilation graph.");
+        Assert.That(controllers, Is.Not.Null,
+            "Gacha.Runtime.Controllers must be present in the player compilation graph.");
         var actualCompositionRoot = new HashSet<string>(runtime.sourceFiles
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var actualCore = new HashSet<string>(core.sourceFiles
@@ -51,15 +57,19 @@ public class RuntimeAssemblyBoundaryTests
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var actualUtility = new HashSet<string>(utility.sourceFiles
             .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
+        var actualControllers = new HashSet<string>(controllers.sourceFiles
+            .Select(path => ProjectRelative(projectRoot, path)), StringComparer.OrdinalIgnoreCase);
         var actual = new HashSet<string>(actualCompositionRoot, StringComparer.OrdinalIgnoreCase);
         actual.UnionWith(actualCore);
         actual.UnionWith(actualFoundation);
         actual.UnionWith(actualUtility);
+        actual.UnionWith(actualControllers);
 
         Assert.That(actualCompositionRoot, Is.EquivalentTo(expectedCompositionRoot));
         Assert.That(actualCore, Is.EquivalentTo(expectedCore));
         Assert.That(actualFoundation, Is.EquivalentTo(expectedFoundation));
         Assert.That(actualUtility, Is.EquivalentTo(expectedUtility));
+        Assert.That(actualControllers, Is.EquivalentTo(expectedControllers));
         Assert.That(actual, Is.EquivalentTo(expected));
         Assert.That(actual.Count, Is.GreaterThanOrEqualTo(33));
 
@@ -73,6 +83,10 @@ public class RuntimeAssemblyBoundaryTests
             scriptsRoot,
             "005_Helper",
             "Gacha.Runtime.Utility.asmdef"));
+        string controllersDefinition = File.ReadAllText(Path.Combine(
+            scriptsRoot,
+            "004_Controller",
+            "Gacha.Runtime.Controllers.asmdef"));
         Assert.That(ReferencesAssembly(runtimeDefinition, "Gacha.Runtime.Core"), Is.True);
         Assert.That(ReferencesAssembly(runtimeDefinition, "Gacha.Runtime.Foundation"), Is.True);
         Assert.That(ReferencesAssembly(coreDefinition, "Gacha.Runtime"), Is.False,
@@ -83,6 +97,10 @@ public class RuntimeAssemblyBoundaryTests
             "The foundation must not reference its composition root.");
         Assert.That(ReferencesAssembly(utilityDefinition, "Gacha.Runtime"), Is.False);
         Assert.That(ReferencesAssembly(utilityDefinition, "Gacha.Runtime.Foundation"), Is.False);
+        Assert.That(ReferencesAssembly(controllersDefinition, "Gacha.Runtime.Foundation"), Is.True);
+        Assert.That(ReferencesAssembly(controllersDefinition, "Gacha.Runtime.Core"), Is.True);
+        Assert.That(ReferencesAssembly(controllersDefinition, "Gacha.Runtime"), Is.False,
+            "Player controllers must depend on explicit runtime boundaries, not the composition root.");
 
         UnityEditor.Compilation.Assembly predefined = playerAssemblies.SingleOrDefault(assembly =>
             string.Equals(assembly.name, "Assembly-CSharp", StringComparison.Ordinal));
