@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4G 已完成；4H 本地恢复、云冲突与可恢复身份基础设施已完成，真实邮箱启用等待外部 Client ID；下一步进入 4J；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
+状态：4A–4J 的本机范围已完成；4H 真实邮箱启用等待外部 Client ID；下一步进入 4I 图片内存预算与 4L 模块化收尾；4K Cloudflare R2 迁移按用户要求暂停（2026-07-31）。
 
 ## 一、阶段目标
 
@@ -85,7 +85,7 @@ flowchart TD
 | 4G 规则与玩法深化 | 数据驱动配列、证据标签、批量开包、历史与统计 | 所有产品显式分类；事务保存；动画/音效完整 | 已完成（2026-07-31） |
 | 4H 存档恢复 | 本地导出/导入、身份绑定、冲突预览与回滚 | 换机/卸载演练；错误文件拒绝；小说资料隔离 | 本机实现完成；真实邮箱等待 Client ID |
 | 4I 内存与实体机 | 字节级图片缓存、低内存处理、Profiler 指标和真机体验 | 中端 Android 长时运行；触觉/音频/蜂窝证据 | 待开始 |
-| 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 待开始 |
+| 4J 日文应用界面 | 独立 `ja` UI Locale 与字体覆盖 | `ui=ja/content=en|ja|zh-cn` 全组合隔离 | 已完成（2026-07-31） |
 | 4K R2 迁移 | 私人 bucket、公开只读域名、对象复制和回滚 | 全包 HEAD/Range/Hash；8/8 写入拒绝；无密钥泄漏 | 用户暂停，本轮不做 |
 | 4L 模块化收尾 | 旧控制器、Bootstrap、存档和设置迁入 asmdef | 依赖方向、场景 GUID、存档迁移和 Missing Script | 待开始 |
 | 4M 最终验收 | 新 Catalog、最终 ARM64 APK、自动化与设备收据 | 新定义下 `PROJECT COMPLETION VERIFIED: 100%` | 待开始 |
@@ -373,6 +373,10 @@ Android 使用系统 Storage Access Framework 的 `ACTION_CREATE_DOCUMENT` / `AC
 - 覆盖所有玩家文本、错误、下载状态、概率证据和图鉴说明；不只翻译主菜单。
 - 自动验证九种 `UI × 卡片` 组合，以及无卡牌 Catalog 时应用语言仍可切换。
 
+4J 已于 2026-07-31 完成：Unity Localization 新增正式 `ja` Locale、Addressables String Table 与日文 Android 应用名，`Card_UI` 的 215/215 个共享键均有非空日文值并通过格式参数一致性检查。主菜单、设置、存档/云冲突/身份、内容下载、收藏、开包规则与统计均走同一张表；图鉴原有双语硬编码也扩展为支持 `ja`/`ja-JP` 的三语文本。Bootstrap 的应用语言列表为 `en/zh/ja`，卡牌语言仍为 `en/ja/zh-cn`，9 种组合逐一验证不会互相驱动；设置页和图鉴 PlayMode 也验证切换日文 UI 不改变当前卡牌语言。
+
+现有 Noto Sans SC 动态 CJK 子集重新按当前中日文源构建，从 63,648 bytes 增至 197,712 bytes（增加 134,064 bytes），仍低于 256 KiB 预算；字体测试改为实际创建 TMP 动态字体并加入全部字符，不再依赖会产生假阳性的 `Font.HasCharacter`。最终完整 EditMode 426/426、PlayMode 11/11 通过，PlayMode 日文场景中的 TMP 缺字和 Localization 缺翻译日志均为 0。此切片没有改变 Android 权限、ABI、存储或图形边界，因此没有重复构建 APK；最后已验证 APK 仍为 52,849,127 bytes（50.40 MiB），本次运行时原始资源增量约 0.2 MiB，下一次必要的平台构建再记录精确 APK 增量。没有访问、上传、配置或删除 Site/R2。
+
 ## 十二、4K：Cloudflare R2 迁移
 
 R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
@@ -468,4 +472,4 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 新 revision 在 R2 或被明确接受的正式托管目标完成完整只读审计，并保留回滚。
 - 模块依赖、完整 EditMode/PlayMode、最终 ARM64 APK、隐私边界和完成度审计全部为新鲜证据。
 
-当前下一步为 4J 独立日文应用界面；4H 本机实现已完成，等取得 Unity Player Accounts Client ID 后再做真实邮箱与换机验收。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。
+当前下一步为可在本机继续的 4I 图片内存预算与 4L 模块化收尾；4H 本机实现已完成，等取得 Unity Player Accounts Client ID 后再做真实邮箱与换机验收。4I 的实体震动、扬声器、蜂窝和长时温度结论仍等待真实手机。4K R2 迁移保持暂停；除非用户以后明确恢复，不要求 R2 凭据，也不执行上传、远端配置或删除。

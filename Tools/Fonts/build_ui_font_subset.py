@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the small CJK fallback font used by the Unity UI.
+"""Build the small Chinese and Japanese fallback font used by the Unity UI.
 
 Requires fonttools (`python -m pip install fonttools`). The source font must be
 licensed under the SIL Open Font License; the generated font is deliberately

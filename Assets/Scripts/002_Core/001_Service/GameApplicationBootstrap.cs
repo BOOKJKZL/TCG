@@ -45,7 +45,7 @@ public static class GameApplicationBootstrap
             return;
 
         var languageStore = new PlayerPrefsLanguagePreferenceStore(UiLanguageKey, ContentLanguageKey);
-        var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh" });
+        var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh", "ja" });
         var experienceSettings = new ExperienceSettingsService(new PlayerPrefsExperienceSettingsStore());
         string contentRoot = ResolveContentRoot();
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(

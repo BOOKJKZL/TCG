@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Gacha.Pokemon.Application;
 using Gacha.Pokemon.Domain;
+using Gacha.Pokemon.Presentation;
 using NUnit.Framework;
 
 public sealed class PokemonPokedexBrowserTests
@@ -67,6 +68,17 @@ public sealed class PokemonPokedexBrowserTests
         Assert.That(browser.OpenSpecies("species:1", "form:1-region"), Is.True);
         Assert.That(browser.SelectedSpecies.Id, Is.EqualTo("species:1"));
         Assert.That(browser.SelectedForm.Id, Is.EqualTo("form:1-region"));
+    }
+
+    [Test]
+    public void PokedexChrome_UsesJapaneseAndRegionalLocaleFallbacks()
+    {
+        Assert.That(PokemonPokedexText.Get("title", "ja"), Is.EqualTo("ポケモン図鑑"));
+        Assert.That(PokemonPokedexText.Get("search", "ja-JP"),
+            Is.EqualTo("名前または全国図鑑番号を検索"));
+        Assert.That(PokemonPokedexText.Format("number", "ja", 25),
+            Is.EqualTo("全国図鑑 No. 025"));
+        Assert.That(PokemonPokedexText.Get("title", "zh-CN"), Is.EqualTo("宝可梦图鉴"));
     }
 
     private static PokemonPokedexBrowser Browser(int count) => new PokemonPokedexBrowser(Taxonomy(count));

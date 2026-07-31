@@ -36,11 +36,11 @@ MonoBehaviour:
       type: {class: , ns: , asm: }
     - rid: 8753232393549643776
       type: {class: CommandLineLocaleSelector, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
-      data: 
+      data:
         m_CommandLineArgument: -language=
     - rid: 8753232393549643777
       type: {class: SystemLocaleSelector, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
-      data: 
+      data:
     - rid: 8753232393549643778
       type: {class: SpecificLocaleSelector, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
       data:
@@ -130,7 +130,7 @@ MonoBehaviour:
           rid: 8753232393549643783
     - rid: 8753232393549643786
       type: {class: PersistentVariablesSource, ns: UnityEngine.Localization.SmartFormat.Extensions, asm: Unity.Localization}
-      data: 
+      data:
         m_Groups: []
     - rid: 8753232393549643787
       type: {class: DictionarySource, ns: UnityEngine.Localization.SmartFormat.Extensions, asm: Unity.Localization}

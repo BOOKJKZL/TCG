@@ -13,6 +13,10 @@ public static class LanguageLocalizationSeeder
     private const string CollectionName = "Card_UI";
     private const string AppDisplayNameKey = "app.display_name";
     private const string SettingsAssetPath = "Assets/Resources/Data/Localization/Localization Settings.asset";
+    private const string JapaneseLocaleAssetPath =
+        "Assets/Resources/Data/Localization/Japanese (ja).asset";
+    private const string JapaneseTableAssetPath =
+        "Assets/Resources/Data/Localization/Card_UI_ja.asset";
 
     [MenuItem("Tools/Universal Gacha/Seed Language Configuration")]
     public static void Seed()
@@ -27,6 +31,14 @@ public static class LanguageLocalizationSeeder
         StringTable chinese = collection.GetTable("zh") as StringTable;
         if (english == null || chinese == null)
             throw new InvalidOperationException("English and Simplified Chinese string tables are required.");
+
+        Locale japaneseLocale = EnsureJapaneseLocale();
+        StringTable japanese = collection.GetTable("ja") as StringTable ??
+                               collection.AddNewTable(
+                                   japaneseLocale.Identifier,
+                                   JapaneseTableAssetPath) as StringTable;
+        if (japanese == null)
+            throw new InvalidOperationException("The Japanese string table could not be created.");
 
         Apply(english, new Dictionary<string, string>
         {
@@ -278,9 +290,13 @@ public static class LanguageLocalizationSeeder
             ["settings.title"] = "设置"
         });
 
+        ValidateExactCoverage(collection.SharedData, JapaneseCardUiLocalization.Values);
+        Apply(japanese, JapaneseCardUiLocalization.Values);
+
         EditorUtility.SetDirty(collection.SharedData);
         EditorUtility.SetDirty(english);
         EditorUtility.SetDirty(chinese);
+        EditorUtility.SetDirty(japanese);
         EnsureAndroidAppInfo(collection);
         AssetDatabase.SaveAssets();
         Debug.Log("Language settings and localized entries are up to date.");
@@ -300,6 +316,24 @@ public static class LanguageLocalizationSeeder
             LocalizationEditorSettings.ActiveLocalizationSettings = settings;
 
         EditorUtility.SetDirty(settings);
+    }
+
+    private static Locale EnsureJapaneseLocale()
+    {
+        Locale locale = LocalizationEditorSettings.GetLocale("ja");
+        if (locale != null)
+            return locale;
+
+        locale = AssetDatabase.LoadAssetAtPath<Locale>(JapaneseLocaleAssetPath);
+        if (locale == null)
+        {
+            locale = Locale.CreateLocale("ja");
+            AssetDatabase.CreateAsset(locale, JapaneseLocaleAssetPath);
+        }
+
+        LocalizationEditorSettings.AddLocale(locale);
+        EditorUtility.SetDirty(locale);
+        return locale;
     }
 
     private static void EnsureAndroidAppInfo(StringTableCollection collection)
@@ -328,6 +362,23 @@ public static class LanguageLocalizationSeeder
         {
             StringTableEntry entry = table.GetEntry(pair.Key) ?? table.AddEntry(pair.Key, pair.Value);
             entry.Value = pair.Value;
+        }
+    }
+
+    private static void ValidateExactCoverage(
+        SharedTableData sharedData,
+        IReadOnlyDictionary<string, string> values)
+    {
+        if (values.Count != sharedData.Entries.Count)
+            throw new InvalidOperationException(
+                $"Japanese Card_UI coverage is {values.Count}/{sharedData.Entries.Count}. " +
+                "Add every new shared key before reseeding localization.");
+
+        foreach (SharedTableData.SharedTableEntry entry in sharedData.Entries)
+        {
+            if (!values.TryGetValue(entry.Key, out string value) || string.IsNullOrWhiteSpace(value))
+                throw new InvalidOperationException(
+                    $"Japanese Card_UI translation is missing for '{entry.Key}'.");
         }
     }
 }

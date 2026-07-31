@@ -98,6 +98,16 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-title").text, Is.EqualTo("宝可梦图鉴"));
                 Assert.That(document.rootVisualElement.Q<TextField>("pokedex-search").label,
                     Is.EqualTo("搜索名称或全国编号"));
+                string cardLanguageBeforeJapaneseUi =
+                    ApplicationServices.Languages.RequestedContentLanguageId;
+                ApplicationServices.Languages.SelectUiLanguage("ja");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("pokedex-title").text,
+                    Is.EqualTo("ポケモン図鑑"));
+                Assert.That(document.rootVisualElement.Q<TextField>("pokedex-search").label,
+                    Is.EqualTo("名前または全国図鑑番号を検索"));
+                Assert.That(ApplicationServices.Languages.RequestedContentLanguageId,
+                    Is.EqualTo(cardLanguageBeforeJapaneseUi));
                 ApplicationServices.Languages.SelectUiLanguage("en");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("pokedex-title").text, Is.EqualTo("Pokédex"));

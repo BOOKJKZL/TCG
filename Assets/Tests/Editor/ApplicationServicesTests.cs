@@ -268,6 +268,32 @@ public class ApplicationServicesTests
     }
 
     [Test]
+    public void LanguageSelection_AllUiAndCardLanguagePairsRemainIndependent()
+    {
+        string[] uiLanguages = { "en", "zh", "ja" };
+        string[] cardLanguages = { "en", "zh-cn", "ja" };
+        UniversalCatalog catalog = CreateCatalog(cardLanguages);
+
+        foreach (string uiLanguage in uiLanguages)
+        foreach (string cardLanguage in cardLanguages)
+        {
+            var store = new PreferenceStore("en", "en");
+            var service = new LanguageSelectionService(store, uiLanguages);
+            service.RefreshContentLanguage(catalog);
+
+            service.SelectUiLanguage(uiLanguage);
+            service.SelectContentLanguage(cardLanguage, catalog);
+
+            Assert.That(service.UiLanguageId, Is.EqualTo(uiLanguage),
+                $"UI changed for {uiLanguage} UI / {cardLanguage} cards.");
+            Assert.That(service.ContentLanguage.ResolvedLanguageId, Is.EqualTo(cardLanguage),
+                $"Cards changed for {uiLanguage} UI / {cardLanguage} cards.");
+            Assert.That(store.Saved.UiLanguageId, Is.EqualTo(uiLanguage));
+            Assert.That(store.Saved.ContentLanguageId, Is.EqualTo(cardLanguage));
+        }
+    }
+
+    [Test]
     public void LanguageSelection_RecoveryPreferencesSaveOnceAndPublishBothChanges()
     {
         var store = new PreferenceStore("en", "en");

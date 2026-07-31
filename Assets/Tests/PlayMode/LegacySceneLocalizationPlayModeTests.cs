@@ -29,6 +29,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(mainMenuLocalizer.BindingCount, Is.EqualTo(4));
 
                 yield return SelectLanguageAndWait("zh", new[] { "抽卡", "收藏", "内容", "设置" });
+                yield return SelectLanguageAndWait("ja", new[] { "パック開封", "コレクション", "コンテンツ", "設定" });
                 yield return SelectLanguageAndWait("en", new[] { "Gacha", "Collection", "Content", "Settings" });
 
                 yield return LoadScene("005_SettingScene");
@@ -37,6 +38,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(settingsLocalizer, Is.Not.Null);
                 Assert.That(settingsLocalizer.BindingCount, Is.EqualTo(1));
                 yield return SelectLanguageAndWait("zh", new[] { "设置" });
+                yield return SelectLanguageAndWait("ja", new[] { "設定" });
                 yield return SelectLanguageAndWait("en", new[] { "Settings" });
 
                 LogAssert.NoUnexpectedReceived();

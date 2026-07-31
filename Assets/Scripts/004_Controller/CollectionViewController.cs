@@ -945,12 +945,9 @@ public sealed class CollectionViewController : MonoBehaviour
         pageTitle.text = CardUiText.Get("collection.title");
         pageSubtitle.text = CardUiText.Get("collection.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
-        pokedexButton.text = string.Equals(
-            ApplicationServices.Languages.UiLanguageId,
-            "zh",
-            StringComparison.OrdinalIgnoreCase)
-            ? "宝可梦图鉴"
-            : "Pokédex";
+        pokedexButton.text = PokemonPokedexText.Get(
+            "title",
+            ApplicationServices.Languages.UiLanguageId);
         backToSetsButton.text = CardUiText.Get("collection.action.all_sets");
         closeDetailsButton.text = CardUiText.Get("common.action.close");
         if (currentDetailPrinting != null)

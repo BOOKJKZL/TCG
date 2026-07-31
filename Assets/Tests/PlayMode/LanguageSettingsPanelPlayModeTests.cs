@@ -169,6 +169,18 @@ namespace Gacha.Tests.PlayMode
             Assert.That(title.text, Is.EqualTo(expectedTitle));
             Assert.That(recoveryTitle.text, Is.EqualTo("\u4FDD\u5B58\u8BBE\u7F6E"));
 
+            uiButton.onClick.Invoke();
+            timeout = Time.realtimeSinceStartup + 3f;
+            while ((title.text != "言語設定" || recoveryTitle.text != "セーブデータ復元") &&
+                   Time.realtimeSinceStartup < timeout)
+                yield return null;
+
+            Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo("ja"));
+            Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo(originalContent));
+            Assert.That(LocalizationSettings.SelectedLocale.Identifier.Code, Is.EqualTo("ja"));
+            Assert.That(title.text, Is.EqualTo("言語設定"));
+            Assert.That(recoveryTitle.text, Is.EqualTo("セーブデータ復元"));
+
             ApplicationServices.Languages.SelectUiLanguage(persistedUi);
             yield return new WaitForSecondsRealtime(0.3f);
             Assert.That(panel.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.01f));

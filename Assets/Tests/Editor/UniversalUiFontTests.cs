@@ -6,12 +6,13 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Localization;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.Localization.Tables;
 
 public class UniversalUiFontTests
 {
     [Test]
-    public void ChineseFallback_CoversEveryLocalizedUiCharacterWithinSizeBudget()
+    public void CjkFallback_CoversEveryLocalizedUiCharacterWithinSizeBudget()
     {
         TMP_FontAsset fallback = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
             UniversalUiFontBuilder.FontAssetPath);
@@ -34,17 +35,40 @@ public class UniversalUiFontTests
                 if (character >= 0x2E80)
                     required.Add(character);
         }
-        var missing = new List<char>();
         Assert.That(fallback.sourceFontFile, Is.Not.Null);
-        foreach (char character in required)
+        TMP_FontAsset probe = TMP_FontAsset.CreateFontAsset(
+            fallback.sourceFontFile,
+            64,
+            8,
+            GlyphRenderMode.SDFAA,
+            1024,
+            1024,
+            AtlasPopulationMode.Dynamic,
+            true);
+        Assert.That(probe, Is.Not.Null);
+        try
         {
-            if (!fallback.sourceFontFile.HasCharacter(character))
-                missing.Add(character);
+            uint[] requiredCodepoints = required.Select(character => (uint)character).ToArray();
+            bool allAdded = probe.TryAddCharacters(
+                requiredCodepoints,
+                out uint[] missingCodepoints,
+                false);
+            string missingText = string.Concat((missingCodepoints ?? new uint[0])
+                .Select(codepoint => char.ConvertFromUtf32((int)codepoint)));
+            Assert.That(allAdded, Is.True,
+                $"Missing UI glyphs: {missingText}");
         }
-
-        Assert.That(missing, Is.Empty, $"Missing UI glyphs: {string.Concat(missing)}");
+        finally
+        {
+            if (probe.material != null)
+                UnityEngine.Object.DestroyImmediate(probe.material);
+            foreach (UnityEngine.Texture2D atlas in probe.atlasTextures)
+                if (atlas != null)
+                    UnityEngine.Object.DestroyImmediate(atlas);
+            UnityEngine.Object.DestroyImmediate(probe);
+        }
         long sourceBytes = new FileInfo(UniversalUiFontBuilder.SourceFontPath).Length;
-        Assert.That(sourceBytes, Is.LessThan(100 * 1024),
+        Assert.That(sourceBytes, Is.LessThan(256 * 1024),
             $"The CJK UI subset grew to {sourceBytes / 1024f:0.0} KiB.");
     }
 }

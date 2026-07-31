@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEditor;
@@ -30,6 +32,7 @@ public class LanguageSettingsPresentationTests
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
         StringTable english = collection.GetTable("en") as StringTable;
         StringTable chinese = collection.GetTable("zh") as StringTable;
+        StringTable japanese = collection.GetTable("ja") as StringTable;
 
         Assert.That(english.GetEntry("settings.language.ui").Value, Is.EqualTo("Interface language"));
         Assert.That(english.GetEntry("settings.language.content").Value, Is.EqualTo("Card content language"));
@@ -43,6 +46,33 @@ public class LanguageSettingsPresentationTests
         Assert.That(english.GetEntry("settings.experience.animation_speed").Value, Is.EqualTo("Animation speed"));
         Assert.That(chinese.GetEntry("settings.experience.reduce_motion").Value, Is.EqualTo("减少动态效果"));
         Assert.That(chinese.GetEntry("settings.experience.animation_speed").Value, Is.EqualTo("动画速度"));
+        Assert.That(japanese, Is.Not.Null);
+        Assert.That(japanese.GetEntry("settings.language.ui").Value, Is.EqualTo("インターフェース言語"));
+        Assert.That(japanese.GetEntry("settings.language.content").Value, Is.EqualTo("カードコンテンツ言語"));
+        Assert.That(japanese.GetEntry("language.ja").Value, Is.EqualTo("日本語"));
+        Assert.That(japanese.GetEntry("settings.experience.reduce_motion").Value, Is.EqualTo("モーションを減らす"));
+    }
+
+    [Test]
+    public void JapaneseTable_CoversEverySharedKeyAndPreservesFormatArguments()
+    {
+        StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
+        StringTable english = collection.GetTable("en") as StringTable;
+        StringTable japanese = collection.GetTable("ja") as StringTable;
+
+        Assert.That(japanese, Is.Not.Null);
+        Assert.That(japanese.Values.Count, Is.EqualTo(collection.SharedData.Entries.Count));
+        foreach (SharedTableData.SharedTableEntry sharedEntry in collection.SharedData.Entries)
+        {
+            StringTableEntry englishEntry = english.GetEntry(sharedEntry.Id);
+            StringTableEntry japaneseEntry = japanese.GetEntry(sharedEntry.Id);
+            Assert.That(japaneseEntry, Is.Not.Null, $"Missing Japanese translation: {sharedEntry.Key}");
+            Assert.That(japaneseEntry.Value, Is.Not.Empty, $"Blank Japanese translation: {sharedEntry.Key}");
+            Assert.That(
+                FormatArguments(japaneseEntry.Value),
+                Is.EquivalentTo(FormatArguments(englishEntry.Value)),
+                $"Format arguments differ for: {sharedEntry.Key}");
+        }
     }
 
     [Test]
@@ -51,6 +81,7 @@ public class LanguageSettingsPresentationTests
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
         StringTable english = collection.GetTable("en") as StringTable;
         StringTable chinese = collection.GetTable("zh") as StringTable;
+        StringTable japanese = collection.GetTable("ja") as StringTable;
         SharedTableData.SharedTableEntry appNameEntry = collection.SharedData.GetEntry("app.display_name");
         AppInfo appInfo = LocalizationSettings.Metadata.GetMetadata<AppInfo>();
 
@@ -63,6 +94,7 @@ public class LanguageSettingsPresentationTests
         Assert.That(appInfo.DisplayName.TableEntryReference.KeyId, Is.EqualTo(appNameEntry.Id));
         Assert.That(english.GetEntry(appNameEntry.Id).Value, Is.EqualTo("Universal Gacha Simulator"));
         Assert.That(chinese.GetEntry(appNameEntry.Id).Value, Is.EqualTo("万能抽卡模拟器"));
+        Assert.That(japanese.GetEntry(appNameEntry.Id).Value, Is.EqualTo("万能パック開封シミュレーター"));
     }
 
     [Test]
@@ -91,7 +123,7 @@ public class LanguageSettingsPresentationTests
     {
         Assert.That(LanguageSettingsPanel.CanSelectUiLanguage(
             servicesAvailable: true,
-            availableUiLanguageCount: 2), Is.True);
+            availableUiLanguageCount: 3), Is.True);
         Assert.That(LanguageSettingsPanel.CanSelectContentLanguage(
             servicesAvailable: true,
             catalogReady: false,
@@ -218,4 +250,10 @@ public class LanguageSettingsPresentationTests
             Object.DestroyImmediate(canvasObject);
         }
     }
+
+    private static IReadOnlyCollection<string> FormatArguments(string value) =>
+        Regex.Matches(value ?? string.Empty, @"\{\d+(?::[^}]*)?\}")
+            .Cast<Match>()
+            .Select(match => match.Value)
+            .ToArray();
 }
