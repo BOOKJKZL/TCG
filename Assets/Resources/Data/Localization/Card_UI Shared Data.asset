@@ -671,6 +671,10 @@ MonoBehaviour:
     m_Key: content.network.unknown
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428320
+    m_Key: content.queue.restore_warning
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -98,6 +98,27 @@ namespace Gacha.Tests.PlayMode
             public void Save(ContentDownloadPreferences preferences) => Current = preferences;
         }
 
+        private sealed class QueueStateStore : IContentPackageQueueStateStore
+        {
+            private readonly object gate = new object();
+            private ContentPackageQueueResumeState state;
+
+            public ContentPackageQueueResumeState Load()
+            {
+                lock (gate) return state;
+            }
+
+            public void Save(ContentPackageQueueResumeState value)
+            {
+                lock (gate) state = value;
+            }
+
+            public void Clear()
+            {
+                lock (gate) state = null;
+            }
+        }
+
         private sealed class Transfer : IContentPackageTransfer
         {
             private long bytes;
@@ -214,6 +235,7 @@ namespace Gacha.Tests.PlayMode
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
             ContentManagementController.DownloadPolicyOverride = Policy();
+            ContentManagementController.QueueStateStoreOverride = new QueueStateStore();
             var cues = new List<FeedbackCue>();
             var haptic = new HapticSink();
             UIFeedbackService.FeedbackPlayed += cues.Add;
@@ -451,6 +473,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
                 ContentManagementController.DownloadPolicyOverride = null;
+                ContentManagementController.QueueStateStoreOverride = null;
             }
         }
 
@@ -461,10 +484,12 @@ namespace Gacha.Tests.PlayMode
             var factory = new OperationFactory(lifecycle, false);
             var network = new Network();
             var policy = Policy(network, true, 100);
+            var queueState = new QueueStateStore();
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
             ContentManagementController.DownloadPolicyOverride = policy;
+            ContentManagementController.QueueStateStoreOverride = queueState;
             string originalLanguage = null;
             try
             {
@@ -503,6 +528,18 @@ namespace Gacha.Tests.PlayMode
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
                 Assert.That(controller.QueueSnapshot.Paused, Is.True);
+                AsyncOperation reload = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                yield return reload;
+                yield return null;
+                controller = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                Assert.That(controller, Is.Not.Null);
+                deadline = Time.realtimeSinceStartup + 5f;
+                while (!controller.IsReady && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(controller.IsReady, Is.True, controller.InitializationError);
+                Assert.That(controller.SelectedPackageCount, Is.EqualTo(2));
+                Assert.That(controller.QueueSnapshot.Paused, Is.True,
+                    "A restarted content scene must restore the batch paused for player review.");
                 Assert.That(controller.DownloadPreflight.Status,
                     Is.EqualTo(ContentDownloadPreflightStatus.WaitingForWifi));
                 policy.SetWifiOnlyForLargeDownloads(false);
@@ -549,6 +586,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
                 ContentManagementController.DownloadPolicyOverride = null;
+                ContentManagementController.QueueStateStoreOverride = null;
             }
         }
 
@@ -562,6 +600,7 @@ namespace Gacha.Tests.PlayMode
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
             ContentManagementController.DownloadPolicyOverride = Policy();
+            ContentManagementController.QueueStateStoreOverride = new QueueStateStore();
             try
             {
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
@@ -609,6 +648,7 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.LifecycleOverride = null;
                 ContentManagementController.DispatcherOverride = null;
                 ContentManagementController.DownloadPolicyOverride = null;
+                ContentManagementController.QueueStateStoreOverride = null;
             }
         }
 

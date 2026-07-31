@@ -75,6 +75,13 @@ public class ApplicationServicesTests
         public void Save(ContentDownloadPreferences preferences) => current = preferences;
     }
 
+    private sealed class QueueStateStore : IContentPackageQueueStateStore
+    {
+        public ContentPackageQueueResumeState Load() => null;
+        public void Save(ContentPackageQueueResumeState state) { }
+        public void Clear() { }
+    }
+
     private sealed class PackageInstaller : IContentPackageInstaller
     {
         public Task<ContentPackageInstallResult> InstallAsync(
@@ -179,6 +186,7 @@ public class ApplicationServicesTests
             new FixedStorageProbe(),
             new FixedNetworkProbe(),
             new DownloadPreferenceStore());
+        var queueState = new QueueStateStore();
 
         ApplicationServices.Configure(
             catalog,
@@ -188,7 +196,8 @@ public class ApplicationServicesTests
             contentPackageOperations: operations,
             contentPackageCatalogs: packageCatalogs,
             contentPackageLifecycle: lifecycle,
-            contentDownloadPolicy: downloadPolicy);
+            contentDownloadPolicy: downloadPolicy,
+            contentPackageQueueState: queueState);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
@@ -196,6 +205,7 @@ public class ApplicationServicesTests
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.SameAs(packageCatalogs));
         Assert.That(ApplicationServices.ContentPackageLifecycle, Is.SameAs(lifecycle));
         Assert.That(ApplicationServices.ContentDownloadPolicy, Is.SameAs(downloadPolicy));
+        Assert.That(ApplicationServices.ContentPackageQueueState, Is.SameAs(queueState));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
@@ -203,6 +213,7 @@ public class ApplicationServicesTests
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.Null);
         Assert.That(ApplicationServices.ContentPackageLifecycle, Is.Null);
         Assert.That(ApplicationServices.ContentDownloadPolicy, Is.Null);
+        Assert.That(ApplicationServices.ContentPackageQueueState, Is.Null);
         Assert.That(operations.Disposed, Is.True);
         Assert.That(packageCatalogs.Disposed, Is.True);
     }

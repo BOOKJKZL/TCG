@@ -22,6 +22,7 @@ public static class GameApplicationBootstrap
     private const string CatalogCachePathEnvironmentKey = "GACHA_CONTENT_CATALOG_CACHE_PATH";
     private const string BundledRemoteConfigResource = "Data/RemoteContent";
     private const string PrivateRemoteConfigFile = "remote-content.json";
+    private const string QueueStateFile = "install-queue-v1.json";
     private static bool configured;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -59,6 +60,8 @@ public static class GameApplicationBootstrap
             contentStorage,
             new UnityContentNetworkProbe(),
             new PlayerPrefsContentDownloadPreferenceStore());
+        var contentPackageQueueState = new FileSystemContentPackageQueueStateStore(
+            Path.Combine(ResolveDownloadRoot(), QueueStateFile));
         var contentPackageInstaller = new FileSystemContentPackageInstaller(contentRoot);
         var contentPackageLifecycle = new FileSystemContentPackageLifecycleService(contentRoot);
         var contentPackageOperations = new HttpContentPackageInstallCoordinatorFactory(
@@ -77,7 +80,8 @@ public static class GameApplicationBootstrap
             contentPackageOperations,
             contentPackageCatalogs,
             contentPackageLifecycle,
-            contentDownloadPolicy);
+            contentDownloadPolicy,
+            contentPackageQueueState);
         ProductOpeningThemeService.Configure(new PokemonProductOpeningThemeProvider());
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;

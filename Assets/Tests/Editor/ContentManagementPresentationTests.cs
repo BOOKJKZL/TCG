@@ -195,7 +195,8 @@ public class ContentManagementPresentationTests
                      "content.preflight.cellular_confirmation", "content.preflight.insufficient_space",
                      "content.preflight.storage_unavailable", "content.preflight.network_unavailable",
                      "content.network.wifi", "content.network.mobile",
-                     "content.network.offline", "content.network.unknown"
+                     "content.network.offline", "content.network.unknown",
+                     "content.queue.restore_warning"
                  })
         {
             Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, "Missing English key: " + key);

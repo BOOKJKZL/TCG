@@ -87,15 +87,20 @@ namespace Gacha.Application
         private readonly List<Item> items = new List<Item>();
         private readonly Dictionary<string, Item> byId =
             new Dictionary<string, Item>(StringComparer.Ordinal);
+        private readonly HashSet<string> selectedPackageIds =
+            new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> active = new HashSet<string>(StringComparer.Ordinal);
         private readonly int maximumConcurrentDownloads;
+        private readonly IContentPackageQueueStateStore stateStore;
+        private readonly object persistenceGate = new object();
         private bool paused;
         private Task<ContentPackageQueueSnapshot> activeRun;
 
         public ContentPackageInstallQueue(
             ContentPackageCatalog catalog,
             IContentPackageInstallCoordinatorFactory factory,
-            int maximumConcurrentDownloads = DefaultMaximumConcurrentDownloads)
+            int maximumConcurrentDownloads = DefaultMaximumConcurrentDownloads,
+            IContentPackageQueueStateStore stateStore = null)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
@@ -105,9 +110,13 @@ namespace Gacha.Application
                     nameof(maximumConcurrentDownloads),
                     $"Concurrent downloads must be {MinimumConcurrentDownloads}-{MaximumConcurrentDownloadsLimit}.");
             this.maximumConcurrentDownloads = maximumConcurrentDownloads;
+            this.stateStore = stateStore;
+            Restore();
         }
 
         public event Action<ContentPackageQueueSnapshot> Changed;
+        public bool RestoredFromState { get; private set; }
+        public string PersistenceWarning { get; private set; }
 
         public ContentPackageQueueSnapshot Current
         {
@@ -118,12 +127,29 @@ namespace Gacha.Application
             }
         }
 
+        public IReadOnlyList<string> SelectedPackageIds
+        {
+            get
+            {
+                lock (gate)
+                    return selectedPackageIds.OrderBy(value => value, StringComparer.Ordinal).ToArray();
+            }
+        }
+
         public ContentPackageQueueSnapshot EnqueueSelection(IEnumerable<string> selectedPackageIds)
         {
-            string[] ordered = DependencyOrder(selectedPackageIds).ToArray();
+            string[] requested = (selectedPackageIds ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+            string[] ordered = DependencyOrder(requested).ToArray();
             ContentPackageQueueSnapshot snapshot;
             lock (gate)
             {
+                foreach (string packageId in requested)
+                    this.selectedPackageIds.Add(packageId);
                 foreach (string packageId in ordered)
                 {
                     if (byId.ContainsKey(packageId))
@@ -212,6 +238,11 @@ namespace Gacha.Application
             ContentPackageQueueSnapshot snapshot = Current;
             Publish(snapshot);
             return snapshot;
+        }
+
+        public Task<ContentPackageQueueSnapshot> SuspendAsync()
+        {
+            return PauseAsync();
         }
 
         private async Task<ContentPackageQueueSnapshot> RunAsync()
@@ -376,6 +407,7 @@ namespace Gacha.Application
 
         private void Publish(ContentPackageQueueSnapshot snapshot)
         {
+            Persist(snapshot);
             Action<ContentPackageQueueSnapshot> handlers = Changed;
             if (handlers == null)
                 return;
@@ -383,6 +415,91 @@ namespace Gacha.Application
             {
                 try { handler(snapshot); }
                 catch { }
+            }
+        }
+
+        private void Restore()
+        {
+            if (stateStore == null)
+                return;
+            try
+            {
+                ContentPackageQueueResumeState state = stateStore.Load();
+                if (state == null)
+                    return;
+                if (state.SchemaVersion != ContentPackageQueueResumeState.SupportedSchemaVersion)
+                    throw new InvalidOperationException(
+                        "Saved content queue schema is not supported: " + state.SchemaVersion);
+                string[] available = state.PackageIds
+                    .Where(packageId => catalog.Find(packageId) != null)
+                    .ToArray();
+                if (available.Length == 0)
+                {
+                    stateStore.Clear();
+                    return;
+                }
+                foreach (string packageId in DependencyOrder(available))
+                {
+                    if (byId.ContainsKey(packageId))
+                        continue;
+                    var item = new Item(packageId)
+                    {
+                        State = ContentPackageQueueItemState.Paused,
+                        OperationState = ContentPackageOperationState.Paused
+                    };
+                    items.Add(item);
+                    byId.Add(packageId, item);
+                }
+                foreach (string packageId in available)
+                    selectedPackageIds.Add(packageId);
+                paused = true;
+                RestoredFromState = items.Count > 0;
+                if (available.Length != state.PackageIds.Count)
+                {
+                    PersistenceWarning =
+                        "Some saved queue packages are not present in the active catalog and were ignored.";
+                }
+                else if (state.CatalogRevision != catalog.Revision)
+                {
+                    PersistenceWarning =
+                        "The saved queue came from a different catalog revision and was revalidated.";
+                }
+            }
+            catch (Exception exception) when (!(exception is OutOfMemoryException))
+            {
+                PersistenceWarning = "Saved content queue could not be restored: " + exception.Message;
+            }
+        }
+
+        private void Persist(ContentPackageQueueSnapshot snapshot)
+        {
+            if (stateStore == null || snapshot == null)
+                return;
+            try
+            {
+                lock (persistenceGate)
+                {
+                    bool finishedWithoutFailures = snapshot.Items.Count == 0 ||
+                        snapshot.Items.All(value =>
+                            value.State == ContentPackageQueueItemState.Succeeded ||
+                            value.State == ContentPackageQueueItemState.Cancelled);
+                    if (finishedWithoutFailures)
+                    {
+                        stateStore.Clear();
+                    }
+                    else
+                    {
+                        stateStore.Save(new ContentPackageQueueResumeState(
+                            ContentPackageQueueResumeState.SupportedSchemaVersion,
+                            catalog.Revision,
+                            selectedPackageIds));
+                    }
+                    PersistenceWarning = null;
+                }
+            }
+            catch (Exception exception) when (!(exception is OutOfMemoryException))
+            {
+                PersistenceWarning = "Content queue state could not be saved: " + exception.Message;
             }
         }
     }

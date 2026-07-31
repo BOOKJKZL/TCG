@@ -46,6 +46,33 @@ public sealed class ContentPackageInstallQueueTests
         public long GetAvailableBytes() => long.MaxValue;
     }
 
+    private sealed class StateStore : IContentPackageQueueStateStore
+    {
+        public ContentPackageQueueResumeState State;
+        public bool ThrowOnLoad;
+        public int SaveCalls;
+        public int ClearCalls;
+
+        public ContentPackageQueueResumeState Load()
+        {
+            if (ThrowOnLoad)
+                throw new InvalidOperationException("fixture queue state is corrupt");
+            return State;
+        }
+
+        public void Save(ContentPackageQueueResumeState state)
+        {
+            State = state;
+            SaveCalls++;
+        }
+
+        public void Clear()
+        {
+            State = null;
+            ClearCalls++;
+        }
+    }
+
     private sealed class Transfer : IContentPackageTransfer
     {
         private readonly ConcurrencyProbe probe;
@@ -273,6 +300,74 @@ public sealed class ContentPackageInstallQueueTests
         Assert.That(result.FailedCount, Is.EqualTo(2));
         Assert.That(snapshots.Last().IsComplete, Is.True);
         Assert.That(snapshots.Last().FailedCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Queue_RestoresSavedSelectionPausedAndCompletesAfterResume()
+    {
+        ContentPackageCatalog catalog = Catalog(
+            Entry("required"),
+            Entry("dependent", "required"));
+        var store = new StateStore();
+        using var firstFactory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+        var first = new ContentPackageInstallQueue(catalog, firstFactory, 2, store);
+        first.EnqueueSelection(new[] { "dependent" });
+
+        using var restoredFactory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+        var restored = new ContentPackageInstallQueue(catalog, restoredFactory, 2, store);
+        ContentPackageQueueSnapshot paused = restored.Current;
+
+        Assert.That(restored.RestoredFromState, Is.True);
+        Assert.That(paused.Paused, Is.True);
+        Assert.That(paused.Items.Select(value => value.PackageId),
+            Is.EqualTo(new[] { "required", "dependent" }));
+        Assert.That(restored.SelectedPackageIds, Is.EqualTo(new[] { "dependent" }));
+        Assert.That(paused.Items.All(value => value.State == ContentPackageQueueItemState.Paused),
+            Is.True);
+        ContentPackageQueueSnapshot completed = await restored.ResumeAsync();
+        Assert.That(completed.SucceededCount, Is.EqualTo(2));
+        Assert.That(store.State, Is.Null);
+        Assert.That(store.ClearCalls, Is.GreaterThanOrEqualTo(1));
+    }
+
+    [Test]
+    public async Task Queue_FailedBatchRemainsRecoverableAcrossRestart()
+    {
+        ContentPackageCatalog catalog = Catalog(Entry("retry"));
+        var store = new StateStore();
+        using var failingFactory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>(), "retry");
+        var first = new ContentPackageInstallQueue(catalog, failingFactory, 2, store);
+        first.EnqueueSelection(new[] { "retry" });
+
+        ContentPackageQueueSnapshot failed = await first.StartAsync();
+        Assert.That(failed.FailedCount, Is.EqualTo(1));
+        Assert.That(store.State, Is.Not.Null);
+
+        using var restoredFactory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+        var restored = new ContentPackageInstallQueue(catalog, restoredFactory, 2, store);
+        Assert.That(restored.RestoredFromState, Is.True);
+        Assert.That(restored.Current.Paused, Is.True);
+        Assert.That((await restored.ResumeAsync()).SucceededCount, Is.EqualTo(1));
+        Assert.That(store.State, Is.Null);
+    }
+
+    [Test]
+    public void Queue_CorruptSavedStateDoesNotBreakCatalog()
+    {
+        ContentPackageCatalog catalog = Catalog(Entry("fixture"));
+        var store = new StateStore { ThrowOnLoad = true };
+        using var factory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+
+        var queue = new ContentPackageInstallQueue(catalog, factory, 2, store);
+
+        Assert.That(queue.RestoredFromState, Is.False);
+        Assert.That(queue.Current.Items, Is.Empty);
+        Assert.That(queue.PersistenceWarning, Does.Contain("could not be restored"));
     }
 
     [TestCase(0)]

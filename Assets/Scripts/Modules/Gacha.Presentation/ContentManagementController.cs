@@ -52,6 +52,7 @@ namespace Gacha.Presentation
                 ["content.selection.none"] = "Select packs to calculate download and storage size.",
                 ["content.selection.summary"] = "{0} selected + {1} dependencies · {2} download · {3} installed",
                 ["content.queue.summary"] = "{0} queued · {1} running · {2} complete · {3} failed",
+                ["content.queue.restore_warning"] = "Queue recovery warning: {0}",
                 ["content.policy.wifi_only"] = "Wi-Fi only for downloads of 100 MB or more",
                 ["content.action.confirm_cellular"] = "Confirm mobile download",
                 ["content.preflight.ready"] = "{0} free · {1} required · {2}",
@@ -413,6 +414,7 @@ namespace Gacha.Presentation
         private ContentPackageSelectionSummary selectionSummary;
         private ContentDownloadPolicyService downloadPolicy;
         private ContentDownloadPreflightResult downloadPreflight;
+        private IContentPackageQueueStateStore queueStateStore;
         private ContentPackageInstallQueue installQueue;
         private ContentPackageQueueSnapshot queueSnapshot;
         private bool queueCompletionNotified;
@@ -437,6 +439,7 @@ namespace Gacha.Presentation
         public static IContentPackageLifecycleService LifecycleOverride { private get; set; }
         public static IUiThreadDispatcher DispatcherOverride { private get; set; }
         public static ContentDownloadPolicyService DownloadPolicyOverride { private get; set; }
+        public static IContentPackageQueueStateStore QueueStateStoreOverride { private get; set; }
 
         public bool IsReady { get; private set; }
         public string InitializationError { get; private set; }
@@ -543,7 +546,11 @@ namespace Gacha.Presentation
             if (queueSnapshot?.IsComplete == true)
             {
                 installQueue.Changed -= OnQueueChanged;
-                installQueue = new ContentPackageInstallQueue(catalog, operationFactory);
+                installQueue = new ContentPackageInstallQueue(
+                    catalog,
+                    operationFactory,
+                    ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
+                    queueStateStore);
                 installQueue.Changed += OnQueueChanged;
                 queueSnapshot = installQueue.Current;
             }
@@ -647,6 +654,7 @@ namespace Gacha.Presentation
             LifecycleOverride = null;
             DispatcherOverride = null;
             DownloadPolicyOverride = null;
+            QueueStateStoreOverride = null;
         }
 
         private void Awake()
@@ -668,6 +676,7 @@ namespace Gacha.Presentation
                 operationFactory = OperationFactoryOverride ?? ApplicationServices.ContentPackageOperations;
                 lifecycleService = LifecycleOverride ?? ApplicationServices.ContentPackageLifecycle;
                 downloadPolicy = DownloadPolicyOverride ?? ApplicationServices.ContentDownloadPolicy;
+                queueStateStore = QueueStateStoreOverride ?? ApplicationServices.ContentPackageQueueState;
                 if (downloadPolicy != null)
                 {
                     downloadPolicy.Changed += OnDownloadPreferencesChanged;
@@ -710,9 +719,10 @@ namespace Gacha.Presentation
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
-                _ = installQueue.CancelAsync();
+                _ = installQueue.SuspendAsync();
             }
             installQueue = null;
+            queueStateStore = null;
             ClearOperations();
         }
 
@@ -869,9 +879,13 @@ namespace Gacha.Presentation
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
-                _ = installQueue.CancelAsync();
+                _ = installQueue.SuspendAsync();
             }
-            installQueue = new ContentPackageInstallQueue(catalog, operationFactory);
+            installQueue = new ContentPackageInstallQueue(
+                catalog,
+                operationFactory,
+                ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
+                queueStateStore);
             installQueue.Changed += OnQueueChanged;
             queueSnapshot = installQueue.Current;
             queueCompletionNotified = false;
@@ -883,6 +897,11 @@ namespace Gacha.Presentation
             rows.Clear();
             displayedItems.Clear();
             selectedPackageIds.RemoveWhere(id => catalog.Find(id) == null);
+            if (installQueue.RestoredFromState)
+            {
+                foreach (string packageId in installQueue.SelectedPackageIds)
+                    selectedPackageIds.Add(packageId);
+            }
             notifiedFailures.Clear();
             ConfigureFilterChoices();
             ApplyLibraryQuery();
@@ -1129,6 +1148,12 @@ namespace Gacha.Presentation
                     queueSnapshot.RunningCount,
                     queueSnapshot.SucceededCount,
                     queueSnapshot.FailedCount);
+            }
+            if (!string.IsNullOrWhiteSpace(installQueue?.PersistenceWarning))
+            {
+                selectionText += "\n" + string.Format(
+                    L("content.queue.restore_warning"),
+                    installQueue.PersistenceWarning);
             }
             selectionSummaryLabel.text = selectionText;
 
@@ -1409,7 +1434,7 @@ namespace Gacha.Presentation
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
-                _ = installQueue.CancelAsync();
+                _ = installQueue.SuspendAsync();
             }
             installQueue = null;
             queueSnapshot = null;
