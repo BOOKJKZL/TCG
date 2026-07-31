@@ -21,14 +21,19 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
     private TMP_Text cloudTitleText;
     private TMP_Text cloudSummaryText;
     private TMP_Text mergeNoticeText;
+    private TMP_Text identityStatusText;
     private TMP_Text statusText;
     private Button keepLocalButton;
     private Button useCloudButton;
     private Button mergeButton;
+    private Button identityButton;
     private Button closeButton;
     private Coroutine transitionRoutine;
     private string statusKey;
     private string statusArgument;
+    private string identityStatusKey;
+    private string identityStatusArgument;
+    private bool identityStatusError;
 
     public bool IsOpen { get; private set; }
     public string LastBackupPath { get; private set; }
@@ -70,7 +75,8 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         dialog.localSummaryText = CreateText(cardObject.transform, "LocalSaveSummary", new Vector2(-205f, 145f), new Vector2(350f, 125f), 19f, FontStyles.Normal);
         dialog.cloudSummaryText = CreateText(cardObject.transform, "CloudSaveSummary", new Vector2(205f, 145f), new Vector2(350f, 125f), 19f, FontStyles.Normal);
         dialog.mergeNoticeText = CreateText(cardObject.transform, "SafeMergeNotice", new Vector2(0f, 20f), new Vector2(740f, 75f), 19f, FontStyles.Italic);
-        dialog.statusText = CreateText(cardObject.transform, "CloudConflictStatus", new Vector2(0f, -295f), new Vector2(740f, 80f), 18f, FontStyles.Normal);
+        dialog.identityStatusText = CreateText(cardObject.transform, "PlayerIdentityStatus", new Vector2(-145f, -218f), new Vector2(430f, 74f), 18f, FontStyles.Normal);
+        dialog.statusText = CreateText(cardObject.transform, "CloudConflictStatus", new Vector2(0f, -305f), new Vector2(740f, 70f), 18f, FontStyles.Normal);
         dialog.localSummaryText.color = new Color(0.76f, 0.90f, 1f, 1f);
         dialog.cloudSummaryText.color = new Color(0.79f, 0.95f, 0.88f, 1f);
         dialog.mergeNoticeText.color = new Color(0.86f, 0.87f, 0.72f, 1f);
@@ -78,10 +84,12 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         dialog.keepLocalButton = CreateButton(cardObject.transform, "KeepLocalButton", new Vector2(-250f, -135f), FeedbackCue.Confirm);
         dialog.useCloudButton = CreateButton(cardObject.transform, "UseCloudButton", new Vector2(0f, -135f), FeedbackCue.Confirm);
         dialog.mergeButton = CreateButton(cardObject.transform, "SafeMergeButton", new Vector2(250f, -135f), FeedbackCue.Confirm);
+        dialog.identityButton = CreateButton(cardObject.transform, "ConnectIdentityButton", new Vector2(245f, -218f), FeedbackCue.Confirm);
         dialog.closeButton = CreateButton(cardObject.transform, "CloseConflictButton", new Vector2(0f, -395f), FeedbackCue.Back);
         dialog.keepLocalButton.onClick.AddListener(() => dialog.Resolve(InventoryConflictChoice.KeepLocal));
         dialog.useCloudButton.onClick.AddListener(() => dialog.Resolve(InventoryConflictChoice.UseCloud));
         dialog.mergeButton.onClick.AddListener(() => dialog.Resolve(InventoryConflictChoice.SafeMerge));
+        dialog.identityButton.onClick.AddListener(dialog.ConnectIdentity);
         dialog.closeButton.onClick.AddListener(dialog.Close);
         dialog.RefreshLocalizedText();
         dialog.RefreshConflict();
@@ -92,12 +100,14 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
     private void OnEnable()
     {
         GameCloudConflictSession.Current.Changed += OnConflictChanged;
+        GameIdentityService.Changed += OnIdentityChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
     }
 
     private void OnDisable()
     {
         GameCloudConflictSession.Current.Changed -= OnConflictChanged;
+        GameIdentityService.Changed -= OnIdentityChanged;
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = null;
@@ -115,8 +125,12 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
             ? null
             : "settings.cloud.status.none";
         statusArgument = null;
+        identityStatusKey = null;
+        identityStatusArgument = null;
+        identityStatusError = false;
         RefreshLocalizedText();
         RefreshConflict();
+        RefreshIdentity();
         PlayVisibility(true);
         UIFeedbackService.Play(FeedbackCue.Confirm);
     }
@@ -162,6 +176,56 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
             UIFeedbackService.Play(FeedbackCue.Error);
         }
         RefreshConflict();
+        RefreshIdentity();
+    }
+
+    private async void ConnectIdentity()
+    {
+        if (GameIdentityService.IsBusy || GameCloudConflictSession.Current.HasPending)
+            return;
+
+        identityStatusKey = "settings.identity.status.connecting";
+        identityStatusArgument = null;
+        identityStatusError = false;
+        RefreshIdentity();
+        GameIdentityConnectResult result = await GameIdentityService.ConnectAsync();
+        switch (result.Outcome)
+        {
+            case GameIdentityConnectOutcome.LinkedCurrentPlayer:
+            case GameIdentityConnectOutcome.ExistingPlayerReady:
+                identityStatusKey = "settings.identity.status.linked";
+                identityStatusArgument = null;
+                identityStatusError = false;
+                UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
+                break;
+            case GameIdentityConnectOutcome.LinkedCurrentPlayerCloudPending:
+                identityStatusKey = "settings.identity.status.cloud_pending";
+                identityStatusArgument = result.Error;
+                identityStatusError = true;
+                UIFeedbackService.Play(FeedbackCue.Error);
+                break;
+            case GameIdentityConnectOutcome.ConflictPending:
+                identityStatusKey = "settings.identity.status.conflict";
+                identityStatusArgument = null;
+                identityStatusError = false;
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                break;
+            case GameIdentityConnectOutcome.ExternalSetupRequired:
+                identityStatusKey = "settings.identity.status.setup_required";
+                identityStatusArgument = null;
+                identityStatusError = true;
+                UIFeedbackService.Play(FeedbackCue.Error);
+                break;
+            default:
+                identityStatusKey = "settings.identity.status.failed";
+                identityStatusArgument = result.Error;
+                identityStatusError = true;
+                UIFeedbackService.Play(FeedbackCue.Error);
+                break;
+        }
+        RefreshLocalizedText();
+        RefreshConflict();
+        RefreshIdentity();
     }
 
     private static string CreateSafetyBackup()
@@ -190,7 +254,16 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
 
     private void OnConflictChanged()
     {
-        if (IsOpen) RefreshConflict();
+        if (IsOpen)
+        {
+            RefreshConflict();
+            RefreshIdentity();
+        }
+    }
+
+    private void OnIdentityChanged()
+    {
+        if (IsOpen) RefreshIdentity();
     }
 
     private void OnSelectedLocaleChanged(Locale locale)
@@ -209,11 +282,13 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         keepLocalButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.cloud.action.local");
         useCloudButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.cloud.action.remote");
         mergeButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.cloud.action.merge");
+        identityButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.identity.action.connect");
         closeButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.cloud.action.close");
         if (!string.IsNullOrWhiteSpace(statusKey))
             statusText.text = statusArgument == null
                 ? CardUiText.Get(statusKey)
                 : CardUiText.Format(statusKey, statusArgument);
+        RefreshIdentity();
     }
 
     private void RefreshConflict()
@@ -230,6 +305,48 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         localSummaryText.text = FormatSummary(preview.Local);
         cloudSummaryText.text = FormatSummary(preview.Cloud);
         SetChoiceButtons(!GameCloudConflictSession.Current.IsResolving);
+    }
+
+    private void RefreshIdentity()
+    {
+        GameIdentityStatus status = GameIdentityService.GetStatus();
+        if (status.Kind == GameIdentityStatusKind.Busy)
+        {
+            identityStatusText.text = CardUiText.Get("settings.identity.status.connecting");
+            identityStatusText.color = new Color(0.72f, 0.90f, 0.82f, 1f);
+        }
+        else if (!string.IsNullOrWhiteSpace(identityStatusKey))
+        {
+            identityStatusText.text = identityStatusArgument == null
+                ? CardUiText.Get(identityStatusKey)
+                : CardUiText.Format(identityStatusKey, identityStatusArgument);
+            identityStatusText.color = identityStatusError
+                ? new Color(1f, 0.62f, 0.64f, 1f)
+                : new Color(0.72f, 0.90f, 0.82f, 1f);
+        }
+        else
+        {
+            switch (status.Kind)
+            {
+                case GameIdentityStatusKind.Connected:
+                    identityStatusText.text = CardUiText.Format(
+                        "settings.identity.status.connected",
+                        status.RedactedIdentity);
+                    identityStatusText.color = new Color(0.72f, 0.90f, 0.82f, 1f);
+                    break;
+                case GameIdentityStatusKind.Available:
+                    identityStatusText.text = CardUiText.Get("settings.identity.status.available");
+                    identityStatusText.color = new Color(0.76f, 0.90f, 1f, 1f);
+                    break;
+                default:
+                    identityStatusText.text = CardUiText.Get("settings.identity.status.setup_required");
+                    identityStatusText.color = new Color(0.88f, 0.76f, 0.62f, 1f);
+                    break;
+            }
+        }
+
+        identityButton.interactable = status.Kind == GameIdentityStatusKind.Available &&
+                                      !GameCloudConflictSession.Current.HasPending;
     }
 
     private static string FormatSummary(InventoryProgressSummary summary)
@@ -343,7 +460,7 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         text.fontStyle = style;
         text.alignment = TextAlignmentOptions.Center;
         text.color = Color.white;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         text.raycastTarget = false;
         return text;
     }

@@ -123,7 +123,16 @@ namespace Gacha.Presentation
                 ["settings.cloud.status.resolving"] = "Saving your choice…",
                 ["settings.cloud.status.resolved"] = "Conflict resolved. Safety backup: {0}",
                 ["settings.cloud.status.failed"] = "Nothing changed: {0}",
-                ["settings.cloud.status.backup_failed"] = "Could not create a safety backup: {0}"
+                ["settings.cloud.status.backup_failed"] = "Could not create a safety backup: {0}",
+                ["settings.identity.status.setup_required"] = "Recoverable PLAYER ID needs external Unity Player Accounts setup. Progress remains on this device.",
+                ["settings.identity.status.available"] = "Add a recoverable PLAYER ID to this progress.",
+                ["settings.identity.status.connected"] = "Recoverable PLAYER ID: {0}",
+                ["settings.identity.action.connect"] = "Set PLAYER ID",
+                ["settings.identity.status.connecting"] = "Opening secure sign-in…",
+                ["settings.identity.status.linked"] = "Recoverable PLAYER ID is ready.",
+                ["settings.identity.status.cloud_pending"] = "PLAYER ID is linked, but initial cloud sync is pending: {0}",
+                ["settings.identity.status.conflict"] = "PLAYER ID is ready. Complete the save choice above.",
+                ["settings.identity.status.failed"] = "PLAYER ID was not changed: {0}"
             };
 
         private static readonly Dictionary<string, string> LocalizedCache =

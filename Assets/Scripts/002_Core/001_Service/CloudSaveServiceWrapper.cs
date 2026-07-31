@@ -30,7 +30,15 @@ public static class CloudSaveServiceWrapper
                 await UnityServices.InitializeAsync();
 
             if (!AuthenticationService.Instance.IsSignedIn)
+            {
+                string savedProfile = new PlayerPrefsGameIdentityProfileStore().ActiveProfile;
+                if (!string.IsNullOrWhiteSpace(savedProfile) &&
+                    !string.Equals(AuthenticationService.Instance.Profile, savedProfile, StringComparison.Ordinal))
+                {
+                    AuthenticationService.Instance.SwitchProfile(savedProfile);
+                }
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            }
 
             return true;
         }

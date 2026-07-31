@@ -133,6 +133,10 @@ namespace Gacha.Tests.PlayMode
             Assert.That(conflictDialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
             Button[] conflictButtons = conflictDialog.GetComponentsInChildren<Button>(true);
             Assert.That(conflictButtons.Single(button => button.name == "KeepLocalButton").interactable, Is.False);
+            Assert.That(conflictButtons.Single(button => button.name == "ConnectIdentityButton").interactable, Is.False,
+                "Recoverable sign-in must stay disabled while the external Player Accounts client id is absent.");
+            Assert.That(conflictDialog.GetComponentsInChildren<TMP_Text>(true)
+                .Single(text => text.name == "PlayerIdentityStatus").text, Does.Contain("PLAYER ID"));
             conflictButtons.Single(button => button.name == "CloseConflictButton").onClick.Invoke();
             yield return new WaitForSecondsRealtime(0.25f);
             Assert.That(conflictDialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);

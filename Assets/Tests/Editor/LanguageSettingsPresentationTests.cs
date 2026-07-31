@@ -190,11 +190,15 @@ public class LanguageSettingsPresentationTests
                 "KeepLocalButton",
                 "UseCloudButton",
                 "SafeMergeButton",
+                "ConnectIdentityButton",
                 "CloseConflictButton"
             }));
             Assert.That(buttons.All(button => button.GetComponent<GameFeedbackButton>() != null), Is.True);
             Assert.That(buttons.Where(button => button.name != "CloseConflictButton")
+                .Where(button => button.name != "ConnectIdentityButton")
                 .All(button => button.interactable), Is.True);
+            Assert.That(buttons.Single(button => button.name == "ConnectIdentityButton").interactable, Is.False,
+                "The identity action must stay disabled until the external Player Accounts client id is configured.");
             Assert.That(dialog.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
 
             dialog.Open();
@@ -205,6 +209,8 @@ public class LanguageSettingsPresentationTests
                 .Single(text => text.name == "LocalSaveSummary").text, Does.Contain("2"));
             Assert.That(dialog.GetComponentsInChildren<TMPro.TMP_Text>(true)
                 .Single(text => text.name == "CloudSaveSummary").text, Does.Contain("3"));
+            Assert.That(dialog.GetComponentsInChildren<TMPro.TMP_Text>(true)
+                .Single(text => text.name == "PlayerIdentityStatus").text, Does.Contain("PLAYER ID"));
         }
         finally
         {

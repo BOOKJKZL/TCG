@@ -839,6 +839,42 @@ MonoBehaviour:
     m_Key: settings.cloud.status.backup_failed
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428362
+    m_Key: settings.identity.status.setup_required
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428363
+    m_Key: settings.identity.status.available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428364
+    m_Key: settings.identity.status.connected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428365
+    m_Key: settings.identity.action.connect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428366
+    m_Key: settings.identity.status.connecting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428367
+    m_Key: settings.identity.status.linked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428368
+    m_Key: settings.identity.status.cloud_pending
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428369
+    m_Key: settings.identity.status.conflict
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428370
+    m_Key: settings.identity.status.failed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
