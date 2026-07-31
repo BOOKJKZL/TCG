@@ -62,6 +62,19 @@ public class ApplicationServicesTests
         public long GetAvailableBytes() => 1024;
     }
 
+    private sealed class FixedNetworkProbe : IContentNetworkProbe
+    {
+        public ContentNetworkType GetNetworkType() => ContentNetworkType.WifiOrEthernet;
+    }
+
+    private sealed class DownloadPreferenceStore : IContentDownloadPreferenceStore
+    {
+        private ContentDownloadPreferences current = new ContentDownloadPreferences(true);
+
+        public ContentDownloadPreferences Load() => current;
+        public void Save(ContentDownloadPreferences preferences) => current = preferences;
+    }
+
     private sealed class PackageInstaller : IContentPackageInstaller
     {
         public Task<ContentPackageInstallResult> InstallAsync(
@@ -162,6 +175,10 @@ public class ApplicationServicesTests
         var operations = new PackageOperationFactory();
         var packageCatalogs = new PackageCatalogProvider();
         var lifecycle = new PackageLifecycle();
+        var downloadPolicy = new ContentDownloadPolicyService(
+            new FixedStorageProbe(),
+            new FixedNetworkProbe(),
+            new DownloadPreferenceStore());
 
         ApplicationServices.Configure(
             catalog,
@@ -170,19 +187,22 @@ public class ApplicationServicesTests
             contentPackageInstaller: installer,
             contentPackageOperations: operations,
             contentPackageCatalogs: packageCatalogs,
-            contentPackageLifecycle: lifecycle);
+            contentPackageLifecycle: lifecycle,
+            contentDownloadPolicy: downloadPolicy);
 
         Assert.That(ApplicationServices.ContentPackages, Is.SameAs(planner));
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.SameAs(installer));
         Assert.That(ApplicationServices.ContentPackageOperations, Is.SameAs(operations));
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.SameAs(packageCatalogs));
         Assert.That(ApplicationServices.ContentPackageLifecycle, Is.SameAs(lifecycle));
+        Assert.That(ApplicationServices.ContentDownloadPolicy, Is.SameAs(downloadPolicy));
         ApplicationServices.Reset();
         Assert.That(ApplicationServices.ContentPackages, Is.Null);
         Assert.That(ApplicationServices.ContentPackageInstaller, Is.Null);
         Assert.That(ApplicationServices.ContentPackageOperations, Is.Null);
         Assert.That(ApplicationServices.ContentPackageCatalogs, Is.Null);
         Assert.That(ApplicationServices.ContentPackageLifecycle, Is.Null);
+        Assert.That(ApplicationServices.ContentDownloadPolicy, Is.Null);
         Assert.That(operations.Disposed, Is.True);
         Assert.That(packageCatalogs.Disposed, Is.True);
     }

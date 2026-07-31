@@ -51,9 +51,14 @@ public static class GameApplicationBootstrap
             contentRoot,
             variantPolicy: new PokemonImportedCardVariantPolicy()));
         var images = new PrivateContentImageSource(contentRoot);
+        var contentStorage = new FileSystemContentStorageProbe(contentRoot);
         var contentPackages = new ContentPackagePlanner(
             new FileSystemInstalledContentPackageRegistry(contentRoot),
-            new FileSystemContentStorageProbe(contentRoot));
+            contentStorage);
+        var contentDownloadPolicy = new ContentDownloadPolicyService(
+            contentStorage,
+            new UnityContentNetworkProbe(),
+            new PlayerPrefsContentDownloadPreferenceStore());
         var contentPackageInstaller = new FileSystemContentPackageInstaller(contentRoot);
         var contentPackageLifecycle = new FileSystemContentPackageLifecycleService(contentRoot);
         var contentPackageOperations = new HttpContentPackageInstallCoordinatorFactory(
@@ -71,7 +76,8 @@ public static class GameApplicationBootstrap
             contentPackageInstaller,
             contentPackageOperations,
             contentPackageCatalogs,
-            contentPackageLifecycle);
+            contentPackageLifecycle,
+            contentDownloadPolicy);
         ProductOpeningThemeService.Configure(new PokemonProductOpeningThemeProvider());
         languages.UiLanguageChanged += ApplyUiLocale;
         experienceSettings.Changed += ApplyExperienceSettings;
