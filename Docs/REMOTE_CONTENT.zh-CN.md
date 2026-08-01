@@ -170,9 +170,10 @@ content/releases/packages/{package-id}/{sha256}.zip
 配置优先级如下：
 
 1. Unity Editor 进程环境变量 `GACHA_CONTENT_CATALOG_URL`，适合临时测试。
-2. 项目根目录 `LocalContent/remote-content.json`；目录已被 Git 忽略，适合本机私人配置。
-3. 可选的 `Assets/Resources/Data/RemoteContent.json`；只适合嵌入公开读取 URL，不能放 API Token、R2 Access Key 或其他秘密。
-4. Android/桌面正式包读取 `Application.persistentDataPath/remote-content.json`，以后可由私人安装脚本或设置页写入。
+2. 当前平台的私人覆盖配置：Editor 使用项目根目录、Git 忽略的 `LocalContent/remote-content.json`；Android/桌面正式包使用 `Application.persistentDataPath/remote-content.json`。
+3. APK 内置的 `Assets/Resources/Data/RemoteContent.json` 作为最后默认值；它只含公开匿名读取 URL、15 秒超时与 1 MiB Catalog 上限，不含 API Token、R2 Access Key 或其他秘密。
+
+从 2026-08-01 起，正式客户端默认读取 `https://universal-gacha-content.jiejingleek.chatgpt.site/api/content/catalog.json`。玩家打开内容管理页时才获取这个小型目录；启动游戏不会下载全部卡包，卡图和资料仍只在玩家选择包后按依赖下载。以后新增卡包时先上传不可变 ZIP，最后原子更新同一路径的 `catalog.json`，已安装 APK 无需重建。未来迁移到 Cloudflare R2 时应让这个 Site 路径继续作为稳定只读网关或反向代理；若直接更换域名，则可用私人覆盖配置过渡，否则仍需更新 APK 默认 URL。
 
 本机配置可以从 `Tools/Content/remote-content.example.json` 复制，格式为：
 
@@ -195,11 +196,12 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 ## 当前 Android 私测路径
 
 - 2026-07-30 Phase 3 revision 4 已通过正式 Site 发布与匿名只读审计：Catalog 537 包、1,301,893,754 下载 bytes，HEAD 537/537、Range 537/537、写入拒绝 8/8，读取不携带授权头。最终 ARM64 APK 为 52,643,378 bytes，SHA-256 `cdf68dd6f9cc2cb796d437ef22a61774a25df650d964bc16f7ed711a1234b2a4`；418 个 APK 条目中私人内容命中 0，设备配置仍只有公开 URL、15 秒超时与 1 MiB Catalog 上限。
+- 2026-08-01 的默认入口 ARM64 APK 为 53,043,913 bytes（50.59 MiB），SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`；构建报告确认 158-byte `RemoteContent.json` 进入 Resources。419 个 APK 条目中私人内容名称匹配 0，仅 `arm64-v8a`，target SDK 36，权限只含网络状态、Internet、震动与动态 receiver 保护，签名和 zipalign 均通过。
 - 2026-07-30 Phase 2 最终 ARM64 APK 为 52,607,315 bytes，SHA-256 `cc0028aa221820427cb165fc0fc52ed9613003169344dec95e8398d8ac710676`；418 个 APK 条目中私人内容/凭据命中 0。Android 14 模拟器声明支持 ARM 转译，已直接安装同一生产 APK、推送 158-byte 公开只读配置并以前台进程运行；配置敏感字段命中 0。
-- 正式 APK 不嵌入 `LocalContent`；2026-07-24 阶段 7D 的 Android/IL2CPP 冒烟包为 74.86 MiB，包含 6 个场景，413 个 APK 条目中私人内容、`remote-content.json` 和 `catalog-cache-v1.json` 匹配均为 0。它比阶段 5C 的 51.6 MiB 增长约 23.3 MiB，后续必须结合 IL2CPP stripping 与构建生成设置复核，而不能用删除必要字体或把卡图放回 APK 的方式掩盖。
+- 正式 APK 不嵌入 `LocalContent`、卡图或发布凭据；2026-08-01 后只新增一份约 158 bytes 的公开只读 `RemoteContent` 默认配置。历史 2026-07-24 阶段 7D 冒烟包尚未内置该入口，因此当时 413 个 APK 条目中的 `remote-content.json` 和 catalog 缓存匹配均为 0。
 - 非 Editor 运行时从 `Application.persistentDataPath/Content` 读取已安装 manifest 和图片。
 - `Tools/Android/install_smoke_content.ps1` 默认使用 `Local` 模式：安装开发 APK，把本机 `LocalContent/Imports` 推入应用私有外部文件目录，然后启动游戏。它适合 R2 尚未配置时验证触摸、声音、震动和本地内容读取。
-- 同一脚本的 `Remote` 模式只把 `LocalContent/remote-content.json` 推到 `Application.persistentDataPath` 根目录，不复制卡图。配置只允许 `catalogUrl`、`timeoutSeconds`、`maxCatalogBytes`，强制公开 HTTPS，拒绝额外字段、嵌入凭据、fragment 和越界参数。
+- 同一脚本的 `Remote` 模式只在需要测试其他目录地址时，把 `LocalContent/remote-content.json` 作为高优先级覆盖推到 `Application.persistentDataPath` 根目录，不复制卡图。普通正式安装直接使用 APK 的公开默认入口。覆盖配置只允许 `catalogUrl`、`timeoutSeconds`、`maxCatalogBytes`，强制公开 HTTPS，拒绝额外字段、嵌入凭据、fragment 和越界参数。
 - `-ResetDownloadedContent` 只清除该应用固定的 `Content` 与 `ContentDownloads` 目录，用于复现首次下载；不会触及库存、语言或体验设置存档。脚本同时要求安全 Package ID 与恰好一台已授权设备，避免把 shell 路径变成可注入输入。
 - 这条 ADB 路径只用于个人真机验收，不是最终玩家下载方案，也不会把卡图加入 Git 或 APK。
 

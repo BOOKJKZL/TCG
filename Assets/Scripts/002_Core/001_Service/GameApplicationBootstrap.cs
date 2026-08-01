@@ -150,7 +150,7 @@ public static class GameApplicationBootstrap
                 ResolveCatalogCachePath(),
                 catalogUri,
                 maximumBytes);
-            Debug.Log("Remote content catalog and its verified offline cache are configured from private runtime settings.");
+            Debug.Log("Remote content catalog and its verified offline cache are configured from runtime settings.");
             return cachedProvider;
         }
         catch (Exception exception)

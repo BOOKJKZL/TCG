@@ -97,7 +97,7 @@ namespace Gacha.Tests.PlayMode
                 Environment.SetEnvironmentVariable(EnvironmentKey, server.CatalogUrl);
                 Environment.SetEnvironmentVariable(CacheEnvironmentKey, cachePath);
                 LogAssert.Expect(LogType.Log,
-                    "Remote content catalog and its verified offline cache are configured from private runtime settings.");
+                    "Remote content catalog and its verified offline cache are configured from runtime settings.");
                 InvokeBootstrap();
 
                 Assert.That(ApplicationServices.ContentPackageCatalogs,

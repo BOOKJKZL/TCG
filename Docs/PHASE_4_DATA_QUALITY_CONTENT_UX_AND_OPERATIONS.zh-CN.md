@@ -1,6 +1,6 @@
 # 第四阶段：资料语义、内容体验、存档恢复与长期运维
 
-状态：4A–4J、4L 与 4M 本机静态范围已完成，完成度审计达到本机上限 92%；4H 真实邮箱等待外部 Client ID，4I 实体机长时验收待执行，4K Cloudflare R2 迁移按用户要求暂停，正式远端发行也未自动上传（2026-07-31）。
+状态：4A–4J、4L 与 4M 本机静态范围已完成，正式客户端已具备公开只读的云端 Catalog 默认入口，完成度审计仍为本机上限 92%；4H 真实邮箱等待外部 Client ID，4I 实体机长时验收待执行，4K Cloudflare R2 迁移按用户要求暂停，最新 538 包远端发行也未自动上传（2026-08-01）。
 
 ## 一、阶段目标
 
@@ -473,6 +473,8 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - APK 共 419 个 ZIP 条目，只有 `lib/arm64-v8a/libil2cpp.so`；`aapt` 验证 target SDK 36 及 `ACCESS_NETWORK_STATE`、`INTERNET`、`VIBRATE`、应用动态 receiver 保护权限，广泛存储权限为 0。`apksigner`、`zipalign`、私人内容名称扫描全部通过。
 - DEX 已确认 `com.universalgacha.recovery.RecoveryDocumentBridge` 与 Picker Fragment 存在；Storage Access Framework 恢复能力没有被 IL2CPP/代码裁剪移除。Addressables 构建生成的临时 `link.xml` 已在产物完成后清理，未混入源码提交。
 - 最新 433/433 EditMode 与 11/11 PlayMode 已提升为默认 `final-*` 审计证据；无参数完成度审计得到本机 9/9 全通过和 92% 上限。现有远端报告仍对应旧 537 包，未连接实体 Android，因此各自 4% 正确保持阻塞；没有上传 Site/R2，也没有宣称 100%。
+
+4M 云端目录默认入口已于 2026-08-01 补齐：APK 的 Resources 配置只包含现有公开只读 Site Catalog URL、15 秒超时与 1 MiB 上限，私人持久配置仍可覆盖；手机不会在启动时下载全部资料，只在内容管理页读取目录并按玩家选择下载包与依赖。公网入口实测 `200`，当前仍是 schema v1/revision 4/537 包；最新本地 schema v2/revision 6/538 包没有上传，正式远端审计和 92% 状态因此不变。未来新增卡包只需先上传不可变 ZIP、最后更新同一路径 Catalog，无需重建 APK；R2 迁移时应保留 Site 路径作为稳定只读网关。定向 EditMode 2/2、完整 EditMode 434/434、完整 PlayMode 11/11 及 Missing Script 0 通过；ARM64 Clean Build 产物为 53,043,913 bytes、419 个条目、SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`，ABI、target SDK 36、权限、签名、zipalign 与私人内容边界全部通过，构建报告确认默认配置进入 Resources。本切片没有任何远端写入。
 
 ## 十五、Git 检查点
 

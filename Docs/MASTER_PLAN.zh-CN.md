@@ -1,8 +1,8 @@
 # Universal Gacha Simulator 项目主计划
 
-最后更新：2026-07-30
+最后更新：2026-08-01
 
-本次修改原因：第一至第三阶段的软件范围均已完成 100% 验收。英文、日文、简中共 524 个 Set 包，连同 taxonomy、三语言卡牌关联与 9 个世代图鉴图片组成 537 个按需资源包并发布到只读 Site；完整 EditMode 344/344、PlayMode 10/10、远端 HEAD/Range 537/537、匿名写入拒绝 8/8、最终 ARM64 APK 和 Android 14 安装收据全部通过。应用语言与卡片语言是完全隔离的状态，缺少卡牌目录时不会阻止玩家切换应用语言。实体震动手感、扬声器音质和真实蜂窝切换继续作为实体机体验补测限制，不影响软件范围结论。验证节奏固定为 Play Mode 优先，只有权限、ABI、存储、图形、触觉等平台边界变化才构建 APK。
+本次修改原因：让正式客户端内置公开只读的 Site Catalog 默认入口。以后新增卡包只需先发布内容寻址 ZIP、最后原子更新同一云端目录，不再为资料更新重建 APK；应用启动不自动下载全部资源，内容管理页只获取小型 Catalog，玩家选择后才下载目标包与依赖。私人覆盖配置仍保留，Cloudflare R2 迁移继续暂停，最新 538 包远端发行仍需单独发布和审计。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。全量卡牌资料库与宝可梦图鉴请参阅[第二大阶段实施计划](PHASE_2_CARD_ARCHIVE_AND_POKEDEX.zh-CN.md)；正式资料语义、内容体验、存档恢复、R2 与长期运维请参阅[第四阶段实施计划](PHASE_4_DATA_QUALITY_CONTENT_UX_AND_OPERATIONS.zh-CN.md)。
 
@@ -527,7 +527,7 @@ Content Language  卡名、卡图、系列和产品
 - `Card_UI` 新增 32 组英/中文内容管理文案；运行时切换中文后页面和动态行会同步刷新。
 - 页面 PlayMode fixture 从后台线程加载两个包，覆盖成功安装、失败一次、错误只提示一次、重试成功、完成震动、中文切换和主线程更新。
 - 全量 EditMode 164/164、PlayMode 5/5 通过；Android/IL2CPP 构建成功，6 个场景，APK 74.83 MiB，413 个条目中私人内容匹配为 0。
-- 正式 Site HTTPS catalog 已由电脑发布器验证并生成 Git 忽略的 `LocalContent/remote-content.json`；APK 仍不内置私有卡图或发布凭据，真机安装时再把只读运行配置放入应用私人目录。
+- 正式 Site HTTPS catalog 已由电脑发布器验证并生成 Git 忽略的 `LocalContent/remote-content.json`；该记录对应旧验收包。当时 APK 不内置私有卡图、发布凭据或默认目录，真机安装时再把只读运行配置放入应用私人目录。2026-08-01 的 4M3 已用公开默认入口替代“每次安装推送配置”的常规流程。
 
 6C5 完成记录（2026-07-24）：
 
@@ -847,6 +847,8 @@ Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP
 第四阶段 4M1 本机完成度审计基线已于 2026-07-31 完成：完成度审计器从旧 218 包/schema v1 改为严格验证正式 538 包/revision 6/schema v2 及 1.30 GB 归档 Hash；Android 权限契约接受内容网络策略需要的 `ACCESS_NETWORK_STATE`，仍拒绝广泛存储权限。远端不再只凭 HTTPS URL 通过，必须由运行配置、HEAD/Range/8 次写拒绝报告和当前 Catalog URL/包数/Hash 三方一致；现有 Site 报告仍对应旧 537 包，因此正确阻塞。审计自测 5/5，433/433 EditMode、11/11 PlayMode、538/538 本地归档、现有 APK 的 ARM64/隐私/权限/签名均通过；因 APK 早于最新源码且无连接设备，当前审计为 81%。下一步只构建一次最新 ARM64 APK完成本机静态收口，不访问 R2。
 
 第四阶段 4M2 最终本机 ARM64 静态验收已于 2026-07-31 完成：全部本机源码与 PlayMode 收口后只执行一次 Clean ARM64 构建，用时约 9 分 25 秒。APK 为 53,043,803 bytes（50.59 MiB），SHA-256 `6373b69a7c8b37cbebbd4561fe96da7064db7440019a4e15eb2d252497844836`，较 4H 增加 194,676 bytes（0.19 MiB）；419 个条目、仅 ARM64、target SDK 36、四项允许权限、私人内容 0、签名和 zipalign 全通过，恢复文件桥与 Picker Fragment 也实际进入 DEX。默认最终证据已刷新为 EditMode 433/433、PlayMode 11/11；无参数审计本机 9/9 全通过并达到 92% 上限。现有远端仍是旧 537 包报告且没有实体 Android，两个 4% 保持阻塞；没有上传 Site/R2，也没有宣称 100%。
+
+第四阶段 4M3 云端目录默认入口已于 2026-08-01 完成：`Assets/Resources/Data/RemoteContent.json` 只内置公开 Site Catalog URL、15 秒超时和 1 MiB 上限，不含卡图、发布凭据或远端写权限；Editor 环境变量和各平台私人持久目录仍可高优先级覆盖。客户端只在打开内容管理页时读取 Catalog，并继续按玩家选择与依赖下载；新增卡包可通过“不可变 ZIP → 最后更新同一路径 Catalog”交付，不再重建 APK。当前公网入口实测为 `200`、schema v1/revision 4/537 包；最新本地 schema v2/revision 6/538 包仍未发布，因此 92% 正式完成度与 R2 暂停状态不变。定向 EditMode 2/2、完整 EditMode 434/434、完整 PlayMode 11/11 通过且 Missing Script 为 0；唯一一次 ARM64 Clean Build 成功，APK 为 53,043,913 bytes（50.59 MiB）、419 个条目，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`，仅 ARM64、target SDK 36、权限/签名/zipalign/私人内容边界全通过，构建报告确认 158-byte 默认配置进入 Resources。本切片没有上传、修改或删除任何 Site/R2 对象。
 
 以下情况必须暂停后续阶段并先修复：
 

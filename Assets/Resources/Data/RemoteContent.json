@@ -1,0 +1,5 @@
+{
+  "catalogUrl": "https://universal-gacha-content.jiejingleek.chatgpt.site/api/content/catalog.json",
+  "timeoutSeconds": 15,
+  "maxCatalogBytes": 1048576
+}
