@@ -74,7 +74,7 @@ async function fixture(): Promise<{ bytes: ArrayBuffer; sha256: string; catalog:
     bytes,
     sha256,
     catalog: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       revision: 1,
       packages: [{
         packageId: "en.base1",
@@ -85,6 +85,19 @@ async function fixture(): Promise<{ bytes: ArrayBuffer; sha256: string; catalog:
         installedBytes: 100,
         sha256,
         archiveUrl: `packages/en.base1/${sha256}.zip`,
+        metadata: {
+          kind: "card-set",
+          gameId: "pokemon-tcg",
+          contentLanguageId: "en",
+          localizedNames: { en: "Base Set" },
+          setId: "base1",
+          setCode: "BS",
+          releaseDate: "1999-01-09",
+          generationOrder: 1,
+          sortOrdinal: 1,
+          tags: ["pokemon"],
+          dependencies: [],
+        },
       }],
     },
   };
@@ -172,5 +185,5 @@ test("serves exact 200, 206, HEAD, and 416 download semantics", async () => {
 
   const catalog = await serveCatalog(bucket, "GET");
   assert.equal(catalog.status, 200);
-  assert.match(await catalog.text(), /"schemaVersion": 1/);
+  assert.match(await catalog.text(), /"schemaVersion": 2/);
 });

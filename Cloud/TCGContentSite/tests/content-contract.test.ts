@@ -22,8 +22,72 @@ function validCatalog() {
   };
 }
 
+function validCatalogV2() {
+  const catalog = validCatalog();
+  return {
+    ...catalog,
+    schemaVersion: 2,
+    packages: catalog.packages.map((item) => ({
+      ...item,
+      metadata: {
+        kind: "card-set",
+        gameId: "pokemon-tcg",
+        contentLanguageId: "en",
+        localizedNames: { en: "Base Set" },
+        setId: "base1",
+        setCode: "BS",
+        releaseDate: "1999-01-09",
+        generationOrder: 1,
+        sortOrdinal: 1,
+        tags: ["generation:generation-1", "pokemon"],
+        dependencies: [] as string[],
+      },
+    })),
+  };
+}
+
 test("accepts the exact catalog v1 contract", () => {
   assert.deepEqual(parseContentCatalog(validCatalog()), validCatalog());
+});
+
+test("accepts and preserves the exact catalog v2 metadata contract", () => {
+  assert.deepEqual(parseContentCatalog(validCatalogV2()), validCatalogV2());
+});
+
+test("rejects incomplete or malformed catalog v2 metadata", () => {
+  const missingMetadata = validCatalogV2();
+  delete (missingMetadata.packages[0] as { metadata?: unknown }).metadata;
+  assert.throws(() => parseContentCatalog(missingMetadata), ApiError);
+
+  const invalidDate = validCatalogV2();
+  invalidDate.packages[0].metadata.releaseDate = "2025-02-29";
+  assert.throws(() => parseContentCatalog(invalidDate), ApiError);
+
+  const unknownMetadata = validCatalogV2();
+  Object.assign(unknownMetadata.packages[0].metadata, { secret: "must-not-pass" });
+  assert.throws(() => parseContentCatalog(unknownMetadata), ApiError);
+});
+
+test("rejects missing, self, and cyclic catalog v2 dependencies", () => {
+  const missing = validCatalogV2();
+  missing.packages[0].metadata.dependencies = ["en.missing"];
+  assert.throws(() => parseContentCatalog(missing), ApiError);
+
+  const self = validCatalogV2();
+  self.packages[0].metadata.dependencies = ["en.base1"];
+  assert.throws(() => parseContentCatalog(self), ApiError);
+
+  const cyclic = validCatalogV2();
+  cyclic.packages.push({
+    ...structuredClone(cyclic.packages[0]),
+    packageId: "en.base2",
+    installRelativePath: "en/base2",
+    sha256: "b".repeat(64),
+    archiveUrl: `packages/en.base2/${"b".repeat(64)}.zip`,
+  });
+  cyclic.packages[0].metadata.dependencies = ["en.base2"];
+  cyclic.packages[1].metadata.dependencies = ["en.base1"];
+  assert.throws(() => parseContentCatalog(cyclic), ApiError);
 });
 
 test("rejects mutable URLs, traversal paths, unknown fields, and duplicates", () => {

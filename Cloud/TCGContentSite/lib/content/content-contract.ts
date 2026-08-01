@@ -1,11 +1,28 @@
 import { ApiError } from "./api-error.ts";
 
-export const CONTENT_CATALOG_SCHEMA_VERSION = 1;
+export const CONTENT_CATALOG_SCHEMA_VERSION = 2;
+export const MINIMUM_CONTENT_CATALOG_SCHEMA_VERSION = 1;
 export const MAX_CATALOG_BYTES = 1024 * 1024;
 export const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
 
 const PACKAGE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const LANGUAGE_ID_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/;
+const RELEASE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export type ContentPackageMetadata = {
+  kind: string;
+  gameId: string | null;
+  contentLanguageId: string | null;
+  localizedNames: Record<string, string>;
+  setId: string | null;
+  setCode: string | null;
+  releaseDate: string | null;
+  generationOrder: number | null;
+  sortOrdinal: number | null;
+  tags: string[];
+  dependencies: string[];
+};
 
 export type ContentPackage = {
   packageId: string;
@@ -16,10 +33,11 @@ export type ContentPackage = {
   installedBytes: number;
   sha256: string;
   archiveUrl: string;
+  metadata?: ContentPackageMetadata;
 };
 
 export type ContentCatalog = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   revision: number;
   packages: ContentPackage[];
 };
@@ -29,9 +47,16 @@ export function parseContentCatalog(value: unknown): ContentCatalog {
     throw new ApiError(400, "Catalog 必须是 JSON 对象。");
   }
   requireExactKeys(value, ["schemaVersion", "revision", "packages"], "Catalog");
-  if (value.schemaVersion !== CONTENT_CATALOG_SCHEMA_VERSION) {
-    throw new ApiError(400, `只支持 catalog schemaVersion ${CONTENT_CATALOG_SCHEMA_VERSION}。`);
+  if (
+    value.schemaVersion !== MINIMUM_CONTENT_CATALOG_SCHEMA_VERSION &&
+    value.schemaVersion !== CONTENT_CATALOG_SCHEMA_VERSION
+  ) {
+    throw new ApiError(
+      400,
+      `只支持 catalog schemaVersion ${MINIMUM_CONTENT_CATALOG_SCHEMA_VERSION}–${CONTENT_CATALOG_SCHEMA_VERSION}。`,
+    );
   }
+  const schemaVersion = value.schemaVersion;
   const revision = requirePositiveInteger(value.revision, "Catalog revision");
   if (!Array.isArray(value.packages) || value.packages.length === 0) {
     throw new ApiError(400, "Catalog 至少需要一个内容包。");
@@ -40,7 +65,7 @@ export function parseContentCatalog(value: unknown): ContentCatalog {
     throw new ApiError(400, "Catalog 内容包数量超过 5000 个上限。");
   }
 
-  const packages = value.packages.map(parsePackage);
+  const packages = value.packages.map((item, index) => parsePackage(item, index, schemaVersion));
   const packageIds = new Set<string>();
   const installPaths = new Set<string>();
   for (const item of packages) {
@@ -53,8 +78,11 @@ export function parseContentCatalog(value: unknown): ContentCatalog {
     packageIds.add(item.packageId);
     installPaths.add(item.installRelativePath);
   }
+  if (schemaVersion === 2) {
+    validateDependencies(packages, packageIds);
+  }
 
-  return { schemaVersion: 1, revision, packages };
+  return { schemaVersion, revision, packages };
 }
 
 export function parsePackageIdentity(packageId: string, sha256: string): void {
@@ -73,24 +101,22 @@ export function archiveObjectKey(packageId: string, sha256: string): string {
 
 export const catalogObjectKey = "content/releases/catalog.json";
 
-function parsePackage(value: unknown, index: number): ContentPackage {
+function parsePackage(value: unknown, index: number, schemaVersion: 1 | 2): ContentPackage {
   if (!isRecord(value)) {
     throw new ApiError(400, `packages[${index}] 必须是 JSON 对象。`);
   }
-  requireExactKeys(
-    value,
-    [
-      "packageId",
-      "installRelativePath",
-      "revision",
-      "version",
-      "downloadBytes",
-      "installedBytes",
-      "sha256",
-      "archiveUrl",
-    ],
-    `packages[${index}]`,
-  );
+  const keys = [
+    "packageId",
+    "installRelativePath",
+    "revision",
+    "version",
+    "downloadBytes",
+    "installedBytes",
+    "sha256",
+    "archiveUrl",
+  ];
+  if (schemaVersion === 2) keys.push("metadata");
+  requireExactKeys(value, keys, `packages[${index}]`);
 
   const packageId = requireString(value.packageId, `packages[${index}].packageId`, 80);
   const sha256 = requireString(value.sha256, `packages[${index}].sha256`, 64);
@@ -109,7 +135,7 @@ function parsePackage(value: unknown, index: number): ContentPackage {
     );
   }
 
-  return {
+  const parsed: ContentPackage = {
     packageId,
     installRelativePath,
     revision: requirePositiveInteger(value.revision, `packages[${index}].revision`),
@@ -127,6 +153,110 @@ function parsePackage(value: unknown, index: number): ContentPackage {
     sha256,
     archiveUrl,
   };
+  if (schemaVersion === 2) {
+    parsed.metadata = parseMetadata(value.metadata, index);
+  }
+  return parsed;
+}
+
+function parseMetadata(value: unknown, packageIndex: number): ContentPackageMetadata {
+  const label = `packages[${packageIndex}].metadata`;
+  if (!isRecord(value)) {
+    throw new ApiError(400, `${label} 必须是 JSON 对象。`);
+  }
+  requireExactKeys(
+    value,
+    [
+      "kind",
+      "gameId",
+      "contentLanguageId",
+      "localizedNames",
+      "setId",
+      "setCode",
+      "releaseDate",
+      "generationOrder",
+      "sortOrdinal",
+      "tags",
+      "dependencies",
+    ],
+    label,
+  );
+
+  const localizedNames = parseLocalizedNames(value.localizedNames, `${label}.localizedNames`);
+  const contentLanguageId = requireNullableString(value.contentLanguageId, `${label}.contentLanguageId`, 32);
+  if (contentLanguageId !== null && !LANGUAGE_ID_PATTERN.test(contentLanguageId)) {
+    throw new ApiError(400, `${label}.contentLanguageId 格式不正确。`);
+  }
+
+  return {
+    kind: requireString(value.kind, `${label}.kind`, 80),
+    gameId: requireNullableString(value.gameId, `${label}.gameId`, 80),
+    contentLanguageId,
+    localizedNames,
+    setId: requireNullableString(value.setId, `${label}.setId`, 80),
+    setCode: requireNullableString(value.setCode, `${label}.setCode`, 80),
+    releaseDate: requireReleaseDate(value.releaseDate, `${label}.releaseDate`),
+    generationOrder: requireNullableNonNegativeInteger(
+      value.generationOrder,
+      `${label}.generationOrder`,
+    ),
+    sortOrdinal: requireNullableNonNegativeInteger(value.sortOrdinal, `${label}.sortOrdinal`),
+    tags: requireStringArray(value.tags, `${label}.tags`, 32, 80, false),
+    dependencies: requireStringArray(
+      value.dependencies,
+      `${label}.dependencies`,
+      64,
+      80,
+      true,
+    ),
+  };
+}
+
+function parseLocalizedNames(value: unknown, label: string): Record<string, string> {
+  if (!isRecord(value)) {
+    throw new ApiError(400, `${label} 必须是 JSON 对象。`);
+  }
+  const entries = Object.entries(value);
+  if (entries.length === 0 || entries.length > 16) {
+    throw new ApiError(400, `${label} 必须包含 1–16 个名称。`);
+  }
+
+  const result: Record<string, string> = {};
+  for (const [languageId, name] of entries) {
+    if (!LANGUAGE_ID_PATTERN.test(languageId)) {
+      throw new ApiError(400, `${label} 的语言编号格式不正确：${languageId}`);
+    }
+    result[languageId] = requireString(name, `${label}.${languageId}`, 160);
+  }
+  return result;
+}
+
+function validateDependencies(packages: ContentPackage[], packageIds: Set<string>): void {
+  for (const item of packages) {
+    for (const dependency of item.metadata?.dependencies ?? []) {
+      if (dependency === item.packageId) {
+        throw new ApiError(400, `内容包不能依赖自身：${item.packageId}`);
+      }
+      if (!packageIds.has(dependency)) {
+        throw new ApiError(400, `内容包 ${item.packageId} 依赖不存在的 ${dependency}。`);
+      }
+    }
+  }
+
+  const byId = new Map(packages.map((item) => [item.packageId, item]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (packageId: string): void => {
+    if (visited.has(packageId)) return;
+    if (visiting.has(packageId)) {
+      throw new ApiError(400, `Catalog 依赖出现循环：${packageId}`);
+    }
+    visiting.add(packageId);
+    for (const dependency of byId.get(packageId)?.metadata?.dependencies ?? []) visit(dependency);
+    visiting.delete(packageId);
+    visited.add(packageId);
+  };
+  for (const item of packages) visit(item.packageId);
 }
 
 function requireSafeRelativePath(value: unknown, label: string): string {
@@ -155,6 +285,57 @@ function requirePositiveInteger(value: unknown, label: string): number {
     throw new ApiError(400, `${label} 必须是正整数。`);
   }
   return value as number;
+}
+
+function requireNullableNonNegativeInteger(value: unknown, label: string): number | null {
+  if (value === null) return null;
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new ApiError(400, `${label} 必须是 null 或非负整数。`);
+  }
+  return value as number;
+}
+
+function requireNullableString(value: unknown, label: string, maximumLength: number): string | null {
+  return value === null ? null : requireString(value, label, maximumLength);
+}
+
+function requireReleaseDate(value: unknown, label: string): string | null {
+  if (value === null) return null;
+  const date = requireString(value, label, 10);
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (
+    !RELEASE_DATE_PATTERN.test(date) ||
+    Number.isNaN(parsed.valueOf()) ||
+    parsed.toISOString().slice(0, 10) !== date
+  ) {
+    throw new ApiError(400, `${label} 必须使用有效的 yyyy-MM-dd 日期。`);
+  }
+  return date;
+}
+
+function requireStringArray(
+  value: unknown,
+  label: string,
+  maximumItems: number,
+  maximumLength: number,
+  packageIdsOnly: boolean,
+): string[] {
+  if (!Array.isArray(value) || value.length > maximumItems) {
+    throw new ApiError(400, `${label} 必须是最多 ${maximumItems} 项的数组。`);
+  }
+  const result = value.map((item, index) => requireString(item, `${label}[${index}]`, maximumLength));
+  const normalized = new Set(result.map((item) => item.toLowerCase()));
+  if (normalized.size !== result.length) {
+    throw new ApiError(400, `${label} 不能包含重复值。`);
+  }
+  if (packageIdsOnly) {
+    for (const packageId of result) {
+      if (!PACKAGE_ID_PATTERN.test(packageId)) {
+        throw new ApiError(400, `${label} 包含无效 packageId：${packageId}`);
+      }
+    }
+  }
+  return result;
 }
 
 function requireString(value: unknown, label: string, maximumLength: number): string {
