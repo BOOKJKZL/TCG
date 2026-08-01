@@ -105,6 +105,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 - `Tools > Universal Gacha > Sites Content Publisher` 在本机生成 256-bit 随机令牌，明文只保存到 Git 忽略的 `LocalContent/site-publisher-credential.json`；管理员只把 SHA-256 绑定到 Site，服务器不保存明文。
 - 已绑定电脑通过 Bearer 凭据调用 `HEAD|POST /api/admin/content/packages`；服务端仍重新核对真实字节和 SHA-256，内容寻址对象不允许被不同内容覆盖。
 - `HEAD|POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。电脑发布器还会完整读回公开 ZIP/catalog 并复算 Hash，成功后才生成运行配置。
+- Site version 4 同时接受 catalog schema v1/v2；v2 的 localized name、日期、排序、tags、依赖存在性、自依赖和依赖环均在目录写入前失败关闭。
 - `GET /api/content/catalog.json` 与相对的 `packages/{packageId}/{sha}.zip` 允许手机匿名读取；ZIP 支持严格开放式 Range。
 - 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。电脑令牌不能管理 owner 身份，只能发布内容；游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
 - 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
@@ -114,6 +115,8 @@ content/releases/packages/{package-id}/{sha256}.zip
 同日电脑直传版本已公开部署到 `https://universal-gacha-content.jiejingleek.chatgpt.site`，本机随机凭据已由唯一 owner 邮箱绑定。`en.base1`、`en.neo1` 与 catalog 已由 Unity 直接发布；独立公网客户端完整读回 14,906,006 / 16,437,718 bytes 并得到预期 SHA-256，两包中点续传均返回精确 `206 Content-Range`。catalog 与 package 路由的 8 个写方法探测全部得到 `405 Allow: GET, HEAD`；Git 忽略的 `LocalContent/remote-content.json` 已由验证成功的发布器原子生成。
 
 2026-07-30，公网 Catalog 已完成 Phase 2J 全量切换，共 229 包、548,304,599 下载 bytes：218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图鉴图片包。首次全量发布上传 206 个新对象、复用 23 个相同哈希对象；发布器逐包完成 origin 与公网完整 SHA-256 回读后才原子切换 catalog。最终 catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`。独立匿名审计通过 229/229 HEAD、229/229 中点 `206 Content-Range` 与 Catalog/ZIP 的 8/8 写方法 `405`，并明确未发送 Authorization。
+
+2026-08-01，公网 Catalog 已切换为正式 schema v2/revision 6，共 538 包、1,302,001,240 下载 bytes。Unity 发布器上传 4 个新增内容寻址对象并复用 534 个旧对象，在逐包 origin/公网完整回读与 SHA-256 复算完成后才发布 504,816-byte Catalog；目录 SHA-256 为 `643c2fa8209745222738401244e410a528e5cb7210657d80d45d5e834bd8ca2b`。独立匿名审计通过 538/538 HEAD、538/538 Range 与 8/8 写入拒绝，且 `authorizationHeaderUsed=false`。游戏继续只在打开内容页时读取小目录，未选择的卡包不会下载到手机。
 
 部署后手机配置只需：
 
@@ -150,7 +153,7 @@ content/releases/packages/{package-id}/{sha256}.zip
 
 中途取消或失败可能留下已经验证过的内容寻址 ZIP，但不会提前移动 catalog 指针，也不会生成看似可用的本机运行配置。批处理离线入口为 `PrivateR2PublisherBatch.PreflightFromEnvironment`；未设置公开 Base URL 时只使用不可联网的 `example.invalid` 计算对象映射。真实入口为 `PrivateR2PublisherBatch.PublishFromEnvironment`，读取完整环境变量。真实执行前仍应先查看离线预检结果。
 
-独立 Cloudflare R2 尚未配置 bucket、S3 endpoint 与凭据，因此没有执行 R2 迁移；这不代表远端发布缺失，当前 229 包已经真实上传并由 Site R2 对外提供只读下载。只有 Site 容量、成本或维护实测成为问题时才迁移，届时复用同一内容寻址 catalog，不改手机存档与图鉴身份。
+独立 Cloudflare R2 尚未配置 bucket、S3 endpoint 与凭据，因此没有执行 R2 迁移；这不代表远端发布缺失，当前 538 包已经真实上传并由 Site R2 对外提供只读下载。只有 Site 容量、成本或维护实测成为问题时才迁移，届时复用同一内容寻址 catalog，不改手机存档与图鉴身份。
 
 ## 远程 catalog 私人配置
 
@@ -195,6 +198,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
+- 2026-08-01 Phase 4 revision 6 已通过正式 Site 发布与匿名只读审计：Catalog schema v2、538 包、1,302,001,240 下载 bytes，HEAD 538/538、Range 538/538、写入拒绝 8/8，读取不携带授权头。完成度审计为 96%；剩余 4% 只等待已授权 Android 目标上的安装、远端配置和实体体验验证。
 - 2026-07-30 Phase 3 revision 4 已通过正式 Site 发布与匿名只读审计：Catalog 537 包、1,301,893,754 下载 bytes，HEAD 537/537、Range 537/537、写入拒绝 8/8，读取不携带授权头。最终 ARM64 APK 为 52,643,378 bytes，SHA-256 `cdf68dd6f9cc2cb796d437ef22a61774a25df650d964bc16f7ed711a1234b2a4`；418 个 APK 条目中私人内容命中 0，设备配置仍只有公开 URL、15 秒超时与 1 MiB Catalog 上限。
 - 2026-08-01 的默认入口 ARM64 APK 为 53,043,913 bytes（50.59 MiB），SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`；构建报告确认 158-byte `RemoteContent.json` 进入 Resources。419 个 APK 条目中私人内容名称匹配 0，仅 `arm64-v8a`，target SDK 36，权限只含网络状态、Internet、震动与动态 receiver 保护，签名和 zipalign 均通过。
 - 2026-07-30 Phase 2 最终 ARM64 APK 为 52,607,315 bytes，SHA-256 `cc0028aa221820427cb165fc0fc52ed9613003169344dec95e8398d8ac710676`；418 个 APK 条目中私人内容/凭据命中 0。Android 14 模拟器声明支持 ARM 转译，已直接安装同一生产 APK、推送 158-byte 公开只读配置并以前台进程运行；配置敏感字段命中 0。

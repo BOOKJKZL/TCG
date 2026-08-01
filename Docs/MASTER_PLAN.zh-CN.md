@@ -850,6 +850,8 @@ Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP
 
 第四阶段 4M3 云端目录默认入口已于 2026-08-01 完成：`Assets/Resources/Data/RemoteContent.json` 只内置公开 Site Catalog URL、15 秒超时和 1 MiB 上限，不含卡图、发布凭据或远端写权限；Editor 环境变量和各平台私人持久目录仍可高优先级覆盖。客户端只在打开内容管理页时读取 Catalog，并继续按玩家选择与依赖下载；新增卡包可通过“不可变 ZIP → 最后更新同一路径 Catalog”交付，不再重建 APK。当前公网入口实测为 `200`、schema v1/revision 4/537 包；最新本地 schema v2/revision 6/538 包仍未发布，因此 92% 正式完成度与 R2 暂停状态不变。定向 EditMode 2/2、完整 EditMode 434/434、完整 PlayMode 11/11 通过且 Missing Script 为 0；唯一一次 ARM64 Clean Build 成功，APK 为 53,043,913 bytes（50.59 MiB）、419 个条目，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`，仅 ARM64、target SDK 36、权限/签名/zipalign/私人内容边界全通过，构建报告确认 158-byte 默认配置进入 Resources。本切片没有上传、修改或删除任何 Site/R2 对象。
 
+第四阶段 4M4 Site 正式远端发行已于 2026-08-01 完成：Site 后端升级为同时接受 schema v1/v2，并对 v2 metadata、依赖存在性、自依赖和依赖环执行失败关闭验证；后端测试 17/17、页面/路由测试 5/5、typecheck、lint 与生产构建全部通过。Unity 发布器先完整验证 538 个不可变 ZIP，再上传 4 个新增对象、复用 534 个既有对象，最后原子切换到 schema v2/revision 6 Catalog。公网目录为 504,816 bytes，SHA-256 `643c2fa8209745222738401244e410a528e5cb7210657d80d45d5e834bd8ca2b`，总下载量 1,302,001,240 bytes；独立匿名审计通过 538/538 HEAD、538/538 Range 和 8/8 写入拒绝，且未使用 Authorization。完成度审计因此由 92% 提升至 96%；Cloudflare R2 迁移继续暂停，剩余 4% 只等待已授权 Android 目标上的安装、远端配置与实体体验验收。
+
 以下情况必须暂停后续阶段并先修复：
 
 - 自动化测试失败。
