@@ -2,7 +2,7 @@
 
 最后更新：2026-08-01
 
-本次修改原因：让正式客户端内置公开只读的 Site Catalog 默认入口。以后新增卡包只需先发布内容寻址 ZIP、最后原子更新同一云端目录，不再为资料更新重建 APK；应用启动不自动下载全部资源，内容管理页只获取小型 Catalog，玩家选择后才下载目标包与依赖。私人覆盖配置仍保留，Cloudflare R2 迁移继续暂停，最新 538 包远端发行仍需单独发布和审计。
+当前重点：正式客户端已内置公开只读 Site Catalog 默认入口，schema v2/revision 6 的 538 包也已完成远端发行；以后新增卡包只需先发布内容寻址 ZIP、最后原子更新同一云端目录，不再为资料更新重建 APK。Site version 5 另提供最新版 Android APK 公开下载，后续新构建可由电脑端脚本直接替换，不必修改或重新部署 Site。应用启动不自动下载全部资源，内容管理页只获取小型 Catalog，玩家选择后才下载目标包与依赖；Cloudflare R2 迁移继续暂停。
 
 本文档是项目实施、验收和后续修改的主要依据。架构细节参考 `ARCHITECTURE.zh-CN.md`，远程资源细节参考 `REMOTE_CONTENT.zh-CN.md`。全量卡牌资料库与宝可梦图鉴请参阅[第二大阶段实施计划](PHASE_2_CARD_ARCHIVE_AND_POKEDEX.zh-CN.md)；正式资料语义、内容体验、存档恢复、R2 与长期运维请参阅[第四阶段实施计划](PHASE_4_DATA_QUALITY_CONTENT_UX_AND_OPERATIONS.zh-CN.md)。
 
@@ -851,6 +851,8 @@ Phase 2A–2J 已完成。手机端只读取已发布的内容寻址 catalog/ZIP
 第四阶段 4M3 云端目录默认入口已于 2026-08-01 完成：`Assets/Resources/Data/RemoteContent.json` 只内置公开 Site Catalog URL、15 秒超时和 1 MiB 上限，不含卡图、发布凭据或远端写权限；Editor 环境变量和各平台私人持久目录仍可高优先级覆盖。客户端只在打开内容管理页时读取 Catalog，并继续按玩家选择与依赖下载；新增卡包可通过“不可变 ZIP → 最后更新同一路径 Catalog”交付，不再重建 APK。当前公网入口实测为 `200`、schema v1/revision 4/537 包；最新本地 schema v2/revision 6/538 包仍未发布，因此 92% 正式完成度与 R2 暂停状态不变。定向 EditMode 2/2、完整 EditMode 434/434、完整 PlayMode 11/11 通过且 Missing Script 为 0；唯一一次 ARM64 Clean Build 成功，APK 为 53,043,913 bytes（50.59 MiB）、419 个条目，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`，仅 ARM64、target SDK 36、权限/签名/zipalign/私人内容边界全通过，构建报告确认 158-byte 默认配置进入 Resources。本切片没有上传、修改或删除任何 Site/R2 对象。
 
 第四阶段 4M4 Site 正式远端发行已于 2026-08-01 完成：Site 后端升级为同时接受 schema v1/v2，并对 v2 metadata、依赖存在性、自依赖和依赖环执行失败关闭验证；后端测试 17/17、页面/路由测试 5/5、typecheck、lint 与生产构建全部通过。Unity 发布器先完整验证 538 个不可变 ZIP，再上传 4 个新增对象、复用 534 个既有对象，最后原子切换到 schema v2/revision 6 Catalog。公网目录为 504,816 bytes，SHA-256 `643c2fa8209745222738401244e410a528e5cb7210657d80d45d5e834bd8ca2b`，总下载量 1,302,001,240 bytes；独立匿名审计通过 538/538 HEAD、538/538 Range 和 8/8 写入拒绝，且未使用 Authorization。完成度审计因此由 92% 提升至 96%；Cloudflare R2 迁移继续暂停，剩余 4% 只等待已授权 Android 目标上的安装、远端配置与实体体验验收。
+
+第四阶段 4M5 Site 最新 APK 发布中心已于 2026-08-01 完成：沿用小说云端的“私有发布、公开下载、只保留最新版”模式，复用现有电脑发布令牌与 Sites R2，不新增 D1，也不恢复网页文件上传。服务端先验证并保存内容寻址 APK，最后切换 `latest.json`，成功后才清理旧版；公开 latest/APK 路由只接受 GET/HEAD，支持断点下载。Site 页面现可直接下载 `0.1.0+1`，文件 53,043,913 bytes，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`。发布器完成公网整包 Hash 回读，独立无凭据审计另通过 HEAD、Range 与 8/8 写入拒绝。以后新构建只需运行 `Tools/Android/publish_apk_to_site.ps1`，无需再次改动 Site 或 APK 内的卡牌目录配置；完成度仍为 96%，实体 Android 验收 4% 不被云端可下载性替代。
 
 以下情况必须暂停后续阶段并先修复：
 

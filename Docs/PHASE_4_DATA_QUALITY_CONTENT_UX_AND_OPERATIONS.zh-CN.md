@@ -483,6 +483,13 @@ R2 在内容和 Catalog v2 稳定后执行，避免重复上传大版本：
 - 公网 Catalog 返回 `200`、538 包、1,302,001,240 下载 bytes，SHA-256 为 `643c2fa8209745222738401244e410a528e5cb7210657d80d45d5e834bd8ca2b`。独立无凭据审计通过 538/538 HEAD、538/538 Range 与 Catalog/ZIP 共 8/8 写方法拒绝；`authorizationHeaderUsed=false`。
 - 无参数完成度审计现为 96%：本机 92% 与正式远端 4% 全部通过；R2 prerequisites 继续是非阻塞 `WAIT`。剩余阻塞只有未连接已授权 Android 目标、未在该目标确认 APK/远端配置，以及实体设备体验收据；本轮没有配置或迁移 Cloudflare R2，也没有删除旧远端对象。
 
+### 4M5 Site 最新 APK 发布中心（2026-08-01）
+
+- 参考小说云端的成熟边界，Site 复用既有电脑发布令牌与 `FILES` R2：网页只负责公开展示和 owner 配对，不读取本机文件；新脚本从 Git 忽略的凭据直接上传构建产物。没有新增 D1、长期密钥或 APK 内写权限。
+- 发布协议为“验证新 APK → 写入 SHA-256 内容寻址对象 → 最后切换 `latest.json` → 清理旧 APK”；清单切换失败时旧版继续公开，旧版删除失败时新版仍可用并报告待清理。单包上限 200 MiB，版本名称、versionCode、ZIP 签名、真实字节与 SHA-256 都失败关闭。
+- Site version 5 已部署，首页可直接下载 `0.1.0+1`。当前 APK 为 53,043,913 bytes，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`；电脑发布器完成公开整包读回，独立无 Authorization 审计通过 HEAD `200`、中点 Range `206`、精确 Content-Range 与 latest/APK 共 8/8 写方法 `405`。
+- Site 页面/权限/路由 6/6、后端与存储 22/22、typecheck、生产构建、lint 与 PowerShell 发布器自测通过。以后更新 `bundleVersion`/`AndroidBundleVersionCode`、完成一次必要的 Unity 构建后，运行 `./Tools/Android/publish_apk_to_site.ps1` 即可替换最新版，无需重新部署 Site。此能力不替代实体 Android 验收，完成度保持 96%。
+
 ## 十五、Git 检查点
 
 建议提交主题：

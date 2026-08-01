@@ -1,17 +1,20 @@
-# Universal Gacha Content Relay
+# Universal Gacha Content & APK Relay
 
-万能抽卡模拟器的临时资源中继 Site。第一阶段用 Sites 托管代码并把不可变 ZIP 存入 Site 自带 R2；未来迁移到独立 Cloudflare R2 时，保留同一 catalog、SHA-256 与 HTTP Range 契约。
+万能抽卡模拟器的临时资源与 Android 安装包中继 Site。第一阶段用 Sites 托管代码，并把不可变 ZIP 与最新版 APK 存入 Site 自带 R2；未来迁移到独立 Cloudflare R2 时，保留同一 catalog、SHA-256 与 HTTP Range 契约。
 
 ## 边界
 
 - `GET /api/content/catalog.json`：公开只读 catalog，短缓存，不启用内容压缩。
 - `GET|HEAD /api/content/packages/{packageId}/{sha256}.zip`：公开只读 ZIP，支持 `bytes=<offset>-` 断点续传。
+- `GET|HEAD /api/releases/android/latest.json`：公开只读的最新版 APK 资料。
+- `GET|HEAD /api/releases/android/{sha256}.apk`：公开只读、内容寻址的 APK 下载，支持断点续传。
 - `/admin`：需要 Sign in with ChatGPT，且登录邮箱必须等于 `TCG_CONTENT_OWNER_EMAIL`；只负责绑定或撤销电脑发布器，不读取本机文件。
 - `POST|DELETE /api/admin/publisher/credential`：唯一管理员绑定/轮换或撤销电脑令牌的 SHA-256；服务器不保存令牌明文。
 - `HEAD|POST /api/admin/content/packages`：已绑定电脑检查对象，服务端重新核对真实大小与 SHA-256 后写入 R2。
 - `HEAD|POST /api/admin/content/catalog`：确认所有引用 ZIP 已存在并带有正确验证元数据后，最后切换公开 catalog。
+- `HEAD|POST /api/admin/releases/android`：已绑定电脑上传 APK；服务端复算大小与 SHA-256，先写新 APK、最后切换最新版清单，并在成功后清理旧版。
 
-Site 不保存 R2 管理密钥或电脑令牌明文，不使用 D1，也不包含卡图或发布 ZIP。服务器只在私有 R2 对象中保存发布令牌的 SHA-256；发布输入和明文令牌分别位于 Git 忽略的 `LocalContent/Releases/android` 与 `LocalContent/site-publisher-credential.json`。
+Site 不保存 R2 管理密钥或电脑令牌明文，不使用 D1，也不把卡图、ZIP 或 APK 写进 Site 源码。服务器只在私有 R2 对象中保存发布令牌的 SHA-256；发布输入和明文令牌分别位于 Git 忽略的 `LocalContent`、`Builds` 与 `LocalContent/site-publisher-credential.json`。
 
 ## 权限模型
 
@@ -20,10 +23,10 @@ Site 不保存 R2 管理密钥或电脑令牌明文，不使用 D1，也不包�
 | 身份 | 客户端持有的资料 | 允许 | 明确拒绝 |
 |---|---|---|---|
 | 手机游戏 | 公开 `catalogUrl` | `GET` / `HEAD` 读取 catalog 和 ZIP | `POST` / `PUT` / `PATCH` / `DELETE` 均返回 `405` |
-| 未登录浏览器 | 无 | 与手机相同的公开读取 | 所有 `/api/admin/**` 写操作返回 `401` |
+| 未登录浏览器 | 无 | 读取 catalog、ZIP 与最新版 APK | 所有 `/api/admin/**` 写操作返回 `401` |
 | 错误 ChatGPT 账号 | 登录身份 | 与手机相同的公开读取 | 管理接口返回 `403` |
 | 唯一发布者账号 | ChatGPT 登录会话 | 进入 `/admin`，绑定/轮换/撤销电脑发布器 | 跨来源写请求仍返回 `403` |
-| 已绑定电脑发布器 | 仅存于本机的随机令牌 | 调用管理 API 发布验证后的 ZIP 与 catalog | 不能更改 owner 邮箱，也不能调用公开游戏 API 的写方法 |
+| 已绑定电脑发布器 | 仅存于本机的随机令牌 | 调用管理 API 发布验证后的 ZIP、catalog 与 APK | 不能更改 owner 邮箱，也不能调用公开接口的写方法 |
 
 因此 APK 中只有公开 URL、超时和 catalog 大小上限；没有邮箱、ChatGPT 会话、电脑发布令牌、R2 Token、Access Key、Secret 或管理 API 地址。公开读取不等于获得 R2 权限，R2 binding 只存在于 Site 的服务器进程。
 
@@ -44,7 +47,7 @@ npm test
 TCG_CONTENT_OWNER_EMAIL=you@example.com
 ```
 
-本机 Site 地址为 `http://localhost:3000`。生产构建由 `npm run build` 生成；`npm test` 同时覆盖页面渲染、严格 schema、ZIP-first/catalog-last、200/206/416 和 Hash 失败路径。
+本机 Site 地址为 `http://localhost:3000`。生产构建由 `npm run build` 生成；`npm test` 同时覆盖页面渲染、严格 schema、ZIP/APK-first、最新版清单-last、200/206/416、只读权限和 Hash 失败路径。
 
 ## 绑定电脑并发布两个样例系列
 
@@ -63,6 +66,16 @@ TCG_CONTENT_OWNER_EMAIL=you@example.com
 ```
 
 批处理入口为 `PrivateSitesPublisherBatch.GenerateCredentialFromEnvironment`、`PreflightFromEnvironment` 与 `PublishFromEnvironment`。首次生成会写入 Git 忽略的本机凭据文件并且只在日志显示 Binding SHA-256；后续发布默认直接读取该文件，不需要把令牌放进命令行。自动化环境仍可用 `GACHA_SITE_PUBLISH_TOKEN` 覆盖令牌，用 `GACHA_SITE_BASE_URL` 覆盖 Site URL，或用 `GACHA_SITE_CREDENTIAL_PATH` 指定另一份 Git 忽略凭据。不要把管理身份、邮箱配置、电脑发布令牌或任何未来的 Cloudflare Token 放进 APK。手机只需要公开 catalog URL。
+
+## 发布最新版 Android APK
+
+先用现有 Unity Android 构建流程产生 `Builds/Android/UniversalGachaSimulator-smoke.apk`，并确保 `ProjectSettings.asset` 中的 `bundleVersion` 与 `AndroidBundleVersionCode` 已递增。然后在项目根目录执行：
+
+```powershell
+./Tools/Android/publish_apk_to_site.ps1
+```
+
+脚本只从 Git 忽略的本机凭据读取发布令牌，不把令牌放进命令行或日志。它会验证 APK/ZIP 签名、大小与 SHA-256，上传到私有管理 API，再从公开下载 URL 完整读回并复算 Hash。Site 最多接受 200 MiB，只把小型 `latest.json` 作为可变指针；APK 本体使用 SHA-256 内容寻址。新版本成功切换后清理旧 APK，因此公开页只显示和保留最新版。需要指定其他构建产物或显式版本时可使用 `-ApkPath`、`-VersionName` 与 `-VersionCode`。
 
 ## 迁移到独立 Cloudflare R2
 

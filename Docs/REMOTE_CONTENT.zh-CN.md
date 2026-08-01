@@ -107,6 +107,8 @@ content/releases/packages/{package-id}/{sha256}.zip
 - `HEAD|POST /api/admin/content/catalog` 只有在全部 ZIP 已存在且验证元数据匹配后才发布，保持 ZIP-first/catalog-last。电脑发布器还会完整读回公开 ZIP/catalog 并复算 Hash，成功后才生成运行配置。
 - Site version 4 同时接受 catalog schema v1/v2；v2 的 localized name、日期、排序、tags、依赖存在性、自依赖和依赖环均在目录写入前失败关闭。
 - `GET /api/content/catalog.json` 与相对的 `packages/{packageId}/{sha}.zip` 允许手机匿名读取；ZIP 支持严格开放式 Range。
+- `GET|HEAD /api/releases/android/latest.json` 与内容寻址的 `/api/releases/android/{sha}.apk` 提供最新版游戏公开下载；APK 支持 Range，但不包含卡牌包或任何发布凭据。
+- 已绑定电脑使用同一私人令牌调用 `HEAD|POST /api/admin/releases/android`。服务端限制 APK 为 200 MiB、验证 ZIP 签名与 SHA-256，按“新 APK → 最新版清单 → 清理旧 APK”切换；网页不读取本机 APK。
 - 公开游戏 API 对 `POST`、`PUT`、`PATCH`、`DELETE` 统一返回 `405 Allow: GET, HEAD`；匿名调用任何管理写接口返回 `401`。电脑令牌不能管理 owner 身份，只能发布内容；游戏配置和 APK 都不持有邮箱、登录会话、R2 binding 或写入凭据。
 - 单个 ZIP 的应用级上传上限暂定 100 MiB，catalog 上限 1 MiB；这是本项目的保护阈值，不代表 Sites 账号容量承诺。
 
@@ -117,6 +119,8 @@ content/releases/packages/{package-id}/{sha256}.zip
 2026-07-30，公网 Catalog 已完成 Phase 2J 全量切换，共 229 包、548,304,599 下载 bytes：218 个英文 Set、1 个 taxonomy、1 个卡牌关联和 9 个世代图鉴图片包。首次全量发布上传 206 个新对象、复用 23 个相同哈希对象；发布器逐包完成 origin 与公网完整 SHA-256 回读后才原子切换 catalog。最终 catalog SHA-256 为 `9ca7c1f8d876c4f6d32c67eb7dbfce089c8e1d27c0c421d4e4d0d1eb7d8e249d`。独立匿名审计通过 229/229 HEAD、229/229 中点 `206 Content-Range` 与 Catalog/ZIP 的 8/8 写方法 `405`，并明确未发送 Authorization。
 
 2026-08-01，公网 Catalog 已切换为正式 schema v2/revision 6，共 538 包、1,302,001,240 下载 bytes。Unity 发布器上传 4 个新增内容寻址对象并复用 534 个旧对象，在逐包 origin/公网完整回读与 SHA-256 复算完成后才发布 504,816-byte Catalog；目录 SHA-256 为 `643c2fa8209745222738401244e410a528e5cb7210657d80d45d5e834bd8ca2b`。独立匿名审计通过 538/538 HEAD、538/538 Range 与 8/8 写入拒绝，且 `authorizationHeaderUsed=false`。游戏继续只在打开内容页时读取小目录，未选择的卡包不会下载到手机。
+
+同日 Site version 5 已加入与小说云端一致的最新版 Android 发布入口。当前 `0.1.0+1` APK 为 53,043,913 bytes，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`；电脑发布器上传后从公开 URL 完整读回并得到相同 Hash。第二个无凭据客户端验证 HEAD `200`、中点 Range `206` 与精确 `Content-Range`，并确认 latest/APK 两条公开路由的 8/8 写方法均为 `405`。以后完成新 APK 构建后执行 `./Tools/Android/publish_apk_to_site.ps1` 即可替换公开最新版，不需要修改 Site 源码或重新部署 Site。
 
 部署后手机配置只需：
 
@@ -198,6 +202,7 @@ $env:GACHA_CONTENT_CATALOG_URL = 'https://你的公开读取域名/releases/andr
 
 ## 当前 Android 私测路径
 
+- 公开下载页现已提供 `0.1.0+1` 最新 APK；文件为 53,043,913 bytes，SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`。APK 先写入内容寻址对象，`latest.json` 最后切换，旧版只在新版本可下载后清理。
 - 2026-08-01 Phase 4 revision 6 已通过正式 Site 发布与匿名只读审计：Catalog schema v2、538 包、1,302,001,240 下载 bytes，HEAD 538/538、Range 538/538、写入拒绝 8/8，读取不携带授权头。完成度审计为 96%；剩余 4% 只等待已授权 Android 目标上的安装、远端配置和实体体验验证。
 - 2026-07-30 Phase 3 revision 4 已通过正式 Site 发布与匿名只读审计：Catalog 537 包、1,301,893,754 下载 bytes，HEAD 537/537、Range 537/537、写入拒绝 8/8，读取不携带授权头。最终 ARM64 APK 为 52,643,378 bytes，SHA-256 `cdf68dd6f9cc2cb796d437ef22a61774a25df650d964bc16f7ed711a1234b2a4`；418 个 APK 条目中私人内容命中 0，设备配置仍只有公开 URL、15 秒超时与 1 MiB Catalog 上限。
 - 2026-08-01 的默认入口 ARM64 APK 为 53,043,913 bytes（50.59 MiB），SHA-256 `782c9c8767f0cb2b48779231ba1549d52a729deeb0782169e673dfd62fa9b3d9`；构建报告确认 158-byte `RemoteContent.json` 进入 Resources。419 个 APK 条目中私人内容名称匹配 0，仅 `arm64-v8a`，target SDK 36，权限只含网络状态、Internet、震动与动态 receiver 保护，签名和 zipalign 均通过。
