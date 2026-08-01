@@ -17,9 +17,11 @@ type PublisherCredentialStatus = {
 export default function ReleasePublisher({
   initialStatus,
   initialCredential,
+  initialAndroidRelease,
 }: {
   initialStatus: PublishedStatus;
   initialCredential: PublisherCredentialStatus;
+  initialAndroidRelease: { versionName: string; versionCode: number } | null;
 }) {
   const [credential, setCredential] = useState(initialCredential);
   const [tokenSha256, setTokenSha256] = useState("");
@@ -75,6 +77,7 @@ export default function ReleasePublisher({
         <div><span>存储</span><strong>Sites R2</strong></div>
         <div><span>公开版本</span><strong>{initialStatus.published ? `r${initialStatus.revision}` : "未发布"}</strong></div>
         <div><span>内容包</span><strong>{initialStatus.packageCount ?? 0}</strong></div>
+        <div><span>Android APK</span><strong>{initialAndroidRelease ? `${initialAndroidRelease.versionName}+${initialAndroidRelease.versionCode}` : "未发布"}</strong></div>
         <div><span>电脑发布器</span><strong>{credential.configured ? "已绑定" : "未绑定"}</strong></div>
       </section>
 
@@ -89,7 +92,7 @@ export default function ReleasePublisher({
           </span>
         </div>
         <p>
-          Unity 在本机生成随机令牌，只把 SHA-256 粘贴到这里。服务器不保存明文；卡包由电脑直接上传，网页不再读取文件。
+          Unity 在本机生成随机令牌，只把 SHA-256 粘贴到这里。服务器不保存明文；卡包与 APK 都由电脑直接上传，网页不读取文件。
         </p>
 
         {credential.configured && (
@@ -118,7 +121,7 @@ export default function ReleasePublisher({
         <ol className="pairing-steps">
           <li>Unity：Tools → Universal Gacha → Sites Content Publisher</li>
           <li>生成本机凭据并复制 Binding SHA-256</li>
-          <li>在这里绑定一次；以后直接从 Unity 发布</li>
+          <li>在这里绑定一次；以后直接从电脑发布内容与 APK</li>
         </ol>
 
         <div className="publisher-actions">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AndroidReleaseDownload from "./android-release-download";
 
 export const metadata: Metadata = {
   title: "内容中继站 | Universal Gacha",
@@ -22,10 +23,13 @@ export default function Home() {
           手机只读取经过大小与 SHA-256 验证的 catalog；未来迁往 Cloudflare R2 时，抽卡逻辑无需改写。
         </p>
         <div className="hero-actions">
-          <Link className="primary-action" href="/admin">管理电脑发布器</Link>
+          <a className="primary-action" href="#android-download">下载最新 APK</a>
           <a className="secondary-action" href="/api/content/catalog.json">查看公开 Catalog</a>
+          <Link className="secondary-action" href="/admin">管理电脑发布器</Link>
         </div>
       </section>
+
+      <AndroidReleaseDownload />
 
       <section className="protocol-grid" aria-label="内容发布协议">
         <article>
@@ -47,7 +51,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <span>UNIVERSAL GACHA SIMULATOR</span>
-        <span>CATALOG V1 · ZIP · SHA-256 · RANGE</span>
+        <span>CATALOG V2 · APK · ZIP · SHA-256 · RANGE</span>
       </footer>
     </main>
   );

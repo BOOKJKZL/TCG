@@ -54,6 +54,8 @@ test("server-renders the content relay landing page", async () => {
   assert.match(html, /Universal Gacha Content Relay/);
   assert.match(html, /卡包离开 APK/);
   assert.match(html, /\/api\/content\/catalog\.json/);
+  assert.match(html, /下载最新 APK/);
+  assert.match(html, /下载最新游戏/);
   assert.match(html, /管理电脑发布器/);
   assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
 });
@@ -132,28 +134,66 @@ test("protects publisher APIs by identity, origin, and media type", async () => 
     body: JSON.stringify({ tokenSha256: "0".repeat(64) }),
   });
   assert.equal(crossOriginCredentialWrite.status, 403);
+
+  const anonymousApkWrite = await fetch(`${origin}/api/admin/releases/android`, {
+    method: "POST",
+    headers: { "Content-Type": "application/vnd.android.package-archive" },
+    body: "PK-not-an-apk",
+  });
+  assert.equal(anonymousApkWrite.status, 401);
+
+  const wrongApkMediaType = await fetch(`${origin}/api/admin/releases/android`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain",
+      Origin: origin,
+      "oai-authenticated-user-email": "owner@example.test",
+    },
+    body: "not-an-apk",
+  });
+  assert.equal(wrongApkMediaType.status, 415);
 });
 
 test("removes browser file upload controls from the owner console", async () => {
-  const publisherSource = await readFile(new URL("../app/admin/release-publisher.tsx", import.meta.url), "utf8");
+  const [publisherSource, releaseDownloadSource] = await Promise.all([
+    readFile(new URL("../app/admin/release-publisher.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/android-release-download.tsx", import.meta.url), "utf8"),
+  ]);
   assert.doesNotMatch(publisherSource, /type="file"|archiveFiles|catalogFile/);
   assert.match(publisherSource, /Binding SHA-256|绑定电脑发布器/);
+  assert.match(publisherSource, /Android APK/);
+  assert.match(releaseDownloadSource, /api\/releases\/android\/latest\.json/);
+  assert.match(releaseDownloadSource, /下载 Android APK/);
+  assert.doesNotMatch(releaseDownloadSource, /type="file"/);
 });
 
 test("keeps every public game content route strictly read-only", async () => {
   const routes = [
-    "/api/content/catalog.json",
-    `/api/content/packages/en.base1/${"0".repeat(64)}.zip`,
+    { pathname: "/api/content/catalog.json", error: "游戏内容接口仅允许只读访问。" },
+    { pathname: `/api/content/packages/en.base1/${"0".repeat(64)}.zip`, error: "游戏内容接口仅允许只读访问。" },
+    { pathname: "/api/releases/android/latest.json", error: "公开安装包接口仅允许只读访问。" },
+    { pathname: `/api/releases/android/${"0".repeat(64)}.apk`, error: "公开安装包接口仅允许只读访问。" },
   ];
 
-  for (const pathname of routes) {
+  for (const { pathname, error } of routes) {
     for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
       const response = await fetch(`${origin}${pathname}`, { method });
       assert.equal(response.status, 405, `${method} ${pathname}`);
       assert.equal(response.headers.get("allow"), "GET, HEAD");
       assert.deepEqual(await response.json(), {
-        error: "游戏内容接口仅允许只读访问。",
+        error,
       });
     }
+  }
+});
+
+test("includes private APK publication and public download routes in the worker build", async () => {
+  const worker = await readFile(new URL("../dist/server/index.js", import.meta.url), "utf8");
+  for (const route of [
+    "/api/admin/releases/android",
+    "/api/releases/android/latest.json",
+    "/api/releases/android/:sha256",
+  ]) {
+    assert.match(worker, new RegExp(route.replaceAll("/", "\\/")));
   }
 });
