@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-top-bar" class="mobile-top-bar">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="top-bar-leading" class="mobile-top-bar__leading" picking-mode="Ignore">
+            <ui:VisualElement class="mobile-top-bar__lens" picking-mode="Ignore" />
+            <ui:VisualElement class="mobile-top-bar__light mobile-top-bar__light--0" picking-mode="Ignore" />
+            <ui:VisualElement class="mobile-top-bar__light mobile-top-bar__light--1" picking-mode="Ignore" />
+            <ui:VisualElement class="mobile-top-bar__light mobile-top-bar__light--2" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="top-bar-copy" class="mobile-top-bar__copy">
+            <ui:Label name="top-bar-title" class="mobile-top-bar__title" />
+            <ui:Label name="top-bar-subtitle" class="mobile-top-bar__subtitle" />
+        </ui:VisualElement>
+        <ui:VisualElement name="top-bar-actions" class="mobile-top-bar__actions" />
+    </ui:VisualElement>
+</ui:UXML>

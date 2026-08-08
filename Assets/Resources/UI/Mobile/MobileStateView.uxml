@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-state-view" class="mobile-state-card">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:Label name="state-icon" text="◇" class="mobile-state-card__icon" picking-mode="Ignore" />
+        <ui:Label name="state-title" class="mobile-state-card__title" />
+        <ui:Label name="state-body" class="mobile-state-card__body" />
+        <ui:VisualElement name="state-actions" class="mobile-state-card__actions" />
+    </ui:VisualElement>
+</ui:UXML>

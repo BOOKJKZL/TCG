@@ -116,11 +116,24 @@ public class ContentManagementPresentationTests
         string view = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
         string controller = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
+        string sharedAction = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/MobileGameDesignSystem.cs");
         Match normalRule = Regex.Match(styles, @"(?ms)^\.content-button\s*\{(?<body>.*?)\}");
         Match pressedRule = Regex.Match(styles, @"(?ms)^\.content-button__label\.is-pressed\s*\{(?<body>.*?)\}");
+        Match disabledRule = Regex.Match(styles, @"(?ms)^\.content-button__label\.is-disabled\s*\{(?<body>.*?)\}");
+        Match focusRule = Regex.Match(styles, @"(?ms)^\.content-button:focus \.content-button__label\s*\{(?<body>.*?)\}");
+        Match disabledFocusRule = Regex.Match(styles,
+            @"(?ms)^\.content-button:focus \.content-button__label\.is-disabled\s*\{(?<body>.*?)\}");
 
         Assert.That(normalRule.Success, Is.True);
         Assert.That(pressedRule.Success, Is.True);
+        Assert.That(disabledRule.Success, Is.True,
+            "Unavailable shared actions need visible child-label feedback without disabling the root.");
+        Assert.That(focusRule.Success, Is.True,
+            "Keyboard focus must remain visible without mutating the root render background.");
+        Assert.That(disabledFocusRule.Success, Is.True,
+            "Focus must not override the unavailable action's disabled appearance.");
+        Assert.That(disabledFocusRule.Groups["body"].Value, Does.Contain("rgba(171, 190, 204, 0.58)"));
         Assert.That(view, Does.Not.Contain("<ui:Button"),
             "The Android content page must use stable VisualElement + Label action controls.");
         Assert.That(styles, Does.Not.Contain(".content-button:active"),
@@ -135,8 +148,11 @@ public class ContentManagementPresentationTests
         Assert.That(pressedRule.Groups["body"].Value, Does.Not.Contain("border-color:"));
         Assert.That(pressedRule.Groups["body"].Value, Does.Contain("color:"),
             "Manual pressed feedback should repaint only the child label.");
-        Assert.That(controller, Does.Contain("Label.EnableInClassList(\"is-pressed\", value);"));
-        Assert.That(controller, Does.Not.Contain("Root.EnableInClassList(\"is-pressed\", value);"),
+        Assert.That(controller, Does.Contain("MobileActionControl"),
+            "Content must exercise the shared Android-safe action binding.");
+        Assert.That(controller, Does.Not.Contain("class StableActionControl"));
+        Assert.That(sharedAction, Does.Contain("Label.EnableInClassList(\"is-pressed\", value);"));
+        Assert.That(sharedAction, Does.Not.Contain("Root.EnableInClassList(\"is-pressed\", value);"),
             "Pointer input must never mutate the Android background render node.");
     }
 

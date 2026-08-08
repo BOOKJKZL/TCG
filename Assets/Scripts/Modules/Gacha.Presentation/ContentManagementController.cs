@@ -98,136 +98,6 @@ namespace Gacha.Presentation
                 ["content.progress"] = "{0}% · {1} / {2}"
             };
 
-        /// <summary>
-        /// UI Toolkit's Android Button render path can retain corrupted text/background geometry
-        /// after native :active or disabled state changes. This control keeps a plain, immutable
-        /// VisualElement + Label hierarchy and implements pointer/keyboard activation itself.
-        /// </summary>
-        private sealed class StableActionControl
-        {
-            private readonly Action clicked;
-            private int pressedPointerId = -1;
-            private bool keyboardPressed;
-
-            public StableActionControl(VisualElement root, Action clicked)
-            {
-                Root = root ?? throw new ArgumentNullException(nameof(root));
-                this.clicked = clicked ?? throw new ArgumentNullException(nameof(clicked));
-                Label = Root.Q<Label>();
-                if (Label == null)
-                {
-                    Label = new Label();
-                    Label.AddToClassList("content-button__label");
-                    Root.Add(Label);
-                }
-                Label.pickingMode = PickingMode.Ignore;
-                Root.focusable = true;
-                Root.pickingMode = PickingMode.Position;
-                Root.RegisterCallback<PointerDownEvent>(OnPointerDown);
-                Root.RegisterCallback<PointerUpEvent>(OnPointerUp);
-                Root.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
-                Root.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
-                Root.RegisterCallback<KeyDownEvent>(OnKeyDown);
-                Root.RegisterCallback<KeyUpEvent>(OnKeyUp);
-                Root.RegisterCallback<BlurEvent>(OnBlur);
-            }
-
-            public VisualElement Root { get; }
-            public Label Label { get; }
-            public bool Allowed { get; set; } = true;
-
-            public void SetLabel(string value)
-            {
-                if (!string.Equals(Label.text, value, StringComparison.Ordinal))
-                    Label.text = value;
-            }
-
-            private void OnPointerDown(PointerDownEvent evt)
-            {
-                if (evt.button != 0 || pressedPointerId >= 0)
-                    return;
-                pressedPointerId = evt.pointerId;
-                Root.CapturePointer(evt.pointerId);
-                Root.Focus();
-                SetPressed(true);
-                evt.StopPropagation();
-            }
-
-            private void OnPointerUp(PointerUpEvent evt)
-            {
-                if (evt.pointerId != pressedPointerId)
-                    return;
-                bool activate = Root.worldBound.Contains(evt.position);
-                ResetPointer(evt.pointerId);
-                if (activate && Allowed)
-                    clicked();
-                evt.StopPropagation();
-            }
-
-            private void OnPointerCancel(PointerCancelEvent evt)
-            {
-                ResetPointer(evt.pointerId);
-            }
-
-            private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
-            {
-                if (evt.pointerId == pressedPointerId)
-                {
-                    pressedPointerId = -1;
-                    SetPressed(false);
-                }
-            }
-
-            private void OnKeyDown(KeyDownEvent evt)
-            {
-                if (!IsActivationKey(evt.keyCode) || keyboardPressed)
-                    return;
-                keyboardPressed = true;
-                SetPressed(true);
-                evt.StopPropagation();
-            }
-
-            private void OnKeyUp(KeyUpEvent evt)
-            {
-                if (!IsActivationKey(evt.keyCode) || !keyboardPressed)
-                    return;
-                keyboardPressed = false;
-                SetPressed(false);
-                if (Allowed)
-                    clicked();
-                evt.StopPropagation();
-            }
-
-            private void OnBlur(BlurEvent evt)
-            {
-                keyboardPressed = false;
-                SetPressed(false);
-            }
-
-            private void ResetPointer(int pointerId)
-            {
-                if (pointerId != pressedPointerId)
-                    return;
-                pressedPointerId = -1;
-                if (Root.HasPointerCapture(pointerId))
-                    Root.ReleasePointer(pointerId);
-                SetPressed(false);
-            }
-
-            private void SetPressed(bool value)
-            {
-                // Keep the Android background/border render node immutable. Only the
-                // child label changes color while pressed; root color transitions have
-                // reproduced stale or missing backgrounds under SwiftShader/GLES.
-                Label.EnableInClassList("is-pressed", value);
-            }
-
-            private static bool IsActivationKey(KeyCode key)
-            {
-                return key == KeyCode.Return || key == KeyCode.KeypadEnter || key == KeyCode.Space;
-            }
-        }
-
         private sealed class PackageRow
         {
             public PackageRow(
@@ -297,10 +167,10 @@ namespace Gacha.Presentation
             public Label Status { get; }
             public ProgressBar Progress { get; }
             public VisualElement Actions { get; }
-            public StableActionControl Download { get; }
-            public StableActionControl Pause { get; }
-            public StableActionControl Remove { get; }
-            public StableActionControl Cancel { get; }
+            public MobileActionControl Download { get; }
+            public MobileActionControl Pause { get; }
+            public MobileActionControl Remove { get; }
+            public MobileActionControl Cancel { get; }
             public InstalledContentPackage Installed { get; set; }
             public string LifecycleError { get; set; }
             public bool AwaitingRemovalConfirmation { get; set; }
@@ -354,14 +224,14 @@ namespace Gacha.Presentation
                 Animation = null;
             }
 
-            private static StableActionControl ActionControl(string name, Action clicked)
+            private static MobileActionControl ActionControl(string name, Action clicked)
             {
                 var root = new VisualElement { name = name + "-button" };
                 root.AddToClassList("content-button");
                 var label = new Label { name = name + "-button-label" };
                 label.AddToClassList("content-button__label");
                 root.Add(label);
-                return new StableActionControl(root, clicked);
+                return new MobileActionControl(root, clicked, fallbackLabelClass: "content-button__label");
             }
         }
 
@@ -397,17 +267,17 @@ namespace Gacha.Presentation
         private Label subtitle;
         private Label catalogStatus;
         private Label emptyState;
-        private StableActionControl backAction;
-        private StableActionControl refreshAction;
-        private StableActionControl selectFilteredAction;
-        private StableActionControl clearSelectionAction;
-        private StableActionControl downloadSelectedAction;
-        private StableActionControl queuePauseAction;
-        private StableActionControl queueResumeAction;
-        private StableActionControl queueRetryAction;
-        private StableActionControl queueCancelAction;
-        private StableActionControl errorRetryAction;
-        private StableActionControl errorHomeAction;
+        private MobileActionControl backAction;
+        private MobileActionControl refreshAction;
+        private MobileActionControl selectFilteredAction;
+        private MobileActionControl clearSelectionAction;
+        private MobileActionControl downloadSelectedAction;
+        private MobileActionControl queuePauseAction;
+        private MobileActionControl queueResumeAction;
+        private MobileActionControl queueRetryAction;
+        private MobileActionControl queueCancelAction;
+        private MobileActionControl errorRetryAction;
+        private MobileActionControl errorHomeAction;
         private PlayerUiErrorPresenter errorPresenter;
         private ContentPackageCatalog catalog;
         private ContentPackageLibrarySnapshot library;
@@ -720,6 +590,7 @@ namespace Gacha.Presentation
             safeAreaBinding = null;
             errorPresenter?.Dispose();
             errorPresenter = null;
+            DisposeGlobalActions();
             destroyed = true;
             loadGeneration++;
             loadCancellation?.Cancel();
@@ -744,6 +615,32 @@ namespace Gacha.Presentation
             installQueue = null;
             queueStateStore = null;
             ClearOperations();
+        }
+
+        private void DisposeGlobalActions()
+        {
+            backAction?.Dispose();
+            refreshAction?.Dispose();
+            selectFilteredAction?.Dispose();
+            clearSelectionAction?.Dispose();
+            downloadSelectedAction?.Dispose();
+            queuePauseAction?.Dispose();
+            queueResumeAction?.Dispose();
+            queueRetryAction?.Dispose();
+            queueCancelAction?.Dispose();
+            errorRetryAction?.Dispose();
+            errorHomeAction?.Dispose();
+            backAction = null;
+            refreshAction = null;
+            selectFilteredAction = null;
+            clearSelectionAction = null;
+            downloadSelectedAction = null;
+            queuePauseAction = null;
+            queueResumeAction = null;
+            queueRetryAction = null;
+            queueCancelAction = null;
+            errorRetryAction = null;
+            errorHomeAction = null;
         }
 
         private void BuildView()
@@ -792,40 +689,40 @@ namespace Gacha.Presentation
                 errorRetryRoot == null || errorHomeRoot == null)
                 throw new InvalidOperationException("Content management view is missing required named elements.");
 
-            backAction = new StableActionControl(backRoot, BackToMenu);
-            refreshAction = new StableActionControl(refreshRoot, RefreshClicked);
-            errorRetryAction = new StableActionControl(errorRetryRoot, () => RetryCatalog());
-            errorHomeAction = new StableActionControl(errorHomeRoot, BackToMenu);
+            backAction = new MobileActionControl(backRoot, BackToMenu);
+            refreshAction = new MobileActionControl(refreshRoot, RefreshClicked);
+            errorRetryAction = new MobileActionControl(errorRetryRoot, () => RetryCatalog());
+            errorHomeAction = new MobileActionControl(errorHomeRoot, BackToMenu);
             errorPresenter = new PlayerUiErrorPresenter(
                 errorPanel, errorTitle, errorBody, errorRetryRoot, home: errorHomeRoot);
-            selectFilteredAction = new StableActionControl(selectFilteredRoot, () =>
+            selectFilteredAction = new MobileActionControl(selectFilteredRoot, () =>
             {
                 UIFeedbackService.Play(FeedbackCue.ButtonClick);
                 SelectAllFilteredPackages();
             });
-            clearSelectionAction = new StableActionControl(clearSelectionRoot, () =>
+            clearSelectionAction = new MobileActionControl(clearSelectionRoot, () =>
             {
                 UIFeedbackService.Play(FeedbackCue.ButtonClick);
                 ClearPackageSelection();
             });
-            downloadSelectedAction = new StableActionControl(downloadSelectedRoot, () =>
+            downloadSelectedAction = new MobileActionControl(downloadSelectedRoot, () =>
             {
                 if (StartSelectedPackages())
                     RefreshSelectionUi();
             });
-            queuePauseAction = new StableActionControl(queuePauseRoot, () =>
+            queuePauseAction = new MobileActionControl(queuePauseRoot, () =>
             {
                 if (PauseInstallQueue()) UIFeedbackService.Play(FeedbackCue.ButtonClick);
             });
-            queueResumeAction = new StableActionControl(queueResumeRoot, () =>
+            queueResumeAction = new MobileActionControl(queueResumeRoot, () =>
             {
                 if (ResumeInstallQueue()) UIFeedbackService.Play(FeedbackCue.ButtonClick);
             });
-            queueRetryAction = new StableActionControl(queueRetryRoot, () =>
+            queueRetryAction = new MobileActionControl(queueRetryRoot, () =>
             {
                 if (RetryFailedQueueItems()) UIFeedbackService.Play(FeedbackCue.ButtonClick);
             });
-            queueCancelAction = new StableActionControl(queueCancelRoot, () =>
+            queueCancelAction = new MobileActionControl(queueCancelRoot, () =>
             {
                 if (CancelInstallQueue()) UIFeedbackService.Play(FeedbackCue.Back);
             });
@@ -1423,7 +1320,7 @@ namespace Gacha.Presentation
             bindingWifiOnly = false;
         }
 
-        private static void ConfigureGlobalAction(StableActionControl action, bool allowed)
+        private static void ConfigureGlobalAction(MobileActionControl action, bool allowed)
         {
             if (action == null)
                 return;
@@ -2119,7 +2016,7 @@ namespace Gacha.Presentation
             KeepRenderNodeStable(row.Cancel);
         }
 
-        private static void KeepRenderNodeStable(StableActionControl action)
+        private static void KeepRenderNodeStable(MobileActionControl action)
         {
             action.Root.style.visibility = Visibility.Visible;
             action.Root.style.display = DisplayStyle.Flex;

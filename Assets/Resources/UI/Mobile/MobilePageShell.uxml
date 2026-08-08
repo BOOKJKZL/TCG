@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-page" class="mobile-page mobile-design-system">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="safe-area" class="mobile-page__safe-area">
+            <ui:VisualElement name="header-slot" class="mobile-page__header-slot" />
+            <ui:VisualElement name="content-slot" class="mobile-page__content-slot" />
+            <ui:VisualElement name="bottom-navigation-slot" class="mobile-page__bottom-slot" />
+            <ui:VisualElement name="overlay-layer" class="mobile-page__overlay-layer" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="modal-layer" class="mobile-page__modal-layer" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

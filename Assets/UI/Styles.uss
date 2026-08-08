@@ -432,6 +432,18 @@
     color: rgb(132, 239, 247);
 }
 
+.content-button__label.is-disabled {
+    color: rgba(171, 190, 204, 0.58);
+}
+
+.content-button:focus .content-button__label {
+    color: rgb(255, 239, 142);
+}
+
+.content-button:focus .content-button__label.is-disabled {
+    color: rgba(171, 190, 204, 0.58);
+}
+
 .content-button--primary {
     background-color: rgb(37, 137, 104);
 }

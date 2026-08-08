@@ -322,6 +322,16 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(pause.enabledSelf, Is.True);
                 Assert.That(remove.enabledSelf, Is.True);
                 Assert.That(cancel.enabledSelf, Is.True);
+                Label unavailableRemoveLabel = remove.Q<Label>();
+                Assert.That(unavailableRemoveLabel.ClassListContains("is-disabled"), Is.True);
+                remove.Focus();
+                yield return null;
+                Color unavailableColor = unavailableRemoveLabel.resolvedStyle.color;
+                Assert.That(unavailableColor.r, Is.EqualTo(171f / 255f).Within(0.02f));
+                Assert.That(unavailableColor.g, Is.EqualTo(190f / 255f).Within(0.02f));
+                Assert.That(unavailableColor.b, Is.EqualTo(204f / 255f).Within(0.02f));
+                Assert.That(unavailableColor.a, Is.EqualTo(0.58f).Within(0.02f),
+                    "Focused unavailable actions must retain disabled visual semantics.");
                 ScrollView packageScroll = document.rootVisualElement.Q<ListView>("package-list").Q<ScrollView>();
                 Assert.That(packageScroll, Is.Not.Null);
                 packageScroll.ScrollTo(pause);

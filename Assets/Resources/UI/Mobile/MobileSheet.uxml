@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-sheet" class="mobile-sheet">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="sheet-scrim" class="mobile-sheet__scrim" />
+        <ui:VisualElement name="sheet-safe-area" class="mobile-sheet__safe-area" picking-mode="Ignore">
+            <ui:VisualElement name="sheet-panel" class="mobile-sheet__panel">
+                <ui:VisualElement name="sheet-grabber" class="mobile-sheet__grabber" picking-mode="Ignore" />
+                <ui:Label name="sheet-title" class="mobile-sheet__title" />
+                <ui:Label name="sheet-body" class="mobile-sheet__body" />
+                <ui:VisualElement name="sheet-content" class="mobile-sheet__content" />
+                <ui:VisualElement name="sheet-actions" class="mobile-sheet__actions" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

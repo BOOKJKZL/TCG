@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-toast" class="mobile-toast" picking-mode="Ignore">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:Label name="toast-label" class="mobile-toast__label" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

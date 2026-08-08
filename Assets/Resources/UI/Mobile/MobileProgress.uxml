@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-progress" class="mobile-progress">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="progress-header" class="mobile-progress__header">
+            <ui:Label name="progress-label" class="mobile-progress__label" />
+            <ui:Label name="progress-value" text="0%" class="mobile-progress__value" />
+        </ui:VisualElement>
+        <ui:ProgressBar name="progress-bar" low-value="0" high-value="100" value="0" class="mobile-progress__bar" />
+    </ui:VisualElement>
+</ui:UXML>

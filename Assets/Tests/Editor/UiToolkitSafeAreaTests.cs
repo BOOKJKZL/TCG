@@ -94,6 +94,15 @@ public sealed class UiToolkitSafeAreaTests
     }
 
     [Test]
+    public void CompactBindingPaddingOverridesCapturedBaseWithoutLosingNormalPadding()
+    {
+        Assert.That(UiToolkitSafeArea.ResolveBasePadding(24f, false, 12f), Is.EqualTo(24f));
+        Assert.That(UiToolkitSafeArea.ResolveBasePadding(24f, true, 12f), Is.EqualTo(12f));
+        Assert.That(UiToolkitSafeArea.ResolveBasePadding(16f, true, null), Is.EqualTo(16f));
+        Assert.That(UiToolkitSafeArea.ResolveBasePadding(float.NaN, false, 12f), Is.Zero);
+    }
+
+    [Test]
     public void AttachIsIdempotentAndDisposeAllowsCleanReattach()
     {
         VisualElement root = new VisualElement();

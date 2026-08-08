@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-card" class="mobile-card">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="card-header" class="mobile-card__header" />
+        <ui:VisualElement name="card-body" class="mobile-card__body" />
+        <ui:VisualElement name="card-footer" class="mobile-card__footer" />
+    </ui:VisualElement>
+</ui:UXML>

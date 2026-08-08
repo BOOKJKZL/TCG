@@ -1,0 +1,525 @@
+.mobile-design-system {
+    color: rgb(236, 247, 255);
+}
+
+.mobile-page {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgb(7, 20, 35);
+}
+
+.mobile-page__safe-area {
+    flex-grow: 1;
+    width: 100%;
+    padding: 24px;
+}
+
+.mobile-page__header-slot,
+.mobile-page__bottom-slot {
+    flex-shrink: 0;
+}
+
+.mobile-page__content-slot {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.mobile-page__overlay-layer,
+.mobile-page__modal-layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.mobile-top-bar {
+    min-height: 82px;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 16px;
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: rgba(72, 179, 207, 0.62);
+    background-color: rgba(15, 43, 67, 0.98);
+}
+
+.mobile-top-bar__leading {
+    width: 94px;
+    min-width: 94px;
+    flex-direction: row;
+    align-items: center;
+    margin-right: 12px;
+}
+
+.mobile-top-bar__lens {
+    width: 38px;
+    height: 38px;
+    margin-right: 5px;
+    border-width: 4px;
+    border-radius: 21px;
+    border-color: rgb(235, 249, 255);
+    background-color: rgb(66, 204, 241);
+}
+
+.mobile-top-bar__light {
+    width: 10px;
+    height: 10px;
+    margin-left: 4px;
+    border-width: 2px;
+    border-radius: 6px;
+    border-color: rgba(255, 255, 255, 0.72);
+}
+
+.mobile-top-bar__light--0 { background-color: rgb(240, 74, 81); }
+.mobile-top-bar__light--1 { background-color: rgb(255, 211, 65); }
+.mobile-top-bar__light--2 { background-color: rgb(78, 203, 128); }
+
+.mobile-top-bar__copy {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.mobile-top-bar__title {
+    color: rgb(255, 255, 255);
+    font-size: 28px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.mobile-top-bar__subtitle {
+    margin-top: 3px;
+    color: rgb(160, 194, 214);
+    font-size: 15px;
+    white-space: normal;
+}
+
+.mobile-top-bar__subtitle.is-empty,
+.mobile-sheet__body.is-empty {
+    display: none;
+}
+
+.mobile-top-bar__actions {
+    flex-shrink: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: 10px;
+}
+
+.mobile-top-bar__action {
+    min-width: 112px;
+    margin-left: 8px;
+}
+
+.mobile-action {
+    position: relative;
+    min-width: 112px;
+    min-height: 50px;
+    height: 50px;
+    padding-left: 16px;
+    padding-right: 16px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-width: 1px;
+    border-radius: 14px;
+    border-color: rgba(111, 209, 231, 0.9);
+    background-color: rgb(34, 112, 148);
+}
+
+.mobile-action--primary {
+    border-color: rgba(115, 236, 193, 0.9);
+    background-color: rgb(30, 132, 99);
+}
+
+.mobile-action--quiet,
+.mobile-action--navigation {
+    border-color: rgba(125, 165, 190, 0.74);
+    background-color: rgb(38, 65, 86);
+}
+
+.mobile-action--danger {
+    border-color: rgba(244, 132, 143, 0.92);
+    background-color: rgb(151, 49, 65);
+}
+
+.mobile-action__focus-ring {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 3px;
+    bottom: 3px;
+    opacity: 0;
+    border-width: 2px;
+    border-radius: 10px;
+    border-color: rgb(255, 224, 112);
+}
+
+.mobile-action:focus .mobile-action__focus-ring {
+    opacity: 1;
+}
+
+.mobile-action__selection-indicator {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 4px;
+    height: 3px;
+    opacity: 0;
+    border-radius: 2px;
+    background-color: rgb(255, 214, 74);
+}
+
+.mobile-action__selection-indicator.is-selected {
+    opacity: 1;
+}
+
+.mobile-action__label,
+.mobile-action__loading {
+    color: rgb(255, 255, 255);
+    font-size: 17px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.mobile-action__label.is-pressed {
+    color: rgb(149, 243, 255);
+}
+
+.mobile-action__label.is-disabled {
+    opacity: 0.48;
+}
+
+.mobile-action__label.is-loading {
+    opacity: 0;
+}
+
+.mobile-action__loading {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    opacity: 0;
+}
+
+.mobile-action__loading.is-visible {
+    opacity: 1;
+}
+
+.mobile-bottom-navigation {
+    min-height: 72px;
+    flex-direction: row;
+    align-items: stretch;
+    margin-top: 12px;
+    padding: 8px;
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: rgba(72, 179, 207, 0.5);
+    background-color: rgba(12, 35, 55, 0.98);
+}
+
+.mobile-bottom-navigation__item {
+    flex-grow: 1;
+    min-width: 0;
+    height: 56px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.mobile-card,
+.mobile-state-card,
+.mobile-progress {
+    margin-top: 12px;
+    padding: 18px;
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: rgba(76, 151, 180, 0.56);
+    background-color: rgba(19, 45, 66, 0.98);
+}
+
+.mobile-card__header,
+.mobile-card__footer,
+.mobile-state-card__actions,
+.mobile-progress__header,
+.mobile-sheet__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.mobile-card__body {
+    flex-grow: 1;
+    margin-top: 10px;
+}
+
+.mobile-card__footer {
+    margin-top: 12px;
+}
+
+.mobile-state-card {
+    min-height: 210px;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-state-card__icon {
+    color: rgb(103, 216, 236);
+    font-size: 34px;
+    -unity-text-align: middle-center;
+}
+
+.mobile-state-card__title {
+    margin-top: 8px;
+    color: rgb(255, 255, 255);
+    font-size: 24px;
+    -unity-font-style: bold;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.mobile-state-card__body {
+    margin-top: 8px;
+    max-width: 680px;
+    color: rgb(184, 210, 225);
+    font-size: 17px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.mobile-state-card__actions {
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.mobile-state-card__actions .mobile-action {
+    width: 100%;
+}
+
+.mobile-state-card__action-slot {
+    margin: 4px;
+}
+
+.mobile-error-state {
+    border-width: 2px;
+    border-color: rgb(223, 105, 96);
+    background-color: rgba(73, 28, 34, 0.98);
+}
+
+.mobile-error-state.is-entering,
+.mobile-error-state.is-leaving {
+    border-color: rgb(255, 183, 145);
+}
+
+.mobile-progress__header {
+    justify-content: space-between;
+}
+
+.mobile-progress__label,
+.mobile-progress__value {
+    color: rgb(220, 239, 252);
+    font-size: 16px;
+}
+
+.mobile-progress__label {
+    flex-grow: 1;
+    white-space: normal;
+}
+
+.mobile-progress__value {
+    margin-left: 10px;
+    -unity-font-style: bold;
+}
+
+.mobile-progress__bar {
+    height: 26px;
+    margin-top: 10px;
+}
+
+.mobile-toast {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 96px;
+    min-height: 50px;
+    padding: 12px 16px;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-radius: 14px;
+    border-color: rgba(110, 190, 216, 0.84);
+    background-color: rgba(22, 63, 86, 0.98);
+}
+
+.mobile-toast--success {
+    border-color: rgba(107, 230, 170, 0.9);
+    background-color: rgba(24, 102, 76, 0.98);
+}
+
+.mobile-toast--warning {
+    border-color: rgba(255, 212, 100, 0.92);
+    background-color: rgba(112, 76, 24, 0.98);
+}
+
+.mobile-toast--error {
+    border-color: rgba(244, 132, 143, 0.92);
+    background-color: rgba(112, 37, 50, 0.98);
+}
+
+.mobile-toast__label {
+    color: rgb(255, 255, 255);
+    font-size: 16px;
+    -unity-font-style: bold;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.mobile-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.mobile-sheet__scrim {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.68);
+}
+
+.mobile-sheet__safe-area {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    justify-content: flex-end;
+    padding: 16px;
+}
+
+.mobile-sheet__panel {
+    width: 100%;
+    max-width: 760px;
+    max-height: 82%;
+    align-self: center;
+    padding: 20px;
+    border-width: 1px;
+    border-radius: 24px;
+    border-color: rgba(99, 196, 219, 0.72);
+    background-color: rgb(15, 40, 59);
+}
+
+.mobile-sheet__grabber {
+    width: 58px;
+    height: 5px;
+    align-self: center;
+    margin-bottom: 14px;
+    border-radius: 3px;
+    background-color: rgba(172, 207, 222, 0.72);
+}
+
+.mobile-sheet__title {
+    color: rgb(255, 255, 255);
+    font-size: 25px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.mobile-sheet__body {
+    margin-top: 8px;
+    color: rgb(190, 215, 229);
+    font-size: 17px;
+    white-space: normal;
+}
+
+.mobile-sheet__content {
+    flex-grow: 1;
+    min-height: 0;
+    margin-top: 12px;
+}
+
+.mobile-sheet__actions {
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.mobile-sheet__actions .mobile-action {
+    width: 100%;
+}
+
+.mobile-sheet__action-slot {
+    margin-left: 8px;
+    margin-top: 4px;
+}
+
+.mobile-layout--compact .mobile-top-bar {
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+.mobile-layout--compact .mobile-top-bar__leading {
+    width: 76px;
+    min-width: 76px;
+}
+
+.mobile-layout--compact .mobile-top-bar__copy {
+    min-width: 260px;
+}
+
+.mobile-layout--compact .mobile-top-bar__actions {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+}
+
+.mobile-layout--compact .mobile-top-bar__action {
+    flex-grow: 1;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.mobile-layout--compact .mobile-bottom-navigation {
+    min-height: 68px;
+    padding: 6px;
+}
+
+.mobile-layout--compact .mobile-bottom-navigation__item {
+    min-width: 0;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.mobile-layout--compact .mobile-state-card__actions,
+.mobile-layout--compact .mobile-sheet__actions {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.mobile-layout--compact .mobile-state-card__actions .mobile-action,
+.mobile-layout--compact .mobile-sheet__actions .mobile-action {
+    width: 100%;
+}
+
+.mobile-layout--compact .mobile-state-card__action-slot,
+.mobile-layout--compact .mobile-sheet__action-slot {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.reduce-motion .mobile-toast,
+.reduce-motion .mobile-sheet__panel,
+.reduce-motion .mobile-error-state {
+    transition-duration: 0s;
+}

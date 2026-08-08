@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mobile-action" class="mobile-action mobile-action--standard">
+        <ui:Style src="../MobileGameDesignSystem.uss" />
+        <ui:VisualElement name="action-focus-ring" class="mobile-action__focus-ring" picking-mode="Ignore" />
+        <ui:VisualElement name="action-selection-indicator" class="mobile-action__selection-indicator" picking-mode="Ignore" />
+        <ui:Label name="action-label" class="mobile-action__label" picking-mode="Ignore" />
+        <ui:Label name="action-loading" text="•••" class="mobile-action__loading" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

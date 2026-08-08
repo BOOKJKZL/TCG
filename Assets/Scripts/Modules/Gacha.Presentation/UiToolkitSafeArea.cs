@@ -25,6 +25,7 @@ namespace Gacha.Presentation
     {
         private readonly Action<UiToolkitSafeAreaBinding> onDisposed;
         private readonly EventCallback<GeometryChangedEvent> geometryChanged;
+        private readonly float? compactBasePadding;
         private VisualElement root;
         private IVisualElementScheduledItem poll;
         private bool active;
@@ -42,10 +43,12 @@ namespace Gacha.Presentation
 
         internal UiToolkitSafeAreaBinding(
             VisualElement root,
-            Action<UiToolkitSafeAreaBinding> onDisposed)
+            Action<UiToolkitSafeAreaBinding> onDisposed,
+            float? compactBasePadding)
         {
             this.root = root;
             this.onDisposed = onDisposed;
+            this.compactBasePadding = compactBasePadding;
             geometryChanged = OnGeometryChanged;
             root.AddToClassList(UiToolkitSafeArea.BoundClass);
             Resume();
@@ -53,6 +56,8 @@ namespace Gacha.Presentation
 
         public bool IsDisposed => root == null;
         public bool IsActive => root != null && active;
+        public SafeAreaInsets AppliedPadding { get; private set; }
+        public event Action<SafeAreaInsets> PaddingChanged;
 
         public void Suspend()
         {
@@ -123,13 +128,17 @@ namespace Gacha.Presentation
                 Screen.width,
                 Screen.height,
                 point => RuntimePanelUtils.ScreenToPanel(boundRoot.panel, point));
-            float nextLeft = baseLeft + insets.Left;
-            float nextTop = baseTop + insets.Top;
-            float nextRight = baseRight + insets.Right;
-            float nextBottom = baseBottom + insets.Bottom;
             bool nextCompact = UiToolkitSafeArea.ShouldUseCompactLayout(
                 panelWidth - insets.Left - insets.Right,
                 Screen.safeArea.width);
+            float effectiveLeft = UiToolkitSafeArea.ResolveBasePadding(baseLeft, nextCompact, compactBasePadding);
+            float effectiveTop = UiToolkitSafeArea.ResolveBasePadding(baseTop, nextCompact, compactBasePadding);
+            float effectiveRight = UiToolkitSafeArea.ResolveBasePadding(baseRight, nextCompact, compactBasePadding);
+            float effectiveBottom = UiToolkitSafeArea.ResolveBasePadding(baseBottom, nextCompact, compactBasePadding);
+            float nextLeft = effectiveLeft + insets.Left;
+            float nextTop = effectiveTop + insets.Top;
+            float nextRight = effectiveRight + insets.Right;
+            float nextBottom = effectiveBottom + insets.Bottom;
             if (!hasApplied ||
                 !Mathf.Approximately(appliedLeft, nextLeft) ||
                 !Mathf.Approximately(appliedTop, nextTop) ||
@@ -140,6 +149,8 @@ namespace Gacha.Presentation
                 boundRoot.style.paddingTop = nextTop;
                 boundRoot.style.paddingRight = nextRight;
                 boundRoot.style.paddingBottom = nextBottom;
+                AppliedPadding = new SafeAreaInsets(nextLeft, nextTop, nextRight, nextBottom);
+                PaddingChanged?.Invoke(AppliedPadding);
                 appliedLeft = nextLeft;
                 appliedTop = nextTop;
                 appliedRight = nextRight;
@@ -168,7 +179,9 @@ namespace Gacha.Presentation
         private static readonly Dictionary<VisualElement, UiToolkitSafeAreaBinding> Bindings =
             new Dictionary<VisualElement, UiToolkitSafeAreaBinding>();
 
-        public static UiToolkitSafeAreaBinding Attach(VisualElement root)
+        public static UiToolkitSafeAreaBinding Attach(
+            VisualElement root,
+            float? compactBasePadding = null)
         {
             if (root == null)
                 throw new ArgumentNullException(nameof(root));
@@ -183,7 +196,7 @@ namespace Gacha.Presentation
                 {
                     Bindings.Remove(root);
                 }
-            });
+            }, compactBasePadding);
             Bindings[root] = binding;
             return binding;
         }
@@ -223,6 +236,16 @@ namespace Gacha.Presentation
         {
             return safePanelWidth > 0f && safePixelWidth > 0f &&
                    (safePanelWidth < CompactPanelWidth || safePixelWidth <= CompactPixelWidth);
+        }
+
+        public static float ResolveBasePadding(
+            float normalBasePadding,
+            bool compact,
+            float? compactBasePadding)
+        {
+            return compact && compactBasePadding.HasValue
+                ? Mathf.Max(0f, compactBasePadding.Value)
+                : Mathf.Max(0f, FiniteOrZero(normalBasePadding));
         }
 
         internal static float FiniteOrZero(float value)
