@@ -51,6 +51,40 @@ public class AndroidBuildReadinessTests
             "Emulator acceptance builds must also compact incremental archive tombstones before size verification.");
         Assert.That(AndroidSmokeBuilder.EmulatorUsesBuiltInRenderPipeline, Is.True,
             "The x86_64 emulator artifact must isolate SwiftShader URP failures from software acceptance.");
+
+        Assert.That(AndroidReleaseBuilder.OutputDirectory.Replace('\\', '/'),
+            Is.EqualTo("Builds/Android/Release"));
+        Assert.That(AndroidReleaseBuilder.ReleaseArchitecture, Is.EqualTo(AndroidArchitecture.ARM64));
+        Assert.That(
+            AndroidReleaseBuilder.ReleaseBuildOptions & AndroidReleaseBuilder.ForbiddenReleaseBuildOptions,
+            Is.EqualTo(BuildOptions.None),
+            "Stable builds must not include development, debugging, profiler, test, assertion, or connection flags.");
+        Assert.That(
+            (AndroidReleaseBuilder.ReleaseBuildOptions & BuildOptions.CleanBuildCache) != 0,
+            Is.True);
+        Assert.That(
+            (AndroidReleaseBuilder.ReleaseBuildOptions & BuildOptions.CompressWithLz4HC) != 0,
+            Is.True);
+        Assert.That(
+            AndroidReleaseBuilder.GetOutputPath("0.1.1", 2).Replace('\\', '/'),
+            Is.EqualTo("Builds/Android/Release/UniversalGachaSimulator-release-0.1.1+2.apk"));
+    }
+
+    [Test]
+    public void AndroidRelease_RequiresStrictlyNewVersionAndNonDevelopmentOptions()
+    {
+        Assert.DoesNotThrow(() => AndroidReleaseBuilder.ValidateVersion("0.1.1", 2, 1));
+        Assert.Throws<System.ArgumentOutOfRangeException>(
+            () => AndroidReleaseBuilder.ValidateVersion("0.1.1", 1, 1));
+        Assert.Throws<System.ArgumentException>(
+            () => AndroidReleaseBuilder.ValidateVersion("release-one", 2, 1));
+        Assert.DoesNotThrow(
+            () => AndroidReleaseBuilder.ValidateBuildOptions(AndroidReleaseBuilder.ReleaseBuildOptions));
+        Assert.Throws<System.InvalidOperationException>(
+            () => AndroidReleaseBuilder.ValidateBuildOptions(
+                AndroidReleaseBuilder.ReleaseBuildOptions | BuildOptions.Development));
+        Assert.Throws<System.InvalidOperationException>(
+            () => AndroidReleaseBuilder.ValidateBuildOptions(BuildOptions.CompressWithLz4HC));
     }
 
     [Test]
