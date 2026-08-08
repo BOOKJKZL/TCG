@@ -898,6 +898,62 @@ MonoBehaviour:
     m_Localized: No content packs match the current filters.
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428374
+    m_Localized: Content not installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428375
+    m_Localized: Choose a content pack to continue.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428376
+    m_Localized: You're offline
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428377
+    m_Localized: Connect and retry, or continue with downloaded content.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428378
+    m_Localized: Content list needs attention
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428379
+    m_Localized: Retry. If this continues, manage your downloaded content.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428380
+    m_Localized: Content verification failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428381
+    m_Localized: This content was not installed. Download it again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428382
+    m_Localized: Not enough storage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428383
+    m_Localized: Free some space or remove downloaded content, then retry.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428384
+    m_Localized: Service unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428385
+    m_Localized: Please retry in a moment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428386
+    m_Localized: Couldn't continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428387
+    m_Localized: Retry or return to the main menu.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -34,6 +34,13 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        private sealed class CorruptCatalogProvider : ICatalogProvider
+        {
+            public CatalogLoadResult Load() => CatalogLoadResult.Failure(
+                "/storage/private/Content sentinel-stack",
+                CatalogFailureReason.CatalogCorrupt);
+        }
+
         private sealed class EmptyRemoteCatalogProvider : IContentPackageCatalogProvider
         {
             public int LoadCalls { get; private set; }
@@ -133,22 +140,39 @@ namespace Gacha.Tests.PlayMode
                 new CatalogSession(new EmptyCatalogProvider()),
                 new LanguageSelectionService(new MemoryLanguageStore(), new[] { "en", "zh", "ja" }));
             GameObject host = new GameObject("Empty Pokédex Host");
+            bool manageInvoked = false;
             try
             {
                 var document = host.AddComponent<UIDocument>();
                 document.panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
                 var controller = host.AddComponent<PokemonPokedexController>();
-                controller.Attach(document, manageDownloads: () => { });
+                controller.Attach(document, manageDownloads: () => manageInvoked = true);
 
                 Assert.That(controller.Open(), Is.False);
                 yield return null;
 
-                Button manage = document.rootVisualElement.Q<Button>("pokedex-empty-manage-button");
+                VisualElement errorPanel = document.rootVisualElement.Q<VisualElement>("pokedex-error-panel");
+                Button manage = document.rootVisualElement.Q<Button>("pokedex-error-manage");
                 Assert.That(controller.MissingContent, Is.True);
+                Assert.That(errorPanel, Is.Not.Null);
+                Assert.That(errorPanel.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(manage, Is.Not.Null);
                 Assert.That(manage.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(manage.enabledInHierarchy, Is.True);
                 Assert.That(manage.text, Is.Not.Empty);
+                MethodInfo invokeClick = typeof(Clickable).GetMethod(
+                    "Invoke",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(invokeClick, Is.Not.Null);
+                invokeClick.Invoke(manage.clickable, new object[] { null });
+                Assert.That(manageInvoked, Is.True);
+
+                Assert.That(controller.RetryOpen(), Is.False);
+                Assert.That(errorPanel.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                controller.Close();
+                Assert.That(errorPanel.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("pokedex-overlay")
+                    .resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
             }
             finally
             {
@@ -157,16 +181,52 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
-        [Test]
-        public void ContentReturnNavigation_ConsumesRememberedSceneOnce()
+        [UnityTest]
+        public IEnumerator Pokedex_PreservesStructuredCatalogFailureWithoutLeakingDetail()
         {
-            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            Assert.That(currentScene, Is.Not.Empty);
+            ApplicationServices.Configure(
+                new CatalogSession(new CorruptCatalogProvider()),
+                new LanguageSelectionService(new MemoryLanguageStore(), new[] { "en", "zh", "ja" }));
+            GameObject host = new GameObject("Corrupt Pokédex Host");
+            try
+            {
+                var document = host.AddComponent<UIDocument>();
+                document.panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
+                var controller = host.AddComponent<PokemonPokedexController>();
+                controller.Attach(document);
+
+                Assert.That(controller.Open(), Is.False);
+                yield return null;
+
+                Assert.That(controller.InitializationErrorCode,
+                    Is.EqualTo(PlayerUiErrorCode.CatalogCorrupt));
+                string copy = string.Join("\n", document.rootVisualElement.Query<Label>()
+                    .ToList().Select(label => label.text));
+                Assert.That(copy, Does.Not.Contain("/storage/"));
+                Assert.That(copy, Does.Not.Contain("sentinel-stack"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+                ApplicationServices.Reset();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ContentReturnNavigation_ConsumesRememberedSceneOnce()
+        {
+            UnityEngine.SceneManagement.Scene original =
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            UnityEngine.SceneManagement.Scene source =
+                UnityEngine.SceneManagement.SceneManager.CreateScene("ContentReturnNavigationTestScene");
+            Assert.That(UnityEngine.SceneManagement.SceneManager.SetActiveScene(source), Is.True);
 
             ContentReturnNavigation.RememberCurrentScene();
 
-            Assert.That(ContentReturnNavigation.ConsumeOrDefault("fallback"), Is.EqualTo(currentScene));
+            Assert.That(ContentReturnNavigation.ConsumeOrDefault("fallback"), Is.EqualTo(source.name));
             Assert.That(ContentReturnNavigation.ConsumeOrDefault("fallback"), Is.EqualTo("fallback"));
+            Assert.That(UnityEngine.SceneManagement.SceneManager.SetActiveScene(original), Is.True);
+            yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(source);
         }
     }
 }

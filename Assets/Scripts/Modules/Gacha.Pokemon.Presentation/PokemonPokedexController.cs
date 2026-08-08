@@ -57,6 +57,7 @@ namespace Gacha.Pokemon.Presentation
         private readonly HashSet<string> missingArtworkCatalogs = new HashSet<string>(StringComparer.Ordinal);
         private PokemonPokedexBrowser browser;
         private string taxonomySourceSha256;
+        private PlayerUiError initializationPlayerError;
         private UiToolkitSafeAreaBinding safeAreaBinding;
         private VisualElement root;
         private VisualElement listPage;
@@ -94,6 +95,9 @@ namespace Gacha.Pokemon.Presentation
         private Button speciesCardsButton;
         private Button manageDownloadsButton;
         private Button emptyManageDownloadsButton;
+        private Button errorRetryButton;
+        private Button errorManageButton;
+        private Button errorCloseButton;
         private IVisualElementScheduledItem transitionAnimation;
         private IVisualElementScheduledItem speciesSearchRefresh;
         private IVisualElementScheduledItem cardSearchRefresh;
@@ -109,11 +113,15 @@ namespace Gacha.Pokemon.Presentation
         private bool attached;
         private bool updatingControls;
         private int returnListIndex = -1;
+        private PlayerUiErrorPresenter errorPresenter;
+        private bool uiLanguageSubscribed;
+        private bool contentLanguageSubscribed;
 
         public static PokemonPokedexSnapshotBundle SnapshotOverride { private get; set; }
         public bool IsReady { get; private set; }
         public bool IsOpen => root != null && root.resolvedStyle.display == DisplayStyle.Flex;
         public string InitializationError { get; private set; }
+        public PlayerUiErrorCode? InitializationErrorCode => initializationPlayerError?.Code;
         public bool MissingContent { get; private set; }
         public string LoadedCardLanguageId { get; private set; }
         public int VisibleSpeciesCount => visibleSpecies.Count;
@@ -164,6 +172,18 @@ namespace Gacha.Pokemon.Presentation
             safeAreaBinding = UiToolkitSafeArea.Attach(root);
             QueryElements();
             ConfigureControls();
+            errorPresenter = new PlayerUiErrorPresenter(
+                Required<VisualElement>("pokedex-error-panel"),
+                Required<Label>("pokedex-error-title"),
+                Required<Label>("pokedex-error-body"),
+                errorRetryButton,
+                errorManageButton,
+                close: errorCloseButton);
+            if (ApplicationServices.IsConfigured)
+            {
+                ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
+                uiLanguageSubscribed = true;
+            }
             RefreshLocalizedContent();
             root.style.display = DisplayStyle.None;
             safeAreaBinding.Suspend();
@@ -179,17 +199,17 @@ namespace Gacha.Pokemon.Presentation
             root.BringToFront();
             if (!EnsureReady())
             {
-                status.text = MissingContent
-                    ? PokemonPokedexText.Get("content_missing", UiLanguage)
-                    : PokemonPokedexText.Format("unavailable", UiLanguage, InitializationError);
-                status.AddToClassList("is-error");
-                emptyManageDownloadsButton.style.display = manageDownloads == null
-                    ? DisplayStyle.None
-                    : DisplayStyle.Flex;
-                UIFeedbackService.Play(FeedbackCue.Error);
+                PlayerUiError error = MissingContent
+                    ? PlayerUiErrorMapper.Create(PlayerUiErrorCode.NotInstalled)
+                    : initializationPlayerError ?? PlayerUiErrorMapper.FromDetail(InitializationError);
+                status.text = string.Empty;
+                status.RemoveFromClassList("is-error");
+                emptyManageDownloadsButton.style.display = DisplayStyle.None;
+                errorPresenter.Show(error);
                 AnimateOpen();
                 return false;
             }
+            errorPresenter.Hide();
             status.RemoveFromClassList("is-error");
             ShowList();
             RefreshLocalizedContent();
@@ -204,9 +224,17 @@ namespace Gacha.Pokemon.Presentation
                 return;
             transitionAnimation?.Pause();
             transitionAnimation = null;
+            errorPresenter?.HideImmediately();
             root.style.display = DisplayStyle.None;
             safeAreaBinding?.Suspend();
             UIFeedbackService.Play(FeedbackCue.Back);
+        }
+
+        public bool RetryOpen()
+        {
+            UIFeedbackService.Play(FeedbackCue.ButtonClick);
+            ResetInitializationState();
+            return Open();
         }
 
         public void SetSearch(string value)
@@ -274,10 +302,15 @@ namespace Gacha.Pokemon.Presentation
             {
                 CatalogLoadResult catalogLoad = ApplicationServices.Catalog.EnsureLoaded();
                 if (!catalogLoad.Succeeded)
-                    throw new InvalidOperationException(catalogLoad.ErrorMessage);
+                {
+                    initializationPlayerError = PlayerUiErrorMapper.FromCatalog(catalogLoad);
+                    InitializationError = catalogLoad.ErrorMessage;
+                    return false;
+                }
                 if (!catalogLoad.HasInstalledContent)
                 {
                     MissingContent = true;
+                    initializationPlayerError = PlayerUiErrorMapper.Create(PlayerUiErrorCode.NotInstalled);
                     InitializationError = PokemonPokedexText.Get("content_missing", UiLanguage);
                     return false;
                 }
@@ -295,30 +328,68 @@ namespace Gacha.Pokemon.Presentation
                     cardTextureCache = new CardTextureCache(ApplicationServices.Images, 24);
                 BuildGenerationChoices();
                 RefreshSpeciesList(false);
-                if (ApplicationServices.IsConfigured)
+                if (ApplicationServices.IsConfigured && !contentLanguageSubscribed)
                 {
-                    ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
                     ApplicationServices.Languages.ContentLanguageChanged += OnCardLanguageChanged;
+                    contentLanguageSubscribed = true;
                 }
                 IsReady = true;
+                initializationPlayerError = null;
                 return true;
             }
             catch (Exception exception)
             {
                 InitializationError = exception.Message;
+                initializationPlayerError = PlayerUiErrorMapper.FromException(exception);
                 Debug.LogWarning("Pokédex could not be initialized: " + exception.Message);
                 return false;
             }
+        }
+
+        private void ResetInitializationState()
+        {
+            IsReady = false;
+            MissingContent = false;
+            InitializationError = null;
+            initializationPlayerError = null;
+            browser = null;
+            runtimeCatalog = null;
+            taxonomySourceSha256 = null;
+            LoadedCardLanguageId = null;
+            generationIds.Clear();
+            visibleSpecies.Clear();
+            visibleIntroducedForms.Clear();
+            visibleCards.Clear();
+            artworkView?.Dispose();
+            artworkView = null;
+            artworkCache?.Dispose();
+            artworkCache = null;
+            foreach (AsyncCardImageView image in cardImageViews.ToArray())
+                image.Dispose();
+            cardImageViews.Clear();
+            cardTextureCache?.Dispose();
+            cardTextureCache = null;
+            Required<VisualElement>("pokedex-art-slot").Clear();
+            speciesList.itemsSource = visibleSpecies;
+            introducedFormsList.itemsSource = visibleIntroducedForms;
+            cardList.itemsSource = visibleCards;
+            speciesList.Rebuild();
+            introducedFormsList.Rebuild();
+            cardList.Rebuild();
         }
 
         private void OnDestroy()
         {
             safeAreaBinding?.Dispose();
             safeAreaBinding = null;
+            errorPresenter?.Dispose();
+            errorPresenter = null;
             if (ApplicationServices.IsConfigured)
             {
-                ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
-                ApplicationServices.Languages.ContentLanguageChanged -= OnCardLanguageChanged;
+                if (uiLanguageSubscribed)
+                    ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
+                if (contentLanguageSubscribed)
+                    ApplicationServices.Languages.ContentLanguageChanged -= OnCardLanguageChanged;
             }
             transitionAnimation?.Pause();
             CancelSpeciesSearchRefresh();
@@ -371,6 +442,9 @@ namespace Gacha.Pokemon.Presentation
             speciesCardsButton = Required<Button>("pokedex-species-cards-button");
             manageDownloadsButton = Required<Button>("pokedex-manage-downloads-button");
             emptyManageDownloadsButton = Required<Button>("pokedex-empty-manage-button");
+            errorRetryButton = Required<Button>("pokedex-error-retry");
+            errorManageButton = Required<Button>("pokedex-error-manage");
+            errorCloseButton = Required<Button>("pokedex-error-close");
         }
 
         private T Required<T>(string name) where T : VisualElement =>
@@ -427,6 +501,13 @@ namespace Gacha.Pokemon.Presentation
                 UIFeedbackService.Play(FeedbackCue.Confirm);
                 manageDownloads?.Invoke();
             };
+            errorRetryButton.clicked += () => RetryOpen();
+            errorManageButton.clicked += () =>
+            {
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                manageDownloads?.Invoke();
+            };
+            errorCloseButton.clicked += Close;
             searchField.RegisterValueChangedCallback(evt =>
             {
                 if (!updatingControls && browser != null)
@@ -939,6 +1020,7 @@ namespace Gacha.Pokemon.Presentation
             emptyManageDownloadsButton.text = PokemonPokedexText.Get("manage_downloads", UiLanguage);
             if (IsReady)
                 emptyManageDownloadsButton.style.display = DisplayStyle.None;
+            errorPresenter?.RefreshLanguage();
             cardSearchField.label = PokemonPokedexText.Get("card_search", UiLanguage);
             updatingControls = true;
             cardSortField.label = PokemonPokedexText.Get("card_sort", UiLanguage);
@@ -989,9 +1071,9 @@ namespace Gacha.Pokemon.Presentation
             catch (Exception exception)
             {
                 Debug.LogWarning("Pokédex card language could not be changed: " + exception.Message);
-                status.text = PokemonPokedexText.Format("unavailable", UiLanguage, exception.Message);
-                status.AddToClassList("is-error");
-                UIFeedbackService.Play(FeedbackCue.Error);
+                status.text = string.Empty;
+                status.RemoveFromClassList("is-error");
+                errorPresenter?.Show(PlayerUiErrorMapper.FromException(exception));
             }
         }
 

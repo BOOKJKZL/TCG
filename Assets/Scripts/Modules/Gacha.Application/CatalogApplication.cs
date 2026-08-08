@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Gacha.Domain;
 
 namespace Gacha.Application
@@ -9,6 +10,15 @@ namespace Gacha.Application
         Ready,
         NoInstalledContent,
         Failed
+    }
+
+    public enum CatalogFailureReason
+    {
+        None,
+        CatalogCorrupt,
+        VerificationFailed,
+        ServiceUnavailable,
+        Unexpected
     }
 
     public interface ICatalogProvider
@@ -25,7 +35,8 @@ namespace Gacha.Application
             int printingCount,
             IReadOnlyList<string> warnings,
             string errorMessage,
-            CatalogLoadState state)
+            CatalogLoadState state,
+            CatalogFailureReason failureReason)
         {
             Catalog = catalog;
             SourceSetCount = sourceSetCount;
@@ -34,6 +45,7 @@ namespace Gacha.Application
             Warnings = warnings ?? Array.Empty<string>();
             ErrorMessage = errorMessage;
             State = state;
+            FailureReason = failureReason;
         }
 
         public bool Succeeded => Catalog != null && string.IsNullOrEmpty(ErrorMessage);
@@ -44,6 +56,7 @@ namespace Gacha.Application
         public IReadOnlyList<string> Warnings { get; }
         public string ErrorMessage { get; }
         public CatalogLoadState State { get; }
+        public CatalogFailureReason FailureReason { get; }
         public bool HasInstalledContent => State == CatalogLoadState.Ready;
 
         public static CatalogLoadResult Success(
@@ -63,10 +76,13 @@ namespace Gacha.Application
                 printingCount,
                 warnings,
                 null,
-                printingCount == 0 ? CatalogLoadState.NoInstalledContent : CatalogLoadState.Ready);
+                printingCount == 0 ? CatalogLoadState.NoInstalledContent : CatalogLoadState.Ready,
+                CatalogFailureReason.None);
         }
 
-        public static CatalogLoadResult Failure(string errorMessage)
+        public static CatalogLoadResult Failure(
+            string errorMessage,
+            CatalogFailureReason reason = CatalogFailureReason.Unexpected)
         {
             if (string.IsNullOrWhiteSpace(errorMessage))
                 throw new ArgumentException("A catalog failure needs an error message.", nameof(errorMessage));
@@ -78,7 +94,8 @@ namespace Gacha.Application
                 0,
                 Array.Empty<string>(),
                 errorMessage.Trim(),
-                CatalogLoadState.Failed);
+                CatalogLoadState.Failed,
+                reason == CatalogFailureReason.None ? CatalogFailureReason.Unexpected : reason);
         }
     }
 
@@ -111,11 +128,20 @@ namespace Gacha.Application
             }
             catch (Exception exception)
             {
-                current = CatalogLoadResult.Failure(exception.Message);
+                current = CatalogLoadResult.Failure(exception.Message, FailureReasonFor(exception));
             }
 
             Changed?.Invoke(current);
             return current;
+        }
+
+        private static CatalogFailureReason FailureReasonFor(Exception exception)
+        {
+            if (exception is InvalidDataException || exception is FormatException)
+                return CatalogFailureReason.CatalogCorrupt;
+            if (exception is UnauthorizedAccessException || exception is IOException)
+                return CatalogFailureReason.ServiceUnavailable;
+            return CatalogFailureReason.Unexpected;
         }
     }
 

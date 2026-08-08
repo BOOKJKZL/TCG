@@ -406,6 +406,9 @@ namespace Gacha.Presentation
         private StableActionControl queueResumeAction;
         private StableActionControl queueRetryAction;
         private StableActionControl queueCancelAction;
+        private StableActionControl errorRetryAction;
+        private StableActionControl errorHomeAction;
+        private PlayerUiErrorPresenter errorPresenter;
         private ContentPackageCatalog catalog;
         private ContentPackageLibrarySnapshot library;
         private readonly List<ContentPackageLibraryItem> displayedItems =
@@ -434,6 +437,8 @@ namespace Gacha.Presentation
         private bool destroyed;
         private bool catalogUsedCache;
         private bool catalogHasCacheWarning;
+        private bool catalogQueryAllowed;
+        private bool initialCatalogLoadPending;
 
         public static IContentPackageCatalogProvider CatalogProviderOverride { private get; set; }
         public static IContentPackageInstallCoordinatorFactory OperationFactoryOverride { private get; set; }
@@ -638,6 +643,15 @@ namespace Gacha.Presentation
             return pauseQueue || pausedSingle;
         }
 
+        public bool RetryCatalog()
+        {
+            if (destroyed || errorPresenter == null)
+                return false;
+            UIFeedbackService.Play(FeedbackCue.ButtonClick);
+            _ = ReloadCatalogAsync();
+            return true;
+        }
+
         public bool CancelInstallQueue()
         {
             if (installQueue == null || queueSnapshot == null ||
@@ -688,10 +702,11 @@ namespace Gacha.Presentation
                 if (experienceSettings != null)
                     experienceSettings.Changed += OnExperienceSettingsChanged;
                 LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+                initialCatalogLoadPending = true;
+                shell.style.visibility = Visibility.Hidden;
                 RefreshLocalization();
                 ApplyMotionPreference();
                 PlayEntrance();
-                _ = ReloadCatalogAsync();
             }
             catch (Exception exception)
             {
@@ -703,6 +718,8 @@ namespace Gacha.Presentation
         {
             safeAreaBinding?.Dispose();
             safeAreaBinding = null;
+            errorPresenter?.Dispose();
+            errorPresenter = null;
             destroyed = true;
             loadGeneration++;
             loadCancellation?.Cancel();
@@ -758,6 +775,11 @@ namespace Gacha.Presentation
             VisualElement queueResumeRoot = pageRoot.Q<VisualElement>("queue-resume-button");
             VisualElement queueRetryRoot = pageRoot.Q<VisualElement>("queue-retry-button");
             VisualElement queueCancelRoot = pageRoot.Q<VisualElement>("queue-cancel-button");
+            VisualElement errorPanel = pageRoot.Q<VisualElement>("content-error-panel");
+            Label errorTitle = pageRoot.Q<Label>("content-error-title");
+            Label errorBody = pageRoot.Q<Label>("content-error-body");
+            VisualElement errorRetryRoot = pageRoot.Q<VisualElement>("content-error-retry");
+            VisualElement errorHomeRoot = pageRoot.Q<VisualElement>("content-error-home");
             if (shell == null || packageList == null || searchFilter == null ||
                 languageFilter == null || generationFilter == null || installFilter == null ||
                 wifiOnlyToggle == null || selectionSummaryLabel == null || selectFilteredRoot == null ||
@@ -765,11 +787,17 @@ namespace Gacha.Presentation
                 queuePauseRoot == null || queueResumeRoot == null || queueRetryRoot == null ||
                 queueCancelRoot == null ||
                 title == null || subtitle == null ||
-                catalogStatus == null || emptyState == null || backRoot == null || refreshRoot == null)
+                catalogStatus == null || emptyState == null || backRoot == null || refreshRoot == null ||
+                errorPanel == null || errorTitle == null || errorBody == null ||
+                errorRetryRoot == null || errorHomeRoot == null)
                 throw new InvalidOperationException("Content management view is missing required named elements.");
 
             backAction = new StableActionControl(backRoot, BackToMenu);
             refreshAction = new StableActionControl(refreshRoot, RefreshClicked);
+            errorRetryAction = new StableActionControl(errorRetryRoot, () => RetryCatalog());
+            errorHomeAction = new StableActionControl(errorHomeRoot, BackToMenu);
+            errorPresenter = new PlayerUiErrorPresenter(
+                errorPanel, errorTitle, errorBody, errorRetryRoot, home: errorHomeRoot);
             selectFilteredAction = new StableActionControl(selectFilteredRoot, () =>
             {
                 UIFeedbackService.Play(FeedbackCue.ButtonClick);
@@ -831,14 +859,19 @@ namespace Gacha.Presentation
             loadCancellation = new CancellationTokenSource();
             CancellationToken token = loadCancellation.Token;
             IsReady = false;
+            catalogQueryAllowed = false;
             InitializationError = null;
+            errorPresenter?.Hide();
             SetCatalogStatus(L("content.catalog.loading"), false);
             if (refreshAction != null)
                 refreshAction.Allowed = false;
 
             if (catalogProvider == null || operationFactory == null)
             {
-                ApplyCatalogFailure(generation, L("content.catalog.not_configured"));
+                ApplyCatalogFailure(
+                    generation,
+                    L("content.catalog.not_configured"),
+                    PlayerUiErrorMapper.Create(PlayerUiErrorCode.ServiceUnavailable));
                 return;
             }
 
@@ -874,7 +907,9 @@ namespace Gacha.Presentation
             if (destroyed || generation != loadGeneration)
                 return;
             LastAppliedThreadId = Environment.CurrentManagedThreadId;
+            errorPresenter?.Hide();
             catalog = result.Catalog;
+            catalogQueryAllowed = true;
             catalogUsedCache = result.UsedCachedCatalog;
             catalogHasCacheWarning = !string.IsNullOrWhiteSpace(result.WarningMessage);
             if (catalogHasCacheWarning)
@@ -912,7 +947,7 @@ namespace Gacha.Presentation
 
         private void ApplyLibraryQuery(bool rebuild = true)
         {
-            if (destroyed || catalog == null || packageList == null)
+            if (destroyed || !catalogQueryAllowed || catalog == null || packageList == null)
                 return;
             try
             {
@@ -1426,7 +1461,7 @@ namespace Gacha.Presentation
             }
         }
 
-        private void ApplyCatalogFailure(int generation, string message)
+        private void ApplyCatalogFailure(int generation, string message, PlayerUiError playerError = null)
         {
             if (destroyed || generation != loadGeneration)
                 return;
@@ -1437,6 +1472,7 @@ namespace Gacha.Presentation
                 ? "Content catalog is unavailable."
                 : message.Trim();
             IsReady = false;
+            catalogQueryAllowed = false;
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
@@ -1461,7 +1497,10 @@ namespace Gacha.Presentation
             ConfigureGlobalAction(queueRetryAction, false);
             ConfigureGlobalAction(queueCancelAction, false);
             emptyState.style.display = DisplayStyle.Flex;
-            emptyState.text = string.Format(L("content.catalog.unavailable"), InitializationError);
+            PlayerUiError safeError = playerError ?? PlayerUiErrorMapper.FromDetail(
+                InitializationError,
+                downloadPolicy?.GetNetworkType() == ContentNetworkType.Offline);
+            emptyState.text = PlayerUiErrorText.Body(safeError);
             if (packageList != null)
             {
                 displayedItems.Clear();
@@ -1470,7 +1509,8 @@ namespace Gacha.Presentation
                 packageList.Rebuild();
                 packageList.style.display = DisplayStyle.None;
             }
-            SetCatalogStatus(emptyState.text, true);
+            errorPresenter?.Show(safeError);
+            SetCatalogStatus(PlayerUiErrorText.Title(safeError), true);
             if (refreshAction != null)
                 refreshAction.Allowed = true;
         }
@@ -1524,13 +1564,13 @@ namespace Gacha.Presentation
             else if (row.AwaitingRemovalConfirmation)
                 status = L("content.status.remove_confirm");
             else if (!string.IsNullOrWhiteSpace(row.LifecycleError))
-                status = string.Format(L("content.status.remove_failed"), row.LifecycleError);
+                status = PlayerUiErrorText.Body(PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected));
             else if (snapshot.State == ContentPackageOperationState.Idle && row.Installed != null)
                 status = L(installedCurrent ? "content.status.current" : "content.status.update_available");
             if (!string.IsNullOrWhiteSpace(item.ErrorMessage))
-                status += " · " + item.ErrorMessage;
+                status = PlayerUiErrorText.Body(ErrorFor(snapshot));
             else if (!string.IsNullOrWhiteSpace(item.WarningMessage))
-                status = string.Format(L("content.status.warning"), item.WarningMessage);
+                status = L("content.status.installed");
             row.Status.text = status;
             row.Status.EnableInClassList("is-error", item.UiState.IsError || !string.IsNullOrWhiteSpace(row.LifecycleError));
             row.Status.EnableInClassList("is-success",
@@ -1689,8 +1729,13 @@ namespace Gacha.Presentation
                 {
                     row.Removing = false;
                     string error = result?.ErrorMessage ?? "No removal result was returned.";
+                    Debug.LogWarning($"Content package removal failed for '{packageId}': {error}");
                     ApplyOperation(packageId, operation.Current);
-                    row.Status.text = string.Format(L("content.status.remove_failed"), error);
+                    PlayerUiError safeError = result == null
+                        ? PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected)
+                        : PlayerUiErrorMapper.FromRemoval(result.Status) ??
+                          PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected);
+                    row.Status.text = PlayerUiErrorText.Body(safeError);
                     row.Status.EnableInClassList("is-error", true);
                     UIFeedbackService.Play(FeedbackCue.Error);
                     AnimateRow(row, true);
@@ -1704,9 +1749,11 @@ namespace Gacha.Presentation
                 RefreshInstalledState(row);
                 ApplyOperation(packageId, operation.Current);
                 string warning = CombineWarnings(result.WarningMessage, reset.WarningMessage);
+                if (!string.IsNullOrWhiteSpace(warning))
+                    Debug.LogWarning($"Content package removal cleanup warning for '{packageId}': {warning}");
                 row.Status.text = string.IsNullOrWhiteSpace(warning)
                     ? L("content.status.removed")
-                    : string.Format(L("content.status.remove_warning"), warning);
+                    : L("content.status.removed");
                 row.Status.EnableInClassList("is-error", false);
                 row.Status.EnableInClassList("is-success", true);
                 ReloadLocalCatalog();
@@ -1728,6 +1775,7 @@ namespace Gacha.Presentation
             string key = failure.PackageId + ":" + failure.Attempt;
             if (!notifiedFailures.Add(key))
                 return;
+            Debug.LogWarning($"Content package operation failed for '{failure.PackageId}' at {failure.Stage}: {failure.ErrorMessage}");
             UIFeedbackService.Play(FeedbackCue.Error);
             if (rows.TryGetValue(failure.PackageId, out PackageRow row))
                 AnimateRow(row, true);
@@ -1739,7 +1787,7 @@ namespace Gacha.Presentation
             UIFeedbackService.Play(FeedbackCue.Error);
             if (rows.TryGetValue(packageId, out PackageRow row))
             {
-                row.Status.text = L("content.status.failed") + " · " + exception.Message;
+                row.Status.text = PlayerUiErrorText.Body(PlayerUiErrorMapper.FromException(exception));
                 row.Status.EnableInClassList("is-error", true);
                 AnimateRow(row, true);
             }
@@ -1839,6 +1887,12 @@ namespace Gacha.Presentation
                     ApplyOperation(pair.Key, pair.Value.Current);
             }
             localizationRoutine = null;
+            if (initialCatalogLoadPending && !destroyed)
+            {
+                initialCatalogLoadPending = false;
+                shell.style.visibility = Visibility.Visible;
+                _ = ReloadCatalogAsync();
+            }
         }
 
         private void ApplyLocalizedChrome()
@@ -1861,6 +1915,7 @@ namespace Gacha.Presentation
             queueResumeAction.SetLabel(L("content.action.resume"));
             queueRetryAction.SetLabel(L("content.action.retry"));
             queueCancelAction.SetLabel(L("content.action.cancel"));
+            errorPresenter?.RefreshLanguage();
             if (catalog != null)
                 emptyState.text = catalog.Packages.Count == 0
                     ? L("content.catalog.empty")
@@ -2025,9 +2080,10 @@ namespace Gacha.Presentation
             InitializationError = message;
             IsReady = false;
             Debug.LogWarning("Content management UI could not initialize: " + message);
-            UIFeedbackService.Play(FeedbackCue.Error);
+            PlayerUiError error = PlayerUiErrorMapper.FromDetail(message);
+            errorPresenter?.Show(error);
             if (catalogStatus != null)
-                SetCatalogStatus(string.Format(L("content.catalog.unavailable"), message), true);
+                SetCatalogStatus(PlayerUiErrorText.Title(error), true);
         }
 
         private static bool CanShowCancel(ContentPackageOperationState state)
@@ -2084,7 +2140,26 @@ namespace Gacha.Presentation
             catch (Exception exception)
             {
                 row.LifecycleError = exception.Message;
+                Debug.LogWarning($"Installed content state could not be read for '{row.Entry.Package.PackageId}': {exception.Message}");
             }
+        }
+
+        private static PlayerUiError ErrorFor(ContentPackageOperationSnapshot snapshot)
+        {
+            if (snapshot?.Plan != null)
+            {
+                PlayerUiError plan = PlayerUiErrorMapper.FromInstallPlan(snapshot.Plan.Status);
+                if (plan != null && snapshot.Plan.Status != ContentInstallPlanStatus.Ready &&
+                    snapshot.Plan.Status != ContentInstallPlanStatus.AlreadyCurrent)
+                    return plan;
+            }
+            if (snapshot?.InstallResult != null)
+            {
+                PlayerUiError install = PlayerUiErrorMapper.FromInstall(snapshot.InstallResult.Status);
+                if (install != null)
+                    return install;
+            }
+            return PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected);
         }
 
         private InstalledContentPackage LookupInstalled(string packageId)

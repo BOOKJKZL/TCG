@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -6,6 +7,8 @@ using Gacha.Application;
 using Gacha.Domain;
 using Gacha.Presentation;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -102,6 +105,9 @@ public sealed class GachaViewController : MonoBehaviour
     private Button backToProductsButton;
     private Button openAgainButton;
     private Button summaryProductsButton;
+    private Button errorRetryButton;
+    private Button errorManageButton;
+    private Button errorHomeButton;
 
     private AsyncCardImageView selectedImage;
     private AsyncCardImageView packImage;
@@ -110,8 +116,12 @@ public sealed class GachaViewController : MonoBehaviour
     private IVisualElementScheduledItem revealAnimation;
     private ThemeParticleField packParticles;
     private ThemeParticleField revealParticles;
+    private PlayerUiErrorPresenter errorPresenter;
+    private bool shellInitialized;
+    private bool contentLanguageSubscribed;
 
     public static IInventoryProgressStore InventoryStoreOverride { private get; set; }
+    public static ICatalogProvider CatalogProviderOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
@@ -151,6 +161,7 @@ public sealed class GachaViewController : MonoBehaviour
     private static void ResetRuntimeState()
     {
         InventoryStoreOverride = null;
+        CatalogProviderOverride = null;
     }
 
     private void Awake()
@@ -158,20 +169,35 @@ public sealed class GachaViewController : MonoBehaviour
         EnsureDocumentAssets();
     }
 
-    private void Start()
+    private IEnumerator Start()
     {
-        TryInitialize();
+        try
+        {
+            EnsureShell();
+        }
+        catch (Exception exception)
+        {
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
+            yield break;
+        }
+        while (LocalizationSettings.SelectedLocale == null)
+            yield return null;
+        RefreshLocalizedChrome();
+        LoadCatalog(false);
     }
 
     private void OnDestroy()
     {
         safeAreaBinding?.Dispose();
         safeAreaBinding = null;
+        errorPresenter?.Dispose();
+        errorPresenter = null;
         if (ApplicationServices.IsConfigured)
         {
             ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
             ApplicationServices.Languages.ContentLanguageChanged -= OnContentLanguageChanged;
         }
+        LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
 
         packAnimation?.Pause();
         revealAnimation?.Pause();
@@ -193,58 +219,123 @@ public sealed class GachaViewController : MonoBehaviour
 
         try
         {
-            GameApplicationBootstrap.EnsureConfigured();
-            EnsureDocumentAssets();
-            if (uiDocument == null || uiDocument.panelSettings == null)
-                throw new InvalidOperationException("The pack opening UI document is not configured.");
+            EnsureShell();
+            return LoadCatalog(false);
+        }
+        catch (Exception exception)
+        {
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
+            return false;
+        }
+    }
 
-            root = uiDocument.rootVisualElement.Q<VisualElement>("gacha-opening");
-            if (root == null)
-                throw new InvalidOperationException("GachaView.uxml is not attached to the UIDocument.");
-            safeAreaBinding = UiToolkitSafeArea.Attach(root);
+    public bool RetryInitialization()
+    {
+        if (!shellInitialized)
+            return TryInitialize();
+        UIFeedbackService.Play(FeedbackCue.ButtonClick);
+        return LoadCatalog(true);
+    }
 
-            QueryVisualElements();
-            CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
+    private void EnsureShell()
+    {
+        if (shellInitialized)
+            return;
+        GameApplicationBootstrap.EnsureConfigured();
+        EnsureDocumentAssets();
+        if (uiDocument == null || uiDocument.panelSettings == null)
+            throw new InvalidOperationException("The pack opening UI document is not configured.");
+        root = uiDocument.rootVisualElement.Q<VisualElement>("gacha-opening");
+        if (root == null)
+            throw new InvalidOperationException("GachaView.uxml is not attached to the UIDocument.");
+        safeAreaBinding = UiToolkitSafeArea.Attach(root);
+        QueryVisualElements();
+        errorPresenter = new PlayerUiErrorPresenter(
+            Required<VisualElement>("gacha-error-panel"),
+            Required<Label>("gacha-error-title"),
+            Required<Label>("gacha-error-body"),
+            errorRetryButton,
+            errorManageButton,
+            errorHomeButton);
+        ConfigureProductList();
+        ConfigureButtons();
+        ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
+        LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        shellInitialized = true;
+        RefreshLocalizedChrome();
+        SetStatus(CardUiText.Get("common.status.loading"), false);
+    }
+
+    private bool LoadCatalog(bool forceReload)
+    {
+        IsReady = false;
+        InitializationError = null;
+        errorPresenter.Hide();
+        SetStatus(CardUiText.Get("common.status.loading"), false);
+        try
+        {
+            CatalogLoadResult load = CatalogProviderOverride?.Load() ??
+                                     ApplicationServices.Catalog.EnsureLoaded(forceReload);
             if (!load.Succeeded)
-                throw new InvalidOperationException(load.ErrorMessage);
+            {
+                ShowInitializationFailure(PlayerUiErrorMapper.FromCatalog(load), load.ErrorMessage);
+                return false;
+            }
             if (!ApplicationServices.HasContentImages)
-                throw new InvalidOperationException("The installed content image service is unavailable.");
+            {
+                ShowInitializationFailure(
+                    PlayerUiErrorMapper.Create(PlayerUiErrorCode.ServiceUnavailable),
+                    "The installed content image service is unavailable.");
+                return false;
+            }
 
             catalog = load.Catalog;
             ApplicationServices.Languages.RefreshContentLanguage(catalog);
-            textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
-            selectedImage = Track(new AsyncCardImageView(textureCache));
-            packImage = Track(new AsyncCardImageView(textureCache));
-            revealImage = Track(new AsyncCardImageView(textureCache));
-            selectedImage.Element.AddToClassList("gacha-selected-art");
-            packImage.Element.AddToClassList("gacha-pack-art");
-            revealImage.Element.AddToClassList("gacha-reveal-art");
-            selectedArtSlot.Add(selectedImage.Element);
-            packArtSlot.Add(packImage.Element);
-            revealArtSlot.Add(revealImage.Element);
+            if (textureCache == null)
+            {
+                textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
+                selectedImage = Track(new AsyncCardImageView(textureCache));
+                packImage = Track(new AsyncCardImageView(textureCache));
+                revealImage = Track(new AsyncCardImageView(textureCache));
+                selectedImage.Element.AddToClassList("gacha-selected-art");
+                packImage.Element.AddToClassList("gacha-pack-art");
+                revealImage.Element.AddToClassList("gacha-reveal-art");
+                selectedArtSlot.Add(selectedImage.Element);
+                packArtSlot.Add(packImage.Element);
+                revealArtSlot.Add(revealImage.Element);
+            }
 
-            ConfigureProductList();
-            ConfigureButtons();
+            IsReady = true;
             RebuildProducts();
             RefreshLocalizedChrome();
             ShowSelectionPage();
-
-            ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
-            ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
-            IsReady = true;
+            if (!contentLanguageSubscribed)
+            {
+                ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
+                contentLanguageSubscribed = true;
+            }
             InitializationError = null;
             Debug.Log($"Pack opening ready: {products.Count} installed products.");
             return true;
         }
         catch (Exception exception)
         {
-            InitializationError = exception.Message;
-            SetStatus(CardUiText.Format("gacha.status.unavailable", exception.Message), true);
-            Debug.LogWarning($"Gacha content could not be initialized: {exception.Message}");
-            InitializationFailed?.Invoke(exception.Message);
-            UIFeedbackService.Play(FeedbackCue.Error);
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
             return false;
         }
+    }
+
+    private void ShowInitializationFailure(PlayerUiError error, object developerDetail)
+    {
+        InitializationError = developerDetail?.ToString() ?? "Gacha initialization failed.";
+        IsReady = false;
+        if (selectionPage != null) selectionPage.style.display = DisplayStyle.None;
+        if (openingPage != null) openingPage.style.display = DisplayStyle.None;
+        if (manageContentButton != null) manageContentButton.style.display = DisplayStyle.None;
+        SetStatus(string.Empty, false);
+        errorPresenter?.Show(error);
+        Debug.LogWarning("Gacha content could not be initialized: " + InitializationError);
+        InitializationFailed?.Invoke(InitializationError);
     }
 
     public void OnOpenPack()
@@ -328,7 +419,7 @@ public sealed class GachaViewController : MonoBehaviour
         catch (Exception exception)
         {
             currentBatchOutcome = null;
-            SetStatus(CardUiText.Format("gacha.status.open_failed", exception.Message), true);
+            SetStatus(PlayerUiErrorText.Body(PlayerUiErrorMapper.FromException(exception)), true);
             Debug.LogWarning($"Pack opening failed: {exception.Message}");
             InitializationFailed?.Invoke(exception.Message);
             UIFeedbackService.Play(FeedbackCue.Error);
@@ -457,6 +548,9 @@ public sealed class GachaViewController : MonoBehaviour
         backToProductsButton = Required<Button>("back-to-products-button");
         openAgainButton = Required<Button>("open-again-button");
         summaryProductsButton = Required<Button>("summary-products-button");
+        errorRetryButton = Required<Button>("gacha-error-retry");
+        errorManageButton = Required<Button>("gacha-error-manage");
+        errorHomeButton = Required<Button>("gacha-error-home");
         packParticles?.Dispose();
         revealParticles?.Dispose();
         packParticles = new ThemeParticleField(packParticleLayer);
@@ -479,6 +573,9 @@ public sealed class GachaViewController : MonoBehaviour
     {
         menuButton.clicked += MenuBtnClick;
         manageContentButton.clicked += OpenContentManagement;
+        errorRetryButton.clicked += () => RetryInitialization();
+        errorManageButton.clicked += OpenContentManagement;
+        errorHomeButton.clicked += MenuBtnClick;
         prepareButton.clicked += () => PrepareSelectedProduct();
         prepareTenButton.clicked += () => PrepareTenProducts();
         tearButton.clicked += () => TearPack();
@@ -987,6 +1084,7 @@ public sealed class GachaViewController : MonoBehaviour
         subtitle.text = CardUiText.Get("gacha.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
         manageContentButton.text = CardUiText.Get("common.action.manage_content");
+        errorPresenter?.RefreshLanguage();
         prepareButton.text = CardUiText.Get("gacha.action.open_one");
         prepareTenButton.text = CardUiText.Get("gacha.action.open_ten");
         tearButton.text = CardUiText.Get("gacha.action.tear");
@@ -999,7 +1097,7 @@ public sealed class GachaViewController : MonoBehaviour
         oddsHeading.text = CardUiText.Get("gacha.odds.heading");
         if (selectedProduct != null)
             SelectProduct(selectedProduct);
-        else if (products.Count == 0)
+        else if (IsReady && products.Count == 0)
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
         if (currentBatchOutcome != null)
             ApplyRevealText();
@@ -1014,7 +1112,8 @@ public sealed class GachaViewController : MonoBehaviour
                 ? CardUiText.Get("gacha.pack.hint")
                 : CardUiText.Format("gacha.pack.batch_hint", preparedProductCount);
         }
-        RefreshOpeningJournal();
+        if (openingService != null)
+            RefreshOpeningJournal();
         productList?.RefreshItems();
     }
 
@@ -1029,8 +1128,15 @@ public sealed class GachaViewController : MonoBehaviour
         RefreshLocalizedChrome();
     }
 
+    private void OnSelectedLocaleChanged(Locale locale)
+    {
+        RefreshLocalizedChrome();
+    }
+
     private void OnContentLanguageChanged(ContentLanguageSelection selection)
     {
+        if (!IsReady || catalog == null)
+            return;
         string previousProductId = selectedProduct?.Id;
         productId = previousProductId;
         RebuildProducts();

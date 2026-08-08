@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Gacha.Application;
 using Gacha.Domain;
 using Gacha.Infrastructure.Content;
 using Newtonsoft.Json.Linq;
@@ -79,6 +80,20 @@ public class PrivateContentManifestV2Tests
             new PrivateContentManifestReader().LoadFile(path));
 
         Assert.That(exception.Message, Does.Contain("GenerationId"));
+    }
+
+    [Test]
+    public void CatalogProvider_ReportsMalformedManifestAsStructuredCatalogCorruption()
+    {
+        string manifestDirectory = Path.Combine(temporaryDirectory, "en", "broken-set");
+        Directory.CreateDirectory(manifestDirectory);
+        File.WriteAllText(Path.Combine(manifestDirectory, "manifest.json"), "{");
+
+        CatalogLoadResult result = new CatalogSession(
+            new PrivateContentCatalogProvider(temporaryDirectory)).EnsureLoaded();
+
+        Assert.That(result.State, Is.EqualTo(CatalogLoadState.Failed));
+        Assert.That(result.FailureReason, Is.EqualTo(CatalogFailureReason.CatalogCorrupt));
     }
 
     [Test]

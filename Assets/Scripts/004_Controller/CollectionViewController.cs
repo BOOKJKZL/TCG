@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Gacha.Application;
@@ -75,6 +76,9 @@ public sealed class CollectionViewController : MonoBehaviour
     private Button ownedOnlyButton;
     private Button newOnlyButton;
     private Button clearFiltersButton;
+    private Button errorRetryButton;
+    private Button errorManageButton;
+    private Button errorHomeButton;
     private TextField searchField;
     private DropdownField rarityFilter;
     private SetDefinition currentSet;
@@ -89,9 +93,13 @@ public sealed class CollectionViewController : MonoBehaviour
     private bool ownedOnly;
     private bool newOnly;
     private bool updatingFilterControls;
+    private bool shellInitialized;
+    private bool contentLanguageSubscribed;
+    private PlayerUiErrorPresenter errorPresenter;
 
     public static ICollectionProgressStore CollectionProgressStoreOverride { private get; set; }
     public static UniversalCatalog CatalogOverride { private get; set; }
+    public static ICatalogProvider CatalogProviderOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
@@ -120,6 +128,7 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         CollectionProgressStoreOverride = null;
         CatalogOverride = null;
+        CatalogProviderOverride = null;
     }
 
     private void Awake()
@@ -127,15 +136,29 @@ public sealed class CollectionViewController : MonoBehaviour
         EnsureDocumentAssets();
     }
 
-    private void Start()
+    private IEnumerator Start()
     {
-        Initialize();
+        try
+        {
+            EnsureShell();
+        }
+        catch (Exception exception)
+        {
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
+            yield break;
+        }
+        while (LocalizationSettings.SelectedLocale == null)
+            yield return null;
+        RefreshLocalizedChrome();
+        LoadCatalog(false);
     }
 
     private void OnDestroy()
     {
         safeAreaBinding?.Dispose();
         safeAreaBinding = null;
+        errorPresenter?.Dispose();
+        errorPresenter = null;
         if (ApplicationServices.IsConfigured)
         {
             ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
@@ -222,71 +245,130 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         try
         {
-            GameApplicationBootstrap.EnsureConfigured();
-            if (uiDocument == null)
-                uiDocument = GetComponent<UIDocument>();
-            if (uiDocument == null)
-                throw new InvalidOperationException("The collection browser has no UIDocument.");
-            EnsureDocumentAssets();
-            if (uiDocument.panelSettings == null)
-                throw new InvalidOperationException("The collection browser has no PanelSettings.");
-
-            browserRoot = uiDocument.rootVisualElement.Q<VisualElement>("collection-browser");
-            if (browserRoot == null)
-                throw new InvalidOperationException("CollectionView.uxml is not attached to the UIDocument.");
-            safeAreaBinding = UiToolkitSafeArea.Attach(browserRoot);
-
-            QueryVisualElements();
-            CatalogLoadResult load = null;
-            if (CatalogOverride == null)
-            {
-                load = ApplicationServices.Catalog.EnsureLoaded();
-                if (!load.Succeeded)
-                    throw new InvalidOperationException(load.ErrorMessage);
-            }
-            if (!ApplicationServices.HasContentImages)
-                throw new InvalidOperationException("The installed content image service is unavailable.");
-
-            catalog = CatalogOverride ?? load.Catalog;
-            ApplicationServices.Languages.RefreshContentLanguage(catalog);
-            collectionProgress = CollectionProgressStoreOverride ?? new PlayerCollectionProgressStore();
-            textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
-            detailImage = Track(new AsyncCardImageView(textureCache));
-            browserRoot.Q<VisualElement>("detail-art-slot").Add(detailImage.Element);
-
-            ConfigureLists();
-            ConfigureButtons();
-            pokedexController = GetComponent<PokemonPokedexController>();
-            if (pokedexController == null)
-                pokedexController = gameObject.AddComponent<PokemonPokedexController>();
-            pokedexController.Attach(
-                uiDocument,
-                ShowPrintingDetails,
-                () =>
-                {
-                    ContentReturnNavigation.RememberCurrentScene();
-                    if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-                        GameManager.Instance.loadManager.LoadScene(5);
-                    else
-                        SceneManager.LoadScene("006_ContentScene");
-                });
-            BuildBrowseData();
-            RefreshLocalizedChrome();
-            ShowSets();
-
-            ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
-            ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
-            LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
-            IsReady = true;
+            EnsureShell();
+            LoadCatalog(false);
         }
         catch (Exception exception)
         {
-            InitializationError = exception.Message;
-            if (browserStatus != null)
-                browserStatus.text = CardUiText.Format("collection.status.unavailable", exception.Message);
-            Debug.LogWarning($"Collection browser could not be initialized: {exception.Message}");
-            UIFeedbackService.Play(FeedbackCue.Error);
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
         }
+    }
+
+    public bool RetryInitialization()
+    {
+        if (!shellInitialized)
+        {
+            Initialize();
+            return IsReady;
+        }
+        UIFeedbackService.Play(FeedbackCue.ButtonClick);
+        return LoadCatalog(true);
+    }
+
+    private void EnsureShell()
+    {
+        if (shellInitialized)
+            return;
+        GameApplicationBootstrap.EnsureConfigured();
+        if (uiDocument == null)
+            uiDocument = GetComponent<UIDocument>();
+        if (uiDocument == null)
+            throw new InvalidOperationException("The collection browser has no UIDocument.");
+        EnsureDocumentAssets();
+        if (uiDocument.panelSettings == null)
+            throw new InvalidOperationException("The collection browser has no PanelSettings.");
+        browserRoot = uiDocument.rootVisualElement.Q<VisualElement>("collection-browser");
+        if (browserRoot == null)
+            throw new InvalidOperationException("CollectionView.uxml is not attached to the UIDocument.");
+        safeAreaBinding = UiToolkitSafeArea.Attach(browserRoot);
+        QueryVisualElements();
+        errorPresenter = new PlayerUiErrorPresenter(
+            Required<VisualElement>("collection-error-panel"),
+            Required<Label>("collection-error-title"),
+            Required<Label>("collection-error-body"),
+            errorRetryButton,
+            errorManageButton,
+            errorHomeButton);
+        ConfigureLists();
+        ConfigureButtons();
+        pokedexController = GetComponent<PokemonPokedexController>();
+        if (pokedexController == null)
+            pokedexController = gameObject.AddComponent<PokemonPokedexController>();
+        pokedexController.Attach(
+            uiDocument,
+            ShowPrintingDetails,
+            OpenContentManagement);
+        ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
+        LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        shellInitialized = true;
+        RefreshLocalizedChrome();
+        SetBrowserStatus(CardUiText.Get("common.status.loading"), false);
+    }
+
+    private bool LoadCatalog(bool forceReload)
+    {
+        IsReady = false;
+        InitializationError = null;
+        errorPresenter.Hide();
+        SetBrowserStatus(CardUiText.Get("common.status.loading"), false);
+        try
+        {
+            CatalogLoadResult load = null;
+            if (CatalogOverride == null)
+            {
+                load = CatalogProviderOverride?.Load() ??
+                       ApplicationServices.Catalog.EnsureLoaded(forceReload);
+                if (!load.Succeeded)
+                {
+                    ShowInitializationFailure(PlayerUiErrorMapper.FromCatalog(load), load.ErrorMessage);
+                    return false;
+                }
+            }
+            if (!ApplicationServices.HasContentImages)
+            {
+                ShowInitializationFailure(
+                    PlayerUiErrorMapper.Create(PlayerUiErrorCode.ServiceUnavailable),
+                    "The installed content image service is unavailable.");
+                return false;
+            }
+
+            catalog = CatalogOverride ?? load.Catalog;
+            ApplicationServices.Languages.RefreshContentLanguage(catalog);
+            collectionProgress ??= CollectionProgressStoreOverride ?? new PlayerCollectionProgressStore();
+            if (textureCache == null)
+            {
+                textureCache = new CardTextureCache(ApplicationServices.Images, textureCacheCapacity);
+                detailImage = Track(new AsyncCardImageView(textureCache));
+                browserRoot.Q<VisualElement>("detail-art-slot").Add(detailImage.Element);
+            }
+            IsReady = true;
+            BuildBrowseData();
+            RefreshLocalizedChrome();
+            ShowSets();
+            if (!contentLanguageSubscribed)
+            {
+                ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
+                contentLanguageSubscribed = true;
+            }
+            return true;
+        }
+        catch (Exception exception)
+        {
+            ShowInitializationFailure(PlayerUiErrorMapper.FromException(exception), exception);
+            return false;
+        }
+    }
+
+    private void ShowInitializationFailure(PlayerUiError error, object developerDetail)
+    {
+        InitializationError = developerDetail?.ToString() ?? "Collection initialization failed.";
+        IsReady = false;
+        if (setPage != null) setPage.style.display = DisplayStyle.None;
+        if (cardPage != null) cardPage.style.display = DisplayStyle.None;
+        if (zeroContentPanel != null) zeroContentPanel.style.display = DisplayStyle.None;
+        SetBrowserStatus(string.Empty, false);
+        errorPresenter?.Show(error);
+        Debug.LogWarning("Collection browser could not be initialized: " + InitializationError);
     }
 
     private void QueryVisualElements()
@@ -317,6 +399,9 @@ public sealed class CollectionViewController : MonoBehaviour
         ownedOnlyButton = Required<Button>("owned-only-button");
         newOnlyButton = Required<Button>("new-only-button");
         clearFiltersButton = Required<Button>("clear-filters-button");
+        errorRetryButton = Required<Button>("collection-error-retry");
+        errorManageButton = Required<Button>("collection-error-manage");
+        errorHomeButton = Required<Button>("collection-error-home");
         searchField = Required<TextField>("card-search");
         rarityFilter = Required<DropdownField>("rarity-filter");
     }
@@ -369,6 +454,9 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         menuButton.clicked += MenuBtnClick;
         manageContentButton.clicked += OpenContentManagement;
+        errorRetryButton.clicked += () => RetryInitialization();
+        errorManageButton.clicked += OpenContentManagement;
+        errorHomeButton.clicked += MenuBtnClick;
         pokedexButton.clicked += () => pokedexController?.Open();
         backToSetsButton.clicked += () =>
         {
@@ -962,6 +1050,7 @@ public sealed class CollectionViewController : MonoBehaviour
         pageSubtitle.text = CardUiText.Get("collection.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
         manageContentButton.text = CardUiText.Get("common.action.manage_content");
+        errorPresenter?.RefreshLanguage();
         zeroContentText.text = CardUiText.Get("collection.status.no_content");
         pokedexButton.text = PokemonPokedexText.Get(
             "title",
@@ -974,7 +1063,8 @@ public sealed class CollectionViewController : MonoBehaviour
             detailProgress.text = FormatOwnedCount(detailState.OwnedCount);
             detailNewBadge.text = CardUiText.Get("common.badge.new");
         }
-        SetBrowserStatus(FormatCollectionSummary(), false);
+        if (IsReady)
+            SetBrowserStatus(FormatCollectionSummary(), false);
         RefreshFilterControls();
         if (currentSet != null)
         {
@@ -1005,6 +1095,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void OnContentLanguageChanged(ContentLanguageSelection selection)
     {
+        if (!IsReady || catalog == null)
+            return;
         string reopenSetId = currentSet?.Id;
         BuildBrowseData();
         if (!string.IsNullOrWhiteSpace(reopenSetId) && OpenSet(reopenSetId))
@@ -1044,6 +1136,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void SetBrowserStatus(string message, bool isError)
     {
+        if (browserStatus == null)
+            return;
         browserStatus.text = message ?? string.Empty;
         browserStatus.EnableInClassList("is-error", isError);
     }

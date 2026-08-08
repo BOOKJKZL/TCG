@@ -887,6 +887,62 @@ MonoBehaviour:
     m_Key: content.filter.empty
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428374
+    m_Key: player_error.not_installed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428375
+    m_Key: player_error.not_installed.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428376
+    m_Key: player_error.offline.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428377
+    m_Key: player_error.offline.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428378
+    m_Key: player_error.catalog_corrupt.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428379
+    m_Key: player_error.catalog_corrupt.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428380
+    m_Key: player_error.verification_failed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428381
+    m_Key: player_error.verification_failed.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428382
+    m_Key: player_error.insufficient_space.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428383
+    m_Key: player_error.insufficient_space.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428384
+    m_Key: player_error.service_unavailable.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428385
+    m_Key: player_error.service_unavailable.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428386
+    m_Key: player_error.unexpected.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428387
+    m_Key: player_error.unexpected.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

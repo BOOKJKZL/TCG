@@ -263,6 +263,42 @@
     align-self: center;
 }
 
+.player-error-panel {
+    margin-top: 14px;
+    margin-bottom: 14px;
+    padding: 20px;
+    border-width: 2px;
+    border-radius: 16px;
+    border-color: rgb(223, 105, 96);
+    background-color: rgba(73, 28, 34, 0.96);
+    white-space: normal;
+}
+
+.player-error-panel__title {
+    color: rgb(255, 224, 214);
+    font-size: 23px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.player-error-panel__body {
+    margin-top: 8px;
+    color: rgb(245, 224, 219);
+    font-size: 18px;
+    white-space: normal;
+}
+
+.player-error-panel__actions {
+    margin-top: 14px;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.player-error-panel.is-entering,
+.player-error-panel.is-leaving {
+    border-color: rgb(255, 183, 145);
+}
+
 .content-package-row__selection .unity-toggle__label {
     display: none;
 }

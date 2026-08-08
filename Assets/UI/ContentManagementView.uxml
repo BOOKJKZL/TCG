@@ -28,6 +28,14 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="catalog-status" class="content-management__catalog-status" />
+            <ui:VisualElement name="content-error-panel" class="player-error-panel" style="display: none;">
+                <ui:Label name="content-error-title" class="player-error-panel__title" />
+                <ui:Label name="content-error-body" class="player-error-panel__body" />
+                <ui:VisualElement class="player-error-panel__actions">
+                    <ui:VisualElement name="content-error-retry" class="content-button content-button--primary" focusable="true"><ui:Label class="content-button__label" /></ui:VisualElement>
+                    <ui:VisualElement name="content-error-home" class="content-button content-button--quiet" focusable="true"><ui:Label class="content-button__label" /></ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
             <ui:VisualElement name="content-filters" class="content-management__filters">
                 <ui:TextField name="content-search" class="content-management__search" />
                 <ui:DropdownField name="content-language-filter" class="content-management__filter" />

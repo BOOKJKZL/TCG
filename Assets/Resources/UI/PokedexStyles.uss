@@ -168,6 +168,36 @@
     color: rgb(255, 145, 150);
 }
 
+.pokedex-error-panel {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    padding: 18px;
+    border-width: 2px;
+    border-radius: 14px;
+    border-color: rgb(223, 105, 96);
+    background-color: rgba(73, 28, 34, 0.96);
+}
+
+.pokedex-error-panel__title {
+    color: rgb(255, 224, 214);
+    font-size: 22px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.pokedex-error-panel__body {
+    margin-top: 8px;
+    color: rgb(245, 224, 219);
+    font-size: 18px;
+    white-space: normal;
+}
+
+.pokedex-error-panel__actions {
+    margin-top: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
 .pokedex-empty {
     flex-grow: 1;
     padding: 30px;

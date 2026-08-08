@@ -27,6 +27,15 @@
                     <ui:TextField name="pokedex-search" class="pokedex-field pokedex-search" />
                 </ui:VisualElement>
                 <ui:Label name="pokedex-status" class="pokedex-status" />
+                <ui:VisualElement name="pokedex-error-panel" class="pokedex-error-panel" style="display: none;">
+                    <ui:Label name="pokedex-error-title" class="pokedex-error-panel__title" />
+                    <ui:Label name="pokedex-error-body" class="pokedex-error-panel__body" />
+                    <ui:VisualElement class="pokedex-error-panel__actions">
+                        <ui:Button name="pokedex-error-retry" class="pokedex-button" />
+                        <ui:Button name="pokedex-error-manage" class="pokedex-button pokedex-button--quiet" />
+                        <ui:Button name="pokedex-error-close" class="pokedex-button pokedex-button--quiet" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
                 <ui:Label name="pokedex-empty" class="pokedex-empty" style="display: none;" />
                 <ui:Button name="pokedex-empty-manage-button" class="pokedex-button pokedex-button--quiet pokedex-manage-button" style="display: none;" />
                 <ui:VisualElement name="pokedex-introduced-forms-section" class="pokedex-introduced-forms" style="display: none;">

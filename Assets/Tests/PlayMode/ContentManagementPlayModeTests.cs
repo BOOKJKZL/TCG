@@ -401,6 +401,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(cues, Does.Contain(FeedbackCue.DownloadComplete));
                 Assert.That(haptic.Pulses, Is.EqualTo(1));
 
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "Content package operation failed for 'zh.retry' at Download: fixture transfer failed");
                 Assert.That(controller.StartOrRetryPackage(RetryId), Is.True);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while (controller.GetPackageState(RetryId) != ContentPackageOperationState.Failed &&

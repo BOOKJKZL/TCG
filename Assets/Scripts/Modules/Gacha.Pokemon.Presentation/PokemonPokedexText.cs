@@ -38,7 +38,6 @@ namespace Gacha.Pokemon.Presentation
                 ["content_missing"] = Text("Pokédex content is not installed yet.", "图鉴资料尚未安装。", "図鑑コンテンツがインストールされていません。"),
                 ["art_pending"] = Text("Artwork is not installed", "图鉴图片尚未安装", "図鑑画像が未インストールです"),
                 ["art_hint"] = Text("Download the generation image package to view it offline", "下载该世代图片包后即可离线查看", "世代別画像パッケージをダウンロードするとオフラインで表示できます"),
-                ["unavailable"] = Text("Pokédex data is unavailable: {0}", "图鉴资料无法使用：{0}", "図鑑データを利用できません: {0}"),
                 ["types"] = Text("Types: {0}", "属性：{0}", "タイプ: {0}"),
                 ["region"] = Text("Region: {0}", "地区：{0}", "地方: {0}")
             };

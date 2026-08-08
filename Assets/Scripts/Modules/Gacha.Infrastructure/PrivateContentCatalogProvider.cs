@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Domain;
@@ -28,6 +29,24 @@ namespace Gacha.Infrastructure.Content
         }
 
         public CatalogLoadResult Load()
+        {
+            try
+            {
+                return LoadCore();
+            }
+            catch (PrivateContentManifestException exception)
+            {
+                CatalogFailureReason reason = exception.InnerException is IOException ||
+                                              exception.InnerException is UnauthorizedAccessException
+                    ? CatalogFailureReason.ServiceUnavailable
+                    : CatalogFailureReason.CatalogCorrupt;
+                return CatalogLoadResult.Failure(
+                    exception.Message,
+                    reason);
+            }
+        }
+
+        private CatalogLoadResult LoadCore()
         {
             var documents = new PrivateContentManifestReader().LoadCardSetDirectory(contentRoot);
             if (documents.Count == 0)

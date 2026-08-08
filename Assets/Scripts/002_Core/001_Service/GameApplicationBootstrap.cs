@@ -91,10 +91,6 @@ public static class GameApplicationBootstrap
         ApplyExperienceSettings(experienceSettings.Current);
         configured = true;
 
-        CatalogLoadResult result = catalog.EnsureLoaded();
-        if (result.Succeeded)
-            languages.RefreshContentLanguage(result.Catalog);
-
         AsyncOperationHandle<LocalizationSettings> initialization = LocalizationSettings.InitializationOperation;
         if (initialization.IsDone)
             ApplyUiLocale(languages.UiLanguageId);
