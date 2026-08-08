@@ -48,6 +48,9 @@ public static class GameApplicationBootstrap
         var languages = new LanguageSelectionService(languageStore, new[] { "en", "zh", "ja" });
         var experienceSettings = new ExperienceSettingsService(new PlayerPrefsExperienceSettingsStore());
         string contentRoot = ResolveContentRoot();
+        string downloadRoot = ResolveDownloadRoot();
+        Directory.CreateDirectory(contentRoot);
+        Directory.CreateDirectory(downloadRoot);
         var catalog = new CatalogSession(new PrivateContentCatalogProvider(
             contentRoot,
             variantPolicy: new PokemonImportedCardVariantPolicy()));
@@ -61,11 +64,11 @@ public static class GameApplicationBootstrap
             new UnityContentNetworkProbe(),
             new PlayerPrefsContentDownloadPreferenceStore());
         var contentPackageQueueState = new FileSystemContentPackageQueueStateStore(
-            Path.Combine(ResolveDownloadRoot(), QueueStateFile));
+            Path.Combine(downloadRoot, QueueStateFile));
         var contentPackageInstaller = new FileSystemContentPackageInstaller(contentRoot);
         var contentPackageLifecycle = new FileSystemContentPackageLifecycleService(contentRoot);
         var contentPackageOperations = new HttpContentPackageInstallCoordinatorFactory(
-            ResolveDownloadRoot(),
+            downloadRoot,
             contentPackages,
             contentPackageInstaller);
         IContentPackageCatalogProvider contentPackageCatalogs = CreateRemoteContentCatalogProvider();
@@ -88,12 +91,9 @@ public static class GameApplicationBootstrap
         ApplyExperienceSettings(experienceSettings.Current);
         configured = true;
 
-        if (Directory.Exists(contentRoot))
-        {
-            CatalogLoadResult result = catalog.EnsureLoaded();
-            if (result.Succeeded)
-                languages.RefreshContentLanguage(result.Catalog);
-        }
+        CatalogLoadResult result = catalog.EnsureLoaded();
+        if (result.Succeeded)
+            languages.RefreshContentLanguage(result.Catalog);
 
         AsyncOperationHandle<LocalizationSettings> initialization = LocalizationSettings.InitializationOperation;
         if (initialization.IsDone)
@@ -120,6 +120,13 @@ public static class GameApplicationBootstrap
 #else
         return Path.Combine(UnityEngine.Application.persistentDataPath, "ContentDownloads");
 #endif
+    }
+
+    public static long GetAvailableManagedContentBytes()
+    {
+        string contentRoot = ResolveContentRoot();
+        Directory.CreateDirectory(contentRoot);
+        return new FileSystemContentStorageProbe(contentRoot).GetAvailableBytes();
     }
 
     private static IContentPackageCatalogProvider CreateRemoteContentCatalogProvider()

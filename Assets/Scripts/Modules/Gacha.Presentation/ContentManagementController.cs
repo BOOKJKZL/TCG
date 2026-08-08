@@ -69,6 +69,7 @@ namespace Gacha.Presentation
                 ["content.catalog.loading"] = "Checking available content...",
                 ["content.catalog.loaded"] = "{0} content packs available.",
                 ["content.catalog.empty"] = "No downloadable content is listed in this catalog.",
+                ["content.filter.empty"] = "No content packs match the current filters.",
                 ["content.catalog.unavailable"] = "The content catalog is unavailable: {0}",
                 ["content.catalog.not_configured"] = "Remote content is not configured yet.",
                 ["content.catalog.cached"] = "Offline · showing {0} packs from the last verified catalog.",
@@ -933,6 +934,9 @@ namespace Gacha.Presentation
                 else
                     packageList.RefreshItems();
                 bool empty = displayedItems.Count == 0;
+                emptyState.text = catalog.Packages.Count == 0
+                    ? L("content.catalog.empty")
+                    : L("content.filter.empty");
                 emptyState.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
                 packageList.style.display = empty ? DisplayStyle.None : DisplayStyle.Flex;
                 IsReady = true;
@@ -1750,7 +1754,7 @@ namespace Gacha.Presentation
         private void BackToMenu()
         {
             UIFeedbackService.Play(FeedbackCue.Back);
-            SceneManager.LoadScene("002_MainMenuScene");
+            SceneManager.LoadScene(ContentReturnNavigation.ConsumeOrDefault("002_MainMenuScene"));
         }
 
         private void OnSelectedLocaleChanged(Locale locale)
@@ -1857,7 +1861,10 @@ namespace Gacha.Presentation
             queueResumeAction.SetLabel(L("content.action.resume"));
             queueRetryAction.SetLabel(L("content.action.retry"));
             queueCancelAction.SetLabel(L("content.action.cancel"));
-            emptyState.text = L("content.catalog.empty");
+            if (catalog != null)
+                emptyState.text = catalog.Packages.Count == 0
+                    ? L("content.catalog.empty")
+                    : L("content.filter.empty");
             if (catalog != null)
                 RefreshSelectionUi();
         }
@@ -1878,7 +1885,7 @@ namespace Gacha.Presentation
             if (catalogUsedCache)
             {
                 SetCatalogStatus(
-                    string.Format(L("content.catalog.cached"), FilteredPackageCount),
+                    string.Format(L("content.catalog.cached"), PackageCount),
                     false,
                     true);
                 return;
@@ -1886,14 +1893,14 @@ namespace Gacha.Presentation
             if (catalogHasCacheWarning)
             {
                 SetCatalogStatus(
-                    string.Format(L("content.catalog.cache_warning"), FilteredPackageCount),
+                    string.Format(L("content.catalog.cache_warning"), PackageCount),
                     false,
                     true);
                 return;
             }
-            SetCatalogStatus(FilteredPackageCount == 0
+            SetCatalogStatus(catalog.Packages.Count == 0
                 ? L("content.catalog.empty")
-                : string.Format(L("content.catalog.loaded"), FilteredPackageCount), false);
+                : string.Format(L("content.catalog.loaded"), PackageCount), false);
         }
 
         private void SetCatalogStatus(string value, bool error, bool warning = false)

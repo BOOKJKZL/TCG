@@ -1,0 +1,95 @@
+.first-run-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+
+.first-run-content__scrim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(4, 12, 22, 0.88);
+}
+
+.first-run-content__panel {
+    width: 720px;
+    max-width: 100%;
+    padding: 34px;
+    border-width: 2px;
+    border-radius: 24px;
+    border-color: rgb(84, 210, 220);
+    background-color: rgb(18, 42, 57);
+}
+
+.first-run-content__kicker,
+.first-run-content__label {
+    color: rgb(126, 229, 235);
+    font-size: 18px;
+    -unity-font-style: bold;
+}
+
+.first-run-content__title {
+    margin-top: 8px;
+    color: white;
+    font-size: 34px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.first-run-content__body,
+.first-run-content__detail {
+    margin-top: 14px;
+    color: rgb(222, 236, 241);
+    font-size: 19px;
+    white-space: normal;
+}
+
+.first-run-content__detail--compact {
+    margin-top: 6px;
+    color: rgb(183, 211, 220);
+    font-size: 17px;
+}
+
+.first-run-content__label {
+    margin-top: 22px;
+}
+
+.first-run-content__languages,
+.first-run-content__actions {
+    margin-top: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.first-run-content__button {
+    min-height: 52px;
+    min-width: 150px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: rgb(93, 179, 191);
+    background-color: rgb(34, 75, 91);
+    color: white;
+    font-size: 18px;
+}
+
+.first-run-content__button--primary {
+    background-color: rgb(37, 137, 104);
+}
+
+.first-run-content__button--quiet {
+    background-color: rgb(45, 56, 70);
+}
+
+.first-run-content__button.is-selected {
+    border-width: 3px;
+    border-color: rgb(244, 211, 94);
+}

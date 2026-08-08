@@ -66,6 +66,9 @@ public sealed class CollectionViewController : MonoBehaviour
     private Label filterEmpty;
     private AsyncCardImageView detailImage;
     private Button menuButton;
+    private Button manageContentButton;
+    private VisualElement zeroContentPanel;
+    private Label zeroContentText;
     private Button pokedexButton;
     private Button backToSetsButton;
     private Button closeDetailsButton;
@@ -261,6 +264,7 @@ public sealed class CollectionViewController : MonoBehaviour
                 ShowPrintingDetails,
                 () =>
                 {
+                    ContentReturnNavigation.RememberCurrentScene();
                     if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
                         GameManager.Instance.loadManager.LoadScene(5);
                     else
@@ -296,6 +300,8 @@ public sealed class CollectionViewController : MonoBehaviour
         pageTitle = Required<Label>("collection-title");
         pageSubtitle = Required<Label>("collection-subtitle");
         browserStatus = Required<Label>("browser-status");
+        zeroContentPanel = Required<VisualElement>("collection-zero-content");
+        zeroContentText = Required<Label>("collection-zero-content-text");
         cardPageTitle = Required<Label>("card-page-title");
         cardCount = Required<Label>("card-count");
         detailName = Required<Label>("detail-name");
@@ -304,6 +310,7 @@ public sealed class CollectionViewController : MonoBehaviour
         detailNewBadge = Required<Label>("detail-new-badge");
         filterEmpty = Required<Label>("filter-empty");
         menuButton = Required<Button>("menu-button");
+        manageContentButton = Required<Button>("collection-manage-content-button");
         pokedexButton = Required<Button>("pokedex-button");
         backToSetsButton = Required<Button>("back-to-sets-button");
         closeDetailsButton = Required<Button>("details-close-button");
@@ -361,6 +368,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private void ConfigureButtons()
     {
         menuButton.clicked += MenuBtnClick;
+        manageContentButton.clicked += OpenContentManagement;
         pokedexButton.clicked += () => pokedexController?.Open();
         backToSetsButton.clicked += () =>
         {
@@ -429,6 +437,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
         setList.itemsSource = sets;
         setList.Rebuild();
+        zeroContentPanel.style.display = sets.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        setList.style.display = sets.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     private VisualElement MakeSetRow()
@@ -951,6 +961,8 @@ public sealed class CollectionViewController : MonoBehaviour
         pageTitle.text = CardUiText.Get("collection.title");
         pageSubtitle.text = CardUiText.Get("collection.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
+        manageContentButton.text = CardUiText.Get("common.action.manage_content");
+        zeroContentText.text = CardUiText.Get("collection.status.no_content");
         pokedexButton.text = PokemonPokedexText.Get(
             "title",
             ApplicationServices.Languages.UiLanguageId);
@@ -973,6 +985,12 @@ public sealed class CollectionViewController : MonoBehaviour
 
         setList?.RefreshItems();
         cardList?.RefreshItems();
+    }
+
+    private static void OpenContentManagement()
+    {
+        ContentReturnNavigation.RememberCurrentScene();
+        SceneManager.LoadScene("006_ContentScene");
     }
 
     private void OnUiLanguageChanged(string languageId)

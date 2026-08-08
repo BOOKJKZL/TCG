@@ -21,6 +21,7 @@
                 <ui:Button name="gacha-menu-button" class="gacha-button" />
             </ui:VisualElement>
             <ui:Label name="gacha-status" class="gacha-opening__status" style="display: none;" />
+            <ui:Button name="gacha-manage-content-button" class="gacha-button gacha-button--primary zero-content-action" style="display: none;" />
 
             <ui:VisualElement name="gacha-selection-page" class="gacha-page gacha-selection">
                 <ui:ListView name="product-list" class="gacha-product-list" />

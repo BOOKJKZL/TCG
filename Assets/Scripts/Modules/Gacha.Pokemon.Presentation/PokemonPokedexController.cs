@@ -93,6 +93,7 @@ namespace Gacha.Pokemon.Presentation
         private Button formCardsButton;
         private Button speciesCardsButton;
         private Button manageDownloadsButton;
+        private Button emptyManageDownloadsButton;
         private IVisualElementScheduledItem transitionAnimation;
         private IVisualElementScheduledItem speciesSearchRefresh;
         private IVisualElementScheduledItem cardSearchRefresh;
@@ -113,6 +114,7 @@ namespace Gacha.Pokemon.Presentation
         public bool IsReady { get; private set; }
         public bool IsOpen => root != null && root.resolvedStyle.display == DisplayStyle.Flex;
         public string InitializationError { get; private set; }
+        public bool MissingContent { get; private set; }
         public string LoadedCardLanguageId { get; private set; }
         public int VisibleSpeciesCount => visibleSpecies.Count;
         public int VisibleIntroducedFormCount => visibleIntroducedForms.Count;
@@ -162,6 +164,7 @@ namespace Gacha.Pokemon.Presentation
             safeAreaBinding = UiToolkitSafeArea.Attach(root);
             QueryElements();
             ConfigureControls();
+            RefreshLocalizedContent();
             root.style.display = DisplayStyle.None;
             safeAreaBinding.Suspend();
             attached = true;
@@ -176,8 +179,13 @@ namespace Gacha.Pokemon.Presentation
             root.BringToFront();
             if (!EnsureReady())
             {
-                status.text = PokemonPokedexText.Format("unavailable", UiLanguage, InitializationError);
+                status.text = MissingContent
+                    ? PokemonPokedexText.Get("content_missing", UiLanguage)
+                    : PokemonPokedexText.Format("unavailable", UiLanguage, InitializationError);
                 status.AddToClassList("is-error");
+                emptyManageDownloadsButton.style.display = manageDownloads == null
+                    ? DisplayStyle.None
+                    : DisplayStyle.Flex;
                 UIFeedbackService.Play(FeedbackCue.Error);
                 AnimateOpen();
                 return false;
@@ -264,14 +272,20 @@ namespace Gacha.Pokemon.Presentation
                 return false;
             try
             {
+                CatalogLoadResult catalogLoad = ApplicationServices.Catalog.EnsureLoaded();
+                if (!catalogLoad.Succeeded)
+                    throw new InvalidOperationException(catalogLoad.ErrorMessage);
+                if (!catalogLoad.HasInstalledContent)
+                {
+                    MissingContent = true;
+                    InitializationError = PokemonPokedexText.Get("content_missing", UiLanguage);
+                    return false;
+                }
                 PokemonPokedexSnapshotBundle snapshot = SnapshotOverride ??
                     new PokemonPokedexSnapshotRepository().Load(TaxonomyPath, CardSubjectPath);
                 browser = new PokemonPokedexBrowser(snapshot.Catalog, snapshot.SubjectCatalog);
                 taxonomySourceSha256 = snapshot.Taxonomy.SourceSha256;
                 LoadedCardLanguageId = snapshot.CardSubjects.Language;
-                CatalogLoadResult catalogLoad = ApplicationServices.Catalog.EnsureLoaded();
-                if (!catalogLoad.Succeeded)
-                    throw new InvalidOperationException(catalogLoad.ErrorMessage);
                 runtimeCatalog = catalogLoad.Catalog;
                 artworkCache = new CardTextureCache(new PrivateContentImageSource(ArtworkRoot), 8);
                 artworkView = new AsyncCardImageView(artworkCache);
@@ -356,6 +370,7 @@ namespace Gacha.Pokemon.Presentation
             formCardsButton = Required<Button>("pokedex-form-cards-button");
             speciesCardsButton = Required<Button>("pokedex-species-cards-button");
             manageDownloadsButton = Required<Button>("pokedex-manage-downloads-button");
+            emptyManageDownloadsButton = Required<Button>("pokedex-empty-manage-button");
         }
 
         private T Required<T>(string name) where T : VisualElement =>
@@ -403,6 +418,11 @@ namespace Gacha.Pokemon.Presentation
             formCardsButton.clicked += () => ShowAllSpeciesCards(false);
             speciesCardsButton.clicked += () => ShowAllSpeciesCards(true);
             manageDownloadsButton.clicked += () =>
+            {
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                manageDownloads?.Invoke();
+            };
+            emptyManageDownloadsButton.clicked += () =>
             {
                 UIFeedbackService.Play(FeedbackCue.Confirm);
                 manageDownloads?.Invoke();
@@ -916,6 +936,9 @@ namespace Gacha.Pokemon.Presentation
             speciesCardsButton.text = PokemonPokedexText.Get("card_scope_species", UiLanguage);
             manageDownloadsButton.text = PokemonPokedexText.Get("manage_downloads", UiLanguage);
             manageDownloadsButton.style.display = manageDownloads == null ? DisplayStyle.None : DisplayStyle.Flex;
+            emptyManageDownloadsButton.text = PokemonPokedexText.Get("manage_downloads", UiLanguage);
+            if (IsReady)
+                emptyManageDownloadsButton.style.display = DisplayStyle.None;
             cardSearchField.label = PokemonPokedexText.Get("card_search", UiLanguage);
             updatingControls = true;
             cardSortField.label = PokemonPokedexText.Get("card_sort", UiLanguage);

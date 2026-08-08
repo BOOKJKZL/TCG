@@ -35,6 +35,7 @@ namespace Gacha.Pokemon.Presentation
                 ["card_installed"] = Text("Installed · tap for details", "已安装 · 点击查看详情", "インストール済み · タップで詳細"),
                 ["card_not_installed"] = Text("Card image package not installed", "卡图资源包尚未安装", "カード画像パッケージが未インストールです"),
                 ["manage_downloads"] = Text("Manage downloads", "管理下载", "ダウンロード管理"),
+                ["content_missing"] = Text("Pokédex content is not installed yet.", "图鉴资料尚未安装。", "図鑑コンテンツがインストールされていません。"),
                 ["art_pending"] = Text("Artwork is not installed", "图鉴图片尚未安装", "図鑑画像が未インストールです"),
                 ["art_hint"] = Text("Download the generation image package to view it offline", "下载该世代图片包后即可离线查看", "世代別画像パッケージをダウンロードするとオフラインで表示できます"),
                 ["unavailable"] = Text("Pokédex data is unavailable: {0}", "图鉴资料无法使用：{0}", "図鑑データを利用できません: {0}"),

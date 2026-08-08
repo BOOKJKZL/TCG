@@ -24,6 +24,10 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="browser-status" class="collection-browser__status" />
+            <ui:VisualElement name="collection-zero-content" class="zero-content-panel" style="display: none;">
+                <ui:Label name="collection-zero-content-text" class="zero-content-panel__text" />
+                <ui:Button name="collection-manage-content-button" class="browser-button zero-content-action" />
+            </ui:VisualElement>
 
             <ui:VisualElement name="set-page" class="browser-page">
                 <ui:ListView name="set-list" class="browser-list" />

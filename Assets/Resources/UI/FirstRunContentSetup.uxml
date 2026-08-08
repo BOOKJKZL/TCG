@@ -1,0 +1,31 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="FirstRunContentSetup.uss" />
+    <ui:VisualElement name="first-run-content" class="first-run-content safe-area-root" style="display: none;">
+        <ui:VisualElement class="first-run-content__scrim" />
+        <ui:VisualElement class="first-run-content__panel">
+            <ui:Label name="setup-kicker" class="first-run-content__kicker" />
+            <ui:Label name="setup-title" class="first-run-content__title" />
+            <ui:Label name="setup-body" class="first-run-content__body" />
+            <ui:Label name="setup-language-label" class="first-run-content__label" />
+            <ui:VisualElement class="first-run-content__languages">
+                <ui:Button name="setup-language-en" text="English" class="first-run-content__button" />
+                <ui:Button name="setup-language-zh" text="简体中文" class="first-run-content__button" />
+                <ui:Button name="setup-language-ja" text="日本語" class="first-run-content__button" />
+            </ui:VisualElement>
+            <ui:Label name="setup-content-language-label" class="first-run-content__label" />
+            <ui:Label name="setup-content-language-detail" class="first-run-content__detail first-run-content__detail--compact" />
+            <ui:VisualElement class="first-run-content__languages">
+                <ui:Button name="setup-content-language-en" text="English" class="first-run-content__button" />
+                <ui:Button name="setup-content-language-zh" text="简体中文" class="first-run-content__button" />
+                <ui:Button name="setup-content-language-ja" text="日本語" class="first-run-content__button" />
+            </ui:VisualElement>
+            <ui:Label name="setup-storage" class="first-run-content__detail" />
+            <ui:Label name="setup-catalog" class="first-run-content__detail" />
+            <ui:VisualElement class="first-run-content__actions">
+                <ui:Button name="setup-manage" class="first-run-content__button first-run-content__button--primary" />
+                <ui:Button name="setup-retry" class="first-run-content__button" />
+                <ui:Button name="setup-later" class="first-run-content__button first-run-content__button--quiet" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

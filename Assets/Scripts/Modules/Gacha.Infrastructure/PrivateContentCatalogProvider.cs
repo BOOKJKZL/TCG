@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Gacha.Application;
+using Gacha.Domain;
 
 namespace Gacha.Infrastructure.Content
 {
@@ -28,6 +30,19 @@ namespace Gacha.Infrastructure.Content
         public CatalogLoadResult Load()
         {
             var documents = new PrivateContentManifestReader().LoadCardSetDirectory(contentRoot);
+            if (documents.Count == 0)
+            {
+                var empty = new UniversalCatalog(
+                    Enumerable.Empty<LanguageDefinition>(),
+                    Enumerable.Empty<GameDefinition>(),
+                    Enumerable.Empty<SetDefinition>(),
+                    Enumerable.Empty<CollectibleItemDefinition>(),
+                    Enumerable.Empty<RarityDefinition>(),
+                    Enumerable.Empty<VariantDefinition>(),
+                    Enumerable.Empty<PrintingDefinition>(),
+                    Enumerable.Empty<ProductDefinition>());
+                return CatalogLoadResult.Success(empty, 0, 0, 0);
+            }
             PrintingLanguageGroupManifestDto languageGroups =
                 new PrintingLanguageGroupManifestReader().LoadOptional(contentRoot);
             PrivateCatalogImportResult import = new PrivateManifestCatalogAdapter(variantPolicy).Build(

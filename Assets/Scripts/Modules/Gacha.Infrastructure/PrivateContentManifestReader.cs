@@ -33,8 +33,7 @@ namespace Gacha.Infrastructure.Content
         {
             if (string.IsNullOrWhiteSpace(contentRoot))
                 throw new ArgumentException("Content root cannot be empty.", nameof(contentRoot));
-            if (!Directory.Exists(contentRoot))
-                throw new DirectoryNotFoundException($"Content directory was not found: {contentRoot}");
+            Directory.CreateDirectory(contentRoot);
 
             string[] manifestPaths = Directory
                 .GetFiles(contentRoot, "manifest.json", SearchOption.AllDirectories)
@@ -43,7 +42,7 @@ namespace Gacha.Infrastructure.Content
                 .ToArray();
 
             if (manifestPaths.Length == 0)
-                throw new PrivateContentManifestException($"No manifest.json files were found under: {contentRoot}");
+                return Array.Empty<PrivateContentManifestDocument>();
 
             List<PrivateContentManifestDocument> documents = new List<PrivateContentManifestDocument>(manifestPaths.Length);
             foreach (string path in manifestPaths)

@@ -886,6 +886,18 @@ MonoBehaviour:
     m_Localized: 'PLAYER ID was not changed: {0}'
     m_Metadata:
       m_Items: []
+  - m_Id: 168879247036428371
+    m_Localized: Manage content
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428372
+    m_Localized: No card sets are installed yet. Open Content Library to choose what to download.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 168879247036428373
+    m_Localized: No content packs match the current filters.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -117,6 +117,30 @@ public class ContentCatalogAdapterTests
         }
     }
 
+    [Test]
+    public void CatalogProvider_CreatesMissingRootAndReturnsStructuredNoContentState()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "gacha-clean-install-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            CatalogLoadResult result = new PrivateContentCatalogProvider(root).Load();
+
+            Assert.That(Directory.Exists(root), Is.True);
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(result.State, Is.EqualTo(CatalogLoadState.NoInstalledContent));
+            Assert.That(result.HasInstalledContent, Is.False);
+            Assert.That(result.Catalog, Is.Not.Null);
+            Assert.That(result.Catalog.Printings, Is.Empty);
+            Assert.That(result.Catalog.Products, Is.Empty);
+            Assert.That(result.ErrorMessage, Is.Null);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
     private static PrivateContentManifestDto CreateManifest()
     {
         return new PrivateContentManifestDto

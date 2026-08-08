@@ -4,6 +4,13 @@ using Gacha.Domain;
 
 namespace Gacha.Application
 {
+    public enum CatalogLoadState
+    {
+        Ready,
+        NoInstalledContent,
+        Failed
+    }
+
     public interface ICatalogProvider
     {
         CatalogLoadResult Load();
@@ -17,7 +24,8 @@ namespace Gacha.Application
             int sourceItemCount,
             int printingCount,
             IReadOnlyList<string> warnings,
-            string errorMessage)
+            string errorMessage,
+            CatalogLoadState state)
         {
             Catalog = catalog;
             SourceSetCount = sourceSetCount;
@@ -25,6 +33,7 @@ namespace Gacha.Application
             PrintingCount = printingCount;
             Warnings = warnings ?? Array.Empty<string>();
             ErrorMessage = errorMessage;
+            State = state;
         }
 
         public bool Succeeded => Catalog != null && string.IsNullOrEmpty(ErrorMessage);
@@ -34,6 +43,8 @@ namespace Gacha.Application
         public int PrintingCount { get; }
         public IReadOnlyList<string> Warnings { get; }
         public string ErrorMessage { get; }
+        public CatalogLoadState State { get; }
+        public bool HasInstalledContent => State == CatalogLoadState.Ready;
 
         public static CatalogLoadResult Success(
             UniversalCatalog catalog,
@@ -51,7 +62,8 @@ namespace Gacha.Application
                 sourceItemCount,
                 printingCount,
                 warnings,
-                null);
+                null,
+                printingCount == 0 ? CatalogLoadState.NoInstalledContent : CatalogLoadState.Ready);
         }
 
         public static CatalogLoadResult Failure(string errorMessage)
@@ -59,7 +71,14 @@ namespace Gacha.Application
             if (string.IsNullOrWhiteSpace(errorMessage))
                 throw new ArgumentException("A catalog failure needs an error message.", nameof(errorMessage));
 
-            return new CatalogLoadResult(null, 0, 0, 0, Array.Empty<string>(), errorMessage.Trim());
+            return new CatalogLoadResult(
+                null,
+                0,
+                0,
+                0,
+                Array.Empty<string>(),
+                errorMessage.Trim(),
+                CatalogLoadState.Failed);
         }
     }
 

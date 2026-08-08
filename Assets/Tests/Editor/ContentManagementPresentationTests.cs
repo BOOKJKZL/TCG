@@ -203,6 +203,73 @@ public class ContentManagementPresentationTests
     }
 
     [Test]
+    public void CleanInstallSetup_IsLocalizedAndCatalogOnlyUntilPlayerConfirmation()
+    {
+        VisualTreeAsset setup = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+            "Assets/Resources/UI/FirstRunContentSetup.uxml");
+        VisualElement root = setup.CloneTree();
+        string controller = File.ReadAllText(
+            "Assets/Scripts/004_Controller/FirstRunContentSetupController.cs");
+
+        Assert.That(root.Q<Button>("setup-language-en"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-language-zh"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-language-ja"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-content-language-en"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-content-language-zh"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-content-language-ja"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-manage"), Is.Not.Null);
+        Assert.That(root.Q<Button>("setup-retry"), Is.Not.Null);
+        Assert.That(controller, Does.Contain("ContentPackageCatalogs"));
+        Assert.That(controller, Does.Contain("provider.LoadAsync(token)"));
+        Assert.That(controller, Does.Not.Contain("DownloadAsync("),
+            "First-run refresh may fetch catalog metadata but must never start a package ZIP download.");
+        Assert.That(controller, Does.Not.Contain("persistentDataPath"),
+            "Player copy describes app-managed storage without exposing an absolute path.");
+    }
+
+    [Test]
+    public void ZeroContentActions_AreAvailableInAllThreeCardLanguages()
+    {
+        StringTable english = AssetDatabase.LoadAssetAtPath<StringTable>(
+            "Assets/Resources/Data/Localization/Card_UI_en.asset");
+        StringTable chinese = AssetDatabase.LoadAssetAtPath<StringTable>(
+            "Assets/Resources/Data/Localization/Card_UI_zh.asset");
+        StringTable japanese = AssetDatabase.LoadAssetAtPath<StringTable>(
+            "Assets/Resources/Data/Localization/Card_UI_ja.asset");
+
+        foreach (string key in new[]
+                 {
+                     "common.action.manage_content", "collection.status.no_content",
+                     "content.catalog.empty", "content.filter.empty"
+                 })
+        {
+            Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, key + " en");
+            Assert.That(chinese.GetEntry(key)?.LocalizedValue, Is.Not.Empty, key + " zh");
+            Assert.That(japanese.GetEntry(key)?.LocalizedValue, Is.Not.Empty, key + " ja");
+        }
+    }
+
+    [Test]
+    public void ZeroContentViews_KeepManageAndReturnNavigationAvailable()
+    {
+        VisualTreeAsset pokedex = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+            "Assets/Resources/UI/PokedexView.uxml");
+        VisualElement root = pokedex.CloneTree();
+        string pokedexController = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Pokemon.Presentation/PokemonPokedexController.cs");
+        string contentController = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
+
+        Assert.That(root.Q<Button>("pokedex-empty-manage-button"), Is.Not.Null);
+        Assert.That(pokedexController, Does.Contain("emptyManageDownloadsButton.style.display"));
+        Assert.That(pokedexController, Does.Contain("!catalogLoad.HasInstalledContent"));
+        Assert.That(pokedexController, Does.Contain("PokemonPokedexText.Get(\"content_missing\""));
+        Assert.That(contentController, Does.Contain("ContentReturnNavigation.ConsumeOrDefault"));
+        Assert.That(contentController, Does.Contain("catalog.Packages.Count == 0"));
+        Assert.That(contentController, Does.Contain("L(\"content.filter.empty\")"));
+    }
+
+    [Test]
     public void OfflineCatalogLocalization_HasEnglishAndChineseEntries()
     {
         StringTable english = AssetDatabase.LoadAssetAtPath<StringTable>(

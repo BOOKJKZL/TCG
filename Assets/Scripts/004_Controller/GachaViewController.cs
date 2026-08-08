@@ -93,6 +93,7 @@ public sealed class GachaViewController : MonoBehaviour
     private Label summaryMetadata;
     private Label openingStatistics;
     private Button menuButton;
+    private Button manageContentButton;
     private Button prepareButton;
     private Button prepareTenButton;
     private Button tearButton;
@@ -447,6 +448,7 @@ public sealed class GachaViewController : MonoBehaviour
         summaryMetadata = Required<Label>("summary-metadata");
         openingStatistics = Required<Label>("opening-statistics");
         menuButton = Required<Button>("gacha-menu-button");
+        manageContentButton = Required<Button>("gacha-manage-content-button");
         prepareButton = Required<Button>("prepare-pack-button");
         prepareTenButton = Required<Button>("prepare-ten-button");
         tearButton = Required<Button>("tear-pack-button");
@@ -476,6 +478,7 @@ public sealed class GachaViewController : MonoBehaviour
     private void ConfigureButtons()
     {
         menuButton.clicked += MenuBtnClick;
+        manageContentButton.clicked += OpenContentManagement;
         prepareButton.clicked += () => PrepareSelectedProduct();
         prepareTenButton.clicked += () => PrepareTenProducts();
         tearButton.clicked += () => TearPack();
@@ -529,10 +532,12 @@ public sealed class GachaViewController : MonoBehaviour
             prepareButton.SetEnabled(false);
             prepareTenButton.SetEnabled(false);
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
+            manageContentButton.style.display = DisplayStyle.Flex;
             RefreshOpeningJournal();
             return;
         }
 
+        manageContentButton.style.display = DisplayStyle.None;
         SelectProduct(next);
         int index = products.IndexOf(next);
         productList.SetSelectionWithoutNotify(new[] { index });
@@ -981,6 +986,7 @@ public sealed class GachaViewController : MonoBehaviour
         title.text = CardUiText.Get("gacha.title");
         subtitle.text = CardUiText.Get("gacha.subtitle");
         menuButton.text = CardUiText.Get("common.action.main_menu");
+        manageContentButton.text = CardUiText.Get("common.action.manage_content");
         prepareButton.text = CardUiText.Get("gacha.action.open_one");
         prepareTenButton.text = CardUiText.Get("gacha.action.open_ten");
         tearButton.text = CardUiText.Get("gacha.action.tear");
@@ -1010,6 +1016,12 @@ public sealed class GachaViewController : MonoBehaviour
         }
         RefreshOpeningJournal();
         productList?.RefreshItems();
+    }
+
+    private static void OpenContentManagement()
+    {
+        ContentReturnNavigation.RememberCurrentScene();
+        SceneManager.LoadScene("006_ContentScene");
     }
 
     private void OnUiLanguageChanged(string languageId)
