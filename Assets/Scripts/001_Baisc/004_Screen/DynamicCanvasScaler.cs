@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class DynamicCanvasScaler : MonoBehaviour
+public sealed class DynamicCanvasScaler : MonoBehaviour
 {
-    void Start()
+    private static readonly Vector2 DesignReferenceResolution = new Vector2(1000f, 2000f);
+
+    private void Start()
     {
         AdjustCanvasScaler();
     }
@@ -14,38 +16,14 @@ public class DynamicCanvasScaler : MonoBehaviour
         if (scaler == null)
             return;
 
-        ResolutionManager manager = GameManager.Instance != null
-            ? GameManager.Instance.resolutionManager
-            : null;
-        Vector2 targetResolution = manager != null && manager.resolutionWidth > 0 && manager.resolutionHeight > 0
-            ? new Vector2(manager.resolutionWidth, manager.resolutionHeight)
-            : scaler.referenceResolution;
-        if (targetResolution.x <= 0f || targetResolution.y <= 0f)
-            targetResolution = new Vector2(1000f, 2000f);
-
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = targetResolution;
+        if (scaler.referenceResolution.x <= 0f || scaler.referenceResolution.y <= 0f)
+            scaler.referenceResolution = DesignReferenceResolution;
 
-        // Get screen dimensions
-        float screenWidth = Screen.width;
-        float screenHeight = Mathf.Max(1f, Screen.height);
-
-        // Determine aspect ratio
-        float screenAspectRatio = screenWidth / screenHeight;
-        float referenceAspectRatio = scaler.referenceResolution.x / scaler.referenceResolution.y;
-
-        // Choose match mode based on aspect ratio
-        if (screenAspectRatio >= referenceAspectRatio)
-        {
-            // Match Width
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 1f; // Match Height
-        }
-        else
-        {
-            // Match Height
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0f; // Match Width
-        }
+        // The reference is a design scale, not a viewport contract. A balanced
+        // match lets the Canvas occupy every supported aspect ratio without
+        // reintroducing the retired 1:2 camera crop.
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
     }
 }

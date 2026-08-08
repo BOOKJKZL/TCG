@@ -613,3 +613,38 @@
     background-color: rgb(205, 49, 61);
     color: white;
 }
+
+.pokedex-overlay.mobile-layout--compact .pokedex-shell {
+    padding: 18px;
+}
+
+.pokedex-overlay.mobile-layout--compact .pokedex-header,
+.pokedex-overlay.mobile-layout--compact .pokedex-card-controls,
+.pokedex-overlay.mobile-layout--compact .pokedex-card-filters {
+    flex-wrap: wrap;
+}
+
+.pokedex-overlay.mobile-layout--compact .pokedex-filters,
+.pokedex-overlay.mobile-layout--compact .pokedex-detail__hero {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.pokedex-overlay.mobile-layout--compact .pokedex-field,
+.pokedex-overlay.mobile-layout--compact .pokedex-generation,
+.pokedex-overlay.mobile-layout--compact .pokedex-search,
+.pokedex-overlay.mobile-layout--compact .pokedex-card-search,
+.pokedex-overlay.mobile-layout--compact .pokedex-card-sort {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 6px;
+}
+
+.pokedex-overlay.mobile-layout--compact .pokedex-artwork {
+    width: 220px;
+    height: 220px;
+    align-self: center;
+}

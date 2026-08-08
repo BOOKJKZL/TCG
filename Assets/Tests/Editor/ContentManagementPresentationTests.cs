@@ -95,7 +95,7 @@ public class ContentManagementPresentationTests
     }
 
     [Test]
-    public void SharedRuntimePanel_UsesPortraitScreenScaling()
+    public void SharedRuntimePanel_UsesDesignReferenceWithoutFixedViewportCropping()
     {
         PanelSettings settings = AssetDatabase.LoadAssetAtPath<PanelSettings>(
             "Assets/Resources/UI/Collection Panel Settings.asset");
@@ -141,7 +141,7 @@ public class ContentManagementPresentationTests
     }
 
     [Test]
-    public void ContentLibrary_UsesFixedHeightVirtualizedListAndPlayerFilters()
+    public void ContentLibrary_UsesDynamicHeightVirtualizedListAndPlayerFilters()
     {
         VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
             "Assets/UI/ContentManagementView.uxml");
@@ -149,8 +149,14 @@ public class ContentManagementPresentationTests
         ListView list = root.Q<ListView>("package-list");
 
         Assert.That(list, Is.Not.Null);
-        Assert.That(list.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
-        Assert.That(list.fixedItemHeight, Is.EqualTo(160f));
+        Assert.That(list.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
+        string styles = File.ReadAllText("Assets/UI/Styles.uss").Replace("\r\n", "\n");
+        Match rowRule = Regex.Match(styles, @"(?ms)^\.content-package-row\s*\{(?<body>.*?)\}");
+        Assert.That(rowRule.Success, Is.True);
+        Assert.That(rowRule.Groups["body"].Value, Does.Contain("height: auto;"),
+            "DynamicHeight cannot grow localized rows while the default row has a fixed height.");
+        Assert.That(styles, Does.Contain(".content-management.mobile-layout--compact .content-package-row__actions"));
+        Assert.That(styles, Does.Contain("flex-wrap: wrap;"));
         Assert.That(root.Q<TextField>("content-search"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-language-filter"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-generation-filter"), Is.Not.Null);
@@ -169,6 +175,31 @@ public class ContentManagementPresentationTests
             Assert.That(action, Is.Not.TypeOf<Button>(), name);
         }
         Assert.That(root.Q<ScrollView>("package-list"), Is.Null);
+    }
+
+    [Test]
+    public void PrimaryToolkitViews_DeclareSharedSafeAreaRoots()
+    {
+        foreach (string path in new[]
+                 {
+                     "Assets/UI/ContentManagementView.uxml",
+                     "Assets/UI/GachaView.uxml",
+                     "Assets/UI/CollectionView.uxml",
+                     "Assets/Resources/UI/PokedexView.uxml"
+                 })
+        {
+            string source = File.ReadAllText(path);
+            Assert.That(source, Does.Contain("safe-area-root"), path);
+        }
+
+        string helper = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/UiToolkitSafeArea.cs");
+        Assert.That(helper, Does.Contain("Screen.safeArea"));
+        Assert.That(helper, Does.Contain("RuntimePanelUtils.ScreenToPanel"));
+        Assert.That(helper, Does.Contain("UnregisterCallback"));
+        Assert.That(helper, Does.Contain("poll?.Pause()"));
+        Assert.That(helper, Does.Contain("paddingTop"));
+        Assert.That(helper, Does.Contain("paddingBottom"));
     }
 
     [Test]

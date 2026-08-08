@@ -54,6 +54,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document, Is.Not.Null);
                 VisualElement root = document.rootVisualElement.Q<VisualElement>("pokedex-overlay");
                 ListView list = document.rootVisualElement.Q<ListView>("pokedex-species-list");
+                Assert.That(root.ClassListContains("safe-area-bound"), Is.True);
                 Assert.That(root.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(root.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.05f));
                 Assert.That(controller.GenerationCount, Is.EqualTo(9));

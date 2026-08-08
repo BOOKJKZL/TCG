@@ -1008,8 +1008,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27549a0057eae81498dc08a8111fd775, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  resolutionWidth: 1000
-  resolutionHeight: 2000
 --- !u!4 &491336352
 Transform:
   m_ObjectHideFlags: 0

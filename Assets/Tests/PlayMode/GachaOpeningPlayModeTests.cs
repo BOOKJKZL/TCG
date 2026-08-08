@@ -50,6 +50,8 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(productCount, Is.GreaterThanOrEqualTo(5));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
+                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                    .ClassListContains("safe-area-bound"), Is.True);
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
                 Assert.That(productList.itemsSource.Count, Is.EqualTo(productCount));
                 Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));

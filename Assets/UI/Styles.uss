@@ -245,7 +245,7 @@
 }
 
 .content-package-row {
-    height: 148px;
+    height: auto;
     min-height: 148px;
     margin: 6px 4px;
     padding: 18px;
@@ -294,7 +294,7 @@
 
 .content-package-row__actions {
     position: relative;
-    height: 48px;
+    height: 50px;
     overflow: hidden;
 }
 
@@ -344,7 +344,8 @@
     align-items: center;
     justify-content: center;
     min-width: 128px;
-    height: 48px;
+    height: 50px;
+    min-height: 50px;
     margin-left: 8px;
     padding-left: 16px;
     padding-right: 16px;
@@ -614,7 +615,7 @@
 }
 
 .gacha-batch-actions {
-    justify-content: stretch;
+    justify-content: flex-start;
 }
 
 .gacha-batch-actions .gacha-button {
@@ -1607,4 +1608,76 @@
     border-color: rgb(229, 164, 35);
     background-color: rgb(205, 49, 61);
     color: white;
+}
+
+/* Safe Area is added as inline padding on the full-screen background roots.
+   Compact rules keep controls reachable after asymmetric display insets. */
+.content-management.mobile-layout--compact .content-management__shell,
+.gacha-opening.mobile-layout--compact .gacha-opening__shell,
+.collection-browser.mobile-layout--compact .collection-browser__shell {
+    padding: 18px;
+}
+
+.content-management.mobile-layout--compact .content-management__header,
+.content-management.mobile-layout--compact .content-management__header-actions,
+.gacha-opening.mobile-layout--compact .gacha-opening__header,
+.collection-browser.mobile-layout--compact .collection-browser__header,
+.collection-browser.mobile-layout--compact .card-page__header,
+.collection-browser.mobile-layout--compact .collection-browser__actions {
+    flex-wrap: wrap;
+}
+
+.content-management.mobile-layout--compact .content-management__filters {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.content-management.mobile-layout--compact .content-management__search,
+.content-management.mobile-layout--compact .content-management__filter {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 6px;
+}
+
+.content-management__selection-actions .content-button {
+    min-height: 50px;
+    height: 50px;
+}
+
+.content-package-row__name {
+    white-space: normal;
+}
+
+.content-management.mobile-layout--compact .content-package-row {
+    height: auto;
+    min-height: 236px;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.content-management.mobile-layout--compact .content-package-row__controls {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-top: 12px;
+}
+
+.content-management.mobile-layout--compact .content-package-row__actions {
+    height: auto;
+    min-height: 104px;
+    flex-wrap: wrap;
+    overflow: visible;
+}
+
+.content-management.mobile-layout--compact .content-package-row__actions .content-button {
+    position: relative;
+    left: auto;
+    width: auto;
+    min-width: 112px;
+    max-width: 100%;
+    flex-grow: 1;
+    margin-right: 6px;
+    margin-bottom: 6px;
 }

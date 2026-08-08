@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="gacha-opening" class="gacha-opening">
+    <ui:VisualElement name="gacha-opening" class="gacha-opening safe-area-root">
         <ui:VisualElement class="gacha-opening__shell">
             <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
                 <ui:VisualElement class="trainer-device-rail__red" />

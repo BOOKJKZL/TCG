@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="collection-browser" class="collection-browser">
+    <ui:VisualElement name="collection-browser" class="collection-browser safe-area-root">
         <ui:VisualElement class="collection-browser__shell">
             <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
                 <ui:VisualElement class="trainer-device-rail__red" />

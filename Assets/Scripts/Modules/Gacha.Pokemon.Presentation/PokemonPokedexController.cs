@@ -57,6 +57,7 @@ namespace Gacha.Pokemon.Presentation
         private readonly HashSet<string> missingArtworkCatalogs = new HashSet<string>(StringComparer.Ordinal);
         private PokemonPokedexBrowser browser;
         private string taxonomySourceSha256;
+        private UiToolkitSafeAreaBinding safeAreaBinding;
         private VisualElement root;
         private VisualElement listPage;
         private VisualElement detailPage;
@@ -158,9 +159,11 @@ namespace Gacha.Pokemon.Presentation
                 throw new InvalidOperationException("PokedexView.uxml has no pokedex-overlay root.");
             content.Remove(root);
             document.rootVisualElement.Add(root);
+            safeAreaBinding = UiToolkitSafeArea.Attach(root);
             QueryElements();
             ConfigureControls();
             root.style.display = DisplayStyle.None;
+            safeAreaBinding.Suspend();
             attached = true;
         }
 
@@ -169,6 +172,7 @@ namespace Gacha.Pokemon.Presentation
             if (!attached)
                 return false;
             root.style.display = DisplayStyle.Flex;
+            safeAreaBinding.Resume();
             root.BringToFront();
             if (!EnsureReady())
             {
@@ -193,6 +197,7 @@ namespace Gacha.Pokemon.Presentation
             transitionAnimation?.Pause();
             transitionAnimation = null;
             root.style.display = DisplayStyle.None;
+            safeAreaBinding?.Suspend();
             UIFeedbackService.Play(FeedbackCue.Back);
         }
 
@@ -294,6 +299,8 @@ namespace Gacha.Pokemon.Presentation
 
         private void OnDestroy()
         {
+            safeAreaBinding?.Dispose();
+            safeAreaBinding = null;
             if (ApplicationServices.IsConfigured)
             {
                 ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;

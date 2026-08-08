@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="content-management" class="content-management">
+    <ui:VisualElement name="content-management" class="content-management safe-area-root">
         <ui:VisualElement name="content-shell" class="content-management__shell">
             <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
                 <ui:VisualElement class="trainer-device-rail__red" />
@@ -48,7 +48,7 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="content-empty" class="content-management__empty" />
-            <ui:ListView name="package-list" class="content-management__list" fixed-item-height="160" virtualization-method="FixedHeight" selection-type="None" />
+            <ui:ListView name="package-list" class="content-management__list" virtualization-method="DynamicHeight" selection-type="None" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

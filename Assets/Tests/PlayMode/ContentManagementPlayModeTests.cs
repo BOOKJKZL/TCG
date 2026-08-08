@@ -228,6 +228,8 @@ namespace Gacha.Tests.PlayMode
         [UnityTest]
         public IEnumerator ContentScene_LoadsLocalizedPackagesAndSurvivesFailureRetry()
         {
+            int originalScreenWidth = Screen.width;
+            int originalScreenHeight = Screen.height;
             int mainThreadId = Environment.CurrentManagedThreadId;
             var lifecycle = new Lifecycle();
             var factory = new OperationFactory(lifecycle);
@@ -245,6 +247,8 @@ namespace Gacha.Tests.PlayMode
             string originalLanguage = null;
             try
             {
+                Screen.SetResolution(720, 1600, false);
+                yield return null;
                 if (ApplicationServices.Languages != null)
                 {
                     originalLanguage = ApplicationServices.Languages.UiLanguageId;
@@ -271,6 +275,12 @@ namespace Gacha.Tests.PlayMode
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
                 Assert.That(document.visualTreeAsset, Is.Not.Null);
+                VisualElement safeAreaRoot = document.rootVisualElement.Q<VisualElement>("content-management");
+                Assert.That(safeAreaRoot.ClassListContains("safe-area-bound"), Is.True);
+                float initialSafePaddingLeft = safeAreaRoot.resolvedStyle.paddingLeft;
+                float initialSafePaddingTop = safeAreaRoot.resolvedStyle.paddingTop;
+                float initialSafePaddingRight = safeAreaRoot.resolvedStyle.paddingRight;
+                float initialSafePaddingBottom = safeAreaRoot.resolvedStyle.paddingBottom;
                 VisualElement contentShell = document.rootVisualElement.Q<VisualElement>("content-shell");
                 AssertNoInlineVisibilityTransform(contentShell);
                 Assert.That(contentShell.resolvedStyle.opacity,
@@ -284,9 +294,16 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(contentShell.resolvedStyle.opacity,
                     Is.EqualTo(1f).Within(0.01f),
                     "The attached content shell must repaint visible without a resize or app resume.");
+                Assert.That(safeAreaRoot.resolvedStyle.paddingLeft, Is.EqualTo(initialSafePaddingLeft).Within(0.01f));
+                Assert.That(safeAreaRoot.resolvedStyle.paddingTop, Is.EqualTo(initialSafePaddingTop).Within(0.01f));
+                Assert.That(safeAreaRoot.resolvedStyle.paddingRight, Is.EqualTo(initialSafePaddingRight).Within(0.01f));
+                Assert.That(safeAreaRoot.resolvedStyle.paddingBottom, Is.EqualTo(initialSafePaddingBottom).Within(0.01f),
+                    "Repeated Safe Area refreshes must not accumulate padding.");
                 AssertNoInlineVisibilityTransform(contentShell);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + SuccessId), Is.Not.Null);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("package-" + RetryId), Is.Not.Null);
+                document.rootVisualElement.Q<ListView>("package-list").ScrollToItem(0);
+                yield return null;
                 Label catalogStatus = document.rootVisualElement.Q<Label>("catalog-status");
                 Assert.That(catalogStatus.text, Does.StartWith("Offline"));
                 Assert.That(catalogStatus.ClassListContains("is-warning"), Is.True);
@@ -305,7 +322,21 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(pause.enabledSelf, Is.True);
                 Assert.That(remove.enabledSelf, Is.True);
                 Assert.That(cancel.enabledSelf, Is.True);
+                ScrollView packageScroll = document.rootVisualElement.Q<ListView>("package-list").Q<ScrollView>();
+                Assert.That(packageScroll, Is.Not.Null);
+                packageScroll.ScrollTo(pause);
+                yield return null;
+                successRow = document.rootVisualElement.Q<VisualElement>("package-" + SuccessId);
+                download = successRow.Q<VisualElement>("download-button");
+                pause = successRow.Q<VisualElement>("pause-button");
+                remove = successRow.Q<VisualElement>("remove-button");
+                cancel = successRow.Q<VisualElement>("cancel-button");
+                actions = download.parent;
                 int initialCueCount = cues.Count;
+                Assert.That(pause.panel, Is.Not.Null, "The compact dynamic row action must remain attached before input.");
+                VisualElement pickedPause = pause.panel.Pick(pause.worldBound.center);
+                Assert.That(pickedPause == pause || pause.Contains(pickedPause), Is.True,
+                    $"The compact pause action is covered by {pickedPause?.name ?? "nothing"}.");
                 SendPointerDown(pause);
                 Assert.That(pause.ClassListContains("is-pressed"), Is.False,
                     "The Android background render node must remain immutable while pressed.");
@@ -457,6 +488,7 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                Screen.SetResolution(originalScreenWidth, originalScreenHeight, false);
                 if (originalLanguage != null && ApplicationServices.Languages != null)
                     ApplicationServices.Languages.SelectUiLanguage(originalLanguage);
                 if (originalExperience != null && ApplicationServices.ExperienceSettings != null)
@@ -675,13 +707,21 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(ActionText(remove), Is.EqualTo("Remove"));
                 Assert.That(ActionText(cancel), Is.EqualTo("Cancel"));
             }
-            AssertStableActionGeometry(actions, cancel);
-            AssertStableActionGeometry(actions, remove);
-            AssertStableActionGeometry(actions, pause);
-            AssertStableActionGeometry(actions, download);
-            Assert.That(cancel.worldBound.xMax, Is.LessThanOrEqualTo(remove.worldBound.xMin + 2f));
-            Assert.That(remove.worldBound.xMax, Is.LessThanOrEqualTo(pause.worldBound.xMin + 2f));
-            Assert.That(pause.worldBound.xMax, Is.LessThanOrEqualTo(download.worldBound.xMin + 2f));
+            bool compact = HasAncestorClass(actions, "mobile-layout--compact");
+            AssertStableActionGeometry(actions, cancel, compact);
+            AssertStableActionGeometry(actions, remove, compact);
+            AssertStableActionGeometry(actions, pause, compact);
+            AssertStableActionGeometry(actions, download, compact);
+            if (compact)
+            {
+                AssertControlsDoNotOverlap(controls);
+            }
+            else
+            {
+                Assert.That(cancel.worldBound.xMax, Is.LessThanOrEqualTo(remove.worldBound.xMin + 2f));
+                Assert.That(remove.worldBound.xMax, Is.LessThanOrEqualTo(pause.worldBound.xMin + 2f));
+                Assert.That(pause.worldBound.xMax, Is.LessThanOrEqualTo(download.worldBound.xMin + 2f));
+            }
 
             if (expectedGeometry != null)
             {
@@ -778,11 +818,15 @@ namespace Gacha.Tests.PlayMode
 
         private static void AssertStableActionGeometry(
             VisualElement actions,
-            VisualElement control)
+            VisualElement control,
+            bool compact)
         {
-            Assert.That(control.resolvedStyle.position, Is.EqualTo(Position.Absolute));
-            Assert.That(control.resolvedStyle.top, Is.EqualTo(0f).Within(2f));
-            Assert.That(control.worldBound.width, Is.InRange(80f, 170f));
+            Assert.That(control.resolvedStyle.position,
+                Is.EqualTo(compact ? Position.Relative : Position.Absolute));
+            if (!compact)
+                Assert.That(control.resolvedStyle.top, Is.EqualTo(0f).Within(2f));
+            Assert.That(control.worldBound.width, Is.GreaterThanOrEqualTo(80f));
+            Assert.That(control.worldBound.height, Is.GreaterThanOrEqualTo(48f));
             Assert.That(control.worldBound.xMin, Is.GreaterThanOrEqualTo(actions.worldBound.xMin - 2f));
             Assert.That(
                 control.worldBound.xMax,
@@ -790,8 +834,43 @@ namespace Gacha.Tests.PlayMode
                 $"{control.name}: actions={actions.worldBound} layout={control.layout} " +
                 $"world={control.worldBound} local={control.localBound} resolvedWidth={control.resolvedStyle.width} " +
                 $"padding={control.resolvedStyle.paddingLeft}/{control.resolvedStyle.paddingRight}");
-            Assert.That(control.worldBound.yMin, Is.EqualTo(actions.worldBound.yMin).Within(2f));
+            if (compact)
+                Assert.That(control.worldBound.yMin, Is.GreaterThanOrEqualTo(actions.worldBound.yMin - 2f));
+            else
+                Assert.That(control.worldBound.yMin, Is.EqualTo(actions.worldBound.yMin).Within(2f));
             Assert.That(control.worldBound.yMax, Is.LessThanOrEqualTo(actions.worldBound.yMax + 2f));
+        }
+
+        private static bool HasAncestorClass(VisualElement element, string className)
+        {
+            for (VisualElement current = element; current != null; current = current.parent)
+            {
+                if (current.ClassListContains(className))
+                    return true;
+            }
+            return false;
+        }
+
+        private static void AssertControlsDoNotOverlap(IReadOnlyList<VisualElement> controls)
+        {
+            for (int left = 0; left < controls.Count; left++)
+            {
+                for (int right = left + 1; right < controls.Count; right++)
+                {
+                    Rect overlap = Intersect(controls[left].worldBound, controls[right].worldBound);
+                    Assert.That(overlap.width * overlap.height, Is.LessThanOrEqualTo(2f),
+                        $"{controls[left].name} overlaps {controls[right].name} in compact layout.");
+                }
+            }
+        }
+
+        private static Rect Intersect(Rect left, Rect right)
+        {
+            float xMin = Mathf.Max(left.xMin, right.xMin);
+            float yMin = Mathf.Max(left.yMin, right.yMin);
+            float xMax = Mathf.Min(left.xMax, right.xMax);
+            float yMax = Mathf.Min(left.yMax, right.yMax);
+            return Rect.MinMaxRect(xMin, yMin, Mathf.Max(xMin, xMax), Mathf.Max(yMin, yMax));
         }
 
         private static ContentPackageCatalog CreateCatalog()

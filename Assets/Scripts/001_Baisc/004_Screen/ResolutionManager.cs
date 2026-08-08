@@ -1,79 +1,53 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
-public class ResolutionManager : MonoBehaviour
+public sealed class ResolutionManager : MonoBehaviour
 {
-    public int resolutionWidth = 1000;
-    public int resolutionHeight = 2000 ;
+    private static readonly Rect FullScreenViewport = new Rect(0f, 0f, 1f, 1f);
 
-    // Dictionary to store original rect values for each camera
-    private Dictionary<Camera, Rect> originalCameraRects = new Dictionary<Camera, Rect>();
-
-    void Awake()
+    private void Awake()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
-
-        // Store the original rect for each camera at startup
-        StoreOriginalCameraRects();
+        Camera.onPreCull += NormalizeCamera;
+        RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+        ApplyFullScreenViewports();
     }
 
-    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    private void OnDestroy()
     {
-        // Reset all cameras to original rects and then apply the fixed resolution
-        StoreOriginalCameraRects();
-        SetFixedResolution(resolutionWidth, resolutionHeight);
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        Camera.onPreCull -= NormalizeCamera;
+        RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
     }
 
-    void StoreOriginalCameraRects()
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        originalCameraRects.Clear();
-        Camera[] cameras = Camera.allCameras;
-        foreach (Camera camera in cameras)
-        {
-            if (camera != null)
-            {
-                originalCameraRects[camera] = camera.rect;
-            }
-        }
+        ApplyFullScreenViewports();
     }
 
-    void SetFixedResolution(int targetWidth, int targetHeight)
+    public void ApplyFullScreenViewports()
     {
-        // Calculate the target aspect ratio
-        float targetAspect = (float)targetWidth / targetHeight;
-        // Calculate the current screen aspect ratio
-        float screenAspect = (float)Screen.width / Screen.height;
+        foreach (Camera camera in Camera.allCameras)
+            NormalizeCamera(camera);
+    }
 
-        foreach (KeyValuePair<Camera, Rect> entry in originalCameraRects)
-        {
-            Camera camera = entry.Key;
-            Rect originalRect = entry.Value;
+    public static void NormalizeCamera(Camera camera)
+    {
+        if (camera != null && !IsFullScreen(camera.rect))
+            camera.rect = FullScreenViewport;
+    }
 
-            if (screenAspect >= targetAspect)
-            {
-                // Screen is wider than the target aspect ratio, add pillarboxing (black bars on the sides)
-                float scaleWidth = targetAspect / screenAspect;
-                float insetX = (1.0f - scaleWidth) / 2.0f;
-                camera.rect = new Rect(
-                    originalRect.x * scaleWidth + insetX,
-                    originalRect.y,
-                    originalRect.width * scaleWidth,
-                    originalRect.height
-                );
-            }
-            else
-            {
-                // Screen is taller than the target aspect ratio, add letterboxing (black bars on top and bottom)
-                float scaleHeight = screenAspect / targetAspect;
-                float insetY = (1.0f - scaleHeight) / 2.0f;
-                camera.rect = new Rect(
-                    originalRect.x,
-                    originalRect.y * scaleHeight + insetY,
-                    originalRect.width,
-                    originalRect.height * scaleHeight
-                );
-            }
-        }
+    private static void OnBeginCameraRendering(ScriptableRenderContext _, Camera camera)
+    {
+        NormalizeCamera(camera);
+    }
+
+    public static bool IsFullScreen(Rect viewport)
+    {
+        return Mathf.Approximately(viewport.x, 0f) &&
+               Mathf.Approximately(viewport.y, 0f) &&
+               Mathf.Approximately(viewport.width, 1f) &&
+               Mathf.Approximately(viewport.height, 1f);
     }
 }

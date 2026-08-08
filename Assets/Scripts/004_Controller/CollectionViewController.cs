@@ -46,6 +46,7 @@ public sealed class CollectionViewController : MonoBehaviour
     private UniversalCatalog catalog;
     private ICollectionProgressStore collectionProgress;
     private CardTextureCache textureCache;
+    private UiToolkitSafeAreaBinding safeAreaBinding;
     private VisualElement browserRoot;
     private VisualElement setPage;
     private VisualElement cardPage;
@@ -130,6 +131,8 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void OnDestroy()
     {
+        safeAreaBinding?.Dispose();
+        safeAreaBinding = null;
         if (ApplicationServices.IsConfigured)
         {
             ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
@@ -228,6 +231,7 @@ public sealed class CollectionViewController : MonoBehaviour
             browserRoot = uiDocument.rootVisualElement.Q<VisualElement>("collection-browser");
             if (browserRoot == null)
                 throw new InvalidOperationException("CollectionView.uxml is not attached to the UIDocument.");
+            safeAreaBinding = UiToolkitSafeArea.Attach(browserRoot);
 
             QueryVisualElements();
             CatalogLoadResult load = null;

@@ -50,6 +50,7 @@ public sealed class GachaViewController : MonoBehaviour
     private bool currentRevealHighlighted;
     private string appliedThemeClass;
     private Texture2D selectedThemeArtwork;
+    private UiToolkitSafeAreaBinding safeAreaBinding;
 
     private VisualElement root;
     private VisualElement selectionPage;
@@ -163,6 +164,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void OnDestroy()
     {
+        safeAreaBinding?.Dispose();
+        safeAreaBinding = null;
         if (ApplicationServices.IsConfigured)
         {
             ApplicationServices.Languages.UiLanguageChanged -= OnUiLanguageChanged;
@@ -197,6 +200,7 @@ public sealed class GachaViewController : MonoBehaviour
             root = uiDocument.rootVisualElement.Q<VisualElement>("gacha-opening");
             if (root == null)
                 throw new InvalidOperationException("GachaView.uxml is not attached to the UIDocument.");
+            safeAreaBinding = UiToolkitSafeArea.Attach(root);
 
             QueryVisualElements();
             CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();

@@ -16,7 +16,6 @@ namespace Gacha.Presentation
     public sealed class ContentManagementController : MonoBehaviour
     {
         private const string StringTable = "Card_UI";
-        private const float VirtualRowHeight = 160f;
 
         private static readonly IReadOnlyDictionary<string, string> EnglishFallbacks =
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -383,6 +382,7 @@ namespace Gacha.Presentation
         private IContentPackageLifecycleService lifecycleService;
         private IUiThreadDispatcher dispatcher;
         private ExperienceSettingsService experienceSettings;
+        private UiToolkitSafeAreaBinding safeAreaBinding;
         private VisualElement pageRoot;
         private VisualElement shell;
         private ListView packageList;
@@ -700,6 +700,8 @@ namespace Gacha.Presentation
 
         private void OnDestroy()
         {
+            safeAreaBinding?.Dispose();
+            safeAreaBinding = null;
             destroyed = true;
             loadGeneration++;
             loadCancellation?.Cancel();
@@ -733,6 +735,7 @@ namespace Gacha.Presentation
             pageRoot = uiDocument.rootVisualElement.Q<VisualElement>("content-management");
             if (pageRoot == null)
                 throw new InvalidOperationException("ContentManagementView.uxml is not attached to the UIDocument.");
+            safeAreaBinding = UiToolkitSafeArea.Attach(pageRoot);
             shell = pageRoot.Q<VisualElement>("content-shell");
             packageList = pageRoot.Q<ListView>("package-list");
             searchFilter = pageRoot.Q<TextField>("content-search");
@@ -797,8 +800,7 @@ namespace Gacha.Presentation
             {
                 if (CancelInstallQueue()) UIFeedbackService.Play(FeedbackCue.Back);
             });
-            packageList.fixedItemHeight = VirtualRowHeight;
-            packageList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
+            packageList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
             packageList.selectionType = SelectionType.None;
             packageList.makeItem = MakePackageRow;
             packageList.bindItem = BindPackageRow;

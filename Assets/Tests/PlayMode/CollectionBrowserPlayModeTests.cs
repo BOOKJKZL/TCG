@@ -52,6 +52,8 @@ namespace Gacha.Tests.PlayMode
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("collection-browser")
+                    .ClassListContains("safe-area-bound"), Is.True);
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;

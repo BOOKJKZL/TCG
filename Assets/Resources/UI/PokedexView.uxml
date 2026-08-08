@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="PokedexStyles.uss" />
-    <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay">
+    <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay safe-area-root">
         <ui:VisualElement class="pokedex-shell">
             <ui:VisualElement name="pokedex-device-rail" class="pokedex-device-rail">
                 <ui:VisualElement class="pokedex-device-rail__red" />
