@@ -10,6 +10,13 @@ namespace Gacha.Presentation
 {
     public sealed class FirstRunContentSetupController : MonoBehaviour
     {
+        private enum CatalogStatusMode
+        {
+            Loading,
+            Unavailable,
+            Ready
+        }
+
         private static bool dismissedForSession;
         private UIDocument document;
         private VisualElement root;
@@ -28,6 +35,9 @@ namespace Gacha.Presentation
         private CancellationTokenSource refreshCancellation;
         private int refreshGeneration;
         private bool destroyed;
+        private CatalogStatusMode catalogStatusMode = CatalogStatusMode.Loading;
+        private int catalogPackageCount;
+        private bool catalogUsedCached;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
@@ -144,6 +154,7 @@ namespace Gacha.Presentation
                 "is-selected", string.Equals(contentLanguage, "zh-cn", StringComparison.OrdinalIgnoreCase));
             Required<Button>("setup-content-language-ja").EnableInClassList(
                 "is-selected", string.Equals(contentLanguage, "ja", StringComparison.OrdinalIgnoreCase));
+            RefreshCatalogStatusText();
         }
 
         private string StorageText(bool zh, bool ja)
@@ -173,29 +184,36 @@ namespace Gacha.Presentation
             refreshCancellation = new CancellationTokenSource();
             CancellationToken token = refreshCancellation.Token;
             retry.SetEnabled(false);
-            catalogStatus.text = LoadingText();
+            SetCatalogStatus(CatalogStatusMode.Loading);
             try
             {
                 IContentPackageCatalogProvider provider = ApplicationServices.ContentPackageCatalogs;
                 if (provider == null)
                 {
-                    catalogStatus.text = UnavailableText();
+                    SetCatalogStatus(CatalogStatusMode.Unavailable);
                     return;
                 }
 
                 ContentPackageCatalogLoadResult result = await provider.LoadAsync(token);
                 if (destroyed || generation != refreshGeneration || token.IsCancellationRequested)
                     return;
-                catalogStatus.text = result.Succeeded
-                    ? ReadyText(result.Catalog.Packages.Count, result.UsedCachedCatalog)
-                    : UnavailableText();
+                if (result.Succeeded)
+                {
+                    catalogPackageCount = result.Catalog.Packages.Count;
+                    catalogUsedCached = result.UsedCachedCatalog;
+                    SetCatalogStatus(CatalogStatusMode.Ready);
+                }
+                else
+                {
+                    SetCatalogStatus(CatalogStatusMode.Unavailable);
+                }
             }
             catch (OperationCanceledException) { }
             catch (Exception exception)
             {
                 Debug.LogWarning("First-run catalog refresh failed: " + exception.Message);
                 if (!destroyed && generation == refreshGeneration && !token.IsCancellationRequested)
-                    catalogStatus.text = UnavailableText();
+                    SetCatalogStatus(CatalogStatusMode.Unavailable);
             }
             finally
             {
@@ -215,6 +233,31 @@ namespace Gacha.Presentation
             dismissedForSession = true;
             root.style.display = DisplayStyle.None;
             safeArea?.Suspend();
+        }
+
+        private void SetCatalogStatus(CatalogStatusMode mode)
+        {
+            catalogStatusMode = mode;
+            RefreshCatalogStatusText();
+        }
+
+        private void RefreshCatalogStatusText()
+        {
+            if (catalogStatus == null)
+                return;
+
+            switch (catalogStatusMode)
+            {
+                case CatalogStatusMode.Ready:
+                    catalogStatus.text = ReadyText(catalogPackageCount, catalogUsedCached);
+                    break;
+                case CatalogStatusMode.Unavailable:
+                    catalogStatus.text = UnavailableText();
+                    break;
+                default:
+                    catalogStatus.text = LoadingText();
+                    break;
+            }
         }
 
         private string LoadingText() => Localized(

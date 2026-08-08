@@ -104,10 +104,18 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(setup.Q<Button>("setup-content-language-en")
                     .ClassListContains("is-selected"), Is.True);
                 Assert.That(remote.LoadCalls, Is.EqualTo(1));
+                string englishCatalogStatus = setup.Q<Label>("setup-catalog").text;
+                Assert.That(englishCatalogStatus, Does.Contain("Catalog ready"));
 
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
                 Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo("zh"));
+                Assert.That(setup.Q<Label>("setup-catalog").text,
+                    Is.Not.EqualTo(englishCatalogStatus));
+                Assert.That(setup.Q<Label>("setup-catalog").text,
+                    Does.Not.Contain("Catalog ready"));
+                Assert.That(setup.Q<Label>("setup-catalog").text,
+                    Does.Contain("目录更新完成：0 个内容包"));
                 Assert.That(setup.Q<Label>("setup-title").text, Does.Contain("语言"));
 
                 controllerType.GetMethod("SelectContentLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
