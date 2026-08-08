@@ -95,7 +95,18 @@ namespace Gacha.Presentation
                 ["content.status.removed"] = "Content removed. Collection progress is still saved.",
                 ["content.status.remove_failed"] = "Content removal failed: {0}",
                 ["content.status.remove_warning"] = "Content removed with cleanup warning: {0}",
-                ["content.progress"] = "{0}% · {1} / {2}"
+                ["content.progress"] = "{0}% · {1} / {2}",
+                ["content.recommended.title"] = "Recommended first pack selected",
+                ["content.recommended.body"] = "{0} is ready for review. Check storage and network details, then confirm the download.",
+                ["content.action.choose_another"] = "Choose another",
+                ["content.confirm.download.title"] = "Confirm content download",
+                ["content.confirm.download.body"] = "{0} selected · {1} required packages\nDownload {2} · Install {3}\n{4}",
+                ["content.confirm.download.package_body"] = "{0}\n{1} required packages · Download {2} · Install {3}\n{4}",
+                ["content.confirm.remove.title"] = "Remove downloaded content?",
+                ["content.confirm.remove.body"] = "Remove {0} from this device? Your collection progress stays saved.",
+                ["content.action.confirm_download"] = "Download",
+                ["content.action.cancel_confirmation"] = "Cancel",
+                ["content.status.queued"] = "Queued for download"
             };
 
         private sealed class PackageRow
@@ -173,9 +184,7 @@ namespace Gacha.Presentation
             public MobileActionControl Cancel { get; }
             public InstalledContentPackage Installed { get; set; }
             public string LifecycleError { get; set; }
-            public bool AwaitingRemovalConfirmation { get; set; }
             public bool Removing { get; set; }
-            public IVisualElementScheduledItem RemovalConfirmationTimeout { get; set; }
             public ContentPackageOperationState? LastState { get; set; }
             public IVisualElementScheduledItem Animation { get; set; }
             public bool DownloadAllowed { get => Download.Allowed; set => Download.Allowed = value; }
@@ -186,7 +195,6 @@ namespace Gacha.Presentation
 
             public void Bind(ContentPackageCatalogEntry entry, string displayName, bool selected)
             {
-                RemovalConfirmationTimeout?.Pause();
                 Animation?.Pause();
                 Entry = entry ?? throw new ArgumentNullException(nameof(entry));
                 Root.name = "package-" + entry.Package.PackageId;
@@ -201,9 +209,7 @@ namespace Gacha.Presentation
                 Status.text = string.Empty;
                 Installed = null;
                 LifecycleError = null;
-                AwaitingRemovalConfirmation = false;
                 Removing = false;
-                RemovalConfirmationTimeout = null;
                 LastState = null;
                 Animation = null;
                 Root.style.opacity = 1f;
@@ -212,14 +218,11 @@ namespace Gacha.Presentation
 
             public void Unbind()
             {
-                RemovalConfirmationTimeout?.Pause();
                 Animation?.Pause();
                 Entry = null;
                 Installed = null;
                 LifecycleError = null;
-                AwaitingRemovalConfirmation = false;
                 Removing = false;
-                RemovalConfirmationTimeout = null;
                 LastState = null;
                 Animation = null;
             }
@@ -253,9 +256,11 @@ namespace Gacha.Presentation
         private IContentPackageLifecycleService lifecycleService;
         private IUiThreadDispatcher dispatcher;
         private ExperienceSettingsService experienceSettings;
-        private UiToolkitSafeAreaBinding safeAreaBinding;
         private VisualElement pageRoot;
         private VisualElement shell;
+        private MobilePageShell mobilePageShell;
+        private MobileTopBar mobileTopBar;
+        private MobileConfirmationPresenter confirmationPresenter;
         private ListView packageList;
         private TextField searchFilter;
         private DropdownField languageFilter;
@@ -267,6 +272,9 @@ namespace Gacha.Presentation
         private Label subtitle;
         private Label catalogStatus;
         private Label emptyState;
+        private VisualElement launchBanner;
+        private Label launchTitle;
+        private Label launchBody;
         private MobileActionControl backAction;
         private MobileActionControl refreshAction;
         private MobileActionControl selectFilteredAction;
@@ -278,6 +286,8 @@ namespace Gacha.Presentation
         private MobileActionControl queueCancelAction;
         private MobileActionControl errorRetryAction;
         private MobileActionControl errorHomeAction;
+        private MobileActionControl clearLaunchAction;
+        private MobilePrimaryNavigation primaryNavigation;
         private PlayerUiErrorPresenter errorPresenter;
         private ContentPackageCatalog catalog;
         private ContentPackageLibrarySnapshot library;
@@ -309,6 +319,8 @@ namespace Gacha.Presentation
         private bool catalogHasCacheWarning;
         private bool catalogQueryAllowed;
         private bool initialCatalogLoadPending;
+        private bool navigationRequested;
+        private string launchedRecommendationId;
 
         public static IContentPackageCatalogProvider CatalogProviderOverride { private get; set; }
         public static IContentPackageInstallCoordinatorFactory OperationFactoryOverride { private get; set; }
@@ -369,13 +381,6 @@ namespace Gacha.Presentation
 
         public bool CancelPackage(string packageId)
         {
-            if (packageId != null &&
-                rows.TryGetValue(packageId, out PackageRow row) &&
-                row.AwaitingRemovalConfirmation)
-            {
-                CancelClicked(packageId);
-                return true;
-            }
             if (packageId == null ||
                 !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation) ||
                 !CanShowCancel(operation.Current.State))
@@ -426,7 +431,8 @@ namespace Gacha.Presentation
                     catalog,
                     operationFactory,
                     ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
-                    queueStateStore);
+                    queueStateStore,
+                    EnsureOperation);
                 installQueue.Changed += OnQueueChanged;
                 queueSnapshot = installQueue.Current;
             }
@@ -518,7 +524,7 @@ namespace Gacha.Presentation
             if (destroyed || errorPresenter == null)
                 return false;
             UIFeedbackService.Play(FeedbackCue.ButtonClick);
-            _ = ReloadCatalogAsync();
+            _ = ReloadAfterSuspendAsync();
             return true;
         }
 
@@ -573,7 +579,6 @@ namespace Gacha.Presentation
                     experienceSettings.Changed += OnExperienceSettingsChanged;
                 LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
                 initialCatalogLoadPending = true;
-                shell.style.visibility = Visibility.Hidden;
                 RefreshLocalization();
                 ApplyMotionPreference();
                 PlayEntrance();
@@ -586,11 +591,14 @@ namespace Gacha.Presentation
 
         private void OnDestroy()
         {
-            safeAreaBinding?.Dispose();
-            safeAreaBinding = null;
+            confirmationPresenter?.Dispose();
+            confirmationPresenter = null;
+            mobilePageShell?.Dispose();
+            mobilePageShell = null;
             errorPresenter?.Dispose();
             errorPresenter = null;
             DisposeGlobalActions();
+            _ = SuspendAllOperationsAsync();
             destroyed = true;
             loadGeneration++;
             loadCancellation?.Cancel();
@@ -610,7 +618,6 @@ namespace Gacha.Presentation
             if (installQueue != null)
             {
                 installQueue.Changed -= OnQueueChanged;
-                _ = installQueue.SuspendAsync();
             }
             installQueue = null;
             queueStateStore = null;
@@ -630,6 +637,8 @@ namespace Gacha.Presentation
             queueCancelAction?.Dispose();
             errorRetryAction?.Dispose();
             errorHomeAction?.Dispose();
+            clearLaunchAction?.Dispose();
+            primaryNavigation?.Dispose();
             backAction = null;
             refreshAction = null;
             selectFilteredAction = null;
@@ -641,58 +650,81 @@ namespace Gacha.Presentation
             queueCancelAction = null;
             errorRetryAction = null;
             errorHomeAction = null;
+            clearLaunchAction = null;
+            primaryNavigation = null;
         }
 
         private void BuildView()
         {
             if (uiDocument == null)
                 throw new InvalidOperationException("Content management scene has no UIDocument.");
-            pageRoot = uiDocument.rootVisualElement.Q<VisualElement>("content-management");
-            if (pageRoot == null)
+            VisualElement legacyRoot = uiDocument.rootVisualElement.Q<VisualElement>("content-management");
+            if (legacyRoot == null)
                 throw new InvalidOperationException("ContentManagementView.uxml is not attached to the UIDocument.");
-            safeAreaBinding = UiToolkitSafeArea.Attach(pageRoot);
-            shell = pageRoot.Q<VisualElement>("content-shell");
-            packageList = pageRoot.Q<ListView>("package-list");
-            searchFilter = pageRoot.Q<TextField>("content-search");
-            languageFilter = pageRoot.Q<DropdownField>("content-language-filter");
-            generationFilter = pageRoot.Q<DropdownField>("content-generation-filter");
-            installFilter = pageRoot.Q<DropdownField>("content-install-filter");
-            wifiOnlyToggle = pageRoot.Q<Toggle>("content-wifi-only");
-            selectionSummaryLabel = pageRoot.Q<Label>("content-selection-summary");
-            title = pageRoot.Q<Label>("content-title");
-            subtitle = pageRoot.Q<Label>("content-subtitle");
-            catalogStatus = pageRoot.Q<Label>("catalog-status");
-            emptyState = pageRoot.Q<Label>("content-empty");
-            VisualElement backRoot = pageRoot.Q<VisualElement>("back-button");
-            VisualElement refreshRoot = pageRoot.Q<VisualElement>("refresh-button");
-            VisualElement selectFilteredRoot = pageRoot.Q<VisualElement>("select-filtered-button");
-            VisualElement clearSelectionRoot = pageRoot.Q<VisualElement>("clear-selection-button");
-            VisualElement downloadSelectedRoot = pageRoot.Q<VisualElement>("download-selected-button");
-            VisualElement queuePauseRoot = pageRoot.Q<VisualElement>("queue-pause-button");
-            VisualElement queueResumeRoot = pageRoot.Q<VisualElement>("queue-resume-button");
-            VisualElement queueRetryRoot = pageRoot.Q<VisualElement>("queue-retry-button");
-            VisualElement queueCancelRoot = pageRoot.Q<VisualElement>("queue-cancel-button");
-            VisualElement errorPanel = pageRoot.Q<VisualElement>("content-error-panel");
-            Label errorTitle = pageRoot.Q<Label>("content-error-title");
-            Label errorBody = pageRoot.Q<Label>("content-error-body");
-            VisualElement errorRetryRoot = pageRoot.Q<VisualElement>("content-error-retry");
-            VisualElement errorHomeRoot = pageRoot.Q<VisualElement>("content-error-home");
+            shell = legacyRoot.Q<VisualElement>("content-shell");
+            packageList = legacyRoot.Q<ListView>("package-list");
+            searchFilter = legacyRoot.Q<TextField>("content-search");
+            languageFilter = legacyRoot.Q<DropdownField>("content-language-filter");
+            generationFilter = legacyRoot.Q<DropdownField>("content-generation-filter");
+            installFilter = legacyRoot.Q<DropdownField>("content-install-filter");
+            wifiOnlyToggle = legacyRoot.Q<Toggle>("content-wifi-only");
+            selectionSummaryLabel = legacyRoot.Q<Label>("content-selection-summary");
+            catalogStatus = legacyRoot.Q<Label>("catalog-status");
+            emptyState = legacyRoot.Q<Label>("content-empty");
+            launchBanner = legacyRoot.Q<VisualElement>("content-launch-banner");
+            launchTitle = legacyRoot.Q<Label>("content-launch-title");
+            launchBody = legacyRoot.Q<Label>("content-launch-body");
+            VisualElement legacyHeader = legacyRoot.Q<VisualElement>(className: "content-management__header");
+            VisualElement backRoot = legacyRoot.Q<VisualElement>("back-button");
+            VisualElement refreshRoot = legacyRoot.Q<VisualElement>("refresh-button");
+            VisualElement selectFilteredRoot = legacyRoot.Q<VisualElement>("select-filtered-button");
+            VisualElement clearSelectionRoot = legacyRoot.Q<VisualElement>("clear-selection-button");
+            VisualElement downloadSelectedRoot = legacyRoot.Q<VisualElement>("download-selected-button");
+            VisualElement queuePauseRoot = legacyRoot.Q<VisualElement>("queue-pause-button");
+            VisualElement queueResumeRoot = legacyRoot.Q<VisualElement>("queue-resume-button");
+            VisualElement queueRetryRoot = legacyRoot.Q<VisualElement>("queue-retry-button");
+            VisualElement queueCancelRoot = legacyRoot.Q<VisualElement>("queue-cancel-button");
+            VisualElement errorPanel = legacyRoot.Q<VisualElement>("content-error-panel");
+            Label errorTitle = legacyRoot.Q<Label>("content-error-title");
+            Label errorBody = legacyRoot.Q<Label>("content-error-body");
+            VisualElement errorRetryRoot = legacyRoot.Q<VisualElement>("content-error-retry");
+            VisualElement errorHomeRoot = legacyRoot.Q<VisualElement>("content-error-home");
+            VisualElement clearLaunchRoot = legacyRoot.Q<VisualElement>("content-launch-clear");
             if (shell == null || packageList == null || searchFilter == null ||
                 languageFilter == null || generationFilter == null || installFilter == null ||
                 wifiOnlyToggle == null || selectionSummaryLabel == null || selectFilteredRoot == null ||
                 clearSelectionRoot == null || downloadSelectedRoot == null ||
                 queuePauseRoot == null || queueResumeRoot == null || queueRetryRoot == null ||
                 queueCancelRoot == null ||
-                title == null || subtitle == null ||
                 catalogStatus == null || emptyState == null || backRoot == null || refreshRoot == null ||
                 errorPanel == null || errorTitle == null || errorBody == null ||
-                errorRetryRoot == null || errorHomeRoot == null)
+                errorRetryRoot == null || errorHomeRoot == null ||
+                launchBanner == null || launchTitle == null || launchBody == null ||
+                clearLaunchRoot == null || legacyHeader == null)
                 throw new InvalidOperationException("Content management view is missing required named elements.");
 
             backAction = new MobileActionControl(backRoot, BackToMenu);
             refreshAction = new MobileActionControl(refreshRoot, RefreshClicked);
             errorRetryAction = new MobileActionControl(errorRetryRoot, () => RetryCatalog());
             errorHomeAction = new MobileActionControl(errorHomeRoot, BackToMenu);
+            clearLaunchAction = new MobileActionControl(clearLaunchRoot, ClearRecommendedLaunch);
+            mobilePageShell = new MobilePageShell("content-management");
+            mobilePageShell.Root.AddToClassList("content-management");
+            mobileTopBar = new MobileTopBar(string.Empty, string.Empty);
+            mobilePageShell.HeaderSlot.Add(mobileTopBar.Root);
+            legacyHeader.RemoveFromHierarchy();
+            mobilePageShell.ContentSlot.Add(shell);
+            legacyRoot.Clear();
+            legacyRoot.RemoveFromClassList("content-management");
+            legacyRoot.RemoveFromClassList("safe-area-root");
+            legacyRoot.AddToClassList("content-management-host");
+            legacyRoot.name = "content-view-host";
+            legacyRoot.Add(mobilePageShell.Root);
+            pageRoot = mobilePageShell.Root;
+            title = mobileTopBar.Title;
+            subtitle = mobileTopBar.Subtitle;
+            title.name = "content-title";
+            subtitle.name = "content-subtitle";
             errorPresenter = new PlayerUiErrorPresenter(
                 errorPanel, errorTitle, errorBody, errorRetryRoot, home: errorHomeRoot);
             selectFilteredAction = new MobileActionControl(selectFilteredRoot, () =>
@@ -707,8 +739,7 @@ namespace Gacha.Presentation
             });
             downloadSelectedAction = new MobileActionControl(downloadSelectedRoot, () =>
             {
-                if (StartSelectedPackages())
-                    RefreshSelectionUi();
+                RequestSelectedDownloadConfirmation();
             });
             queuePauseAction = new MobileActionControl(queuePauseRoot, () =>
             {
@@ -726,6 +757,14 @@ namespace Gacha.Presentation
             {
                 if (CancelInstallQueue()) UIFeedbackService.Play(FeedbackCue.Back);
             });
+            primaryNavigation = new MobilePrimaryNavigation(
+                MobileDestination.Content,
+                NavigatePrimary);
+            mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
+            mobileTopBar.AddAction(refreshAction);
+            mobileTopBar.AddAction(backAction);
+            confirmationPresenter = new MobileConfirmationPresenter();
+            mobilePageShell.ModalLayer.Add(confirmationPresenter.Root);
             packageList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
             packageList.selectionType = SelectionType.None;
             packageList.makeItem = MakePackageRow;
@@ -746,6 +785,20 @@ namespace Gacha.Presentation
                 return;
             nextNetworkPollTime = Time.unscaledTime + 1f;
             RefreshDownloadNetworkState();
+        }
+
+        private async void OnApplicationPause(bool paused)
+        {
+            if (!paused || destroyed)
+                return;
+            try
+            {
+                await SuspendAllOperationsAsync();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Content queue could not be suspended while the app paused: " + exception.Message);
+            }
         }
 
         private async Task ReloadCatalogAsync()
@@ -820,7 +873,8 @@ namespace Gacha.Presentation
                 catalog,
                 operationFactory,
                 ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
-                queueStateStore);
+                queueStateStore,
+                EnsureOperation);
             installQueue.Changed += OnQueueChanged;
             queueSnapshot = installQueue.Current;
             queueCompletionNotified = false;
@@ -839,7 +893,53 @@ namespace Gacha.Presentation
             }
             notifiedFailures.Clear();
             ConfigureFilterChoices();
+            ApplyRecommendedLaunch(ContentLaunchRequest.ConsumeRecommendation());
             ApplyLibraryQuery();
+        }
+
+        private void ApplyRecommendedLaunch(string packageId)
+        {
+            launchedRecommendationId = null;
+            if (string.IsNullOrWhiteSpace(packageId))
+            {
+                RefreshLaunchBanner();
+                return;
+            }
+            ContentPackageCatalogEntry entry = catalog.Find(packageId);
+            if (entry == null || ContentPackageLibrary.IsCurrent(LookupInstalled(packageId), entry.Package))
+            {
+                RefreshLaunchBanner();
+                return;
+            }
+
+            launchedRecommendationId = entry.Package.PackageId;
+            selectedPackageIds.Add(launchedRecommendationId);
+            SetRecommendedFilters(entry.Metadata);
+            RefreshLaunchBanner();
+        }
+
+        private void SetRecommendedFilters(ContentPackageMetadata metadata)
+        {
+            int languageIndex = 0;
+            if (string.Equals(metadata.ContentLanguageId, "en", StringComparison.OrdinalIgnoreCase))
+                languageIndex = 1;
+            else if (string.Equals(metadata.ContentLanguageId, "ja", StringComparison.OrdinalIgnoreCase))
+                languageIndex = 2;
+            else if (string.Equals(metadata.ContentLanguageId, "zh-cn", StringComparison.OrdinalIgnoreCase))
+                languageIndex = 3;
+            SetDropdownIndex(languageFilter, languageIndex);
+
+            int generationIndex = 0;
+            if (metadata.GenerationOrder.HasValue)
+            {
+                generationIndex = generationFilter.choices.FindIndex(value =>
+                    string.Equals(
+                        value,
+                        metadata.GenerationOrder.Value.ToString(),
+                        StringComparison.Ordinal));
+            }
+            SetDropdownIndex(generationFilter, Math.Max(0, generationIndex));
+            SetDropdownIndex(installFilter, 0);
         }
 
         private void ApplyLibraryQuery(bool rebuild = true)
@@ -865,6 +965,7 @@ namespace Gacha.Presentation
                     packageList.Rebuild();
                 else
                     packageList.RefreshItems();
+                ScrollToLaunchedRecommendation();
                 bool empty = displayedItems.Count == 0;
                 emptyState.text = catalog.Packages.Count == 0
                     ? L("content.catalog.empty")
@@ -1150,6 +1251,84 @@ namespace Gacha.Presentation
             return true;
         }
 
+        private void RequestSelectedDownloadConfirmation()
+        {
+            if (confirmationPresenter == null || confirmationPresenter.IsVisible ||
+                downloadPolicy == null || selectionSummary == null)
+                return;
+            ContentDownloadPreflightResult result = downloadPolicy.Evaluate(selectionSummary, true);
+            downloadPreflight = result;
+            if (!result.CanStart)
+            {
+                UIFeedbackService.Play(result.Status == ContentDownloadPreflightStatus.WaitingForWifi
+                    ? FeedbackCue.Confirm
+                    : FeedbackCue.Error);
+                RefreshSelectionUi();
+                return;
+            }
+            string body = string.Format(
+                L("content.confirm.download.body"),
+                selectionSummary.SelectedCount,
+                selectionSummary.DependencyCount,
+                FormatBytes(selectionSummary.DownloadBytes),
+                FormatBytes(selectionSummary.InstalledBytes),
+                DescribePreflight(result));
+            confirmationPresenter.Show(
+                L("content.confirm.download.title"),
+                body,
+                L("content.action.confirm_download"),
+                L("content.action.cancel_confirmation"),
+                () =>
+                {
+                    cellularConfirmationArmed = result.NetworkType == ContentNetworkType.MobileData;
+                    if (StartSelectedPackages())
+                        RefreshSelectionUi();
+                },
+                destructive: false);
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+        }
+
+        private void RequestPackageDownloadConfirmation(string packageId)
+        {
+            ContentPackageCatalogEntry entry = catalog?.Find(packageId);
+            if (confirmationPresenter == null || confirmationPresenter.IsVisible ||
+                downloadPolicy == null || entry == null)
+                return;
+            ContentPackageSelectionSummary summary = ContentPackageLibrary.SummarizeSelection(
+                catalog,
+                new[] { packageId },
+                LookupInstalled);
+            ContentDownloadPreflightResult result = downloadPolicy.Evaluate(summary, true);
+            if (!result.CanStart)
+            {
+                ShowPackagePreflight(packageId, result);
+                UIFeedbackService.Play(result.Status == ContentDownloadPreflightStatus.WaitingForWifi
+                    ? FeedbackCue.Confirm
+                    : FeedbackCue.Error);
+                return;
+            }
+            string body = string.Format(
+                L("content.confirm.download.package_body"),
+                entry.Metadata.GetDisplayName(CurrentUiLanguageId(), packageId),
+                summary.DependencyCount,
+                FormatBytes(summary.DownloadBytes),
+                FormatBytes(summary.InstalledBytes),
+                DescribePreflight(result));
+            confirmationPresenter.Show(
+                L("content.confirm.download.title"),
+                body,
+                L("content.action.confirm_download"),
+                L("content.action.cancel_confirmation"),
+                () =>
+                {
+                    StartConfirmedPackage(
+                        packageId,
+                        result.NetworkType == ContentNetworkType.MobileData);
+                },
+                destructive: false);
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+        }
+
         private bool PreparePackageDownload(string packageId)
         {
             if (downloadPolicy == null || catalog?.Find(packageId) == null)
@@ -1341,6 +1520,11 @@ namespace Gacha.Presentation
         {
             queueSnapshot = snapshot;
             RefreshSelectionUi();
+            foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
+            {
+                if (rows.ContainsKey(pair.Key))
+                    ApplyOperation(pair.Key, pair.Value.Current);
+            }
             if (snapshot == null || !snapshot.IsComplete || queueCompletionNotified)
                 return;
             queueCompletionNotified = true;
@@ -1456,10 +1640,16 @@ namespace Gacha.Presentation
 
             bool installedCurrent = Matches(row.Installed, row.Entry.Package);
             string status = L(item.UiState.StatusKey);
+            ContentPackageQueueItemSnapshot queueItem = queueSnapshot?.Items.FirstOrDefault(value =>
+                string.Equals(value.PackageId, packageId, StringComparison.Ordinal));
+            bool queueOwnsOperation = queueItem != null &&
+                (queueItem.State == ContentPackageQueueItemState.Queued ||
+                 queueItem.State == ContentPackageQueueItemState.Running ||
+                 queueItem.State == ContentPackageQueueItemState.Paused);
             if (row.Removing)
                 status = L("content.status.removing");
-            else if (row.AwaitingRemovalConfirmation)
-                status = L("content.status.remove_confirm");
+            else if (queueItem?.State == ContentPackageQueueItemState.Queued)
+                status = L("content.status.queued");
             else if (!string.IsNullOrWhiteSpace(row.LifecycleError))
                 status = PlayerUiErrorText.Body(PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected));
             else if (snapshot.State == ContentPackageOperationState.Idle && row.Installed != null)
@@ -1487,8 +1677,10 @@ namespace Gacha.Presentation
             bool hasPrimary = item.UiState.PrimaryAction != ContentPackagePrimaryAction.None;
             if (snapshot.State == ContentPackageOperationState.Idle && installedCurrent)
                 hasPrimary = false;
+            if (queueOwnsOperation)
+                hasPrimary = false;
             bool canCancel = CanShowCancel(snapshot.State);
-            bool canRemove = row.Installed != null && !item.UiState.IsBusy && !canCancel;
+            bool canRemove = row.Installed != null && !item.UiState.IsBusy && !canCancel && !queueOwnsOperation;
             if (row.Removing)
             {
                 hasPrimary = false;
@@ -1498,10 +1690,10 @@ namespace Gacha.Presentation
 
             ConfigurePersistentActions(
                 row,
-                hasPrimary && !item.UiState.IsBusy && !row.Removing && !row.AwaitingRemovalConfirmation,
+                hasPrimary && !item.UiState.IsBusy && !row.Removing,
                 item.CanPause && !row.Removing,
                 canRemove && !row.Removing,
-                (canCancel || row.AwaitingRemovalConfirmation) && !row.Removing);
+                canCancel && !row.Removing);
 
             if (previous.HasValue && previous.Value != snapshot.State)
                 AnimateRow(row, snapshot.State == ContentPackageOperationState.Failed);
@@ -1517,8 +1709,30 @@ namespace Gacha.Presentation
 
         private void PrimaryClicked(string packageId)
         {
-            if (PreparePackageDownload(packageId))
-                StartPreparedPackage(packageId);
+            RequestPackageDownloadConfirmation(packageId);
+        }
+
+        private void StartConfirmedPackage(string packageId, bool mobileConsent)
+        {
+            if (destroyed || downloadPolicy == null || catalog?.Find(packageId) == null)
+                return;
+            ContentPackageSelectionSummary summary = ContentPackageLibrary.SummarizeSelection(
+                catalog,
+                new[] { packageId },
+                LookupInstalled);
+            ContentDownloadPreflightResult result = downloadPolicy.Evaluate(summary, mobileConsent);
+            if (!result.CanStart)
+            {
+                ShowPackagePreflight(packageId, result);
+                UIFeedbackService.Play(result.Status == ContentDownloadPreflightStatus.WaitingForWifi ||
+                                       result.Status == ContentDownloadPreflightStatus.CellularConfirmationRequired
+                    ? FeedbackCue.Confirm
+                    : FeedbackCue.Error);
+                return;
+            }
+            if (result.NetworkType == ContentNetworkType.MobileData)
+                mobileAuthorizedPackages.Add(packageId);
+            StartPreparedPackage(packageId);
         }
 
         private async void StartPreparedPackage(string packageId)
@@ -1557,17 +1771,6 @@ namespace Gacha.Presentation
 
         private async void CancelClicked(string packageId)
         {
-            if (rows.TryGetValue(packageId, out PackageRow row) && row.AwaitingRemovalConfirmation)
-            {
-                row.AwaitingRemovalConfirmation = false;
-                row.RemovalConfirmationTimeout?.Pause();
-                row.RemovalConfirmationTimeout = null;
-                if (operations.TryGetValue(packageId, out ContentPackageInstallCoordinator current))
-                    ApplyOperation(packageId, current.Current);
-                UIFeedbackService.Play(FeedbackCue.Back);
-                AnimateRow(row, false);
-                return;
-            }
             if (!operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
             UIFeedbackService.Play(FeedbackCue.Back);
@@ -1581,11 +1784,12 @@ namespace Gacha.Presentation
             }
         }
 
-        private async void RemoveClicked(string packageId)
+        private void RemoveClicked(string packageId)
         {
             if (lifecycleService == null ||
                 !rows.TryGetValue(packageId, out PackageRow row) ||
                 row.Installed == null || row.Removing ||
+                confirmationPresenter == null || confirmationPresenter.IsVisible ||
                 !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
             ContentPackageOperationState state = operation.Current.State;
@@ -1593,26 +1797,25 @@ namespace Gacha.Presentation
                 state == ContentPackageOperationState.Downloading ||
                 state == ContentPackageOperationState.Installing)
                 return;
+            ContentPackageCatalogEntry entry = catalog?.Find(packageId);
+            string name = entry?.Metadata.GetDisplayName(CurrentUiLanguageId(), packageId) ?? packageId;
+            confirmationPresenter.Show(
+                L("content.confirm.remove.title"),
+                string.Format(L("content.confirm.remove.body"), name),
+                L("content.action.confirm_remove"),
+                L("content.action.cancel_confirmation"),
+                () => RemoveConfirmed(packageId),
+                destructive: true);
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+        }
 
-            if (!row.AwaitingRemovalConfirmation)
-            {
-                row.AwaitingRemovalConfirmation = true;
-                row.RemovalConfirmationTimeout?.Pause();
-                row.RemovalConfirmationTimeout = row.Root.schedule.Execute(() =>
-                {
-                    row.AwaitingRemovalConfirmation = false;
-                    row.RemovalConfirmationTimeout = null;
-                    ApplyOperation(packageId, operation.Current);
-                }).StartingIn(4000);
-                UIFeedbackService.Play(FeedbackCue.Confirm);
-                ApplyOperation(packageId, operation.Current);
-                AnimateRow(row, false);
+        private async void RemoveConfirmed(string packageId)
+        {
+            if (destroyed || lifecycleService == null ||
+                !rows.TryGetValue(packageId, out PackageRow row) ||
+                row.Installed == null || row.Removing ||
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
-            }
-
-            row.AwaitingRemovalConfirmation = false;
-            row.RemovalConfirmationTimeout?.Pause();
-            row.RemovalConfirmationTimeout = null;
             row.Removing = true;
             ApplyOperation(packageId, operation.Current);
             AnimateRow(row, false);
@@ -1693,13 +1896,152 @@ namespace Gacha.Presentation
         private void RefreshClicked()
         {
             UIFeedbackService.Play(FeedbackCue.ButtonClick);
-            _ = ReloadCatalogAsync();
+            _ = ReloadAfterSuspendAsync();
         }
 
         private void BackToMenu()
         {
-            UIFeedbackService.Play(FeedbackCue.Back);
-            SceneManager.LoadScene(ContentReturnNavigation.ConsumeOrDefault("002_MainMenuScene"));
+            string sceneName = ContentReturnNavigation.PeekOrDefault("002_MainMenuScene");
+            NavigateAfterSuspend(
+                sceneName,
+                DestinationForScene(sceneName),
+                true);
+        }
+
+        private void ClearRecommendedLaunch()
+        {
+            if (!string.IsNullOrWhiteSpace(launchedRecommendationId))
+                selectedPackageIds.Remove(launchedRecommendationId);
+            launchedRecommendationId = null;
+            RefreshLaunchBanner();
+            RefreshSelectionUi();
+        }
+
+        private void NavigatePrimary(MobileDestination destination)
+        {
+            if (destination == MobileDestination.Content)
+            {
+                packageList?.ScrollToItem(0);
+                return;
+            }
+            NavigateAfterSuspend(MobilePrimaryNavigation.SceneName(destination), destination, true);
+        }
+
+        private async Task ReloadAfterSuspendAsync()
+        {
+            if (destroyed)
+                return;
+            refreshAction?.SetEnabled(false);
+            try
+            {
+                await SuspendAllOperationsAsync();
+                if (!destroyed)
+                    await ReloadCatalogAsync();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Content refresh could not suspend the active queue: " + exception.Message);
+                if (!destroyed)
+                    ApplyCatalogFailure(
+                        loadGeneration,
+                        null,
+                        PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected));
+            }
+        }
+
+        private async void NavigateAfterSuspend(
+            string sceneName,
+            MobileDestination destination,
+            bool clearReturn)
+        {
+            if (destroyed || navigationRequested || string.IsNullOrWhiteSpace(sceneName))
+                return;
+            navigationRequested = true;
+            primaryNavigation?.SetPending(destination);
+            UIFeedbackService.Play(destination == MobileDestination.Home
+                ? FeedbackCue.Back
+                : FeedbackCue.ButtonClick);
+            try
+            {
+                await SuspendAllOperationsAsync();
+                if (destroyed)
+                    return;
+                if (clearReturn)
+                    ContentReturnNavigation.Clear();
+                SceneManager.LoadScene(sceneName);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Content navigation could not suspend the active queue: " + exception.Message);
+                navigationRequested = false;
+                primaryNavigation?.ClearPending(MobileDestination.Content);
+                UIFeedbackService.Play(FeedbackCue.Error);
+            }
+        }
+
+        private static MobileDestination DestinationForScene(string sceneName)
+        {
+            if (string.Equals(sceneName, MobilePrimaryNavigation.SceneName(MobileDestination.Gacha), StringComparison.Ordinal))
+                return MobileDestination.Gacha;
+            if (string.Equals(sceneName, MobilePrimaryNavigation.SceneName(MobileDestination.Collection), StringComparison.Ordinal))
+                return MobileDestination.Collection;
+            if (string.Equals(sceneName, MobilePrimaryNavigation.SceneName(MobileDestination.Settings), StringComparison.Ordinal))
+                return MobileDestination.Settings;
+            return MobileDestination.Home;
+        }
+
+        private async Task SuspendAllOperationsAsync()
+        {
+            ContentPackageInstallQueue queue = installQueue;
+            Task queueSuspension = queue == null
+                ? Task.CompletedTask
+                : queue.SuspendAsync();
+            HashSet<string> queuedOperations = queue?.Current.Items
+                .Where(value => value.State == ContentPackageQueueItemState.Running)
+                .Select(value => value.PackageId)
+                .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
+            Task[] independentSuspensions = operations
+                .Where(pair => pair.Value != null && !queuedOperations.Contains(pair.Key))
+                .Select(pair => pair.Value)
+                .Distinct()
+                .Select(value => (Task)value.SuspendAsync())
+                .ToArray();
+            await Task.WhenAll(new[] { queueSuspension, Task.WhenAll(independentSuspensions) });
+        }
+
+        private void ScrollToLaunchedRecommendation()
+        {
+            if (string.IsNullOrWhiteSpace(launchedRecommendationId) || packageList == null)
+                return;
+            int index = displayedItems.FindIndex(item => string.Equals(
+                item.Package.PackageId,
+                launchedRecommendationId,
+                StringComparison.Ordinal));
+            if (index < 0)
+                return;
+            packageList.schedule.Execute(() =>
+            {
+                if (!destroyed && packageList != null)
+                    packageList.ScrollToItem(index);
+            });
+        }
+
+        private void RefreshLaunchBanner()
+        {
+            if (launchBanner == null)
+                return;
+            ContentPackageCatalogEntry entry = string.IsNullOrWhiteSpace(launchedRecommendationId)
+                ? null
+                : catalog?.Find(launchedRecommendationId);
+            bool visible = entry != null;
+            launchBanner.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            clearLaunchAction?.SetEnabled(visible);
+            if (!visible)
+                return;
+            launchTitle.text = L("content.recommended.title");
+            launchBody.text = string.Format(
+                L("content.recommended.body"),
+                entry.Metadata.GetDisplayName(CurrentUiLanguageId(), entry.Package.PackageId));
         }
 
         private void OnSelectedLocaleChanged(Locale locale)
@@ -1727,7 +2069,6 @@ namespace Gacha.Presentation
             foreach (PackageRow row in rows.Values)
             {
                 row.Animation?.Pause();
-                row.RemovalConfirmationTimeout?.Pause();
                 row.Animation = null;
                 row.Root.style.opacity = 1f;
                 row.Root.style.translate = new Translate(0f, 0f, 0f);
@@ -1787,7 +2128,6 @@ namespace Gacha.Presentation
             if (initialCatalogLoadPending && !destroyed)
             {
                 initialCatalogLoadPending = false;
-                shell.style.visibility = Visibility.Visible;
                 _ = ReloadCatalogAsync();
             }
         }
@@ -1813,6 +2153,9 @@ namespace Gacha.Presentation
             queueRetryAction.SetLabel(L("content.action.retry"));
             queueCancelAction.SetLabel(L("content.action.cancel"));
             errorPresenter?.RefreshLanguage();
+            clearLaunchAction.SetLabel(L("content.action.choose_another"));
+            primaryNavigation?.RefreshText();
+            RefreshLaunchBanner();
             if (catalog != null)
                 emptyState.text = catalog.Packages.Count == 0
                     ? L("content.catalog.empty")
@@ -1966,7 +2309,6 @@ namespace Gacha.Presentation
             foreach (PackageRow row in rows.Values)
             {
                 row.Animation?.Pause();
-                row.RemovalConfirmationTimeout?.Pause();
             }
             bridges.Clear();
             operations.Clear();

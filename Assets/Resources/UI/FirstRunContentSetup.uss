@@ -22,11 +22,17 @@
 .first-run-content__panel {
     width: 720px;
     max-width: 100%;
+    max-height: 100%;
+    flex-shrink: 1;
     padding: 34px;
     border-width: 2px;
     border-radius: 24px;
     border-color: rgb(84, 210, 220);
     background-color: rgb(18, 42, 57);
+}
+
+.first-run-content__panel .unity-scroll-view__content-container {
+    flex-shrink: 0;
 }
 
 .first-run-content__kicker,
@@ -116,4 +122,27 @@
 
 .first-run-content__button-label.is-selected {
     border-color: rgb(244, 211, 94);
+}
+
+.first-run-content__recommendation {
+    display: none;
+    margin-top: 18px;
+    padding: 18px;
+    border-width: 2px;
+    border-radius: 18px;
+    border-color: rgba(103, 216, 236, 0.86);
+    background-color: rgb(13, 49, 75);
+}
+
+.first-run-content__recommendation-name {
+    margin-top: 6px;
+    color: white;
+    font-size: 23px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.first-run-content__recommendation .first-run-content__button {
+    margin-top: 14px;
+    margin-right: 0;
 }

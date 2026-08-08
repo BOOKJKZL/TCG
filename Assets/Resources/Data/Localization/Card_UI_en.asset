@@ -999,6 +999,52 @@ MonoBehaviour:
     m_Localized: Home
     m_Metadata:
       m_Items: []
+  - m_Id: 172203318901911552
+    m_Localized: Recommended first pack selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826112
+    m_Localized: '{0} is ready for review. Check storage and network details, then
+      confirm the download.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826113
+    m_Localized: Choose another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826114
+    m_Localized: Confirm content download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826115
+    m_Localized: "{0} selected \xB7 {1} required packages\nDownload {2} \xB7 Install
+      {3}\n{4}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020416
+    m_Localized: "{0}\n{1} required packages \xB7 Download {2} \xB7 Install {3}\n{4}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020417
+    m_Localized: Remove downloaded content?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020418
+    m_Localized: Remove {0} from this device? Your collection progress stays saved.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020419
+    m_Localized: Download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020420
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020421
+    m_Localized: Queued for download
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

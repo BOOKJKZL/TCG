@@ -987,6 +987,50 @@ MonoBehaviour:
     m_Key: home.nav.home
     m_Metadata:
       m_Items: []
+  - m_Id: 172203318901911552
+    m_Key: content.recommended.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826112
+    m_Key: content.recommended.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826113
+    m_Key: content.action.choose_another
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826114
+    m_Key: content.confirm.download.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318964826115
+    m_Key: content.confirm.download.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020416
+    m_Key: content.confirm.download.package_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020417
+    m_Key: content.confirm.remove.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020418
+    m_Key: content.confirm.remove.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020419
+    m_Key: content.action.confirm_download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020420
+    m_Key: content.action.cancel_confirmation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020421
+    m_Key: content.status.queued
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

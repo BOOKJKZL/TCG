@@ -209,6 +209,24 @@ namespace Gacha.Application
             return operation == null ? Current : await operation;
         }
 
+        public Task<ContentPackageOperationSnapshot> SuspendAsync()
+        {
+            ContentPackageOperationState currentState;
+            Task<ContentPackageOperationSnapshot> operation;
+            lock (gate)
+            {
+                currentState = state;
+                operation = activeTask;
+            }
+            if (currentState == ContentPackageOperationState.Downloading)
+                return PauseAsync();
+            if (currentState == ContentPackageOperationState.Planning)
+                return CancelAsync();
+            if (currentState == ContentPackageOperationState.Installing && operation != null)
+                return operation;
+            return Task.FromResult(Current);
+        }
+
         public async Task<ContentPackageOperationSnapshot> CancelAsync()
         {
             ContentPackageOperationState currentState;

@@ -29,7 +29,12 @@ namespace Gacha.Presentation
         private Label contentLanguageDetail;
         private Label storage;
         private Label catalogStatus;
+        private VisualElement recommendationRoot;
+        private Label recommendationLabel;
+        private Label recommendationName;
+        private Label recommendationDetail;
         private readonly List<MobileActionControl> actions = new List<MobileActionControl>();
+        private MobileActionControl recommended;
         private MobileActionControl manage;
         private MobileActionControl retry;
         private MobileActionControl later;
@@ -41,11 +46,15 @@ namespace Gacha.Presentation
         private CatalogStatusMode catalogStatusMode = CatalogStatusMode.Loading;
         private int catalogPackageCount;
         private bool catalogUsedCached;
+        private ContentPackageCatalog remoteCatalog;
+        private ContentPackageRecommendation recommendation;
+        public static Action<string> SceneLoaderOverride { private get; set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
         {
             dismissedForSession = false;
+            SceneLoaderOverride = null;
         }
 
         private void Start()
@@ -77,12 +86,17 @@ namespace Gacha.Presentation
             contentLanguageDetail = Required<Label>("setup-content-language-detail");
             storage = Required<Label>("setup-storage");
             catalogStatus = Required<Label>("setup-catalog");
+            recommendationRoot = Required<VisualElement>("setup-recommendation");
+            recommendationLabel = Required<Label>("setup-recommendation-label");
+            recommendationName = Required<Label>("setup-recommendation-name");
+            recommendationDetail = Required<Label>("setup-recommendation-detail");
             BindAction("setup-language-en", () => SelectLanguage("en"));
             BindAction("setup-language-zh", () => SelectLanguage("zh"));
             BindAction("setup-language-ja", () => SelectLanguage("ja"));
             BindAction("setup-content-language-en", () => SelectContentLanguage("en"));
             BindAction("setup-content-language-zh", () => SelectContentLanguage("zh-cn"));
             BindAction("setup-content-language-ja", () => SelectContentLanguage("ja"));
+            recommended = BindAction("setup-recommended", OpenRecommendedContent);
             manage = BindAction("setup-manage", OpenContentManagement);
             retry = BindAction("setup-retry", RefreshRemoteCatalog);
             later = BindAction("setup-later", DismissForSession);
@@ -154,6 +168,8 @@ namespace Gacha.Presentation
             manage.SetLabel(zh ? "进入内容库" : ja ? "コンテンツライブラリを開く" : "Open Content Library");
             retry.SetLabel(zh ? "刷新目录" : ja ? "カタログを更新" : "Refresh catalog");
             later.SetLabel(zh ? "暂不设置" : ja ? "後で" : "Not now");
+            recommendationLabel.text = zh ? "首次卡包" : ja ? "最初のカードパック" : "FIRST PACK";
+            recommended.SetLabel(zh ? "查看这个卡包" : ja ? "このパックを確認" : "Review this pack");
             foreach (string id in new[] { "en", "zh", "ja" })
                 Required<VisualElement>("setup-language-" + id).Q<Label>().EnableInClassList(
                     "is-selected",
@@ -165,6 +181,7 @@ namespace Gacha.Presentation
                 "is-selected", string.Equals(contentLanguage, "zh-cn", StringComparison.OrdinalIgnoreCase));
             Required<VisualElement>("setup-content-language-ja").Q<Label>().EnableInClassList(
                 "is-selected", string.Equals(contentLanguage, "ja", StringComparison.OrdinalIgnoreCase));
+            RefreshRecommendationText();
             RefreshCatalogStatusText();
         }
 
@@ -195,6 +212,7 @@ namespace Gacha.Presentation
             refreshCancellation = new CancellationTokenSource();
             CancellationToken token = refreshCancellation.Token;
             retry.SetEnabled(false);
+            ClearRecommendation();
             SetCatalogStatus(CatalogStatusMode.Loading);
             try
             {
@@ -210,12 +228,15 @@ namespace Gacha.Presentation
                     return;
                 if (result.Succeeded)
                 {
+                    remoteCatalog = result.Catalog;
                     catalogPackageCount = result.Catalog.Packages.Count;
                     catalogUsedCached = result.UsedCachedCatalog;
+                    RefreshRecommendation();
                     SetCatalogStatus(CatalogStatusMode.Ready);
                 }
                 else
                 {
+                    ClearRecommendation();
                     SetCatalogStatus(CatalogStatusMode.Unavailable);
                 }
             }
@@ -224,7 +245,10 @@ namespace Gacha.Presentation
             {
                 Debug.LogWarning("First-run catalog refresh failed: " + exception.Message);
                 if (!destroyed && generation == refreshGeneration && !token.IsCancellationRequested)
+                {
+                    ClearRecommendation();
                     SetCatalogStatus(CatalogStatusMode.Unavailable);
+                }
             }
             finally
             {
@@ -236,7 +260,18 @@ namespace Gacha.Presentation
         private void OpenContentManagement()
         {
             ContentReturnNavigation.RememberCurrentScene();
-            SceneManager.LoadScene("006_ContentScene");
+            if (SceneLoaderOverride != null)
+                SceneLoaderOverride("006_ContentScene");
+            else
+                SceneManager.LoadScene("006_ContentScene");
+        }
+
+        private void OpenRecommendedContent()
+        {
+            if (recommendation == null)
+                return;
+            ContentLaunchRequest.Recommend(recommendation.Entry.Package.PackageId);
+            OpenContentManagement();
         }
 
         private void DismissForSession()
@@ -282,14 +317,68 @@ namespace Gacha.Presentation
             "カタログを取得できません。オフラインのまま続行し、後で再試行できます。",
             "The catalog is unavailable. You can continue offline and retry later.");
 
-        private string ReadyText(int count, bool cached) => Localized(
-            $"目录更新完成：{count} 个内容包{(cached ? "（离线缓存）" : "")}。请选择后再确认下载。",
-            $"カタログ準備完了：{count} パック{(cached ? "（オフラインキャッシュ）" : "")}。選択後にダウンロードを確認してください。",
-            $"Catalog ready: {count} packs{(cached ? " (offline cache)" : "")}. Choose a pack before confirming a download.");
+        private string ReadyText(int count, bool cached)
+        {
+            if (count <= 0)
+                return Localized(
+                    "目录中没有可下载内容。请重试或进入内容库。",
+                    "現在ダウンロード可能なパックはありません。後で再試行するか、コンテンツ一覧を開いてください。",
+                    "No downloadable packs are currently available. Retry later or open the content library.");
+            return Localized(
+                $"目录更新完成：{count} 个内容包{(cached ? "（离线缓存）" : "")}。请选择后再确认下载。",
+                $"カタログ準備完了：{count} パック{(cached ? "（オフラインキャッシュ）" : "")}。選択後にダウンロードを確認してください。",
+                $"Catalog ready: {count} packs{(cached ? " (offline cache)" : "")}. Choose a pack before confirming a download.");
+        }
 
         private void OnUiLanguageChanged(string _) => RefreshText();
 
-        private void OnContentLanguageChanged(ContentLanguageSelection _) => RefreshText();
+        private void OnContentLanguageChanged(ContentLanguageSelection _)
+        {
+            RefreshRecommendation();
+            RefreshText();
+        }
+
+        private void RefreshRecommendation()
+        {
+            recommendation = remoteCatalog == null
+                ? null
+                : ContentPackageRecommendations.FindSmallestPlayable(
+                    remoteCatalog,
+                    ApplicationServices.Languages.RequestedContentLanguageId);
+            RefreshRecommendationText();
+        }
+
+        private void ClearRecommendation()
+        {
+            remoteCatalog = null;
+            recommendation = null;
+            RefreshRecommendationText();
+        }
+
+        private void RefreshRecommendationText()
+        {
+            if (recommendationRoot == null)
+                return;
+            bool visible = recommendation != null;
+            recommendationRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            recommended?.SetEnabled(visible);
+            if (!visible)
+                return;
+            bool zh = ApplicationServices.Languages.UiLanguageId.StartsWith(
+                "zh", StringComparison.OrdinalIgnoreCase);
+            bool ja = ApplicationServices.Languages.UiLanguageId.StartsWith(
+                "ja", StringComparison.OrdinalIgnoreCase);
+            recommendationName.text = recommendation.Entry.Metadata.GetDisplayName(
+                zh ? "zh-cn" : ja ? "ja" : "en",
+                recommendation.Entry.Package.PackageId);
+            recommendationDetail.text = string.Format(
+                zh ? "下载 {0} · 安装 {1} · 需要 {2} 个内容包" :
+                ja ? "ダウンロード {0} · インストール {1} · 必要 {2} パック" :
+                "{0} download · {1} installed · {2} required pack(s)",
+                FormatBytes(recommendation.Selection.DownloadBytes),
+                FormatBytes(recommendation.Selection.InstalledBytes),
+                recommendation.Selection.PackageIds.Count);
+        }
 
         private string Localized(string zh, string ja, string en)
         {

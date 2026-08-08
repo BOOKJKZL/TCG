@@ -277,6 +277,26 @@ public class ContentPackageInstallCoordinatorTests
     }
 
     [Test]
+    public async Task SuspendDuringInstallWaitsForSafeTerminal()
+    {
+        var transfer = new Transfer();
+        var installer = new Installer { BlockNext = true };
+        var coordinator = Create(transfer, installer);
+
+        Task<ContentPackageOperationSnapshot> active = coordinator.StartAsync();
+        await installer.Started.Task;
+        Task<ContentPackageOperationSnapshot> suspended = coordinator.SuspendAsync();
+
+        Assert.That(suspended.IsCompleted, Is.False,
+            "Suspension must not report completion while an install is still mutating content.");
+        ContentPackageOperationSnapshot cancelled = await coordinator.CancelAsync();
+
+        Assert.That(await suspended, Is.SameAs(cancelled));
+        Assert.That(await active, Is.SameAs(cancelled));
+        Assert.That(cancelled.State, Is.EqualTo(ContentPackageOperationState.Cancelled));
+    }
+
+    [Test]
     public async Task CleanupFailureAfterInstallIsWarningNotFalseInstallFailure()
     {
         var transfer = new Transfer { DeleteThrows = true };

@@ -24,9 +24,17 @@ namespace Gacha.Presentation
 
         public static string ConsumeOrDefault(string defaultScene)
         {
-            string result = string.IsNullOrWhiteSpace(returnScene) ? defaultScene : returnScene;
+            string result = PeekOrDefault(defaultScene);
             returnScene = null;
             return result;
+        }
+
+        public static string PeekOrDefault(string defaultScene) =>
+            string.IsNullOrWhiteSpace(returnScene) ? defaultScene : returnScene;
+
+        public static void Clear()
+        {
+            returnScene = null;
         }
     }
 }

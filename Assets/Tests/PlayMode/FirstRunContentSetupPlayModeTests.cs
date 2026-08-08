@@ -57,6 +57,25 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        private sealed class FixedRemoteCatalogProvider : IContentPackageCatalogProvider
+        {
+            private readonly ContentPackageCatalog catalog;
+
+            public FixedRemoteCatalogProvider(ContentPackageCatalog catalog)
+            {
+                this.catalog = catalog;
+            }
+
+            public int LoadCalls { get; private set; }
+
+            public Task<ContentPackageCatalogLoadResult> LoadAsync(CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LoadCalls++;
+                return Task.FromResult(ContentPackageCatalogLoadResult.Success(catalog));
+            }
+        }
+
         private sealed class BlockingRemoteCatalogProvider : IContentPackageCatalogProvider
         {
             private readonly TaskCompletionSource<ContentPackageCatalogLoadResult> completion =
@@ -123,7 +142,7 @@ namespace Gacha.Tests.PlayMode
                     .ClassListContains("is-selected"), Is.True);
                 Assert.That(remote.LoadCalls, Is.EqualTo(1));
                 string englishCatalogStatus = setup.Q<Label>("setup-catalog").text;
-                Assert.That(englishCatalogStatus, Does.Contain("Catalog ready"));
+                Assert.That(englishCatalogStatus, Does.Contain("No downloadable packs"));
 
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
@@ -133,7 +152,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(setup.Q<Label>("setup-catalog").text,
                     Does.Not.Contain("Catalog ready"));
                 Assert.That(setup.Q<Label>("setup-catalog").text,
-                    Does.Contain("目录更新完成：0 个内容包"));
+                    Does.Contain("目录中没有可下载内容"));
                 Assert.That(setup.Q<Label>("setup-title").text, Does.Contain("语言"));
 
                 controllerType.GetMethod("SelectContentLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -157,6 +176,122 @@ namespace Gacha.Tests.PlayMode
                 UnityEngine.Object.DestroyImmediate(host);
                 ApplicationServices.Reset();
             }
+        }
+
+        [UnityTest]
+        public IEnumerator RecommendedFirstPack_OnlyCarriesIntentToContentLibrary()
+        {
+            var remote = new FixedRemoteCatalogProvider(RecommendationCatalog());
+            ApplicationServices.Configure(
+                new CatalogSession(new EmptyCatalogProvider()),
+                new LanguageSelectionService(new MemoryLanguageStore(), new[] { "en", "zh-cn", "ja" }),
+                contentPackageCatalogs: remote);
+            string requestedScene = null;
+            Type controllerType = FindFirstRunControllerType();
+            PropertyInfo sceneLoader = controllerType.GetProperty(
+                "SceneLoaderOverride", BindingFlags.Static | BindingFlags.Public);
+            sceneLoader?.SetValue(null, new Action<string>(scene => requestedScene = scene));
+            GameObject host = new GameObject("Recommended First Run Setup Host");
+            try
+            {
+                Component controller = host.AddComponent(controllerType);
+                VisualElement setup = null;
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (setup == null && Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                    setup = host.GetComponent<UIDocument>()?.rootVisualElement
+                        .Q<VisualElement>("first-run-content");
+                }
+                VisualElement recommendation = setup?.Q<VisualElement>("setup-recommendation");
+                while (recommendation != null &&
+                       recommendation.resolvedStyle.display != DisplayStyle.Flex &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+
+                Assert.That(recommendation, Is.Not.Null);
+                Assert.That(recommendation.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(setup.Q<Label>("setup-recommendation-name").text, Is.EqualTo("Starter"));
+                Assert.That(remote.LoadCalls, Is.EqualTo(1));
+                Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("en"));
+                Assert.That(ContentLaunchRequest.ConsumeRecommendation(), Is.Null,
+                    "Metadata refresh must not create a launch request before player confirmation.");
+
+                VisualElement recommendedAction = setup.Q<VisualElement>("setup-recommended");
+                var viewport = new VisualElement { name = "first-run-contract-viewport" };
+                viewport.style.position = Position.Relative;
+                viewport.style.width = 720f;
+                viewport.style.height = 1600f;
+                UIDocument document = host.GetComponent<UIDocument>();
+                document.rootVisualElement.Clear();
+                document.rootVisualElement.Add(viewport);
+                viewport.Add(setup);
+                FieldInfo safeAreaField = controllerType.GetField(
+                    "safeArea", BindingFlags.Instance | BindingFlags.NonPublic);
+                var safeArea = safeAreaField?.GetValue(controller) as UiToolkitSafeAreaBinding;
+                Assert.That(safeArea, Is.Not.Null);
+                safeArea.Suspend();
+                setup.AddToClassList("mobile-layout--compact");
+                setup.style.paddingLeft = 48f;
+                setup.style.paddingTop = 60f;
+                setup.style.paddingRight = 12f;
+                setup.style.paddingBottom = 84f;
+                yield return null;
+                yield return null;
+
+                Rect safeContent = InsetRect(setup.worldBound, setup.resolvedStyle);
+                ScrollView setupScroll = setup.Q<ScrollView>("setup-scroll");
+                AssertContained(safeContent, setupScroll.worldBound, "first-run scroll panel");
+                VisualElement laterAction = setup.Q<VisualElement>("setup-later");
+                foreach (string localeId in new[] { "en", "zh", "ja" })
+                {
+                    ApplicationServices.Languages.SelectUiLanguage(localeId);
+                    yield return null;
+                    setupScroll.ScrollTo(laterAction);
+                    yield return null;
+                    yield return null;
+                    Assert.That(setupScroll.contentViewport.worldBound.Contains(laterAction.worldBound.center),
+                        Is.True, localeId);
+                    Assert.That(laterAction.resolvedStyle.height, Is.GreaterThanOrEqualTo(48f), localeId);
+                    setupScroll.ScrollTo(recommendedAction);
+                    yield return null;
+                    yield return null;
+                    Assert.That(setupScroll.contentViewport.worldBound.Contains(recommendedAction.worldBound.center),
+                        Is.True, localeId);
+                    Assert.That(recommendedAction.resolvedStyle.height, Is.GreaterThanOrEqualTo(48f), localeId);
+                }
+                yield return null;
+                SendTap(recommendedAction);
+                yield return null;
+
+                Assert.That(requestedScene, Is.EqualTo("006_ContentScene"));
+                Assert.That(ContentLaunchRequest.ConsumeRecommendation(), Is.EqualTo("en.starter"));
+                Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("en"));
+            }
+            finally
+            {
+                sceneLoader?.SetValue(null, null);
+                ContentLaunchRequest.Clear();
+                UnityEngine.Object.DestroyImmediate(host);
+                ApplicationServices.Reset();
+            }
+        }
+
+        private static Rect InsetRect(Rect outer, IResolvedStyle style)
+        {
+            return new Rect(
+                outer.xMin + style.paddingLeft,
+                outer.yMin + style.paddingTop,
+                outer.width - style.paddingLeft - style.paddingRight,
+                outer.height - style.paddingTop - style.paddingBottom);
+        }
+
+        private static void AssertContained(Rect outer, Rect inner, string label)
+        {
+            Assert.That(inner.xMin, Is.GreaterThanOrEqualTo(outer.xMin - 1f), label + " left");
+            Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), label + " top");
+            Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), label + " right");
+            Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), label + " bottom");
         }
 
         [UnityTest]
@@ -191,6 +326,8 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(setup.Query<Button>().ToList(), Is.Empty);
                 Assert.That(remote.LoadCalls, Is.EqualTo(1));
                 VisualElement later = setup.Q<VisualElement>("setup-later");
+                setup.Q<ScrollView>("setup-scroll").ScrollTo(later);
+                yield return null;
                 SendTap(later);
                 Assert.That(setup.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
                 yield return null;
@@ -307,6 +444,35 @@ namespace Gacha.Tests.PlayMode
             Assert.That(UnityEngine.SceneManagement.SceneManager.SetActiveScene(original), Is.True);
             yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(source);
         }
+
+        private static ContentPackageCatalog RecommendationCatalog()
+        {
+            string hash = new string('a', 64);
+            var entry = new ContentPackageCatalogEntry(
+                new ContentPackageDescriptor(
+                    "en.starter", "en/starter", 1, "1.0.0", 1024, 2048, hash),
+                new Uri("https://content.example.test/en/starter.zip"),
+                new ContentPackageMetadata(
+                    "card-set",
+                    new Dictionary<string, string> { ["en"] = "Starter" },
+                    contentLanguageId: "en",
+                    generationOrder: 1,
+                    sortOrdinal: 1,
+                    tags: new[] { "starter" }));
+            return new ContentPackageCatalog(
+                ContentPackageCatalog.SupportedSchemaVersion,
+                1,
+                new[] { entry });
+        }
+
+        private static Type FindFirstRunControllerType() =>
+            AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(assembly =>
+                {
+                    try { return assembly.GetTypes(); }
+                    catch { return Array.Empty<Type>(); }
+                })
+                .First(type => type.FullName == "Gacha.Presentation.FirstRunContentSetupController");
 
         private static void SendTap(VisualElement control)
         {

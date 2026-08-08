@@ -39,6 +39,19 @@ namespace Gacha.Presentation
 
         public MobileActionControl GetAction(MobileDestination destination) => actions[(int)destination];
 
+        public static string SceneName(MobileDestination destination)
+        {
+            switch (destination)
+            {
+                case MobileDestination.Home: return "002_MainMenuScene";
+                case MobileDestination.Gacha: return "003_GachaScene";
+                case MobileDestination.Collection: return "004_CollectionScene";
+                case MobileDestination.Content: return "006_ContentScene";
+                case MobileDestination.Settings: return "005_SettingScene";
+                default: throw new ArgumentOutOfRangeException(nameof(destination), destination, null);
+            }
+        }
+
         public void SetPending(MobileDestination destination)
         {
             BottomNavigation.Select((int)destination);

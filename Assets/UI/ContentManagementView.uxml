@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="content-management" class="content-management safe-area-root">
+    <ui:VisualElement name="content-management" class="content-management-host">
         <ui:VisualElement name="content-shell" class="content-management__shell">
             <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
                 <ui:VisualElement class="trainer-device-rail__red" />
@@ -28,7 +28,12 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="catalog-status" class="content-management__catalog-status" />
-            <ui:VisualElement name="content-error-panel" class="player-error-panel" style="display: none;">
+            <ui:VisualElement name="content-launch-banner" class="content-management__launch mobile-card">
+                <ui:Label name="content-launch-title" class="content-management__launch-title" />
+                <ui:Label name="content-launch-body" class="content-management__launch-body" />
+                <ui:VisualElement name="content-launch-clear" class="content-button content-button--quiet"><ui:Label class="content-button__label" /></ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="content-error-panel" class="player-error-panel is-hidden">
                 <ui:Label name="content-error-title" class="player-error-panel__title" />
                 <ui:Label name="content-error-body" class="player-error-panel__body" />
                 <ui:VisualElement class="player-error-panel__actions">

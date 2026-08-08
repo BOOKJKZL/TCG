@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -49,6 +50,7 @@ namespace Gacha.Tests.PlayMode
         {
             private readonly Dictionary<string, InstalledContentPackage> installed =
                 new Dictionary<string, InstalledContentPackage>(StringComparer.Ordinal);
+            public int RemoveCalls { get; private set; }
 
             public InstalledContentPackage Find(string packageId)
             {
@@ -68,6 +70,7 @@ namespace Gacha.Tests.PlayMode
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                RemoveCalls++;
                 if (!installed.TryGetValue(packageId, out InstalledContentPackage package))
                     return Task.FromResult(ContentPackageRemovalResult.NotInstalled());
                 installed.Remove(packageId);
@@ -123,6 +126,7 @@ namespace Gacha.Tests.PlayMode
         {
             private long bytes;
             public bool FailNext { get; set; }
+            public int DownloadCalls { get; private set; }
 
             public long GetDownloadedBytes(ContentPackageDescriptor package) => bytes;
 
@@ -132,6 +136,7 @@ namespace Gacha.Tests.PlayMode
                 IProgress<long> persistedBytesProgress,
                 CancellationToken cancellationToken)
             {
+                DownloadCalls++;
                 await Task.Run(async () =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -200,6 +205,7 @@ namespace Gacha.Tests.PlayMode
             }
 
             public int CreateCalls { get; private set; }
+            public int DownloadCalls(string packageId) => transfers[packageId].DownloadCalls;
 
             public ContentPackageInstallCoordinator Create(ContentPackageCatalog catalog, string packageId)
             {
@@ -233,10 +239,11 @@ namespace Gacha.Tests.PlayMode
             int mainThreadId = Environment.CurrentManagedThreadId;
             var lifecycle = new Lifecycle();
             var factory = new OperationFactory(lifecycle);
+            var network = new Network();
             ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog(), true);
             ContentManagementController.OperationFactoryOverride = factory;
             ContentManagementController.LifecycleOverride = lifecycle;
-            ContentManagementController.DownloadPolicyOverride = Policy();
+            ContentManagementController.DownloadPolicyOverride = Policy(network);
             ContentManagementController.QueueStateStoreOverride = new QueueStateStore();
             var cues = new List<FeedbackCue>();
             var haptic = new HapticSink();
@@ -255,6 +262,7 @@ namespace Gacha.Tests.PlayMode
                     ApplicationServices.Languages.SelectUiLanguage("en");
                     yield return null;
                 }
+                ContentLaunchRequest.Recommend(SuccessId);
                 LogAssert.Expect(LogType.Warning, "Content package catalog warning: fixture network offline");
                 AsyncOperation load = SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
                 yield return load;
@@ -271,12 +279,52 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.PackageCount, Is.EqualTo(2));
                 Assert.That(controller.LastAppliedThreadId, Is.EqualTo(mainThreadId));
                 Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle));
+                Assert.That(ContentLaunchRequest.ConsumeRecommendation(), Is.Null,
+                    "The one-shot recommendation intent must be consumed by Content.");
 
                 UIDocument document = controller.GetComponent<UIDocument>();
                 Assert.That(document, Is.Not.Null);
                 Assert.That(document.visualTreeAsset, Is.Not.Null);
-                VisualElement safeAreaRoot = document.rootVisualElement.Q<VisualElement>("content-management");
+                VisualElement safeAreaRoot = document.rootVisualElement.Q<VisualElement>("safe-area");
                 Assert.That(safeAreaRoot.ClassListContains("safe-area-bound"), Is.True);
+                var viewport = new VisualElement { name = "content-contract-viewport" };
+                viewport.style.position = Position.Relative;
+                viewport.style.width = 720f;
+                viewport.style.height = 1600f;
+                VisualElement pageRoot = document.rootVisualElement.Q<VisualElement>("content-management");
+                document.rootVisualElement.Clear();
+                document.rootVisualElement.Add(viewport);
+                viewport.Add(pageRoot);
+                MobilePageShell mobilePageShell = GetPrivateField<MobilePageShell>(controller, "mobilePageShell");
+                UiToolkitSafeAreaBinding pageSafeArea = GetPrivateField<UiToolkitSafeAreaBinding>(
+                    mobilePageShell,
+                    "safeAreaBinding");
+                pageSafeArea.Suspend();
+                safeAreaRoot.AddToClassList("mobile-layout--compact");
+                safeAreaRoot.style.paddingLeft = 48f;
+                safeAreaRoot.style.paddingTop = 60f;
+                safeAreaRoot.style.paddingRight = 12f;
+                safeAreaRoot.style.paddingBottom = 84f;
+                yield return null;
+                yield return null;
+                Rect safeContent = InsetRect(safeAreaRoot.worldBound, safeAreaRoot.resolvedStyle);
+                AssertContained(safeContent,
+                    document.rootVisualElement.Q<VisualElement>("mobile-top-bar").worldBound,
+                    "content top bar");
+                AssertContained(safeContent,
+                    document.rootVisualElement.Q<VisualElement>("mobile-bottom-navigation").worldBound,
+                    "content bottom navigation");
+                VisualElement launchBanner = document.rootVisualElement.Q<VisualElement>("content-launch-banner");
+                Assert.That(launchBanner.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(document.rootVisualElement.Q<Label>("content-launch-body").text,
+                    Does.Contain(SuccessId));
+                foreach (string destination in new[] { "home", "gacha", "collection", "content", "settings" })
+                {
+                    VisualElement nav = document.rootVisualElement.Q<VisualElement>("nav-" + destination);
+                    Assert.That(nav, Is.Not.Null, destination);
+                    Assert.That(nav.worldBound.height, Is.GreaterThanOrEqualTo(48f), destination);
+                    AssertContained(safeContent, nav.worldBound, destination);
+                }
                 float initialSafePaddingLeft = safeAreaRoot.resolvedStyle.paddingLeft;
                 float initialSafePaddingTop = safeAreaRoot.resolvedStyle.paddingTop;
                 float initialSafePaddingRight = safeAreaRoot.resolvedStyle.paddingRight;
@@ -379,12 +427,64 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(ActionLabel(download).ClassListContains("is-pressed"), Is.True);
                 SendPointerUp(download);
                 Assert.That(ActionLabel(download).ClassListContains("is-pressed"), Is.False);
+                yield return null;
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle),
+                    "A package download must not start before the shared confirmation is accepted.");
+                VisualElement cancelDownload = document.rootVisualElement.Q<VisualElement>("confirmation-cancel");
+                Assert.That(cancelDownload, Is.Not.Null);
+                SendPointerDown(cancelDownload);
+                SendPointerUp(cancelDownload);
+                yield return null;
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle),
+                    "Cancelling the confirmation must create or start no download.");
+                SendPointerDown(download);
+                SendPointerUp(download);
+                yield return null;
+                VisualElement confirmDownload = document.rootVisualElement.Q<VisualElement>("confirmation-confirm");
+                Assert.That(confirmDownload, Is.Not.Null);
+                MobileConfirmationPresenter confirmationPresenter =
+                    GetPrivateField<MobileConfirmationPresenter>(controller, "confirmationPresenter");
+                UiToolkitSafeAreaBinding sheetSafeArea = GetPrivateField<UiToolkitSafeAreaBinding>(
+                    confirmationPresenter.Sheet,
+                    "safeAreaBinding");
+                sheetSafeArea.Suspend();
+                confirmationPresenter.Sheet.SafeArea.style.paddingLeft = 48f;
+                confirmationPresenter.Sheet.SafeArea.style.paddingTop = 60f;
+                confirmationPresenter.Sheet.SafeArea.style.paddingRight = 12f;
+                confirmationPresenter.Sheet.SafeArea.style.paddingBottom = 84f;
+                yield return null;
+                yield return null;
+                AssertContained(
+                    InsetRect(confirmationPresenter.Sheet.SafeArea.worldBound,
+                        confirmationPresenter.Sheet.SafeArea.resolvedStyle),
+                    confirmationPresenter.Sheet.Panel.worldBound,
+                    "download confirmation sheet");
+                network.Type = ContentNetworkType.Offline;
+                SendPointerDown(confirmDownload);
+                SendPointerUp(confirmDownload);
+                yield return null;
+                Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle),
+                    "Confirm must re-run preflight and refuse a download after the network becomes offline.");
+                Assert.That(factory.DownloadCalls(SuccessId), Is.Zero);
+                network.Type = ContentNetworkType.WifiOrEthernet;
+                SendPointerDown(download);
+                SendPointerUp(download);
+                yield return null;
+                confirmDownload = document.rootVisualElement.Q<VisualElement>("confirmation-confirm");
+                SendPointerDown(confirmDownload);
+                SendPointerUp(confirmDownload);
+                SendPointerDown(confirmDownload);
+                SendPointerUp(confirmDownload);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Downloading &&
                        controller.GetPackageState(SuccessId) != ContentPackageOperationState.Succeeded &&
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
                 Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Downloading));
+                while (factory.DownloadCalls(SuccessId) == 0 && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(factory.DownloadCalls(SuccessId), Is.EqualTo(1),
+                    "Repeated confirmation input must start one transfer.");
                 Assert.That(cancel.enabledSelf, Is.True);
                 Assert.That(download.enabledSelf, Is.True);
                 Assert.That(remove.enabledSelf, Is.True);
@@ -392,7 +492,7 @@ namespace Gacha.Tests.PlayMode
                     expectedGeometry: persistentGeometry);
                 Assert.That(controller.StartOrRetryPackage(SuccessId), Is.False);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.False);
-                Assert.That(controller.PausePackage(SuccessId), Is.True);
+                controller.gameObject.SendMessage("OnApplicationPause", true);
                 while (controller.GetPackageState(SuccessId) != ContentPackageOperationState.Paused &&
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
@@ -414,13 +514,14 @@ namespace Gacha.Tests.PlayMode
                 LogAssert.Expect(
                     LogType.Warning,
                     "Content package operation failed for 'zh.retry' at Download: fixture transfer failed");
+                int errorsBeforeRetry = cues.Count(cue => cue == FeedbackCue.Error);
                 Assert.That(controller.StartOrRetryPackage(RetryId), Is.True);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while (controller.GetPackageState(RetryId) != ContentPackageOperationState.Failed &&
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
                 Assert.That(controller.GetPackageState(RetryId), Is.EqualTo(ContentPackageOperationState.Failed));
-                Assert.That(cues.Count(cue => cue == FeedbackCue.Error), Is.EqualTo(1));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.Error), Is.EqualTo(errorsBeforeRetry + 1));
 
                 Assert.That(controller.StartOrRetryPackage(RetryId), Is.True);
                 deadline = Time.realtimeSinceStartup + 5f;
@@ -428,7 +529,7 @@ namespace Gacha.Tests.PlayMode
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
                 Assert.That(controller.GetPackageState(RetryId), Is.EqualTo(ContentPackageOperationState.Succeeded));
-                Assert.That(cues.Count(cue => cue == FeedbackCue.Error), Is.EqualTo(1));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.Error), Is.EqualTo(errorsBeforeRetry + 1));
                 Assert.That(controller.LastAppliedThreadId, Is.EqualTo(mainThreadId));
 
                 Assert.That(controller.IsPackageInstalled(SuccessId), Is.True);
@@ -451,7 +552,10 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(cancel.enabledSelf, Is.True);
                 AssertPersistentActionBar(actions, download, pause, remove, cancel,
                     expectedGeometry: persistentGeometry);
-                Assert.That(controller.CancelPackage(SuccessId), Is.True);
+                VisualElement cancelRemoval = document.rootVisualElement.Q<VisualElement>("confirmation-cancel");
+                Assert.That(cancelRemoval, Is.Not.Null);
+                SendPointerDown(cancelRemoval);
+                SendPointerUp(cancelRemoval);
                 yield return null;
                 Assert.That(remove.enabledSelf, Is.True);
                 Assert.That(cancel.enabledSelf, Is.True);
@@ -459,7 +563,12 @@ namespace Gacha.Tests.PlayMode
                     expectedGeometry: persistentGeometry);
                 Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
                 yield return null;
-                Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
+                VisualElement confirmRemoval = document.rootVisualElement.Q<VisualElement>("confirmation-danger-confirm");
+                Assert.That(confirmRemoval, Is.Not.Null);
+                SendPointerDown(confirmRemoval);
+                SendPointerUp(confirmRemoval);
+                SendPointerDown(confirmRemoval);
+                SendPointerUp(confirmRemoval);
                 deadline = Time.realtimeSinceStartup + 5f;
                 while ((controller.IsPackageInstalled(SuccessId) ||
                         controller.GetPackageState(SuccessId) != ContentPackageOperationState.Idle) &&
@@ -467,6 +576,8 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That(controller.IsPackageInstalled(SuccessId), Is.False);
                 Assert.That(controller.GetPackageState(SuccessId), Is.EqualTo(ContentPackageOperationState.Idle));
+                Assert.That(lifecycle.RemoveCalls, Is.EqualTo(1),
+                    "Repeated destructive confirmation input must remove once.");
                 Assert.That(cues.Count(cue => cue == FeedbackCue.Confirm), Is.GreaterThanOrEqualTo(2));
 
                 Assert.That(controller.StartOrRetryPackage(SuccessId), Is.True);
@@ -495,6 +606,38 @@ namespace Gacha.Tests.PlayMode
                     actions = download.parent;
                     Assert.That(ActionText(download), Is.EqualTo("下载"));
                     AssertPersistentActionBar(actions, download, pause, remove, cancel, false);
+
+                    ApplicationServices.Languages.SelectUiLanguage("ja");
+                    deadline = Time.realtimeSinceStartup + 5f;
+                    while (title.text != "コンテンツライブラリ" && Time.realtimeSinceStartup < deadline)
+                        yield return null;
+                    Assert.That(title.text, Is.EqualTo("コンテンツライブラリ"));
+                    Assert.That(controller.RequestRemovePackage(SuccessId), Is.True);
+                    deadline = Time.realtimeSinceStartup + 5f;
+                    while (confirmationPresenter.Sheet.Title.text != "ダウンロード済みコンテンツを削除しますか？" &&
+                           Time.realtimeSinceStartup < deadline)
+                        yield return null;
+                    Assert.That(confirmationPresenter.Sheet.Title.text,
+                        Is.EqualTo("ダウンロード済みコンテンツを削除しますか？"));
+                    yield return null;
+                    yield return null;
+                    Assert.That(confirmationPresenter.Sheet.Body.resolvedStyle.whiteSpace,
+                        Is.EqualTo(WhiteSpace.Normal));
+                    AssertContained(
+                        InsetRect(confirmationPresenter.Sheet.SafeArea.worldBound,
+                            confirmationPresenter.Sheet.SafeArea.resolvedStyle),
+                        confirmationPresenter.Sheet.Panel.worldBound,
+                        "Japanese destructive confirmation sheet");
+                    VisualElement japaneseDangerConfirm =
+                        document.rootVisualElement.Q<VisualElement>("confirmation-danger-confirm");
+                    Assert.That(japaneseDangerConfirm.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                    AssertContained(confirmationPresenter.Sheet.Panel.worldBound,
+                        japaneseDangerConfirm.worldBound,
+                        "Japanese destructive confirmation action");
+                    VisualElement japaneseCancel =
+                        document.rootVisualElement.Q<VisualElement>("confirmation-cancel");
+                    SendPointerDown(japaneseCancel);
+                    SendPointerUp(japaneseCancel);
                 }
 
                 LogAssert.NoUnexpectedReceived();
@@ -520,6 +663,33 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.DownloadPolicyOverride = null;
                 ContentManagementController.QueueStateStoreOverride = null;
             }
+        }
+
+        private static T GetPrivateField<T>(object owner, string fieldName) where T : class
+        {
+            FieldInfo field = owner.GetType().GetField(fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            var value = field.GetValue(owner) as T;
+            Assert.That(value, Is.Not.Null, fieldName);
+            return value;
+        }
+
+        private static Rect InsetRect(Rect outer, IResolvedStyle style)
+        {
+            return new Rect(
+                outer.xMin + style.paddingLeft,
+                outer.yMin + style.paddingTop,
+                outer.width - style.paddingLeft - style.paddingRight,
+                outer.height - style.paddingTop - style.paddingBottom);
+        }
+
+        private static void AssertContained(Rect outer, Rect inner, string label)
+        {
+            Assert.That(inner.xMin, Is.GreaterThanOrEqualTo(outer.xMin - 1f), label + " left");
+            Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), label + " top");
+            Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), label + " right");
+            Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), label + " bottom");
         }
 
         [UnityTest]

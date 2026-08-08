@@ -50,6 +50,7 @@ public sealed class ContentPackageInstallQueueTests
     {
         public ContentPackageQueueResumeState State;
         public bool ThrowOnLoad;
+        public bool ThrowOnSave;
         public int SaveCalls;
         public int ClearCalls;
 
@@ -62,6 +63,8 @@ public sealed class ContentPackageInstallQueueTests
 
         public void Save(ContentPackageQueueResumeState state)
         {
+            if (ThrowOnSave)
+                throw new InvalidOperationException("C:\\private\\queue-state.json credential=sentinel");
             State = state;
             SaveCalls++;
         }
@@ -368,6 +371,40 @@ public sealed class ContentPackageInstallQueueTests
         Assert.That(queue.RestoredFromState, Is.False);
         Assert.That(queue.Current.Items, Is.Empty);
         Assert.That(queue.PersistenceWarning, Does.Contain("could not be restored"));
+    }
+
+    [Test]
+    public async Task Queue_UsesSharedOperationResolverInsteadOfCreatingSecondCoordinator()
+    {
+        ContentPackageCatalog catalog = Catalog(Entry("fixture"));
+        using var factory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+        ContentPackageInstallCoordinator shared = factory.Create(catalog, "fixture");
+        var queue = new ContentPackageInstallQueue(
+            catalog, factory, 2, operationResolver: _ => shared);
+
+        queue.EnqueueSelection(new[] { "fixture" });
+        ContentPackageQueueSnapshot result = await queue.StartAsync();
+
+        Assert.That(result.SucceededCount, Is.EqualTo(1));
+        Assert.That(factory.CreateCalls, Is.EqualTo(1));
+        Assert.That(shared.Current.State, Is.EqualTo(ContentPackageOperationState.Succeeded));
+    }
+
+    [Test]
+    public void Queue_PersistenceWarningNeverContainsInternalExceptionDetail()
+    {
+        ContentPackageCatalog catalog = Catalog(Entry("fixture"));
+        var store = new StateStore { ThrowOnSave = true };
+        using var factory = new Factory(
+            new ConcurrencyProbe(), new ConcurrencyProbe(), new List<string>());
+        var queue = new ContentPackageInstallQueue(catalog, factory, 2, store);
+
+        queue.EnqueueSelection(new[] { "fixture" });
+
+        Assert.That(queue.PersistenceWarning, Is.EqualTo("The content queue state could not be saved."));
+        Assert.That(queue.PersistenceWarning, Does.Not.Contain("private"));
+        Assert.That(queue.PersistenceWarning, Does.Not.Contain("credential"));
     }
 
     [TestCase(0)]

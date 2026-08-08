@@ -40,22 +40,22 @@ public class MainMenuController : MonoBehaviour
 
     public void GachaBtnClick()
     {
-        LoadScene(MobileDestination.Gacha, "003_GachaScene");
+        LoadScene(MobileDestination.Gacha);
     }
 
     public void CollectionBtnClick()
     {
-        LoadScene(MobileDestination.Collection, "004_CollectionScene");
+        LoadScene(MobileDestination.Collection);
     }
 
     public void SettingBtnClick()
     {
-        LoadScene(MobileDestination.Settings, "005_SettingScene");
+        LoadScene(MobileDestination.Settings);
     }
 
     public void ContentBtnClick()
     {
-        LoadScene(MobileDestination.Content, "006_ContentScene");
+        LoadScene(MobileDestination.Content);
     }
 
     private void HideLegacyCanvas()
@@ -70,12 +70,13 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private void LoadScene(MobileDestination destination, string sceneName)
+    private void LoadScene(MobileDestination destination)
     {
         if (navigationRequested)
             return;
         navigationRequested = true;
         homePresenter?.SetNavigationPending(destination);
+        string sceneName = MobilePrimaryNavigation.SceneName(destination);
         try
         {
             if (sceneLoaderOverrideForTests != null)

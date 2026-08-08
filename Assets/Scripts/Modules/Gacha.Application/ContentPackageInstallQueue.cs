@@ -92,6 +92,7 @@ namespace Gacha.Application
         private readonly HashSet<string> active = new HashSet<string>(StringComparer.Ordinal);
         private readonly int maximumConcurrentDownloads;
         private readonly IContentPackageQueueStateStore stateStore;
+        private readonly Func<string, ContentPackageInstallCoordinator> operationResolver;
         private readonly object persistenceGate = new object();
         private bool paused;
         private Task<ContentPackageQueueSnapshot> activeRun;
@@ -100,7 +101,8 @@ namespace Gacha.Application
             ContentPackageCatalog catalog,
             IContentPackageInstallCoordinatorFactory factory,
             int maximumConcurrentDownloads = DefaultMaximumConcurrentDownloads,
-            IContentPackageQueueStateStore stateStore = null)
+            IContentPackageQueueStateStore stateStore = null,
+            Func<string, ContentPackageInstallCoordinator> operationResolver = null)
         {
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
@@ -111,6 +113,7 @@ namespace Gacha.Application
                     $"Concurrent downloads must be {MinimumConcurrentDownloads}-{MaximumConcurrentDownloadsLimit}.");
             this.maximumConcurrentDownloads = maximumConcurrentDownloads;
             this.stateStore = stateStore;
+            this.operationResolver = operationResolver;
             Restore();
         }
 
@@ -240,9 +243,26 @@ namespace Gacha.Application
             return snapshot;
         }
 
-        public Task<ContentPackageQueueSnapshot> SuspendAsync()
+        public async Task<ContentPackageQueueSnapshot> SuspendAsync()
         {
-            return PauseAsync();
+            ContentPackageInstallCoordinator[] operations;
+            Task<ContentPackageQueueSnapshot> run;
+            lock (gate)
+            {
+                paused = true;
+                operations = active
+                    .Select(id => byId[id].Operation)
+                    .Where(value => value != null)
+                    .Distinct()
+                    .ToArray();
+                run = activeRun;
+            }
+            await Task.WhenAll(operations.Select(value => value.SuspendAsync()));
+            if (run != null)
+                await run;
+            ContentPackageQueueSnapshot snapshot = Current;
+            Publish(snapshot);
+            return snapshot;
         }
 
         private async Task<ContentPackageQueueSnapshot> RunAsync()
@@ -295,7 +315,8 @@ namespace Gacha.Application
                 ContentPackageInstallCoordinator operation;
                 lock (gate)
                 {
-                    item.Operation ??= factory.Create(catalog, item.PackageId);
+                    item.Operation ??= operationResolver?.Invoke(item.PackageId) ??
+                        factory.Create(catalog, item.PackageId);
                     operation = item.Operation;
                 }
                 ContentPackageOperationSnapshot result = operation.Current.CanRetry
@@ -309,12 +330,12 @@ namespace Gacha.Application
                     active.Remove(item.PackageId);
                 }
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 lock (gate)
                 {
                     item.State = ContentPackageQueueItemState.Failed;
-                    item.ErrorMessage = exception.Message;
+                    item.ErrorMessage = "The content operation failed unexpectedly.";
                     active.Remove(item.PackageId);
                 }
             }
@@ -467,7 +488,7 @@ namespace Gacha.Application
             }
             catch (Exception exception) when (!(exception is OutOfMemoryException))
             {
-                PersistenceWarning = "Saved content queue could not be restored: " + exception.Message;
+                PersistenceWarning = "The saved content queue could not be restored.";
             }
         }
 
@@ -499,7 +520,7 @@ namespace Gacha.Application
             }
             catch (Exception exception) when (!(exception is OutOfMemoryException))
             {
-                PersistenceWarning = "Content queue state could not be saved: " + exception.Message;
+                PersistenceWarning = "The content queue state could not be saved.";
             }
         }
     }

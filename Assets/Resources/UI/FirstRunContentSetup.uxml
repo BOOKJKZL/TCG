@@ -2,7 +2,7 @@
     <Style src="FirstRunContentSetup.uss" />
     <ui:VisualElement name="first-run-content" class="first-run-content safe-area-root">
         <ui:VisualElement class="first-run-content__scrim" />
-        <ui:VisualElement class="first-run-content__panel">
+        <ui:ScrollView name="setup-scroll" class="first-run-content__panel" mode="Vertical">
             <ui:Label name="setup-kicker" class="first-run-content__kicker" />
             <ui:Label name="setup-title" class="first-run-content__title" />
             <ui:Label name="setup-body" class="first-run-content__body" />
@@ -21,11 +21,17 @@
             </ui:VisualElement>
             <ui:Label name="setup-storage" class="first-run-content__detail" />
             <ui:Label name="setup-catalog" class="first-run-content__detail" />
+            <ui:VisualElement name="setup-recommendation" class="first-run-content__recommendation">
+                <ui:Label name="setup-recommendation-label" class="first-run-content__kicker" />
+                <ui:Label name="setup-recommendation-name" class="first-run-content__recommendation-name" />
+                <ui:Label name="setup-recommendation-detail" class="first-run-content__detail first-run-content__detail--compact" />
+                <ui:VisualElement name="setup-recommended" class="first-run-content__button first-run-content__button--primary"><ui:Label class="first-run-content__button-label" /></ui:VisualElement>
+            </ui:VisualElement>
             <ui:VisualElement class="first-run-content__actions">
                 <ui:VisualElement name="setup-manage" class="first-run-content__button first-run-content__button--primary"><ui:Label class="first-run-content__button-label" /></ui:VisualElement>
                 <ui:VisualElement name="setup-retry" class="first-run-content__button"><ui:Label class="first-run-content__button-label" /></ui:VisualElement>
                 <ui:VisualElement name="setup-later" class="first-run-content__button first-run-content__button--quiet"><ui:Label class="first-run-content__button-label" /></ui:VisualElement>
             </ui:VisualElement>
-        </ui:VisualElement>
+        </ui:ScrollView>
     </ui:VisualElement>
 </ui:UXML>

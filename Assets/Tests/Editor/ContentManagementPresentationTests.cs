@@ -114,6 +114,15 @@ public class ContentManagementPresentationTests
     public void ContentActions_AvoidNativeAndroidButtonRenderPath()
     {
         string styles = File.ReadAllText("Assets/UI/Styles.uss").Replace("\r\n", "\n");
+        string viewSource = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
+        string controllerSource = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
+        Assert.That(viewSource, Does.Not.Contain("style="));
+        Assert.That(viewSource, Does.Not.Contain("<ui:Button"));
+        Assert.That(controllerSource, Does.Contain("new MobilePageShell"));
+        Assert.That(controllerSource, Does.Contain("new MobileTopBar"));
+        Assert.That(controllerSource, Does.Contain("new MobilePrimaryNavigation"));
+        Assert.That(controllerSource, Does.Contain("new MobileConfirmationPresenter"));
         string view = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
         string controller = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
@@ -172,7 +181,7 @@ public class ContentManagementPresentationTests
         Assert.That(rowRule.Success, Is.True);
         Assert.That(rowRule.Groups["body"].Value, Does.Contain("height: auto;"),
             "DynamicHeight cannot grow localized rows while the default row has a fixed height.");
-        Assert.That(styles, Does.Contain(".content-management.mobile-layout--compact .content-package-row__actions"));
+        Assert.That(styles, Does.Contain(".content-management .mobile-layout--compact .content-package-row__actions"));
         Assert.That(styles, Does.Contain("flex-wrap: wrap;"));
         Assert.That(root.Q<TextField>("content-search"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("content-language-filter"), Is.Not.Null);
@@ -199,7 +208,6 @@ public class ContentManagementPresentationTests
     {
         foreach (string path in new[]
                  {
-                     "Assets/UI/ContentManagementView.uxml",
                      "Assets/UI/GachaView.uxml",
                      "Assets/UI/CollectionView.uxml",
                      "Assets/Resources/UI/PokedexView.uxml"
@@ -209,6 +217,12 @@ public class ContentManagementPresentationTests
             Assert.That(source, Does.Contain("safe-area-root"), path);
         }
 
+        string contentView = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
+        string contentController = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
+        Assert.That(contentView, Does.Not.Contain("safe-area-root"));
+        Assert.That(contentController, Does.Contain("new MobilePageShell"));
+
         string helper = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/UiToolkitSafeArea.cs");
         Assert.That(helper, Does.Contain("Screen.safeArea"));
@@ -217,6 +231,26 @@ public class ContentManagementPresentationTests
         Assert.That(helper, Does.Contain("poll?.Pause()"));
         Assert.That(helper, Does.Contain("paddingTop"));
         Assert.That(helper, Does.Contain("paddingBottom"));
+    }
+
+    [Test]
+    public void ContentLifecycle_TriggersQueueAndIndependentSuspensionBeforeAwaitingEither()
+    {
+        string source = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
+        int helper = source.IndexOf("private async Task SuspendAllOperationsAsync()", StringComparison.Ordinal);
+        int queueStart = source.IndexOf("Task queueSuspension =", helper, StringComparison.Ordinal);
+        int independentStart = source.IndexOf("Task[] independentSuspensions =", helper, StringComparison.Ordinal);
+        int combinedAwait = source.IndexOf(
+            "await Task.WhenAll(new[] { queueSuspension, Task.WhenAll(independentSuspensions) });",
+            helper,
+            StringComparison.Ordinal);
+
+        Assert.That(helper, Is.GreaterThanOrEqualTo(0));
+        Assert.That(queueStart, Is.GreaterThan(helper));
+        Assert.That(independentStart, Is.GreaterThan(queueStart));
+        Assert.That(combinedAwait, Is.GreaterThan(independentStart),
+            "Queue installation waiting must not delay suspension of an independent row download.");
     }
 
     [Test]
@@ -233,7 +267,8 @@ public class ContentManagementPresentationTests
                  {
                      "setup-language-en", "setup-language-zh", "setup-language-ja",
                      "setup-content-language-en", "setup-content-language-zh",
-                     "setup-content-language-ja", "setup-manage", "setup-retry", "setup-later"
+                     "setup-content-language-ja", "setup-recommended",
+                     "setup-manage", "setup-retry", "setup-later"
                  })
         {
             VisualElement action = root.Q<VisualElement>(name);
@@ -261,7 +296,13 @@ public class ContentManagementPresentationTests
         foreach (string key in new[]
                  {
                      "common.action.manage_content", "collection.status.no_content",
-                     "content.catalog.empty", "content.filter.empty"
+                     "content.catalog.empty", "content.filter.empty",
+                     "content.recommended.title", "content.recommended.body",
+                     "content.confirm.download.title", "content.confirm.download.body",
+                     "content.confirm.download.package_body", "content.confirm.remove.title",
+                     "content.confirm.remove.body", "content.action.confirm_download",
+                     "content.action.confirm_remove", "content.action.cancel_confirmation",
+                     "content.status.queued"
                  })
         {
             Assert.That(english.GetEntry(key)?.LocalizedValue, Is.Not.Empty, key + " en");
@@ -285,7 +326,7 @@ public class ContentManagementPresentationTests
         Assert.That(pokedexController, Does.Contain("emptyManageDownloadsButton.style.display"));
         Assert.That(pokedexController, Does.Contain("!catalogLoad.HasInstalledContent"));
         Assert.That(pokedexController, Does.Contain("PokemonPokedexText.Get(\"content_missing\""));
-        Assert.That(contentController, Does.Contain("ContentReturnNavigation.ConsumeOrDefault"));
+        Assert.That(contentController, Does.Contain("ContentReturnNavigation.PeekOrDefault"));
         Assert.That(contentController, Does.Contain("catalog.Packages.Count == 0"));
         Assert.That(contentController, Does.Contain("L(\"content.filter.empty\")"));
     }
