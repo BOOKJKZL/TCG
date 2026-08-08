@@ -1,9 +1,9 @@
 # Universal Gacha Simulator 项目交接
 
-> 更新日期：2026-08-08（Asia/Kuala_Lumpur）  
-> 工作区：`D:\2_GamesCode\!Build_Project\TCG`  
-> Unity：`6000.0.73f1`  
-> 分支：`main`  
+> 更新日期：2026-08-08（Asia/Kuala_Lumpur）
+> 工作区：`D:\2_GamesCode\!Build_Project\TCG`
+> Unity：`6000.0.73f1`
+> 分支：`main`
 > 本文建立时的源码基线：`7b5bf71230457dc294b765f538773caa65ce272d`
 
 ## 1. 这是不是 Handoff
