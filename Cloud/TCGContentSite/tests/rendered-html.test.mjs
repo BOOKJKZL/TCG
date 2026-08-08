@@ -14,7 +14,11 @@ before(async () => {
   const cli = new URL("../node_modules/vinext/dist/cli.js", import.meta.url);
   server = spawn(process.execPath, [fileURLToPath(cli), "dev", "--port", String(port)], {
     cwd: fileURLToPath(projectRoot),
-    env: { ...process.env, TCG_CONTENT_OWNER_EMAIL: "owner@example.test" },
+    env: {
+      ...process.env,
+      TCG_CONTENT_OWNER_EMAIL: "owner@example.test",
+      TCG_ANDROID_RELEASE_CERT_SHA256: "a".repeat(64),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   server.stdout.on("data", (chunk) => { serverOutput += chunk.toString(); });
@@ -151,7 +155,18 @@ test("protects publisher APIs by identity, origin, and media type", async () => 
     },
     body: "not-an-apk",
   });
-  assert.equal(wrongApkMediaType.status, 415);
+  assert.equal(wrongApkMediaType.status, 403);
+
+  const missingStableEvidence = await fetch(`${origin}/api/admin/releases/android`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/vnd.android.package-archive",
+      Origin: origin,
+      "oai-authenticated-user-email": "owner@example.test",
+    },
+    body: "PK-not-an-audited-release",
+  });
+  assert.equal(missingStableEvidence.status, 403);
 });
 
 test("removes browser file upload controls from the owner console", async () => {
@@ -164,6 +179,8 @@ test("removes browser file upload controls from the owner console", async () => 
   assert.match(publisherSource, /Android APK/);
   assert.match(releaseDownloadSource, /api\/releases\/android\/latest\.json/);
   assert.match(releaseDownloadSource, /下载 Android APK/);
+  assert.match(releaseDownloadSource, /schemaVersion !== 2|releaseChannel !== "stable"/);
+  assert.match(releaseDownloadSource, /旧的开发验证包不会在这里提供下载/);
   assert.doesNotMatch(releaseDownloadSource, /type="file"/);
 });
 

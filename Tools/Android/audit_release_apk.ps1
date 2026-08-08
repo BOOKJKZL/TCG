@@ -5,6 +5,7 @@ param(
     [string]$ExpectedCertificateSha256,
     [string]$PackageId = "com.personal.universalgacha",
     [string]$UnityVersion = "6000.0.73f1",
+    [string]$PublishedLatestUrl = "https://universal-gacha-content.jiejingleek.chatgpt.site/api/releases/android/latest.json",
     [string]$ReportPath,
     [switch]$SelfTest
 )
@@ -12,7 +13,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$publishedLatestUrl = "https://universal-gacha-content.jiejingleek.chatgpt.site/api/releases/android/latest.json"
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -310,7 +310,7 @@ if ($expectedFingerprint -notmatch '^[0-9a-f]{64}$') {
 }
 
 try {
-    $publishedLatest = Invoke-RestMethod -Uri $publishedLatestUrl -Method Get
+    $publishedLatest = Invoke-RestMethod -Uri $PublishedLatestUrl -Method Get
 }
 catch {
     throw "Unable to read the authoritative published Android latest manifest: $($_.Exception.Message)"

@@ -18,7 +18,7 @@ export default async function AdminPage() {
 
   let status: { published: boolean; revision?: number; packageCount?: number };
   let credential: { configured: boolean; fingerprint?: string; boundAt?: string };
-  let androidRelease: { versionName: string; versionCode: number } | null;
+  let androidRelease: { schemaVersion: number; versionName: string; versionCode: number } | null;
   try {
     const bucket = getContentBucket();
     const [statusResult, credentialResult, androidReleaseResult] = await Promise.allSettled([

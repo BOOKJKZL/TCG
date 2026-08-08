@@ -6,6 +6,7 @@ interface Env {
   ASSETS: Fetcher;
   FILES: R2Bucket;
   TCG_CONTENT_OWNER_EMAIL?: string;
+  TCG_ANDROID_RELEASE_CERT_SHA256?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {

@@ -45,6 +45,7 @@ npm test
 
 ```dotenv
 TCG_CONTENT_OWNER_EMAIL=you@example.com
+TCG_ANDROID_RELEASE_CERT_SHA256=<64 位正式版签名证书 SHA-256>
 ```
 
 本机 Site 地址为 `http://localhost:3000`。生产构建由 `npm run build` 生成；`npm test` 同时覆盖页面渲染、严格 schema、ZIP/APK-first、最新版清单-last、200/206/416、只读权限和 Hash 失败路径。
@@ -69,13 +70,38 @@ TCG_CONTENT_OWNER_EMAIL=you@example.com
 
 ## 发布最新版 Android APK
 
-先用现有 Unity Android 构建流程产生 `Builds/Android/UniversalGachaSimulator-smoke.apk`，并确保 `ProjectSettings.asset` 中的 `bundleVersion` 与 `AndroidBundleVersionCode` 已递增。然后在项目根目录执行：
+先按 `Docs/ANDROID_RELEASE.zh-CN.md` 构建并审计 ARM64 正式版。将与 Site 环境变量
+`TCG_ANDROID_RELEASE_CERT_SHA256` 完全相同的证书指纹写入 Git 忽略的
+`LocalContent/ReleaseSigning/certificate.sha256`，然后在项目根目录显式发布正式产物：
 
 ```powershell
-./Tools/Android/publish_apk_to_site.ps1
+./Tools/Android/publish_apk_to_site.ps1 `
+  -ApkPath "Builds/Android/Release/UniversalGachaSimulator-release-0.2.0+2.apk" `
+  -VersionName "0.2.0" `
+  -VersionCode 2 `
+  -ReleaseNotes "首次公开正式版"
 ```
 
-脚本只从 Git 忽略的本机凭据读取发布令牌，不把令牌放进命令行或日志。它会验证 APK/ZIP 签名、大小与 SHA-256，上传到私有管理 API，再从公开下载 URL 完整读回并复算 Hash。Site 最多接受 200 MiB，只把小型 `latest.json` 作为可变指针；APK 本体使用 SHA-256 内容寻址。新版本成功切换后清理旧 APK，因此公开页只显示和保留最新版。需要指定其他构建产物或显式版本时可使用 `-ApkPath`、`-VersionName` 与 `-VersionCode`。
+脚本不再推断 smoke APK 或 `ProjectSettings.asset` 中的版本。每次上传前，它会在独立 PowerShell
+进程中重新运行 `audit_release_apk.ps1`，核对包名、版本、ARM64 ABI、target SDK、调试标记、
+唯一签名证书、zipalign 与发布载荷边界，并把短时有效且与 APK SHA-256 绑定的报告随请求发送。
+服务器还会独立核对报告、固定的证书指纹和线上 versionCode，只有严格递增的 schema 2
+`stable` 清单才能成为最新版。当前 schema 1 开发验证包仍可被服务器读取以便平滑迁移，但公开页不会把它标成正式版或提供下载。
+
+APK 正文上传使用 R2 的 SHA-256 checksum 约束。候选对象写入后，Worker 会先通过公开下载处理器把整包
+流式读完并核对字节数，再以 ETag 条件写切换 `latest`；并发或回读失败不会覆盖当前正式版。
+正式 APK 的 POST 只接受已绑定电脑发布器令牌，管理员网页会话只负责绑定、撤销和查看。
+
+当前 Site 发布 API 最多接受 60 MiB，并要求有效的 `Content-Length`；这是为避免在 Worker
+内存中缓冲超大请求。若正式 APK 以后接近该上限，应先改为流式暂存与校验，不能只上调数字。
+Site 只把小型 `latest.json` 作为可变指针；APK 本体使用 SHA-256 内容寻址。
+新版本成功切换后清理旧 APK，发布脚本再从公开 URL 完整读回并复算 Hash。管理 API 仍只接受
+已绑定的电脑令牌；浏览器发布台不提供文件上传入口。
+
+信任边界：审计 JSON 由已绑定且受信任的私人电脑发布器提交，Site 会严格绑定其 Hash、版本、
+证书指纹、检查集合和短时线上基线，但该 JSON 目前没有独立的数字签名。因此这套门禁用于阻止
+误传、陈旧报告和传输/存储不一致，不宣称能抵御“发布令牌和受信任发布电脑同时失陷”。发现
+令牌泄露时应立即在 `/admin` 撤销；若以后需要抵御该威胁，应增加独立审计私钥签名或服务端 APK 解析。
 
 ## 迁移到独立 Cloudflare R2
 

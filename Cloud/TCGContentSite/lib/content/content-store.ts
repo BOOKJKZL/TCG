@@ -12,6 +12,7 @@ import { parseOpenEndedRange } from "./range.ts";
 
 export type StoredObjectHead = {
   size: number;
+  etag?: string;
   customMetadata?: Record<string, string>;
 };
 
@@ -28,10 +29,12 @@ export interface ContentBucket {
   ): Promise<StoredObjectBody | null>;
   put(
     key: string,
-    value: ArrayBuffer | Uint8Array | string,
+    value: ArrayBuffer | Uint8Array | string | ReadableStream<Uint8Array>,
     options?: {
       httpMetadata?: { contentType?: string };
       customMetadata?: Record<string, string>;
+      onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string };
+      sha256?: string;
     },
   ): Promise<unknown>;
   delete(key: string): Promise<void>;

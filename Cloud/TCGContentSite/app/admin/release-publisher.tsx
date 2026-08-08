@@ -21,7 +21,7 @@ export default function ReleasePublisher({
 }: {
   initialStatus: PublishedStatus;
   initialCredential: PublisherCredentialStatus;
-  initialAndroidRelease: { versionName: string; versionCode: number } | null;
+  initialAndroidRelease: { schemaVersion: number; versionName: string; versionCode: number } | null;
 }) {
   const [credential, setCredential] = useState(initialCredential);
   const [tokenSha256, setTokenSha256] = useState("");
@@ -77,7 +77,12 @@ export default function ReleasePublisher({
         <div><span>存储</span><strong>Sites R2</strong></div>
         <div><span>公开版本</span><strong>{initialStatus.published ? `r${initialStatus.revision}` : "未发布"}</strong></div>
         <div><span>内容包</span><strong>{initialStatus.packageCount ?? 0}</strong></div>
-        <div><span>Android APK</span><strong>{initialAndroidRelease ? `${initialAndroidRelease.versionName}+${initialAndroidRelease.versionCode}` : "未发布"}</strong></div>
+        <div>
+          <span>Android APK</span>
+          <strong>{initialAndroidRelease
+            ? `${initialAndroidRelease.schemaVersion === 2 ? "正式版" : "旧开发验证包"} ${initialAndroidRelease.versionName}+${initialAndroidRelease.versionCode}`
+            : "未发布"}</strong>
+        </div>
         <div><span>电脑发布器</span><strong>{credential.configured ? "已绑定" : "未绑定"}</strong></div>
       </section>
 
