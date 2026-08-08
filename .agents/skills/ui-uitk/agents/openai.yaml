@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity UI Toolkit (TCG)"
+  short_description: "Build and verify responsive mobile UI Toolkit screens"
+  default_prompt: "Use $ui-uitk to implement and verify this project's mobile UI Toolkit interface."
