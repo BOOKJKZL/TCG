@@ -57,6 +57,23 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        private sealed class BlockingRemoteCatalogProvider : IContentPackageCatalogProvider
+        {
+            private readonly TaskCompletionSource<ContentPackageCatalogLoadResult> completion =
+                new TaskCompletionSource<ContentPackageCatalogLoadResult>();
+
+            public int LoadCalls { get; private set; }
+            public CancellationToken Token { get; private set; }
+
+            public Task<ContentPackageCatalogLoadResult> LoadAsync(CancellationToken cancellationToken)
+            {
+                LoadCalls++;
+                Token = cancellationToken;
+                cancellationToken.Register(() => completion.TrySetCanceled());
+                return completion.Task;
+            }
+        }
+
         private sealed class MemoryLanguageStore : ILanguagePreferenceStore
         {
             public LanguagePreferences Load() => new LanguagePreferences("en", "en");
@@ -97,11 +114,12 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(setup.Q<Label>("setup-title").text, Is.Not.Empty);
                 Assert.That(setup.Q<Label>("setup-body").text, Does.Contain("no ZIP"));
                 Assert.That(setup.Q<Label>("setup-storage").text, Does.Contain("app-managed"));
-                Assert.That(setup.Q<Button>("setup-manage"), Is.Not.Null);
-                Assert.That(setup.Q<Button>("setup-retry"), Is.Not.Null);
+                Assert.That(setup.Query<Button>().ToList(), Is.Empty);
+                Assert.That(setup.Q<VisualElement>("setup-manage"), Is.Not.Null);
+                Assert.That(setup.Q<VisualElement>("setup-retry"), Is.Not.Null);
                 Assert.That(setup.Q<Label>("setup-content-language-detail").text,
                     Does.Contain("independent"));
-                Assert.That(setup.Q<Button>("setup-content-language-en")
+                Assert.That(setup.Q<VisualElement>("setup-content-language-en").Q<Label>()
                     .ClassListContains("is-selected"), Is.True);
                 Assert.That(remote.LoadCalls, Is.EqualTo(1));
                 string englishCatalogStatus = setup.Q<Label>("setup-catalog").text;
@@ -124,19 +142,72 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(ApplicationServices.Languages.UiLanguageId, Is.EqualTo("zh"));
                 Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("zh-cn"));
                 Assert.That(ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId, Is.EqualTo("zh-cn"));
-                Assert.That(setup.Q<Button>("setup-content-language-zh")
+                Assert.That(setup.Q<VisualElement>("setup-content-language-zh").Q<Label>()
                     .ClassListContains("is-selected"), Is.True);
 
                 controllerType.GetMethod("SelectContentLanguage", BindingFlags.Instance | BindingFlags.NonPublic)
                     ?.Invoke(controller, new object[] { "ja" });
                 yield return null;
                 Assert.That(ApplicationServices.Languages.RequestedContentLanguageId, Is.EqualTo("ja"));
-                Assert.That(setup.Q<Button>("setup-content-language-ja")
+                Assert.That(setup.Q<VisualElement>("setup-content-language-ja").Q<Label>()
                     .ClassListContains("is-selected"), Is.True);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(host);
+                ApplicationServices.Reset();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator NotNow_CancelsRefreshAndDestroysStableOverlayHost()
+        {
+            var remote = new BlockingRemoteCatalogProvider();
+            ApplicationServices.Configure(
+                new CatalogSession(new EmptyCatalogProvider()),
+                new LanguageSelectionService(new MemoryLanguageStore(), new[] { "en", "zh", "ja" }),
+                contentPackageCatalogs: remote);
+            GameObject host = new GameObject("Dismissible First Run Setup Host");
+            Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(assembly =>
+                {
+                    try { return assembly.GetTypes(); }
+                    catch { return Array.Empty<Type>(); }
+                })
+                .First(type => type.FullName == "Gacha.Presentation.FirstRunContentSetupController");
+            try
+            {
+                host.AddComponent(controllerType);
+                VisualElement setup = null;
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (setup == null && Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                    setup = host.GetComponent<UIDocument>()?.rootVisualElement
+                        .Q<VisualElement>("first-run-content");
+                }
+
+                Assert.That(setup, Is.Not.Null);
+                Assert.That(setup.Query<Button>().ToList(), Is.Empty);
+                Assert.That(remote.LoadCalls, Is.EqualTo(1));
+                VisualElement later = setup.Q<VisualElement>("setup-later");
+                SendTap(later);
+                Assert.That(setup.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                yield return null;
+                Assert.That(remote.Token.IsCancellationRequested, Is.True);
+                Assert.That(host == null, Is.True);
+                ApplicationServices.Languages.SelectUiLanguage("ja");
+                yield return null;
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                FieldInfo dismissed = controllerType.GetField(
+                    "dismissedForSession",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                dismissed?.SetValue(null, false);
+                if (host != null)
+                    UnityEngine.Object.DestroyImmediate(host);
                 ApplicationServices.Reset();
             }
         }
@@ -235,6 +306,24 @@ namespace Gacha.Tests.PlayMode
             Assert.That(ContentReturnNavigation.ConsumeOrDefault("fallback"), Is.EqualTo("fallback"));
             Assert.That(UnityEngine.SceneManagement.SceneManager.SetActiveScene(original), Is.True);
             yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(source);
+        }
+
+        private static void SendTap(VisualElement control)
+        {
+            using (PointerDownEvent down = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(down);
+            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(up);
         }
     }
 }

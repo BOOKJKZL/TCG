@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:ScrollView name="home-scroll" class="home-scroll" mode="Vertical">
+        <ui:Style src="HomeView.uss" />
+        <ui:VisualElement name="home-hero" class="home-hero mobile-card">
+            <ui:Label name="home-kicker" class="home-hero__kicker" />
+            <ui:Label name="home-title" class="home-hero__title" />
+            <ui:Label name="home-body" class="home-hero__body" />
+        </ui:VisualElement>
+        <ui:Label name="home-section-title" class="home-section__title" />
+        <ui:VisualElement name="home-feature-grid" class="home-feature-grid">
+            <ui:VisualElement name="home-gacha-slot" class="home-feature-slot" />
+            <ui:VisualElement name="home-collection-slot" class="home-feature-slot" />
+            <ui:VisualElement name="home-content-slot" class="home-feature-slot" />
+            <ui:VisualElement name="home-settings-slot" class="home-feature-slot" />
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

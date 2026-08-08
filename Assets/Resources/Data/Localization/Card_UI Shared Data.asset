@@ -943,6 +943,50 @@ MonoBehaviour:
     m_Key: player_error.unexpected.body
     m_Metadata:
       m_Items: []
+  - m_Id: 172188048200216576
+    m_Key: home.top.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325440
+    m_Key: home.top.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325441
+    m_Key: home.kicker
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325442
+    m_Key: home.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325443
+    m_Key: home.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325444
+    m_Key: home.section.destinations
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325445
+    m_Key: home.feature.gacha
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048267325446
+    m_Key: home.feature.collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048275714048
+    m_Key: home.feature.content
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048275714049
+    m_Key: home.feature.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172188048275714050
+    m_Key: home.nav.home
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -1,0 +1,124 @@
+.home-scroll {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.home-scroll .unity-scroll-view__content-container {
+    padding-top: 16px;
+    padding-bottom: 18px;
+}
+
+.home-hero {
+    min-height: 220px;
+    padding: 28px;
+    justify-content: center;
+    border-width: 2px;
+    border-color: rgba(72, 179, 207, 0.72);
+    background-color: rgba(13, 49, 75, 0.98);
+}
+
+.home-hero__kicker {
+    color: rgb(103, 216, 236);
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    white-space: normal;
+}
+
+.home-hero__title {
+    max-width: 760px;
+    margin-top: 8px;
+    color: rgb(255, 255, 255);
+    font-size: 34px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.home-hero__body {
+    max-width: 760px;
+    margin-top: 12px;
+    color: rgb(184, 210, 225);
+    font-size: 18px;
+    white-space: normal;
+}
+
+.home-section__title {
+    margin-top: 24px;
+    margin-bottom: 8px;
+    color: rgb(236, 247, 255);
+    font-size: 23px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.home-feature-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.home-feature-slot {
+    width: 48%;
+    min-width: 340px;
+    flex-grow: 1;
+    margin: 6px;
+}
+
+.home-feature-card {
+    height: 100%;
+    min-height: 230px;
+}
+
+.home-feature-card__header {
+    flex-direction: row;
+    align-items: center;
+}
+
+.home-feature-card__number {
+    width: 46px;
+    height: 46px;
+    margin-right: 12px;
+    border-width: 2px;
+    border-radius: 24px;
+    border-color: rgba(103, 216, 236, 0.86);
+    background-color: rgba(27, 79, 105, 0.98);
+    color: rgb(255, 255, 255);
+    font-size: 17px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.home-feature-card__title {
+    flex-grow: 1;
+    min-width: 0;
+    color: rgb(255, 255, 255);
+    font-size: 22px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.home-feature-card__body {
+    color: rgb(184, 210, 225);
+    font-size: 16px;
+    white-space: normal;
+}
+
+.home-feature-card__action {
+    width: 100%;
+}
+
+.mobile-layout--compact .home-hero {
+    min-height: 0;
+    padding: 20px;
+}
+
+.mobile-layout--compact .home-hero__title {
+    font-size: 28px;
+}
+
+.mobile-layout--compact .home-feature-slot {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+}

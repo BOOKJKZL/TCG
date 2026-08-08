@@ -1,11 +1,29 @@
+using System;
+using Gacha.Application;
+using Gacha.Presentation;
 using UnityEngine;
-using UnityEngine.UIElements;
 using UnityEngine.SceneManagement;
 
 public class MainMenuController : MonoBehaviour
 {
+    private MobileHomePresenter homePresenter;
+    private bool navigationRequested;
+    private Action<string> sceneLoaderOverrideForTests;
+
+    public MobileHomePresenter HomePresenter => homePresenter;
+
     private void Start()
     {
+        if (!ApplicationServices.IsConfigured)
+            GameApplicationBootstrap.EnsureConfigured();
+        HideLegacyCanvas();
+        homePresenter = new MobileHomePresenter(
+            gameObject,
+            GachaBtnClick,
+            CollectionBtnClick,
+            ContentBtnClick,
+            SettingBtnClick);
+
         if (GetComponentInChildren<Gacha.Presentation.FirstRunContentSetupController>() == null)
         {
             var host = new GameObject("First Run Content Setup");
@@ -14,25 +32,64 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-        //root.Q<Button>("btn_language_cn").clicked += () => LocaleSwitcher.SetLocale("zh-CN");
-        //root.Q<Button>("btn_language_en").clicked += () => LocaleSwitcher.SetLocale("en-US");
+    private void OnDestroy()
+    {
+        homePresenter?.Dispose();
+        homePresenter = null;
+    }
+
     public void GachaBtnClick()
     {
-        GameManager.Instance.loadManager.LoadScene(2);
+        LoadScene(MobileDestination.Gacha, "003_GachaScene");
     }
 
     public void CollectionBtnClick()
     {
-        GameManager.Instance.loadManager.LoadScene(3);
+        LoadScene(MobileDestination.Collection, "004_CollectionScene");
     }
 
     public void SettingBtnClick()
     {
-        GameManager.Instance.loadManager.LoadScene(4);
+        LoadScene(MobileDestination.Settings, "005_SettingScene");
     }
 
     public void ContentBtnClick()
     {
-        GameManager.Instance.loadManager.LoadScene(5);
+        LoadScene(MobileDestination.Content, "006_ContentScene");
+    }
+
+    private void HideLegacyCanvas()
+    {
+        foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())
+        {
+            foreach (Canvas canvas in sceneRoot.GetComponentsInChildren<Canvas>(true))
+            {
+                if (canvas != null && canvas.gameObject.scene == gameObject.scene)
+                    canvas.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private void LoadScene(MobileDestination destination, string sceneName)
+    {
+        if (navigationRequested)
+            return;
+        navigationRequested = true;
+        homePresenter?.SetNavigationPending(destination);
+        try
+        {
+            if (sceneLoaderOverrideForTests != null)
+                sceneLoaderOverrideForTests(sceneName);
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName);
+            else
+                SceneManager.LoadScene(sceneName);
+        }
+        catch
+        {
+            navigationRequested = false;
+            homePresenter?.ClearNavigationPending();
+            throw;
+        }
     }
 }

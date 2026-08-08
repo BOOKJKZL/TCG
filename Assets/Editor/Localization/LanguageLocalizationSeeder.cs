@@ -179,6 +179,17 @@ public static class LanguageLocalizationSeeder
             ["main_menu.action.collection"] = "Collection",
             ["main_menu.action.content"] = "Content",
             ["main_menu.action.settings"] = "Settings",
+            ["home.top.title"] = "Trainer Home",
+            ["home.top.subtitle"] = "Offline-first card archive",
+            ["home.kicker"] = "TRAINER HUB",
+            ["home.title"] = "Your card archive, one pack at a time",
+            ["home.body"] = "Open simulated packs, review your collection, and install only the card languages you want.",
+            ["home.section.destinations"] = "Choose your next stop",
+            ["home.feature.gacha"] = "Choose an installed product and reveal every card.",
+            ["home.feature.collection"] = "Browse owned cards, new pulls, and set completion.",
+            ["home.feature.content"] = "Install, update, repair, or remove downloadable card data.",
+            ["home.feature.settings"] = "Change language, feedback, save recovery, and account options.",
+            ["home.nav.home"] = "Home",
             ["settings.title"] = "Settings"
         });
 
@@ -321,6 +332,17 @@ public static class LanguageLocalizationSeeder
             ["main_menu.action.collection"] = "收藏",
             ["main_menu.action.content"] = "内容",
             ["main_menu.action.settings"] = "设置",
+            ["home.top.title"] = "主菜单",
+            ["home.top.subtitle"] = "离线卡牌收藏",
+            ["home.kicker"] = "卡牌收藏",
+            ["home.title"] = "一包一包，查看卡牌收藏",
+            ["home.body"] = "开启模拟卡包、查看收藏，并只安装需要的卡牌语言。",
+            ["home.section.destinations"] = "选择内容",
+            ["home.feature.gacha"] = "选择已安装的卡包，并逐张翻开所有卡牌。",
+            ["home.feature.collection"] = "浏览已拥有卡牌、新抽到的卡牌、系列完成度。",
+            ["home.feature.content"] = "安装、更新、修复或移除可下载的卡牌资料。",
+            ["home.feature.settings"] = "更改语言、设置。",
+            ["home.nav.home"] = "主菜单",
             ["settings.title"] = "设置"
         });
 

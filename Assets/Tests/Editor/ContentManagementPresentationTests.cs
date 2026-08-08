@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -227,14 +228,18 @@ public class ContentManagementPresentationTests
         string controller = File.ReadAllText(
             "Assets/Scripts/004_Controller/FirstRunContentSetupController.cs");
 
-        Assert.That(root.Q<Button>("setup-language-en"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-language-zh"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-language-ja"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-content-language-en"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-content-language-zh"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-content-language-ja"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-manage"), Is.Not.Null);
-        Assert.That(root.Q<Button>("setup-retry"), Is.Not.Null);
+        Assert.That(root.Query<Button>().ToList(), Is.Empty);
+        foreach (string name in new[]
+                 {
+                     "setup-language-en", "setup-language-zh", "setup-language-ja",
+                     "setup-content-language-en", "setup-content-language-zh",
+                     "setup-content-language-ja", "setup-manage", "setup-retry", "setup-later"
+                 })
+        {
+            VisualElement action = root.Q<VisualElement>(name);
+            Assert.That(action, Is.Not.Null, name);
+            Assert.That(action.Q<Label>(), Is.Not.Null, name + " label");
+        }
         Assert.That(controller, Does.Contain("ContentPackageCatalogs"));
         Assert.That(controller, Does.Contain("provider.LoadAsync(token)"));
         Assert.That(controller, Does.Not.Contain("DownloadAsync("),

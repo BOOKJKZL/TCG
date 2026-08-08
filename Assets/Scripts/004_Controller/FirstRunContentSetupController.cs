@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -28,13 +29,15 @@ namespace Gacha.Presentation
         private Label contentLanguageDetail;
         private Label storage;
         private Label catalogStatus;
-        private Button manage;
-        private Button retry;
-        private Button later;
+        private readonly List<MobileActionControl> actions = new List<MobileActionControl>();
+        private MobileActionControl manage;
+        private MobileActionControl retry;
+        private MobileActionControl later;
         private UiToolkitSafeAreaBinding safeArea;
         private CancellationTokenSource refreshCancellation;
         private int refreshGeneration;
         private bool destroyed;
+        private bool shutdown;
         private CatalogStatusMode catalogStatusMode = CatalogStatusMode.Loading;
         private int catalogPackageCount;
         private bool catalogUsedCached;
@@ -74,18 +77,15 @@ namespace Gacha.Presentation
             contentLanguageDetail = Required<Label>("setup-content-language-detail");
             storage = Required<Label>("setup-storage");
             catalogStatus = Required<Label>("setup-catalog");
-            manage = Required<Button>("setup-manage");
-            retry = Required<Button>("setup-retry");
-            later = Required<Button>("setup-later");
-            Required<Button>("setup-language-en").clicked += () => SelectLanguage("en");
-            Required<Button>("setup-language-zh").clicked += () => SelectLanguage("zh");
-            Required<Button>("setup-language-ja").clicked += () => SelectLanguage("ja");
-            Required<Button>("setup-content-language-en").clicked += () => SelectContentLanguage("en");
-            Required<Button>("setup-content-language-zh").clicked += () => SelectContentLanguage("zh-cn");
-            Required<Button>("setup-content-language-ja").clicked += () => SelectContentLanguage("ja");
-            manage.clicked += OpenContentManagement;
-            retry.clicked += RefreshRemoteCatalog;
-            later.clicked += DismissForSession;
+            BindAction("setup-language-en", () => SelectLanguage("en"));
+            BindAction("setup-language-zh", () => SelectLanguage("zh"));
+            BindAction("setup-language-ja", () => SelectLanguage("ja"));
+            BindAction("setup-content-language-en", () => SelectContentLanguage("en"));
+            BindAction("setup-content-language-zh", () => SelectContentLanguage("zh-cn"));
+            BindAction("setup-content-language-ja", () => SelectContentLanguage("ja"));
+            manage = BindAction("setup-manage", OpenContentManagement);
+            retry = BindAction("setup-retry", RefreshRemoteCatalog);
+            later = BindAction("setup-later", DismissForSession);
             safeArea = UiToolkitSafeArea.Attach(root);
             ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
             ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
@@ -96,6 +96,14 @@ namespace Gacha.Presentation
 
         private void OnDestroy()
         {
+            Shutdown();
+        }
+
+        private void Shutdown()
+        {
+            if (shutdown)
+                return;
+            shutdown = true;
             destroyed = true;
             refreshGeneration++;
             if (ApplicationServices.IsConfigured)
@@ -108,6 +116,9 @@ namespace Gacha.Presentation
             refreshCancellation = null;
             safeArea?.Dispose();
             safeArea = null;
+            foreach (MobileActionControl action in actions)
+                action.Dispose();
+            actions.Clear();
         }
 
         private void SelectLanguage(string languageId)
@@ -140,19 +151,19 @@ namespace Gacha.Presentation
                 ja ? "表示言語とカード言語を設定できます。" :
                 "Interface and card languages are independent and can be changed later.";
             storage.text = StorageText(zh, ja);
-            manage.text = zh ? "进入内容库" : ja ? "コンテンツライブラリを開く" : "Open Content Library";
-            retry.text = zh ? "刷新目录" : ja ? "カタログを更新" : "Refresh catalog";
-            later.text = zh ? "暂不设置" : ja ? "後で" : "Not now";
+            manage.SetLabel(zh ? "进入内容库" : ja ? "コンテンツライブラリを開く" : "Open Content Library");
+            retry.SetLabel(zh ? "刷新目录" : ja ? "カタログを更新" : "Refresh catalog");
+            later.SetLabel(zh ? "暂不设置" : ja ? "後で" : "Not now");
             foreach (string id in new[] { "en", "zh", "ja" })
-                Required<Button>("setup-language-" + id).EnableInClassList(
+                Required<VisualElement>("setup-language-" + id).Q<Label>().EnableInClassList(
                     "is-selected",
                     string.Equals(language, id, StringComparison.OrdinalIgnoreCase));
             string contentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
-            Required<Button>("setup-content-language-en").EnableInClassList(
+            Required<VisualElement>("setup-content-language-en").Q<Label>().EnableInClassList(
                 "is-selected", string.Equals(contentLanguage, "en", StringComparison.OrdinalIgnoreCase));
-            Required<Button>("setup-content-language-zh").EnableInClassList(
+            Required<VisualElement>("setup-content-language-zh").Q<Label>().EnableInClassList(
                 "is-selected", string.Equals(contentLanguage, "zh-cn", StringComparison.OrdinalIgnoreCase));
-            Required<Button>("setup-content-language-ja").EnableInClassList(
+            Required<VisualElement>("setup-content-language-ja").Q<Label>().EnableInClassList(
                 "is-selected", string.Equals(contentLanguage, "ja", StringComparison.OrdinalIgnoreCase));
             RefreshCatalogStatusText();
         }
@@ -232,7 +243,8 @@ namespace Gacha.Presentation
         {
             dismissedForSession = true;
             root.style.display = DisplayStyle.None;
-            safeArea?.Suspend();
+            Shutdown();
+            Destroy(gameObject);
         }
 
         private void SetCatalogStatus(CatalogStatusMode mode)
@@ -290,6 +302,18 @@ namespace Gacha.Presentation
         {
             T value = document.rootVisualElement.Q<T>(name);
             return value ?? throw new InvalidOperationException("First-run setup is missing '" + name + "'.");
+        }
+
+        private MobileActionControl BindAction(string name, Action clicked)
+        {
+            var action = new MobileActionControl(
+                Required<VisualElement>(name),
+                clicked,
+                playFeedback: true,
+                showPressWhenUnavailable: false,
+                fallbackLabelClass: "first-run-content__button-label");
+            actions.Add(action);
+            return action;
         }
 
         private static string FormatBytes(long bytes)
