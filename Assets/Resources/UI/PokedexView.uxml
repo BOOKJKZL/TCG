@@ -1,90 +1,100 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <Style src="PokedexStyles.uss" />
-    <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay safe-area-root">
-        <ui:VisualElement class="pokedex-shell">
-            <ui:VisualElement name="pokedex-device-rail" class="pokedex-device-rail">
-                <ui:VisualElement class="pokedex-device-rail__red" />
-                <ui:VisualElement class="pokedex-device-rail__yellow" />
-                <ui:VisualElement class="pokedex-device-rail__blue" />
-            </ui:VisualElement>
-            <ui:VisualElement class="pokedex-header">
-                <ui:VisualElement name="pokedex-status-lights" class="pokedex-status-lights">
-                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--lens" />
-                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--red" />
-                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--yellow" />
-                    <ui:VisualElement class="pokedex-status-light pokedex-status-light--green" />
-                </ui:VisualElement>
-                <ui:VisualElement class="pokedex-heading">
-                    <ui:Label name="pokedex-title" class="pokedex-title" />
-                    <ui:Label name="pokedex-subtitle" class="pokedex-subtitle" />
-                </ui:VisualElement>
-                <ui:Button name="pokedex-close-button" class="pokedex-button pokedex-button--quiet" />
-            </ui:VisualElement>
-
-            <ui:VisualElement name="pokedex-list-page" class="pokedex-page">
-                <ui:VisualElement class="pokedex-filters">
+    <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay">
+        <ui:Style src="PokedexStyles.uss" />
+        <ui:VisualElement name="pokedex-body" class="pokedex-body">
+            <ui:VisualElement name="pokedex-list-page" class="pokedex-page pokedex-list-page">
+                <ui:VisualElement class="pokedex-filters mobile-card">
                     <ui:DropdownField name="pokedex-generation" class="pokedex-field pokedex-generation" />
                     <ui:TextField name="pokedex-search" class="pokedex-field pokedex-search" />
                 </ui:VisualElement>
                 <ui:Label name="pokedex-status" class="pokedex-status" />
-                <ui:VisualElement name="pokedex-error-panel" class="pokedex-error-panel" style="display: none;">
-                    <ui:Label name="pokedex-error-title" class="pokedex-error-panel__title" />
-                    <ui:Label name="pokedex-error-body" class="pokedex-error-panel__body" />
-                    <ui:VisualElement class="pokedex-error-panel__actions">
-                        <ui:Button name="pokedex-error-retry" class="pokedex-button" />
-                        <ui:Button name="pokedex-error-manage" class="pokedex-button pokedex-button--quiet" />
-                        <ui:Button name="pokedex-error-close" class="pokedex-button pokedex-button--quiet" />
+
+                <ui:VisualElement name="pokedex-error-panel" class="player-error-panel is-hidden">
+                    <ui:Label name="pokedex-error-title" class="player-error-panel__title" />
+                    <ui:Label name="pokedex-error-body" class="player-error-panel__body" />
+                    <ui:VisualElement class="player-error-panel__actions">
+                        <ui:VisualElement name="pokedex-error-retry" class="pokedex-action pokedex-action--primary">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pokedex-error-manage" class="pokedex-action">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pokedex-error-close" class="pokedex-action pokedex-action--quiet">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label name="pokedex-empty" class="pokedex-empty" style="display: none;" />
-                <ui:Button name="pokedex-empty-manage-button" class="pokedex-button pokedex-button--quiet pokedex-manage-button" style="display: none;" />
-                <ui:VisualElement name="pokedex-introduced-forms-section" class="pokedex-introduced-forms" style="display: none;">
-                    <ui:Label name="pokedex-introduced-forms-heading" class="pokedex-introduced-forms__heading" />
-                    <ui:ListView name="pokedex-introduced-forms-list" class="pokedex-introduced-forms__list" />
+
+                <ui:VisualElement name="pokedex-empty-state" class="pokedex-empty-state is-hidden">
+                    <ui:Label name="pokedex-empty" class="pokedex-empty" />
+                    <ui:VisualElement name="pokedex-empty-manage-button" class="pokedex-action pokedex-action--primary">
+                        <ui:Label class="pokedex-action__label" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:ListView name="pokedex-species-list" class="pokedex-list" />
+
+                <ui:VisualElement name="pokedex-introduced-forms-section" class="pokedex-introduced-forms is-hidden">
+                    <ui:Label name="pokedex-introduced-forms-heading" class="pokedex-introduced-forms__heading" />
+                    <ui:ListView name="pokedex-introduced-forms-list" class="pokedex-introduced-forms__list" virtualization-method="DynamicHeight" />
+                </ui:VisualElement>
+                <ui:ListView name="pokedex-species-list" class="pokedex-list" virtualization-method="DynamicHeight" />
             </ui:VisualElement>
 
-            <ui:ScrollView name="pokedex-detail-page" class="pokedex-page pokedex-detail" style="display: none;">
-                <ui:Button name="pokedex-detail-back" class="pokedex-button pokedex-detail__back" />
-                <ui:VisualElement class="pokedex-detail__hero">
+            <ui:VisualElement name="pokedex-detail-page" class="pokedex-page pokedex-detail is-hidden">
+                <ui:VisualElement name="pokedex-detail-back" class="pokedex-action pokedex-action--quiet pokedex-detail__back">
+                    <ui:Label class="pokedex-action__label" />
+                </ui:VisualElement>
+                <ui:VisualElement class="pokedex-detail__hero mobile-card">
                     <ui:VisualElement class="pokedex-artwork">
                         <ui:VisualElement name="pokedex-art-slot" class="pokedex-art-slot" />
                         <ui:Label name="pokedex-art-number" class="pokedex-artwork__number" />
                         <ui:Label name="pokedex-art-status" class="pokedex-artwork__status" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="pokedex-detail__copy">
-                        <ui:Label name="pokedex-detail-number" class="pokedex-detail__number" />
-                        <ui:Label name="pokedex-detail-name" class="pokedex-detail__name" />
-                        <ui:Label name="pokedex-detail-genus" class="pokedex-detail__genus" />
-                        <ui:Label name="pokedex-detail-debut" class="pokedex-detail__metadata" />
-                        <ui:Label name="pokedex-detail-types" class="pokedex-detail__metadata" />
-                        <ui:Label name="pokedex-detail-region" class="pokedex-detail__metadata" />
-                        <ui:Label name="pokedex-detail-description" class="pokedex-detail__description" />
-                    </ui:VisualElement>
+                    <ui:ScrollView name="pokedex-detail-copy-scroll" class="pokedex-detail__copy-scroll">
+                        <ui:VisualElement class="pokedex-detail__copy">
+                            <ui:Label name="pokedex-detail-number" class="pokedex-detail__number" />
+                            <ui:Label name="pokedex-detail-name" class="pokedex-detail__name" />
+                            <ui:Label name="pokedex-detail-genus" class="pokedex-detail__genus" />
+                            <ui:Label name="pokedex-detail-debut" class="pokedex-detail__metadata" />
+                            <ui:Label name="pokedex-detail-types" class="pokedex-detail__metadata" />
+                            <ui:Label name="pokedex-detail-region" class="pokedex-detail__metadata" />
+                            <ui:Label name="pokedex-detail-description" class="pokedex-detail__description" />
+                        </ui:VisualElement>
+                    </ui:ScrollView>
                 </ui:VisualElement>
-                <ui:VisualElement class="pokedex-section pokedex-forms-section">
+
+                <ui:VisualElement name="pokedex-forms-section" class="pokedex-section pokedex-forms-section">
                     <ui:Label name="pokedex-forms-heading" class="pokedex-section__heading" />
-                    <ui:ScrollView mode="Horizontal" horizontal-scroller-visibility="Auto" vertical-scroller-visibility="Hidden">
+                    <ui:ScrollView mode="Horizontal" horizontal-scroller-visibility="Auto" vertical-scroller-visibility="Hidden" class="pokedex-form-scroll">
                         <ui:VisualElement name="pokedex-form-strip" class="pokedex-form-strip" />
                     </ui:ScrollView>
                 </ui:VisualElement>
-                <ui:VisualElement class="pokedex-section">
-                    <ui:Label name="pokedex-cards-heading" class="pokedex-section__heading" />
-                    <ui:Label name="pokedex-card-count" class="pokedex-card-count" />
+
+                <ui:VisualElement class="pokedex-related-header mobile-card">
+                    <ui:VisualElement class="pokedex-related-heading">
+                        <ui:Label name="pokedex-cards-heading" class="pokedex-section__heading" />
+                        <ui:Label name="pokedex-card-count" class="pokedex-card-count" />
+                    </ui:VisualElement>
                     <ui:VisualElement class="pokedex-card-controls">
-                        <ui:Button name="pokedex-form-cards-button" class="pokedex-form-button" />
-                        <ui:Button name="pokedex-species-cards-button" class="pokedex-form-button" />
-                        <ui:Button name="pokedex-manage-downloads-button" class="pokedex-button pokedex-button--quiet pokedex-manage-button" />
+                        <ui:VisualElement name="pokedex-form-cards-button" class="pokedex-action pokedex-scope-action">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pokedex-species-cards-button" class="pokedex-action pokedex-scope-action">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="pokedex-manage-downloads-button" class="pokedex-action pokedex-action--quiet pokedex-manage-button">
+                            <ui:Label class="pokedex-action__label" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement class="pokedex-card-filters">
                         <ui:TextField name="pokedex-card-search" class="pokedex-field pokedex-card-search" />
                         <ui:DropdownField name="pokedex-card-sort" class="pokedex-field pokedex-card-sort" />
                     </ui:VisualElement>
-                    <ui:Label name="pokedex-card-empty" class="pokedex-empty pokedex-card-empty" style="display: none;" />
-                    <ui:ListView name="pokedex-card-list" class="pokedex-card-list" />
                 </ui:VisualElement>
-            </ui:ScrollView>
+                <ui:VisualElement name="pokedex-card-empty-state" class="pokedex-card-empty-state is-hidden">
+                    <ui:Label name="pokedex-card-empty" class="pokedex-empty pokedex-card-empty" />
+                </ui:VisualElement>
+                <ui:ListView name="pokedex-card-list" class="pokedex-card-list" virtualization-method="DynamicHeight" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

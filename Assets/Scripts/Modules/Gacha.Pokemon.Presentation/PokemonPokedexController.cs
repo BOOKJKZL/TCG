@@ -19,11 +19,25 @@ namespace Gacha.Pokemon.Presentation
     {
         private const int SearchDebounceMilliseconds = 120;
 
-        private sealed class SpeciesRow
+        private sealed class SpeciesGridLine
         {
+            public PokemonSpeciesDefinition First;
+            public PokemonSpeciesDefinition Second;
+        }
+
+        private sealed class SpeciesTile
+        {
+            public VisualElement Root;
             public Label Number;
             public Label Name;
             public Label Genus;
+            public PokemonSpeciesDefinition Species;
+            public MobileActionControl Action;
+        }
+
+        private sealed class SpeciesGridRow
+        {
+            public SpeciesTile[] Tiles;
         }
 
         private sealed class IntroducedFormRow
@@ -31,6 +45,8 @@ namespace Gacha.Pokemon.Presentation
             public Label Number;
             public Label Name;
             public Label Metadata;
+            public PokemonFormDefinition Form;
+            public MobileActionControl Action;
         }
 
         private sealed class RelatedCardItem
@@ -39,27 +55,47 @@ namespace Gacha.Pokemon.Presentation
             public PrintingDefinition Printing;
         }
 
-        private sealed class RelatedCardRow
+        private sealed class RelatedCardGridLine
         {
+            public RelatedCardItem First;
+            public RelatedCardItem Second;
+        }
+
+        private sealed class RelatedCardTile
+        {
+            public VisualElement Root;
             public AsyncCardImageView Image;
             public Label Name;
             public Label Metadata;
             public Label Status;
+            public RelatedCardItem Item;
+            public MobileActionControl Action;
+        }
+
+        private sealed class RelatedCardGridRow
+        {
+            public RelatedCardTile[] Tiles;
         }
 
         private readonly List<PokemonSpeciesDefinition> visibleSpecies = new List<PokemonSpeciesDefinition>();
+        private readonly List<SpeciesGridLine> speciesGridLines = new List<SpeciesGridLine>();
         private readonly List<PokemonFormDefinition> visibleIntroducedForms = new List<PokemonFormDefinition>();
         private readonly List<RelatedCardItem> visibleCards = new List<RelatedCardItem>();
+        private readonly List<RelatedCardGridLine> relatedCardGridLines = new List<RelatedCardGridLine>();
         private readonly HashSet<AsyncCardImageView> cardImageViews = new HashSet<AsyncCardImageView>();
         private readonly List<string> generationIds = new List<string>();
         private readonly Dictionary<string, PokemonArtworkCatalog> artworkCatalogs =
             new Dictionary<string, PokemonArtworkCatalog>(StringComparer.Ordinal);
         private readonly HashSet<string> missingArtworkCatalogs = new HashSet<string>(StringComparer.Ordinal);
+        private readonly List<MobileActionControl> formActions = new List<MobileActionControl>();
         private PokemonPokedexBrowser browser;
         private string taxonomySourceSha256;
         private PlayerUiError initializationPlayerError;
-        private UiToolkitSafeAreaBinding safeAreaBinding;
+        private MobilePageShell mobilePageShell;
+        private MobileTopBar mobileTopBar;
+        private MobilePrimaryNavigation primaryNavigation;
         private VisualElement root;
+        private VisualElement body;
         private VisualElement listPage;
         private VisualElement detailPage;
         private VisualElement formStrip;
@@ -89,24 +125,30 @@ namespace Gacha.Pokemon.Presentation
         private Label cardsHeading;
         private Label cardsCount;
         private Label cardEmpty;
-        private Button closeButton;
-        private Button detailBackButton;
-        private Button formCardsButton;
-        private Button speciesCardsButton;
-        private Button manageDownloadsButton;
-        private Button emptyManageDownloadsButton;
-        private Button errorRetryButton;
-        private Button errorManageButton;
-        private Button errorCloseButton;
+        private MobileActionControl closeAction;
+        private MobileActionControl detailBackAction;
+        private MobileActionControl formCardsAction;
+        private MobileActionControl speciesCardsAction;
+        private MobileActionControl manageDownloadsAction;
+        private MobileActionControl emptyManageDownloadsAction;
+        private MobileActionControl errorRetryAction;
+        private MobileActionControl errorManageAction;
+        private MobileActionControl errorCloseAction;
         private IVisualElementScheduledItem transitionAnimation;
         private IVisualElementScheduledItem speciesSearchRefresh;
         private IVisualElementScheduledItem cardSearchRefresh;
+        private IVisualElementScheduledItem speciesListAnimation;
+        private IVisualElementScheduledItem cardListAnimation;
+        private IVisualElementScheduledItem detailAnimation;
+        private IVisualElementScheduledItem speciesLayoutRefresh;
+        private IVisualElementScheduledItem cardLayoutRefresh;
         private CardTextureCache artworkCache;
         private AsyncCardImageView artworkView;
         private CardTextureCache cardTextureCache;
         private UniversalCatalog runtimeCatalog;
         private Func<string, bool> openPrintingDetails;
         private Action manageDownloads;
+        private Action<MobileDestination> navigatePrimary;
         private bool showAllSpeciesCards;
         private string cardSearch = string.Empty;
         private int cardSortMode;
@@ -116,6 +158,7 @@ namespace Gacha.Pokemon.Presentation
         private PlayerUiErrorPresenter errorPresenter;
         private bool uiLanguageSubscribed;
         private bool contentLanguageSubscribed;
+        private bool navigationRequested;
 
         public static PokemonPokedexSnapshotBundle SnapshotOverride { private get; set; }
         public bool IsReady { get; private set; }
@@ -125,6 +168,7 @@ namespace Gacha.Pokemon.Presentation
         public bool MissingContent { get; private set; }
         public string LoadedCardLanguageId { get; private set; }
         public int VisibleSpeciesCount => visibleSpecies.Count;
+        public int SpeciesGridLineCount => speciesGridLines.Count;
         public int VisibleIntroducedFormCount => visibleIntroducedForms.Count;
         public int GenerationCount => browser?.Generations.Count ?? 0;
         public string CurrentGenerationId => browser?.GenerationId;
@@ -137,8 +181,10 @@ namespace Gacha.Pokemon.Presentation
         public long CachedArtworkBytes => artworkCache?.DecodedBytes ?? 0L;
         public long CachedArtworkBudgetBytes => artworkCache?.MaximumDecodedBytes ?? 0L;
         public int VisibleCardCount => visibleCards.Count;
+        public int RelatedCardGridLineCount => relatedCardGridLines.Count;
         public int InstalledVisibleCardCount => visibleCards.Count(value => value.Printing != null);
         public bool ShowingAllSpeciesCards => showAllSpeciesCards;
+        public int PrimaryNavigationCount => primaryNavigation?.Count ?? 0;
         public int CachedCardTextureCount => cardTextureCache?.Count ?? 0;
         public long CachedCardTextureBytes => cardTextureCache?.DecodedBytes ?? 0L;
         public long CachedCardTextureBudgetBytes => cardTextureCache?.MaximumDecodedBytes ?? 0L;
@@ -152,7 +198,8 @@ namespace Gacha.Pokemon.Presentation
         public void Attach(
             UIDocument document,
             Func<string, bool> openPrintingDetails = null,
-            Action manageDownloads = null)
+            Action manageDownloads = null,
+            Action<MobileDestination> navigatePrimary = null)
         {
             if (attached)
                 return;
@@ -160,6 +207,7 @@ namespace Gacha.Pokemon.Presentation
                 throw new ArgumentNullException(nameof(document));
             this.openPrintingDetails = openPrintingDetails;
             this.manageDownloads = manageDownloads;
+            this.navigatePrimary = navigatePrimary;
             VisualTreeAsset view = Resources.Load<VisualTreeAsset>("UI/PokedexView");
             if (view == null)
                 throw new InvalidOperationException("PokedexView.uxml is missing from Resources/UI.");
@@ -169,16 +217,38 @@ namespace Gacha.Pokemon.Presentation
                 throw new InvalidOperationException("PokedexView.uxml has no pokedex-overlay root.");
             content.Remove(root);
             document.rootVisualElement.Add(root);
-            safeAreaBinding = UiToolkitSafeArea.Attach(root);
+            VisualElement body = root.Q<VisualElement>("pokedex-body") ??
+                                 throw new InvalidOperationException("PokedexView.uxml has no pokedex-body.");
+            body.RemoveFromHierarchy();
+            mobilePageShell = new MobilePageShell("pokedex-page-shell");
+            mobilePageShell.Root.AddToClassList("pokedex-mobile-page");
+            mobileTopBar = new MobileTopBar(string.Empty, string.Empty);
+            mobileTopBar.Title.name = "pokedex-title";
+            mobileTopBar.Subtitle.name = "pokedex-subtitle";
+            mobilePageShell.HeaderSlot.Add(mobileTopBar.Root);
+            mobilePageShell.ContentSlot.Add(body);
+            root.Clear();
+            root.Add(mobilePageShell.Root);
             QueryElements();
             ConfigureControls();
+            ConfigureActions();
+            closeAction = new MobileActionControl(
+                "pokedex-close-button",
+                string.Empty,
+                Close,
+                MobileActionTone.Quiet);
+            mobileTopBar.AddAction(closeAction);
+            primaryNavigation = new MobilePrimaryNavigation(
+                MobileDestination.Collection,
+                NavigatePrimary);
+            mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
             errorPresenter = new PlayerUiErrorPresenter(
                 Required<VisualElement>("pokedex-error-panel"),
                 Required<Label>("pokedex-error-title"),
                 Required<Label>("pokedex-error-body"),
-                errorRetryButton,
-                errorManageButton,
-                close: errorCloseButton);
+                errorRetryAction.Root,
+                errorManageAction.Root,
+                close: errorCloseAction.Root);
             if (ApplicationServices.IsConfigured)
             {
                 ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
@@ -186,7 +256,6 @@ namespace Gacha.Pokemon.Presentation
             }
             RefreshLocalizedContent();
             root.style.display = DisplayStyle.None;
-            safeAreaBinding.Suspend();
             attached = true;
         }
 
@@ -194,8 +263,9 @@ namespace Gacha.Pokemon.Presentation
         {
             if (!attached)
                 return false;
+            navigationRequested = false;
+            primaryNavigation?.ClearPending(MobileDestination.Collection);
             root.style.display = DisplayStyle.Flex;
-            safeAreaBinding.Resume();
             root.BringToFront();
             if (!EnsureReady())
             {
@@ -204,7 +274,7 @@ namespace Gacha.Pokemon.Presentation
                     : initializationPlayerError ?? PlayerUiErrorMapper.FromDetail(InitializationError);
                 status.text = string.Empty;
                 status.RemoveFromClassList("is-error");
-                emptyManageDownloadsButton.style.display = DisplayStyle.None;
+                SetVisible(emptyManageDownloadsAction?.Root, false);
                 errorPresenter.Show(error);
                 AnimateOpen();
                 return false;
@@ -213,6 +283,7 @@ namespace Gacha.Pokemon.Presentation
             status.RemoveFromClassList("is-error");
             ShowList();
             RefreshLocalizedContent();
+            ScheduleSpeciesLayoutRefresh();
             UIFeedbackService.Play(FeedbackCue.Confirm);
             AnimateOpen();
             return true;
@@ -224,10 +295,38 @@ namespace Gacha.Pokemon.Presentation
                 return;
             transitionAnimation?.Pause();
             transitionAnimation = null;
+            CancelSpeciesSearchRefresh();
+            CancelCardSearchRefresh();
+            CancelPresentationAnimations();
+            CancelLayoutRefreshes();
             errorPresenter?.HideImmediately();
             root.style.display = DisplayStyle.None;
-            safeAreaBinding?.Suspend();
             UIFeedbackService.Play(FeedbackCue.Back);
+        }
+
+        private void NavigatePrimary(MobileDestination destination)
+        {
+            if (destination == MobileDestination.Collection)
+            {
+                Close();
+                return;
+            }
+            if (navigationRequested)
+                return;
+            navigationRequested = true;
+            primaryNavigation?.SetPending(destination);
+            ApplyActionAvailability();
+            try
+            {
+                navigatePrimary?.Invoke(destination);
+            }
+            catch
+            {
+                navigationRequested = false;
+                primaryNavigation?.ClearPending(MobileDestination.Collection);
+                ApplyActionAvailability();
+                throw;
+            }
         }
 
         public bool RetryOpen()
@@ -276,6 +375,7 @@ namespace Gacha.Pokemon.Presentation
             RefreshDetails();
             listPage.style.display = DisplayStyle.None;
             detailPage.style.display = DisplayStyle.Flex;
+            ScheduleCardLayoutRefresh();
             UIFeedbackService.Play(FeedbackCue.CardFlip, true);
             AnimateDetails();
             return true;
@@ -287,6 +387,7 @@ namespace Gacha.Pokemon.Presentation
                 return false;
             ResetCardGallery();
             RefreshDetails();
+            ScheduleCardLayoutRefresh();
             UIFeedbackService.Play(FeedbackCue.Confirm);
             AnimateDetails();
             return true;
@@ -358,8 +459,12 @@ namespace Gacha.Pokemon.Presentation
             LoadedCardLanguageId = null;
             generationIds.Clear();
             visibleSpecies.Clear();
+            speciesGridLines.Clear();
             visibleIntroducedForms.Clear();
             visibleCards.Clear();
+            relatedCardGridLines.Clear();
+            artworkCatalogs.Clear();
+            missingArtworkCatalogs.Clear();
             artworkView?.Dispose();
             artworkView = null;
             artworkCache?.Dispose();
@@ -370,9 +475,9 @@ namespace Gacha.Pokemon.Presentation
             cardTextureCache?.Dispose();
             cardTextureCache = null;
             Required<VisualElement>("pokedex-art-slot").Clear();
-            speciesList.itemsSource = visibleSpecies;
+            speciesList.itemsSource = speciesGridLines;
             introducedFormsList.itemsSource = visibleIntroducedForms;
-            cardList.itemsSource = visibleCards;
+            cardList.itemsSource = relatedCardGridLines;
             speciesList.Rebuild();
             introducedFormsList.Rebuild();
             cardList.Rebuild();
@@ -380,8 +485,9 @@ namespace Gacha.Pokemon.Presentation
 
         private void OnDestroy()
         {
-            safeAreaBinding?.Dispose();
-            safeAreaBinding = null;
+            navigationRequested = true;
+            speciesList?.UnregisterCallback<GeometryChangedEvent>(OnSpeciesListGeometryChanged);
+            cardList?.UnregisterCallback<GeometryChangedEvent>(OnCardListGeometryChanged);
             errorPresenter?.Dispose();
             errorPresenter = null;
             if (ApplicationServices.IsConfigured)
@@ -394,6 +500,8 @@ namespace Gacha.Pokemon.Presentation
             transitionAnimation?.Pause();
             CancelSpeciesSearchRefresh();
             CancelCardSearchRefresh();
+            CancelPresentationAnimations();
+            CancelLayoutRefreshes();
             artworkView?.Dispose();
             artworkView = null;
             artworkCache?.Dispose();
@@ -403,10 +511,27 @@ namespace Gacha.Pokemon.Presentation
             cardImageViews.Clear();
             cardTextureCache?.Dispose();
             cardTextureCache = null;
+            DisposeFormActions();
+            DisposeAction(ref detailBackAction);
+            DisposeAction(ref formCardsAction);
+            DisposeAction(ref speciesCardsAction);
+            DisposeAction(ref manageDownloadsAction);
+            DisposeAction(ref emptyManageDownloadsAction);
+            DisposeAction(ref errorRetryAction);
+            DisposeAction(ref errorManageAction);
+            DisposeAction(ref errorCloseAction);
+            DisposeAction(ref closeAction);
+            primaryNavigation?.Dispose();
+            primaryNavigation = null;
+            mobilePageShell?.Dispose();
+            mobilePageShell = null;
+            root?.RemoveFromHierarchy();
+            root = null;
         }
 
         private void QueryElements()
         {
+            body = Required<VisualElement>("pokedex-body");
             listPage = Required<VisualElement>("pokedex-list-page");
             detailPage = Required<VisualElement>("pokedex-detail-page");
             formStrip = Required<VisualElement>("pokedex-form-strip");
@@ -418,8 +543,8 @@ namespace Gacha.Pokemon.Presentation
             searchField = Required<TextField>("pokedex-search");
             cardSearchField = Required<TextField>("pokedex-card-search");
             cardSortField = Required<DropdownField>("pokedex-card-sort");
-            title = Required<Label>("pokedex-title");
-            subtitle = Required<Label>("pokedex-subtitle");
+            title = mobileTopBar.Title;
+            subtitle = mobileTopBar.Subtitle;
             status = Required<Label>("pokedex-status");
             empty = Required<Label>("pokedex-empty");
             introducedFormsHeading = Required<Label>("pokedex-introduced-forms-heading");
@@ -436,15 +561,6 @@ namespace Gacha.Pokemon.Presentation
             cardsHeading = Required<Label>("pokedex-cards-heading");
             cardsCount = Required<Label>("pokedex-card-count");
             cardEmpty = Required<Label>("pokedex-card-empty");
-            closeButton = Required<Button>("pokedex-close-button");
-            detailBackButton = Required<Button>("pokedex-detail-back");
-            formCardsButton = Required<Button>("pokedex-form-cards-button");
-            speciesCardsButton = Required<Button>("pokedex-species-cards-button");
-            manageDownloadsButton = Required<Button>("pokedex-manage-downloads-button");
-            emptyManageDownloadsButton = Required<Button>("pokedex-empty-manage-button");
-            errorRetryButton = Required<Button>("pokedex-error-retry");
-            errorManageButton = Required<Button>("pokedex-error-manage");
-            errorCloseButton = Required<Button>("pokedex-error-close");
         }
 
         private T Required<T>(string name) where T : VisualElement =>
@@ -452,62 +568,29 @@ namespace Gacha.Pokemon.Presentation
 
         private void ConfigureControls()
         {
-            speciesList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            speciesList.fixedItemHeight = 92f;
-            speciesList.selectionType = SelectionType.Single;
-            speciesList.makeItem = MakeSpeciesRow;
-            speciesList.bindItem = BindSpeciesRow;
-            speciesList.selectionChanged += selection =>
-            {
-                PokemonSpeciesDefinition species = selection.OfType<PokemonSpeciesDefinition>().FirstOrDefault();
-                if (species != null)
-                    OpenSpecies(species.Id);
-            };
-            introducedFormsList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            introducedFormsList.fixedItemHeight = 78f;
-            introducedFormsList.selectionType = SelectionType.Single;
+            speciesList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            speciesList.fixedItemHeight = 112f;
+            speciesList.selectionType = SelectionType.None;
+            speciesList.makeItem = MakeSpeciesGridRow;
+            speciesList.bindItem = BindSpeciesGridRow;
+            speciesList.unbindItem = UnbindSpeciesGridRow;
+            speciesList.destroyItem = DestroySpeciesGridRow;
+            speciesList.RegisterCallback<GeometryChangedEvent>(OnSpeciesListGeometryChanged);
+            introducedFormsList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            introducedFormsList.fixedItemHeight = 72f;
+            introducedFormsList.selectionType = SelectionType.None;
             introducedFormsList.makeItem = MakeIntroducedFormRow;
             introducedFormsList.bindItem = BindIntroducedFormRow;
-            introducedFormsList.selectionChanged += selection =>
-            {
-                PokemonFormDefinition form = selection.OfType<PokemonFormDefinition>().FirstOrDefault();
-                if (form != null)
-                    OpenSpeciesForm(form.SpeciesId, form.Id);
-            };
-            cardList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            cardList.fixedItemHeight = 150f;
-            cardList.selectionType = SelectionType.Single;
-            cardList.makeItem = MakeRelatedCardRow;
-            cardList.bindItem = BindRelatedCardRow;
-            cardList.unbindItem = UnbindRelatedCardRow;
-            cardList.destroyItem = DestroyRelatedCardRow;
-            cardList.selectionChanged += selection =>
-            {
-                RelatedCardItem item = selection.OfType<RelatedCardItem>().FirstOrDefault();
-                if (item != null)
-                    OpenRelatedCard(item);
-            };
-            closeButton.clicked += Close;
-            detailBackButton.clicked += () => NavigateBack();
-            formCardsButton.clicked += () => ShowAllSpeciesCards(false);
-            speciesCardsButton.clicked += () => ShowAllSpeciesCards(true);
-            manageDownloadsButton.clicked += () =>
-            {
-                UIFeedbackService.Play(FeedbackCue.Confirm);
-                manageDownloads?.Invoke();
-            };
-            emptyManageDownloadsButton.clicked += () =>
-            {
-                UIFeedbackService.Play(FeedbackCue.Confirm);
-                manageDownloads?.Invoke();
-            };
-            errorRetryButton.clicked += () => RetryOpen();
-            errorManageButton.clicked += () =>
-            {
-                UIFeedbackService.Play(FeedbackCue.Confirm);
-                manageDownloads?.Invoke();
-            };
-            errorCloseButton.clicked += Close;
+            introducedFormsList.unbindItem = UnbindIntroducedFormRow;
+            introducedFormsList.destroyItem = DestroyIntroducedFormRow;
+            cardList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            cardList.fixedItemHeight = 148f;
+            cardList.selectionType = SelectionType.None;
+            cardList.makeItem = MakeRelatedCardGridRow;
+            cardList.bindItem = BindRelatedCardGridRow;
+            cardList.unbindItem = UnbindRelatedCardGridRow;
+            cardList.destroyItem = DestroyRelatedCardGridRow;
+            cardList.RegisterCallback<GeometryChangedEvent>(OnCardListGeometryChanged);
             searchField.RegisterValueChangedCallback(evt =>
             {
                 if (!updatingControls && browser != null)
@@ -535,36 +618,165 @@ namespace Gacha.Pokemon.Presentation
             });
         }
 
-        private VisualElement MakeSpeciesRow()
+        private void ConfigureActions()
         {
-            var row = new VisualElement();
-            row.AddToClassList("pokedex-row");
-            var number = new Label();
-            number.AddToClassList("pokedex-row__number");
-            var copy = new VisualElement();
-            copy.AddToClassList("pokedex-row__copy");
-            var name = new Label();
-            name.AddToClassList("pokedex-row__name");
-            var genus = new Label();
-            genus.AddToClassList("pokedex-row__genus");
-            copy.Add(name);
-            copy.Add(genus);
-            row.Add(number);
-            row.Add(copy);
-            row.userData = new SpeciesRow { Number = number, Name = name, Genus = genus };
-            return row;
+            detailBackAction = BindAction("pokedex-detail-back", () => NavigateBack());
+            formCardsAction = BindAction("pokedex-form-cards-button", () => ShowAllSpeciesCards(false));
+            speciesCardsAction = BindAction("pokedex-species-cards-button", () => ShowAllSpeciesCards(true));
+            manageDownloadsAction = BindAction("pokedex-manage-downloads-button", OpenContentManagement);
+            emptyManageDownloadsAction = BindAction("pokedex-empty-manage-button", OpenContentManagement);
+            errorRetryAction = BindAction("pokedex-error-retry", () => RetryOpen(), false);
+            errorManageAction = BindAction("pokedex-error-manage", OpenContentManagement);
+            errorCloseAction = BindAction("pokedex-error-close", Close);
         }
 
-        private void BindSpeciesRow(VisualElement element, int index)
+        private MobileActionControl BindAction(string name, Action callback, bool playFeedback = true)
         {
-            if (index < 0 || index >= visibleSpecies.Count)
+            VisualElement actionRoot = Required<VisualElement>(name);
+            return new MobileActionControl(
+                actionRoot,
+                callback,
+                playFeedback,
+                feedbackLabel: actionRoot.Q<Label>());
+        }
+
+        private void OpenContentManagement()
+        {
+            if (manageDownloads == null || navigationRequested)
                 return;
-            PokemonSpeciesDefinition species = visibleSpecies[index];
-            var row = (SpeciesRow)element.userData;
-            row.Number.text = "#" + species.NationalDexNumber.ToString("000");
-            row.Name.text = PokemonPokedexBrowser.Localized(species.Names, UiLanguage);
-            row.Genus.text = PokemonPokedexBrowser.Localized(species.Genera, UiLanguage);
-            element.tooltip = row.Name.text;
+            navigationRequested = true;
+            primaryNavigation?.SetPending(MobileDestination.Content);
+            ApplyActionAvailability();
+            try
+            {
+                manageDownloads();
+            }
+            catch
+            {
+                navigationRequested = false;
+                primaryNavigation?.ClearPending(MobileDestination.Collection);
+                ApplyActionAvailability();
+                throw;
+            }
+        }
+
+        private void ApplyActionAvailability()
+        {
+            bool available = !navigationRequested;
+            body?.EnableInClassList("is-pending", navigationRequested);
+            if (body != null)
+                body.pickingMode = available ? PickingMode.Position : PickingMode.Ignore;
+            closeAction?.SetEnabled(available);
+            detailBackAction?.SetEnabled(available && IsReady);
+            formCardsAction?.SetEnabled(available && IsReady);
+            speciesCardsAction?.SetEnabled(available && IsReady);
+            manageDownloadsAction?.SetEnabled(available && manageDownloads != null);
+            emptyManageDownloadsAction?.SetEnabled(available && manageDownloads != null);
+            errorRetryAction?.SetEnabled(available);
+            errorManageAction?.SetEnabled(available && manageDownloads != null);
+            errorCloseAction?.SetEnabled(available);
+            foreach (MobileActionControl action in formActions)
+                action.SetEnabled(available && IsReady);
+            if (root != null)
+            {
+                foreach (VisualElement element in root.Query<VisualElement>(className: "pokedex-species-tile").ToList())
+                    if (element.userData is SpeciesTile tile)
+                        tile.Action.SetEnabled(available && tile.Species != null);
+                foreach (VisualElement element in root.Query<VisualElement>(className: "pokedex-form-row").ToList())
+                    if (element.userData is IntroducedFormRow row)
+                        row.Action.SetEnabled(available && row.Form != null);
+                foreach (VisualElement element in root.Query<VisualElement>(className: "pokedex-card-tile").ToList())
+                    if (element.userData is RelatedCardTile tile)
+                        tile.Action.SetEnabled(available && tile.Item != null);
+            }
+            searchField?.SetEnabled(available && IsReady);
+            generationField?.SetEnabled(available && IsReady);
+            cardSearchField?.SetEnabled(available && IsReady);
+            cardSortField?.SetEnabled(available && IsReady);
+        }
+
+        private VisualElement MakeSpeciesGridRow()
+        {
+            var root = new VisualElement();
+            root.AddToClassList("pokedex-species-grid-row");
+            SpeciesTile first = MakeSpeciesTile(0);
+            SpeciesTile second = MakeSpeciesTile(1);
+            root.Add(first.Root);
+            root.Add(second.Root);
+            root.userData = new SpeciesGridRow { Tiles = new[] { first, second } };
+            return root;
+        }
+
+        private SpeciesTile MakeSpeciesTile(int slot)
+        {
+            var tile = new SpeciesTile();
+            tile.Root = new VisualElement { name = "pokedex-species-tile-" + slot };
+            tile.Root.AddToClassList("pokedex-species-tile");
+            tile.Number = new Label();
+            tile.Number.AddToClassList("pokedex-row__number");
+            tile.Name = new Label();
+            tile.Name.AddToClassList("pokedex-row__name");
+            tile.Genus = new Label();
+            tile.Genus.AddToClassList("pokedex-row__genus");
+            tile.Root.Add(tile.Number);
+            tile.Root.Add(tile.Name);
+            tile.Root.Add(tile.Genus);
+            tile.Action = new MobileActionControl(
+                tile.Root,
+                () => ActivateSpeciesTile(tile),
+                feedbackLabel: tile.Name);
+            tile.Root.userData = tile;
+            return tile;
+        }
+
+        private void ActivateSpeciesTile(SpeciesTile tile)
+        {
+            if (tile?.Species == null || navigationRequested)
+                return;
+            OpenSpecies(tile.Species.Id);
+        }
+
+        private void BindSpeciesGridRow(VisualElement element, int index)
+        {
+            if (index < 0 || index >= speciesGridLines.Count)
+                return;
+            SpeciesGridLine line = speciesGridLines[index];
+            var row = (SpeciesGridRow)element.userData;
+            BindSpeciesTile(row.Tiles[0], line.First);
+            BindSpeciesTile(row.Tiles[1], line.Second);
+        }
+
+        private void BindSpeciesTile(SpeciesTile tile, PokemonSpeciesDefinition species)
+        {
+            tile.Species = species;
+            bool visible = species != null;
+            tile.Root.EnableInClassList("is-hidden", !visible);
+            tile.Action.SetEnabled(visible && !navigationRequested);
+            if (!visible)
+                return;
+            tile.Number.text = "#" + species.NationalDexNumber.ToString("000");
+            tile.Name.text = PokemonPokedexBrowser.Localized(species.Names, UiLanguage);
+            tile.Genus.text = PokemonPokedexBrowser.Localized(species.Genera, UiLanguage);
+            tile.Root.tooltip = tile.Name.text;
+        }
+
+        private static void UnbindSpeciesGridRow(VisualElement element, int index)
+        {
+            if (!(element.userData is SpeciesGridRow row))
+                return;
+            foreach (SpeciesTile tile in row.Tiles)
+            {
+                tile.Species = null;
+                tile.Action.SetEnabled(false);
+            }
+        }
+
+        private static void DestroySpeciesGridRow(VisualElement element)
+        {
+            if (!(element.userData is SpeciesGridRow row))
+                return;
+            foreach (SpeciesTile tile in row.Tiles)
+                tile.Action.Dispose();
         }
 
         private VisualElement MakeIntroducedFormRow()
@@ -583,8 +795,20 @@ namespace Gacha.Pokemon.Presentation
             copy.Add(metadata);
             row.Add(number);
             row.Add(copy);
-            row.userData = new IntroducedFormRow { Number = number, Name = name, Metadata = metadata };
+            var view = new IntroducedFormRow { Number = number, Name = name, Metadata = metadata };
+            view.Action = new MobileActionControl(
+                row,
+                () => ActivateIntroducedForm(view),
+                feedbackLabel: name);
+            row.userData = view;
             return row;
+        }
+
+        private void ActivateIntroducedForm(IntroducedFormRow row)
+        {
+            if (row?.Form == null || navigationRequested)
+                return;
+            OpenSpeciesForm(row.Form.SpeciesId, row.Form.Id);
         }
 
         private void BindIntroducedFormRow(VisualElement element, int index)
@@ -594,24 +818,53 @@ namespace Gacha.Pokemon.Presentation
             PokemonFormDefinition form = visibleIntroducedForms[index];
             PokemonSpeciesDefinition species = browser.GetSpecies(form.SpeciesId);
             var row = (IntroducedFormRow)element.userData;
+            row.Form = form;
+            row.Action.SetEnabled(!navigationRequested);
             row.Number.text = "#" + species.NationalDexNumber.ToString("000");
             row.Name.text = PokemonPokedexBrowser.Localized(form.Names, UiLanguage);
             row.Metadata.text = string.IsNullOrWhiteSpace(form.RegionId)
-                ? form.FormKind
-                : form.RegionId;
-            element.tooltip = form.Id;
+                ? PokemonPokedexText.FormKindName(form.FormKind, UiLanguage)
+                : PokemonPokedexText.RegionName(form.RegionId, UiLanguage);
+            element.tooltip = row.Name.text;
         }
 
-        private VisualElement MakeRelatedCardRow()
+        private static void UnbindIntroducedFormRow(VisualElement element, int index)
+        {
+            if (!(element.userData is IntroducedFormRow row))
+                return;
+            row.Form = null;
+            row.Action.SetEnabled(false);
+        }
+
+        private static void DestroyIntroducedFormRow(VisualElement element)
+        {
+            if (element.userData is IntroducedFormRow row)
+                row.Action.Dispose();
+        }
+
+        private VisualElement MakeRelatedCardGridRow()
         {
             var row = new VisualElement();
-            row.AddToClassList("pokedex-card-row");
+            row.AddToClassList("pokedex-card-grid-row");
+            RelatedCardTile first = MakeRelatedCardTile(0);
+            RelatedCardTile second = MakeRelatedCardTile(1);
+            row.Add(first.Root);
+            row.Add(second.Root);
+            row.userData = new RelatedCardGridRow { Tiles = new[] { first, second } };
+            return row;
+        }
+
+        private RelatedCardTile MakeRelatedCardTile(int slot)
+        {
+            var tile = new RelatedCardTile();
+            tile.Root = new VisualElement { name = "pokedex-card-tile-" + slot };
+            tile.Root.AddToClassList("pokedex-card-tile");
             AsyncCardImageView image = null;
             if (cardTextureCache != null)
             {
                 image = new AsyncCardImageView(cardTextureCache);
                 cardImageViews.Add(image);
-                row.Add(image.Element);
+                tile.Root.Add(image.Element);
             }
             var copy = new VisualElement();
             copy.AddToClassList("pokedex-card-row__copy");
@@ -623,49 +876,87 @@ namespace Gacha.Pokemon.Presentation
             copy.Add(metadata);
             var installStatus = new Label();
             installStatus.AddToClassList("pokedex-card-row__status");
-            row.Add(copy);
-            row.Add(installStatus);
-            row.userData = new RelatedCardRow
+            tile.Root.Add(copy);
+            tile.Root.Add(installStatus);
+            tile.Image = image;
+            tile.Name = name;
+            tile.Metadata = metadata;
+            tile.Status = installStatus;
+            tile.Action = new MobileActionControl(
+                tile.Root,
+                () => ActivateRelatedCard(tile),
+                feedbackLabel: name);
+            tile.Root.userData = tile;
+            return tile;
+        }
+
+        private void ActivateRelatedCard(RelatedCardTile tile)
+        {
+            if (tile?.Item == null || navigationRequested)
+                return;
+            OpenRelatedCard(tile.Item);
+        }
+
+        private void BindRelatedCardGridRow(VisualElement element, int index)
+        {
+            if (index < 0 || index >= relatedCardGridLines.Count)
+                return;
+            RelatedCardGridLine line = relatedCardGridLines[index];
+            var row = (RelatedCardGridRow)element.userData;
+            BindRelatedCardTile(row.Tiles[0], line.First);
+            BindRelatedCardTile(row.Tiles[1], line.Second);
+        }
+
+        private void BindRelatedCardTile(RelatedCardTile tile, RelatedCardItem item)
+        {
+            tile.Item = item;
+            bool visible = item != null;
+            tile.Root.EnableInClassList("is-hidden", !visible);
+            tile.Action.SetEnabled(visible && !navigationRequested);
+            if (!visible)
             {
-                Image = image,
-                Name = name,
-                Metadata = metadata,
-                Status = installStatus
-            };
-            return row;
-        }
-
-        private void BindRelatedCardRow(VisualElement element, int index)
-        {
-            if (index < 0 || index >= visibleCards.Count)
+                tile.Image?.Unbind();
                 return;
-            RelatedCardItem item = visibleCards[index];
-            var row = (RelatedCardRow)element.userData;
-            row.Name.text = item.Link.CardName;
-            row.Metadata.text = item.Link.SetId + " · #" + item.Link.LocalId;
+            }
+            tile.Name.text = item.Link.CardName;
+            tile.Metadata.text = item.Link.SetId + " · #" + item.Link.LocalId;
             bool installed = item.Printing != null;
-            row.Status.text = PokemonPokedexText.Get(
+            tile.Status.text = PokemonPokedexText.Get(
                 installed ? "card_installed" : "card_not_installed", UiLanguage);
-            element.EnableInClassList("is-not-installed", !installed);
+            tile.Root.EnableInClassList("is-not-installed", !installed);
             if (installed && !string.IsNullOrWhiteSpace(item.Printing.ImageRelativePath))
-                row.Image?.Bind(item.Printing);
+                tile.Image?.Bind(item.Printing);
             else
-                row.Image?.Unbind();
-            element.tooltip = item.Link.CardId;
+                tile.Image?.Unbind();
+            tile.Root.tooltip = item.Link.CardId;
         }
 
-        private static void UnbindRelatedCardRow(VisualElement element, int index)
+        private static void UnbindRelatedCardGridRow(VisualElement element, int index)
         {
-            if (element.userData is RelatedCardRow row)
-                row.Image?.Unbind();
-        }
-
-        private void DestroyRelatedCardRow(VisualElement element)
-        {
-            if (!(element.userData is RelatedCardRow row) || row.Image == null)
+            if (!(element.userData is RelatedCardGridRow row))
                 return;
-            row.Image.Dispose();
-            cardImageViews.Remove(row.Image);
+            foreach (RelatedCardTile tile in row.Tiles)
+            {
+                tile.Item = null;
+                tile.Action.SetEnabled(false);
+                tile.Image?.Unbind();
+            }
+        }
+
+        private void DestroyRelatedCardGridRow(VisualElement element)
+        {
+            if (!(element.userData is RelatedCardGridRow row))
+                return;
+            foreach (RelatedCardTile tile in row.Tiles)
+            {
+                if (tile.Image != null)
+                {
+                    tile.Image.Dispose();
+                    cardImageViews.Remove(tile.Image);
+                }
+                tile.Action.Dispose();
+                tile.Item = null;
+            }
         }
 
         private void RefreshSpeciesList(bool animate)
@@ -674,27 +965,39 @@ namespace Gacha.Pokemon.Presentation
                 return;
             visibleSpecies.Clear();
             visibleSpecies.AddRange(browser.VisibleSpecies);
+            speciesGridLines.Clear();
+            for (int index = 0; index < visibleSpecies.Count; index += 2)
+            {
+                speciesGridLines.Add(new SpeciesGridLine
+                {
+                    First = visibleSpecies[index],
+                    Second = index + 1 < visibleSpecies.Count ? visibleSpecies[index + 1] : null
+                });
+            }
             visibleIntroducedForms.Clear();
             visibleIntroducedForms.AddRange(browser.VisibleIntroducedForms);
-            speciesList.itemsSource = visibleSpecies;
+            speciesList.itemsSource = speciesGridLines;
             speciesList.ClearSelection();
-            speciesList.Rebuild();
+            speciesList.RefreshItems();
             introducedFormsList.itemsSource = visibleIntroducedForms;
             introducedFormsList.ClearSelection();
-            introducedFormsList.Rebuild();
+            introducedFormsList.RefreshItems();
             introducedFormsHeading.text = PokemonPokedexText.Format(
                 "new_forms", UiLanguage, visibleIntroducedForms.Count);
-            introducedFormsSection.style.display = visibleIntroducedForms.Count > 0
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
+            SetVisible(introducedFormsSection, visibleIntroducedForms.Count > 0);
             status.text = PokemonPokedexText.Format("count", UiLanguage, visibleSpecies.Count);
             empty.text = PokemonPokedexText.Get("empty", UiLanguage);
-            empty.style.display = visibleSpecies.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            SetVisible(Required<VisualElement>("pokedex-empty-state"), visibleSpecies.Count == 0);
             if (animate && !UIFeedbackService.ReduceMotion)
             {
+                speciesListAnimation?.Pause();
                 speciesList.style.opacity = 0.55f;
-                speciesList.schedule.Execute(() => speciesList.style.opacity = 1f).ExecuteLater(
-                    Mathf.RoundToInt(100f / UIFeedbackService.AnimationSpeed));
+                speciesListAnimation = speciesList.schedule.Execute(() =>
+                {
+                    speciesList.style.opacity = 1f;
+                    speciesListAnimation = null;
+                });
+                speciesListAnimation.ExecuteLater(Mathf.RoundToInt(100f / UIFeedbackService.AnimationSpeed));
             }
         }
 
@@ -712,10 +1015,13 @@ namespace Gacha.Pokemon.Presentation
                 PokemonPokedexBrowser.Localized(
                     browser.Generations.First(value => value.Id == species.DebutGenerationId).Names,
                     language));
-            detailTypes.text = PokemonPokedexText.Format("types", language, string.Join(" / ", form.TypeIds));
+            detailTypes.text = PokemonPokedexText.Format(
+                "types", language,
+                string.Join(" / ", form.TypeIds.Select(value => PokemonPokedexText.TypeName(value, language))));
             detailRegion.text = string.IsNullOrWhiteSpace(form.RegionId)
                 ? string.Empty
-                : PokemonPokedexText.Format("region", language, form.RegionId);
+                : PokemonPokedexText.Format(
+                    "region", language, PokemonPokedexText.RegionName(form.RegionId, language));
             detailRegion.style.display = string.IsNullOrWhiteSpace(form.RegionId)
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
@@ -730,7 +1036,7 @@ namespace Gacha.Pokemon.Presentation
                 "card_count", language,
                 browser.GetSpeciesCards(species.Id).Count,
                 browser.GetFormCards(form.Id).Count);
-            detailBackButton.text = PokemonPokedexText.Get("back", language);
+            detailBackAction.SetLabel(PokemonPokedexText.Get("back", language));
             RebuildFormButtons();
             RefreshCardGallery(false);
         }
@@ -888,19 +1194,35 @@ namespace Gacha.Pokemon.Presentation
                     .FirstOrDefault(value => value != null);
                 visibleCards.Add(new RelatedCardItem { Link = link, Printing = printing });
             }
-            cardList.itemsSource = visibleCards;
+            relatedCardGridLines.Clear();
+            for (int index = 0; index < visibleCards.Count; index += 2)
+            {
+                relatedCardGridLines.Add(new RelatedCardGridLine
+                {
+                    First = visibleCards[index],
+                    Second = index + 1 < visibleCards.Count ? visibleCards[index + 1] : null
+                });
+            }
+            cardList.itemsSource = relatedCardGridLines;
             cardList.ClearSelection();
-            cardList.Rebuild();
-            formCardsButton.EnableInClassList("is-selected", !showAllSpeciesCards);
-            speciesCardsButton.EnableInClassList("is-selected", showAllSpeciesCards);
+            cardList.RefreshItems();
+            formCardsAction.Root.EnableInClassList("is-selected", !showAllSpeciesCards);
+            speciesCardsAction.Root.EnableInClassList("is-selected", showAllSpeciesCards);
+            formCardsAction.SetSelected(!showAllSpeciesCards);
+            speciesCardsAction.SetSelected(showAllSpeciesCards);
             string emptyKey = showAllSpeciesCards ? "card_empty_species" : "card_empty_form";
             cardEmpty.text = PokemonPokedexText.Get(emptyKey, UiLanguage);
-            cardEmpty.style.display = visibleCards.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            SetVisible(Required<VisualElement>("pokedex-card-empty-state"), visibleCards.Count == 0);
             if (animate && !UIFeedbackService.ReduceMotion)
             {
+                cardListAnimation?.Pause();
                 cardList.style.opacity = 0.45f;
-                cardList.schedule.Execute(() => cardList.style.opacity = 1f).ExecuteLater(
-                    Mathf.RoundToInt(120f / UIFeedbackService.AnimationSpeed));
+                cardListAnimation = cardList.schedule.Execute(() =>
+                {
+                    cardList.style.opacity = 1f;
+                    cardListAnimation = null;
+                });
+                cardListAnimation.ExecuteLater(Mathf.RoundToInt(120f / UIFeedbackService.AnimationSpeed));
             }
         }
 
@@ -938,6 +1260,7 @@ namespace Gacha.Pokemon.Presentation
             RefreshDetails();
             listPage.style.display = DisplayStyle.None;
             detailPage.style.display = DisplayStyle.Flex;
+            ScheduleCardLayoutRefresh();
             UIFeedbackService.Play(FeedbackCue.CardFlip, true);
             AnimateDetails();
             return true;
@@ -945,21 +1268,32 @@ namespace Gacha.Pokemon.Presentation
 
         private void RebuildFormButtons()
         {
+            DisposeFormActions();
             formStrip.Clear();
             foreach (PokemonFormDefinition form in browser.SelectableForms)
             {
-                var button = new Button(() => OpenForm(form.Id))
-                {
-                    text = PokemonPokedexBrowser.Localized(form.Names, UiLanguage),
-                    tooltip = form.Id
-                };
-                button.AddToClassList("pokedex-form-button");
-                button.EnableInClassList("is-selected", form.Id == browser.SelectedForm.Id);
-                formStrip.Add(button);
+                var action = new MobileActionControl(
+                    "pokedex-form-" + form.Id.Replace(':', '-'),
+                    PokemonPokedexBrowser.Localized(form.Names, UiLanguage),
+                    () => OpenForm(form.Id),
+                    MobileActionTone.Quiet);
+                action.Root.tooltip = PokemonPokedexBrowser.Localized(form.Names, UiLanguage);
+                action.Root.userData = action;
+                action.Root.AddToClassList("pokedex-form-action");
+                action.Root.EnableInClassList("is-selected", form.Id == browser.SelectedForm.Id);
+                action.SetSelected(form.Id == browser.SelectedForm.Id);
+                action.SetEnabled(!navigationRequested);
+                formActions.Add(action);
+                formStrip.Add(action.Root);
             }
-            formStrip.parent.style.display = browser.SelectableForms.Count > 1
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
+            SetVisible(Required<VisualElement>("pokedex-forms-section"), browser.SelectableForms.Count > 1);
+        }
+
+        private void DisposeFormActions()
+        {
+            foreach (MobileActionControl action in formActions)
+                action.Dispose();
+            formActions.Clear();
         }
 
         public bool NavigateBack()
@@ -973,10 +1307,7 @@ namespace Gacha.Pokemon.Presentation
             }
             ShowList();
             if (returnListIndex >= 0 && returnListIndex < visibleSpecies.Count)
-            {
-                speciesList.SetSelectionWithoutNotify(new[] { returnListIndex });
-                speciesList.ScrollToItem(returnListIndex);
-            }
+                speciesList.ScrollToItem(returnListIndex / 2);
             UIFeedbackService.Play(FeedbackCue.Back);
             return false;
         }
@@ -1009,20 +1340,23 @@ namespace Gacha.Pokemon.Presentation
 
         private void RefreshLocalizedContent()
         {
-            title.text = PokemonPokedexText.Get("title", UiLanguage);
-            subtitle.text = PokemonPokedexText.Get("subtitle", UiLanguage);
-            closeButton.text = PokemonPokedexText.Get("close", UiLanguage);
+            updatingControls = true;
+            mobileTopBar.SetText(
+                PokemonPokedexText.Get("title", UiLanguage),
+                PokemonPokedexText.Get("subtitle", UiLanguage));
+            closeAction?.SetLabel(PokemonPokedexText.Get("close", UiLanguage));
             searchField.label = PokemonPokedexText.Get("search", UiLanguage);
-            formCardsButton.text = PokemonPokedexText.Get("card_scope_form", UiLanguage);
-            speciesCardsButton.text = PokemonPokedexText.Get("card_scope_species", UiLanguage);
-            manageDownloadsButton.text = PokemonPokedexText.Get("manage_downloads", UiLanguage);
-            manageDownloadsButton.style.display = manageDownloads == null ? DisplayStyle.None : DisplayStyle.Flex;
-            emptyManageDownloadsButton.text = PokemonPokedexText.Get("manage_downloads", UiLanguage);
+            detailBackAction?.SetLabel(PokemonPokedexText.Get("back", UiLanguage));
+            formCardsAction?.SetLabel(PokemonPokedexText.Get("card_scope_form", UiLanguage));
+            speciesCardsAction?.SetLabel(PokemonPokedexText.Get("card_scope_species", UiLanguage));
+            manageDownloadsAction?.SetLabel(PokemonPokedexText.Get("manage_downloads", UiLanguage));
+            SetVisible(manageDownloadsAction?.Root, manageDownloads != null);
+            emptyManageDownloadsAction?.SetLabel(PokemonPokedexText.Get("manage_downloads", UiLanguage));
             if (IsReady)
-                emptyManageDownloadsButton.style.display = DisplayStyle.None;
+                SetVisible(emptyManageDownloadsAction?.Root, false);
             errorPresenter?.RefreshLanguage();
             cardSearchField.label = PokemonPokedexText.Get("card_search", UiLanguage);
-            updatingControls = true;
+            cardSearchField.SetValueWithoutNotify(cardSearch);
             cardSortField.label = PokemonPokedexText.Get("card_sort", UiLanguage);
             cardSortField.choices = new List<string>
             {
@@ -1032,9 +1366,11 @@ namespace Gacha.Pokemon.Presentation
             cardSortField.index = cardSortMode;
             updatingControls = false;
             RefreshGenerationChoices();
+            primaryNavigation?.RefreshText();
             RefreshSpeciesList(false);
             if (browser?.SelectedSpecies != null && detailPage.resolvedStyle.display == DisplayStyle.Flex)
                 RefreshDetails();
+            ApplyActionAvailability();
         }
 
 
@@ -1083,18 +1419,15 @@ namespace Gacha.Pokemon.Presentation
             if (UIFeedbackService.ReduceMotion)
             {
                 root.style.opacity = 1f;
-                root.style.scale = new Scale(Vector2.one);
                 return;
             }
             float start = Time.realtimeSinceStartup;
             float duration = 0.22f / UIFeedbackService.AnimationSpeed;
             root.style.opacity = 0f;
-            root.style.scale = new Scale(new Vector2(0.985f, 0.985f));
             transitionAnimation = root.schedule.Execute(() =>
             {
                 float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.realtimeSinceStartup - start) / duration));
                 root.style.opacity = t;
-                root.style.scale = new Scale(Vector2.one * Mathf.Lerp(0.985f, 1f, t));
                 if (t >= 1f)
                 {
                     transitionAnimation?.Pause();
@@ -1111,8 +1444,99 @@ namespace Gacha.Pokemon.Presentation
                 return;
             }
             detailPage.style.opacity = 0.35f;
-            detailPage.schedule.Execute(() => detailPage.style.opacity = 1f).ExecuteLater(
-                Mathf.RoundToInt(140f / UIFeedbackService.AnimationSpeed));
+            detailAnimation?.Pause();
+            detailAnimation = detailPage.schedule.Execute(() =>
+            {
+                detailPage.style.opacity = 1f;
+                detailAnimation = null;
+            });
+            detailAnimation.ExecuteLater(Mathf.RoundToInt(140f / UIFeedbackService.AnimationSpeed));
+        }
+
+        private void CancelPresentationAnimations()
+        {
+            speciesListAnimation?.Pause();
+            speciesListAnimation = null;
+            cardListAnimation?.Pause();
+            cardListAnimation = null;
+            detailAnimation?.Pause();
+            detailAnimation = null;
+            if (speciesList != null)
+                speciesList.style.opacity = 1f;
+            if (cardList != null)
+                cardList.style.opacity = 1f;
+            if (detailPage != null)
+                detailPage.style.opacity = 1f;
+        }
+
+        private void ScheduleSpeciesLayoutRefresh()
+        {
+            speciesLayoutRefresh?.Pause();
+            speciesLayoutRefresh = root.schedule.Execute(() =>
+            {
+                speciesLayoutRefresh = null;
+                speciesList.Rebuild();
+                introducedFormsList.Rebuild();
+            });
+        }
+
+        private void OnSpeciesListGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (evt.newRect.height > 0f &&
+                Mathf.Abs(evt.newRect.height - evt.oldRect.height) > 0.5f &&
+                speciesGridLines.Count > 0)
+                ScheduleSpeciesLayoutRefresh();
+        }
+
+        private void ScheduleCardLayoutRefresh()
+        {
+            cardLayoutRefresh?.Pause();
+            cardLayoutRefresh = root.schedule.Execute(() =>
+            {
+                cardLayoutRefresh = null;
+                cardList.Rebuild();
+            });
+        }
+
+        private void OnCardListGeometryChanged(GeometryChangedEvent evt)
+        {
+            if (evt.newRect.height > 0f &&
+                Mathf.Abs(evt.newRect.height - evt.oldRect.height) > 0.5f &&
+                visibleCards.Count > 0)
+                ScheduleCardLayoutRefresh();
+        }
+
+        private void CancelLayoutRefreshes()
+        {
+            speciesLayoutRefresh?.Pause();
+            speciesLayoutRefresh = null;
+            cardLayoutRefresh?.Pause();
+            cardLayoutRefresh = null;
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (!paused)
+                return;
+            transitionAnimation?.Pause();
+            transitionAnimation = null;
+            CancelSpeciesSearchRefresh();
+            CancelCardSearchRefresh();
+            CancelPresentationAnimations();
+            CancelLayoutRefreshes();
+        }
+
+        private static void SetVisible(VisualElement element, bool visible)
+        {
+            if (element == null)
+                return;
+            element.EnableInClassList("is-hidden", !visible);
+        }
+
+        private static void DisposeAction(ref MobileActionControl action)
+        {
+            action?.Dispose();
+            action = null;
         }
 
         private string UiLanguage =>

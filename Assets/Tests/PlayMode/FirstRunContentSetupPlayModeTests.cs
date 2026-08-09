@@ -363,24 +363,22 @@ namespace Gacha.Tests.PlayMode
                 document.panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
                 var controller = host.AddComponent<PokemonPokedexController>();
                 controller.Attach(document, manageDownloads: () => manageInvoked = true);
+                document.rootVisualElement.style.width = 1000f;
+                document.rootVisualElement.style.height = 2000f;
+                yield return null;
 
                 Assert.That(controller.Open(), Is.False);
                 yield return null;
 
                 VisualElement errorPanel = document.rootVisualElement.Q<VisualElement>("pokedex-error-panel");
-                Button manage = document.rootVisualElement.Q<Button>("pokedex-error-manage");
+                VisualElement manage = document.rootVisualElement.Q<VisualElement>("pokedex-error-manage");
                 Assert.That(controller.MissingContent, Is.True);
                 Assert.That(errorPanel, Is.Not.Null);
                 Assert.That(errorPanel.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(manage, Is.Not.Null);
                 Assert.That(manage.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
-                Assert.That(manage.enabledInHierarchy, Is.True);
-                Assert.That(manage.text, Is.Not.Empty);
-                MethodInfo invokeClick = typeof(Clickable).GetMethod(
-                    "Invoke",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.That(invokeClick, Is.Not.Null);
-                invokeClick.Invoke(manage.clickable, new object[] { null });
+                Assert.That(manage.Q<Label>().text, Is.Not.Empty);
+                SendKeyboardActivate(manage);
                 Assert.That(manageInvoked, Is.True);
 
                 Assert.That(controller.RetryOpen(), Is.False);
@@ -488,6 +486,23 @@ namespace Gacha.Tests.PlayMode
                        type = EventType.MouseUp,
                        button = 0,
                        mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(up);
+        }
+
+        private static void SendKeyboardActivate(VisualElement control)
+        {
+            control.Focus();
+            using (KeyDownEvent down = KeyDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.KeyDown,
+                       keyCode = KeyCode.Return
+                   }))
+                control.SendEvent(down);
+            using (KeyUpEvent up = KeyUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.KeyUp,
+                       keyCode = KeyCode.Return
                    }))
                 control.SendEvent(up);
         }

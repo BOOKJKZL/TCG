@@ -436,7 +436,8 @@ public sealed class CollectionViewController : MonoBehaviour
         pokedexController.Attach(
             uiDocument,
             ShowPrintingDetails,
-            OpenContentManagement);
+            OpenContentManagement,
+            NavigatePrimary);
         ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
         shellInitialized = true;

@@ -30,20 +30,20 @@ public class TrainerUiVisualContractTests
     }
 
     [Test]
-    public void PokedexScreen_UsesTheSameDeviceGrammarWithAnIndependentStylesheet()
+    public void PokedexScreen_UsesTheSharedMobileDeviceGrammarWithAnIndependentStylesheet()
     {
         const string path = "Assets/Resources/UI/PokedexView.uxml";
         VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(path);
         Assert.That(asset, Is.Not.Null);
         TemplateContainer root = asset.CloneTree();
-        VisualElement rail = root.Q<VisualElement>("pokedex-device-rail");
-        VisualElement lights = root.Q<VisualElement>("pokedex-status-lights");
+        string controller = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Pokemon.Presentation/PokemonPokedexController.cs");
 
-        Assert.That(rail, Is.Not.Null);
-        Assert.That(rail.childCount, Is.EqualTo(3));
-        Assert.That(lights, Is.Not.Null);
-        Assert.That(lights.childCount, Is.EqualTo(4));
-        Assert.That(root.styleSheets.count, Is.GreaterThan(0));
+        Assert.That(root.Q<VisualElement>("pokedex-body"), Is.Not.Null);
+        Assert.That(root.Query<Button>().ToList(), Is.Empty);
+        Assert.That(root.Q<VisualElement>("pokedex-overlay").styleSheets.count, Is.GreaterThan(0));
+        Assert.That(controller, Does.Contain("new MobilePageShell"));
+        Assert.That(controller, Does.Contain("new MobileTopBar"));
     }
 
     [Test]
@@ -62,8 +62,8 @@ public class TrainerUiVisualContractTests
             Assert.That(shared, Does.Contain(token.Value), token.Key);
 
         Assert.That(shared, Does.Contain(".trainer-status-light--lens"));
-        Assert.That(pokedex, Does.Contain(".pokedex-status-light--lens"));
-        Assert.That(pokedex, Does.Contain("background-color: rgb(181, 43, 54)"));
-        Assert.That(pokedex, Does.Contain("background-color: rgb(255, 255, 255)"));
+        Assert.That(pokedex, Does.Contain("rgb(190, 49, 61)"));
+        Assert.That(pokedex, Does.Contain("rgb(35, 91, 143)"));
+        Assert.That(pokedex, Does.Contain("rgb(255, 211, 92)"));
     }
 }

@@ -42,6 +42,44 @@ namespace Gacha.Pokemon.Presentation
                 ["region"] = Text("Region: {0}", "地区：{0}", "地方: {0}")
             };
 
+        private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> TaxonomyValues =
+            new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
+            {
+                ["type.normal"] = Text("Normal", "一般", "ノーマル"),
+                ["type.fire"] = Text("Fire", "火", "ほのお"),
+                ["type.water"] = Text("Water", "水", "みず"),
+                ["type.electric"] = Text("Electric", "电", "でんき"),
+                ["type.grass"] = Text("Grass", "草", "くさ"),
+                ["type.ice"] = Text("Ice", "冰", "こおり"),
+                ["type.fighting"] = Text("Fighting", "格斗", "かくとう"),
+                ["type.poison"] = Text("Poison", "毒", "どく"),
+                ["type.ground"] = Text("Ground", "地面", "じめん"),
+                ["type.flying"] = Text("Flying", "飞行", "ひこう"),
+                ["type.psychic"] = Text("Psychic", "超能力", "エスパー"),
+                ["type.bug"] = Text("Bug", "虫", "むし"),
+                ["type.rock"] = Text("Rock", "岩石", "いわ"),
+                ["type.ghost"] = Text("Ghost", "幽灵", "ゴースト"),
+                ["type.dragon"] = Text("Dragon", "龙", "ドラゴン"),
+                ["type.dark"] = Text("Dark", "恶", "あく"),
+                ["type.steel"] = Text("Steel", "钢", "はがね"),
+                ["type.fairy"] = Text("Fairy", "妖精", "フェアリー"),
+                ["region.alola"] = Text("Alola", "阿罗拉", "アローラ"),
+                ["region.galar"] = Text("Galar", "伽勒尔", "ガラル"),
+                ["region.hisui"] = Text("Hisui", "洗翠", "ヒスイ"),
+                ["region.paldea"] = Text("Paldea", "帕底亚", "パルデア"),
+                ["form.default"] = Text("Default form", "默认形态", "通常のすがた"),
+                ["form.alternate"] = Text("Alternate form", "其他形态", "別のすがた"),
+                ["form.battle-only"] = Text("Battle-only form", "战斗限定形态", "バトル限定"),
+                ["form.cosmetic"] = Text("Cosmetic form", "外观差异", "見た目違い"),
+                ["form.gender-difference"] = Text("Gender difference", "性别差异", "性別違い"),
+                ["form.gigantamax"] = Text("Gigantamax", "超极巨化", "キョダイマックス"),
+                ["form.mega"] = Text("Mega Evolution", "超级进化", "メガシンカ"),
+                ["form.regional"] = Text("Regional form", "地区形态", "リージョンフォーム")
+            };
+
+        private static readonly IReadOnlyDictionary<string, string> UnknownTaxonomy =
+            Text("Other", "其他", "その他");
+
         public static string Get(string key, string languageId)
         {
             if (!Values.TryGetValue(key ?? string.Empty, out IReadOnlyDictionary<string, string> localized))
@@ -52,6 +90,25 @@ namespace Gacha.Pokemon.Presentation
 
         public static string Format(string key, string languageId, params object[] arguments) =>
             string.Format(CultureInfo.CurrentCulture, Get(key, languageId), arguments ?? Array.Empty<object>());
+
+        public static string TypeName(string id, string languageId) =>
+            GetTaxonomy("type", id, languageId);
+
+        public static string RegionName(string id, string languageId) =>
+            GetTaxonomy("region", id, languageId);
+
+        public static string FormKindName(string id, string languageId) =>
+            GetTaxonomy("form", id, languageId);
+
+        private static string GetTaxonomy(string category, string id, string languageId)
+        {
+            string language = NormalizeLanguage(languageId);
+            string normalizedId = id?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (TaxonomyValues.TryGetValue(category + "." + normalizedId,
+                    out IReadOnlyDictionary<string, string> localized))
+                return localized[language];
+            return UnknownTaxonomy[language];
+        }
 
         private static string NormalizeLanguage(string languageId)
         {

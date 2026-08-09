@@ -206,14 +206,12 @@ public class ContentManagementPresentationTests
     [Test]
     public void PrimaryToolkitViews_DeclareSharedSafeAreaRoots()
     {
-        foreach (string path in new[]
-                 {
-                     "Assets/Resources/UI/PokedexView.uxml"
-                 })
-        {
-            string source = File.ReadAllText(path);
-            Assert.That(source, Does.Contain("safe-area-root"), path);
-        }
+        string pokedexView = File.ReadAllText("Assets/Resources/UI/PokedexView.uxml");
+        string pokedexController = File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Pokemon.Presentation/PokemonPokedexController.cs");
+        Assert.That(pokedexView, Does.Not.Contain("safe-area-root"),
+            "The Pokédex body is composed inside one shared page shell at runtime.");
+        Assert.That(pokedexController, Does.Contain("new MobilePageShell"));
 
         string contentView = File.ReadAllText("Assets/UI/ContentManagementView.uxml");
         string contentController = File.ReadAllText(
@@ -330,8 +328,9 @@ public class ContentManagementPresentationTests
         string contentController = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs");
 
-        Assert.That(root.Q<Button>("pokedex-empty-manage-button"), Is.Not.Null);
-        Assert.That(pokedexController, Does.Contain("emptyManageDownloadsButton.style.display"));
+        Assert.That(root.Q<VisualElement>("pokedex-empty-manage-button"), Is.Not.Null);
+        Assert.That(root.Q<Button>("pokedex-empty-manage-button"), Is.Null);
+        Assert.That(pokedexController, Does.Contain("emptyManageDownloadsAction"));
         Assert.That(pokedexController, Does.Contain("!catalogLoad.HasInstalledContent"));
         Assert.That(pokedexController, Does.Contain("PokemonPokedexText.Get(\"content_missing\""));
         Assert.That(contentController, Does.Contain("ContentReturnNavigation.PeekOrDefault"));
