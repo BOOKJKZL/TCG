@@ -1,64 +1,60 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="gacha-opening" class="gacha-opening safe-area-root">
-        <ui:VisualElement class="gacha-opening__shell">
-            <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
-                <ui:VisualElement class="trainer-device-rail__red" />
-                <ui:VisualElement class="trainer-device-rail__yellow" />
-                <ui:VisualElement class="trainer-device-rail__blue" />
-            </ui:VisualElement>
-            <ui:VisualElement class="gacha-opening__header">
-                <ui:VisualElement name="trainer-status-lights" class="trainer-status-lights">
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--lens" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--red" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--yellow" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--green" />
-                </ui:VisualElement>
-                <ui:VisualElement class="gacha-opening__heading">
-                    <ui:Label name="gacha-title" class="gacha-opening__title" />
-                    <ui:Label name="gacha-subtitle" class="gacha-opening__subtitle" />
-                </ui:VisualElement>
-                <ui:Button name="gacha-menu-button" class="gacha-button" />
-            </ui:VisualElement>
-            <ui:Label name="gacha-status" class="gacha-opening__status" style="display: none;" />
-            <ui:VisualElement name="gacha-error-panel" class="player-error-panel" style="display: none;">
+    <ui:VisualElement name="gacha-opening" class="gacha-opening-host">
+        <ui:VisualElement name="gacha-body" class="gacha-opening__body">
+            <ui:Label name="gacha-status" class="gacha-opening__status is-hidden" />
+            <ui:VisualElement name="gacha-error-panel" class="player-error-panel is-hidden">
                 <ui:Label name="gacha-error-title" class="player-error-panel__title" />
                 <ui:Label name="gacha-error-body" class="player-error-panel__body" />
                 <ui:VisualElement class="player-error-panel__actions">
-                    <ui:Button name="gacha-error-retry" class="gacha-button gacha-button--primary" />
-                    <ui:Button name="gacha-error-manage" class="gacha-button" />
-                    <ui:Button name="gacha-error-home" class="gacha-button gacha-button--quiet" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:Button name="gacha-manage-content-button" class="gacha-button gacha-button--primary zero-content-action" style="display: none;" />
-
-            <ui:VisualElement name="gacha-selection-page" class="gacha-page gacha-selection">
-                <ui:ListView name="product-list" class="gacha-product-list" />
-                <ui:VisualElement class="gacha-selected-product">
-                    <ui:VisualElement name="selected-art-slot" class="gacha-selected-product__art" />
-                    <ui:VisualElement class="gacha-selected-product__body">
-                        <ui:Label name="selected-product-name" class="gacha-selected-product__name" />
-                        <ui:Label name="selected-product-metadata" class="gacha-selected-product__metadata" />
-                        <ui:Label name="rule-badge" class="gacha-rule-badge" />
-                        <ui:Label name="rule-notice" class="gacha-rule-notice" />
-                        <ui:Label name="rule-evidence-summary" class="gacha-rule-evidence" />
-                        <ui:VisualElement name="rule-source-list" class="gacha-source-list" style="display: none;" />
-                        <ui:Label name="odds-heading" class="gacha-odds-heading" />
-                        <ui:ScrollView class="gacha-odds-scroll" mode="Vertical">
-                            <ui:VisualElement name="odds-list" class="gacha-odds-list" />
-                        </ui:ScrollView>
-                        <ui:VisualElement class="gacha-batch-actions">
-                            <ui:Button name="prepare-pack-button" class="gacha-button gacha-button--primary" />
-                            <ui:Button name="prepare-ten-button" class="gacha-button" />
-                        </ui:VisualElement>
-                        <ui:Label name="opening-statistics" class="gacha-opening-statistics" />
-                        <ui:ScrollView name="opening-history" class="gacha-opening-history" mode="Vertical" />
+                    <ui:VisualElement name="gacha-error-retry" class="gacha-button gacha-button--primary">
+                        <ui:Label class="gacha-button__label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="gacha-error-manage" class="gacha-button">
+                        <ui:Label class="gacha-button__label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="gacha-error-home" class="gacha-button gacha-button--quiet">
+                        <ui:Label class="gacha-button__label" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
+            <ui:VisualElement name="gacha-manage-content-button" class="gacha-button gacha-button--primary zero-content-action is-hidden">
+                <ui:Label class="gacha-button__label" />
+            </ui:VisualElement>
 
-            <ui:VisualElement name="gacha-opening-page" class="gacha-page" style="display: none;">
-                <ui:Button name="back-to-products-button" class="gacha-button gacha-button--quiet" />
+            <ui:VisualElement name="gacha-selection-page" class="gacha-page gacha-selection">
+                <ui:ListView name="product-list" class="gacha-product-list" virtualization-method="DynamicHeight" />
+                <ui:ScrollView name="selected-product-scroll" class="gacha-selected-product-scroll" mode="Vertical">
+                    <ui:VisualElement class="gacha-selected-product">
+                        <ui:VisualElement name="selected-art-slot" class="gacha-selected-product__art" />
+                        <ui:VisualElement class="gacha-selected-product__body">
+                            <ui:Label name="selected-product-name" class="gacha-selected-product__name" />
+                            <ui:Label name="selected-product-metadata" class="gacha-selected-product__metadata" />
+                            <ui:Label name="rule-badge" class="gacha-rule-badge" />
+                            <ui:Label name="rule-notice" class="gacha-rule-notice" />
+                            <ui:Label name="rule-evidence-summary" class="gacha-rule-evidence" />
+                            <ui:VisualElement name="rule-source-list" class="gacha-source-list is-hidden" />
+                            <ui:Label name="odds-heading" class="gacha-odds-heading" />
+                            <ui:VisualElement name="odds-list" class="gacha-odds-list" />
+                            <ui:VisualElement class="gacha-batch-actions">
+                                <ui:VisualElement name="prepare-pack-button" class="gacha-button gacha-button--primary">
+                                    <ui:Label class="gacha-button__label" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="prepare-ten-button" class="gacha-button">
+                                    <ui:Label class="gacha-button__label" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:Label name="opening-statistics" class="gacha-opening-statistics" />
+                            <ui:VisualElement name="opening-history" class="gacha-opening-history" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:ScrollView>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="gacha-opening-page" class="gacha-page is-hidden">
+                <ui:VisualElement name="back-to-products-button" class="gacha-button gacha-button--quiet">
+                    <ui:Label class="gacha-button__label" />
+                </ui:VisualElement>
 
                 <ui:VisualElement name="pack-stage" class="gacha-stage gacha-pack-stage">
                     <ui:VisualElement name="pack-particle-layer" class="gacha-theme-particles gacha-theme-particles--pack" />
@@ -70,10 +66,12 @@
                         <ui:VisualElement name="pack-theme-band" class="gacha-pack-shell__theme-band" />
                         <ui:VisualElement name="pack-tear-line" class="gacha-pack-shell__tear" />
                     </ui:VisualElement>
-                    <ui:Button name="tear-pack-button" class="gacha-button gacha-button--primary" />
+                    <ui:VisualElement name="tear-pack-button" class="gacha-button gacha-button--primary">
+                        <ui:Label class="gacha-button__label" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
 
-                <ui:VisualElement name="reveal-stage" class="gacha-stage" style="display: none;">
+                <ui:VisualElement name="reveal-stage" class="gacha-stage is-hidden">
                     <ui:VisualElement name="reveal-particle-layer" class="gacha-theme-particles gacha-theme-particles--reveal" />
                     <ui:Label name="reveal-progress" class="gacha-reveal-progress" />
                     <ui:VisualElement name="reveal-card" class="gacha-reveal-card">
@@ -84,18 +82,26 @@
                     <ui:Label name="reveal-name" class="gacha-reveal-card__name" />
                     <ui:Label name="reveal-metadata" class="gacha-reveal-card__metadata" />
                     <ui:VisualElement class="gacha-reveal__actions">
-                        <ui:Button name="reveal-next-button" class="gacha-button gacha-button--primary" />
-                        <ui:Button name="reveal-all-button" class="gacha-button gacha-button--quiet" />
+                        <ui:VisualElement name="reveal-next-button" class="gacha-button gacha-button--primary">
+                            <ui:Label class="gacha-button__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="reveal-all-button" class="gacha-button gacha-button--quiet">
+                            <ui:Label class="gacha-button__label" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <ui:VisualElement name="summary-stage" class="gacha-stage gacha-summary" style="display: none;">
+                <ui:VisualElement name="summary-stage" class="gacha-stage gacha-summary is-hidden">
                     <ui:Label name="summary-title" class="gacha-stage__title" />
                     <ui:Label name="summary-metadata" class="gacha-stage__hint" />
                     <ui:ScrollView name="summary-list" class="gacha-summary-list" mode="Vertical" />
                     <ui:VisualElement class="gacha-summary__actions">
-                        <ui:Button name="open-again-button" class="gacha-button gacha-button--primary" />
-                        <ui:Button name="summary-products-button" class="gacha-button gacha-button--quiet" />
+                        <ui:VisualElement name="open-again-button" class="gacha-button gacha-button--primary">
+                            <ui:Label class="gacha-button__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="summary-products-button" class="gacha-button gacha-button--quiet">
+                            <ui:Label class="gacha-button__label" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

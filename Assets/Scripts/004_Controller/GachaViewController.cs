@@ -14,6 +14,17 @@ using UnityEngine.UIElements;
 
 public sealed class GachaViewController : MonoBehaviour
 {
+    private enum GachaPageState
+    {
+        Loading,
+        Selection,
+        Prepared,
+        Opening,
+        Revealing,
+        Summary,
+        Error
+    }
+
     private sealed class ProductRow
     {
         public AsyncCardImageView Image;
@@ -52,10 +63,16 @@ public sealed class GachaViewController : MonoBehaviour
     private bool revealAnimating;
     private bool currentRevealHighlighted;
     private string appliedThemeClass;
+    private string frozenContentLanguageId;
     private Texture2D selectedThemeArtwork;
-    private UiToolkitSafeAreaBinding safeAreaBinding;
+    private GachaPageState pageState = GachaPageState.Loading;
+    private bool pendingContentLanguageRefresh;
+    private bool navigationRequested;
+    private bool destroyed;
+    private int pendingConfirmationCount;
 
     private VisualElement root;
+    private VisualElement body;
     private VisualElement selectionPage;
     private VisualElement openingPage;
     private VisualElement selectedArtSlot;
@@ -76,7 +93,7 @@ public sealed class GachaViewController : MonoBehaviour
     private VisualElement summaryStage;
     private ListView productList;
     private ScrollView summaryList;
-    private ScrollView openingHistory;
+    private VisualElement openingHistory;
     private Label title;
     private Label subtitle;
     private Label status;
@@ -95,19 +112,24 @@ public sealed class GachaViewController : MonoBehaviour
     private Label summaryTitle;
     private Label summaryMetadata;
     private Label openingStatistics;
-    private Button menuButton;
-    private Button manageContentButton;
-    private Button prepareButton;
-    private Button prepareTenButton;
-    private Button tearButton;
-    private Button revealButton;
-    private Button revealAllButton;
-    private Button backToProductsButton;
-    private Button openAgainButton;
-    private Button summaryProductsButton;
-    private Button errorRetryButton;
-    private Button errorManageButton;
-    private Button errorHomeButton;
+    private MobilePageShell mobilePageShell;
+    private MobileTopBar mobileTopBar;
+    private MobilePrimaryNavigation primaryNavigation;
+    private MobileConfirmationPresenter confirmationPresenter;
+    private MobileActionControl menuAction;
+    private MobileActionControl manageContentAction;
+    private MobileActionControl prepareAction;
+    private MobileActionControl prepareTenAction;
+    private MobileActionControl tearAction;
+    private MobileActionControl revealAction;
+    private MobileActionControl revealAllAction;
+    private MobileActionControl backToProductsAction;
+    private MobileActionControl openAgainAction;
+    private MobileActionControl summaryProductsAction;
+    private MobileActionControl errorRetryAction;
+    private MobileActionControl errorManageAction;
+    private MobileActionControl errorHomeAction;
+    private readonly List<MobileActionControl> ruleSourceActions = new List<MobileActionControl>();
 
     private AsyncCardImageView selectedImage;
     private AsyncCardImageView packImage;
@@ -122,6 +144,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     public static IInventoryProgressStore InventoryStoreOverride { private get; set; }
     public static ICatalogProvider CatalogProviderOverride { private get; set; }
+    public static Action<string> SceneLoaderOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
@@ -153,6 +176,9 @@ public sealed class GachaViewController : MonoBehaviour
     public long CachedTextureBytes => textureCache?.DecodedBytes ?? 0L;
     public long CachedTextureBudgetBytes => textureCache?.MaximumDecodedBytes ?? 0L;
     public bool IsSummaryVisible => summaryStage != null && summaryStage.resolvedStyle.display == DisplayStyle.Flex;
+    public bool IsConfirmationVisible => confirmationPresenter?.IsVisible ?? false;
+    public string CurrentStage => pageState.ToString();
+    public string FrozenContentLanguageId => frozenContentLanguageId;
 
     public event Action<ProductDrawResult> PackOpened;
     public event Action<string> InitializationFailed;
@@ -162,6 +188,7 @@ public sealed class GachaViewController : MonoBehaviour
     {
         InventoryStoreOverride = null;
         CatalogProviderOverride = null;
+        SceneLoaderOverride = null;
     }
 
     private void Awake()
@@ -188,8 +215,29 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void OnDestroy()
     {
-        safeAreaBinding?.Dispose();
-        safeAreaBinding = null;
+        destroyed = true;
+        if (productList != null)
+            productList.selectionChanged -= OnProductSelectionChanged;
+        DisposeRuleSourceActions();
+        confirmationPresenter?.Dispose();
+        confirmationPresenter = null;
+        primaryNavigation?.Dispose();
+        primaryNavigation = null;
+        DisposeAction(ref menuAction);
+        DisposeAction(ref manageContentAction);
+        DisposeAction(ref prepareAction);
+        DisposeAction(ref prepareTenAction);
+        DisposeAction(ref tearAction);
+        DisposeAction(ref revealAction);
+        DisposeAction(ref revealAllAction);
+        DisposeAction(ref backToProductsAction);
+        DisposeAction(ref openAgainAction);
+        DisposeAction(ref summaryProductsAction);
+        DisposeAction(ref errorRetryAction);
+        DisposeAction(ref errorManageAction);
+        DisposeAction(ref errorHomeAction);
+        mobilePageShell?.Dispose();
+        mobilePageShell = null;
         errorPresenter?.Dispose();
         errorPresenter = null;
         if (ApplicationServices.IsConfigured)
@@ -210,6 +258,12 @@ public sealed class GachaViewController : MonoBehaviour
         imageViews.Clear();
         textureCache?.Dispose();
         textureCache = null;
+    }
+
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused)
+            CompleteActiveAnimationsForPause();
     }
 
     public bool TryInitialize()
@@ -248,21 +302,48 @@ public sealed class GachaViewController : MonoBehaviour
         root = uiDocument.rootVisualElement.Q<VisualElement>("gacha-opening");
         if (root == null)
             throw new InvalidOperationException("GachaView.uxml is not attached to the UIDocument.");
-        safeAreaBinding = UiToolkitSafeArea.Attach(root);
+        HideLegacyCanvas();
+        body = root.Q<VisualElement>("gacha-body");
+        if (body == null)
+            throw new InvalidOperationException("GachaView.uxml is missing its mobile body.");
+        body.RemoveFromHierarchy();
+        mobilePageShell = new MobilePageShell("gacha-opening-page-shell");
+        mobilePageShell.Root.AddToClassList("gacha-opening");
+        mobileTopBar = new MobileTopBar(string.Empty, string.Empty);
+        mobileTopBar.Title.name = "gacha-title";
+        mobileTopBar.Subtitle.name = "gacha-subtitle";
+        mobilePageShell.HeaderSlot.Add(mobileTopBar.Root);
+        mobilePageShell.ContentSlot.Add(body);
+        root.Clear();
+        root.Add(mobilePageShell.Root);
         QueryVisualElements();
+        ConfigureActions();
+        menuAction = new MobileActionControl(
+            "gacha-menu-button",
+            string.Empty,
+            () => NavigatePrimary(MobileDestination.Home),
+            MobileActionTone.Quiet);
+        mobileTopBar.AddAction(menuAction);
+        primaryNavigation = new MobilePrimaryNavigation(
+            MobileDestination.Gacha,
+            NavigatePrimary);
+        mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
+        confirmationPresenter = new MobileConfirmationPresenter();
+        mobilePageShell.ModalLayer.Add(confirmationPresenter.Root);
         errorPresenter = new PlayerUiErrorPresenter(
             Required<VisualElement>("gacha-error-panel"),
             Required<Label>("gacha-error-title"),
             Required<Label>("gacha-error-body"),
-            errorRetryButton,
-            errorManageButton,
-            errorHomeButton);
+            errorRetryAction.Root,
+            errorManageAction.Root,
+            errorHomeAction.Root);
         ConfigureProductList();
-        ConfigureButtons();
         ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
         shellInitialized = true;
         RefreshLocalizedChrome();
+        pageState = GachaPageState.Loading;
+        ApplyActionAvailability();
         SetStatus(CardUiText.Get("common.status.loading"), false);
     }
 
@@ -270,7 +351,11 @@ public sealed class GachaViewController : MonoBehaviour
     {
         IsReady = false;
         InitializationError = null;
+        pageState = GachaPageState.Loading;
+        pendingConfirmationCount = 0;
+        confirmationPresenter?.Hide();
         errorPresenter.Hide();
+        ApplyActionAvailability();
         SetStatus(CardUiText.Get("common.status.loading"), false);
         try
         {
@@ -329,18 +414,22 @@ public sealed class GachaViewController : MonoBehaviour
     {
         InitializationError = developerDetail?.ToString() ?? "Gacha initialization failed.";
         IsReady = false;
+        pageState = GachaPageState.Error;
+        pendingConfirmationCount = 0;
+        confirmationPresenter?.Hide();
         if (selectionPage != null) selectionPage.style.display = DisplayStyle.None;
         if (openingPage != null) openingPage.style.display = DisplayStyle.None;
-        if (manageContentButton != null) manageContentButton.style.display = DisplayStyle.None;
+        if (manageContentAction != null) manageContentAction.Root.style.display = DisplayStyle.None;
         SetStatus(string.Empty, false);
         errorPresenter?.Show(error);
+        ApplyActionAvailability();
         Debug.LogWarning("Gacha content could not be initialized: " + InitializationError);
         InitializationFailed?.Invoke(InitializationError);
     }
 
     public void OnOpenPack()
     {
-        PrepareSelectedProduct();
+        RequestOpenConfirmation(1);
     }
 
     public bool PrepareSelectedProduct()
@@ -353,12 +442,55 @@ public sealed class GachaViewController : MonoBehaviour
         return PrepareSelectedBatch(10);
     }
 
-    private bool PrepareSelectedBatch(int productCount)
+    public bool RequestOpenConfirmation(int productCount)
     {
-        if (!IsReady || selectedProduct == null || selectedProfile == null || packAnimating)
+        if (destroyed || !IsReady || selectedProduct == null || selectedProfile == null ||
+            (pageState != GachaPageState.Selection && pageState != GachaPageState.Summary) ||
+            (productCount != 1 && productCount != 10))
             return false;
 
+        pendingConfirmationCount = productCount;
+        string selectedId = selectedProduct.Id;
+        string contentLanguageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
+        GachaPageState requestedFrom = pageState;
+        string productName = selectedProduct.GetDisplayName(contentLanguageId);
+        confirmationPresenter.Show(
+            CardUiText.Get("gacha.confirm.title"),
+            CardUiText.Format(
+                "gacha.confirm.body",
+                productCount,
+                productName,
+                contentLanguageId,
+                RuleTrustLabel(selectedProfile.Trust)),
+            CardUiText.Get("gacha.action.confirm_open"),
+            CardUiText.Get("common.action.cancel"),
+            () =>
+            {
+                pendingConfirmationCount = 0;
+                if (destroyed || pageState != requestedFrom ||
+                    selectedProduct == null || !string.Equals(selectedProduct.Id, selectedId, StringComparison.Ordinal) ||
+                    !string.Equals(
+                        ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId,
+                        contentLanguageId,
+                        StringComparison.OrdinalIgnoreCase))
+                    return;
+                PrepareSelectedBatch(productCount);
+            },
+            () => pendingConfirmationCount = 0,
+            false);
+        return true;
+    }
+
+    private bool PrepareSelectedBatch(int productCount)
+    {
+        if (!IsReady || selectedProduct == null || selectedProfile == null || packAnimating ||
+            (pageState != GachaPageState.Selection && pageState != GachaPageState.Summary))
+            return false;
+
+        pendingConfirmationCount = 0;
         preparedProductCount = productCount;
+        frozenContentLanguageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
+        pageState = GachaPageState.Prepared;
         UIFeedbackService.Play(FeedbackCue.Confirm);
         SetStatus(string.Empty, false);
         currentBatchOutcome = null;
@@ -377,10 +509,13 @@ public sealed class GachaViewController : MonoBehaviour
         currentRevealHighlighted = false;
         revealParticles.Stop();
         packParticles.PlayAmbient(selectedTheme.ParticleTheme);
-        tearButton.SetEnabled(true);
+        tearAction.SetEnabled(true);
         packTitle.text = productCount == 1
-            ? DisplayName(selectedProduct)
-            : CardUiText.Format("gacha.pack.batch_title", productCount, DisplayName(selectedProduct));
+            ? DisplayName(selectedProduct, frozenContentLanguageId)
+            : CardUiText.Format(
+                "gacha.pack.batch_title",
+                productCount,
+                DisplayName(selectedProduct, frozenContentLanguageId));
         packHint.text = productCount == 1
             ? CardUiText.Get("gacha.pack.hint")
             : CardUiText.Format("gacha.pack.batch_hint", productCount);
@@ -394,23 +529,27 @@ public sealed class GachaViewController : MonoBehaviour
             else
                 packImage.Unbind();
         }
+        ApplyActionAvailability();
         AnimatePackReady();
         return true;
     }
 
     public bool TearPack()
     {
-        if (!IsReady || selectedProduct == null || packAnimating || currentBatchOutcome != null)
+        if (!IsReady || selectedProduct == null || pageState != GachaPageState.Prepared ||
+            packAnimating || currentBatchOutcome != null)
             return false;
 
         try
         {
+            pageState = GachaPageState.Opening;
+            ApplyActionAvailability();
             currentBatchOutcome = openingService.OpenBatch(selectedProduct.Id, preparedProductCount);
             BuildRevealEntries();
             foreach (ProductDrawResult draw in currentBatchOutcome.Draws)
                 PackOpened?.Invoke(draw);
             RefreshOpeningJournal();
-            tearButton.SetEnabled(false);
+            tearAction.SetEnabled(false);
             packAnimating = true;
             UIFeedbackService.Play(FeedbackCue.PackOpen, selectedTheme.PackOpenAudioKey, true);
             AnimatePackTear(BeginRevealStage);
@@ -419,6 +558,8 @@ public sealed class GachaViewController : MonoBehaviour
         catch (Exception exception)
         {
             currentBatchOutcome = null;
+            pageState = GachaPageState.Prepared;
+            ApplyActionAvailability();
             SetStatus(PlayerUiErrorText.Body(PlayerUiErrorMapper.FromException(exception)), true);
             Debug.LogWarning($"Pack opening failed: {exception.Message}");
             InitializationFailed?.Invoke(exception.Message);
@@ -429,7 +570,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     public bool RevealNextCard()
     {
-        if (currentBatchOutcome == null || packAnimating || revealAnimating)
+        if (pageState != GachaPageState.Revealing || currentBatchOutcome == null ||
+            packAnimating || revealAnimating)
             return false;
         if (revealIndex >= revealEntries.Count - 1)
         {
@@ -440,7 +582,7 @@ public sealed class GachaViewController : MonoBehaviour
         revealIndex++;
         RevealEntry entry = revealEntries[revealIndex];
         revealImage.Bind(entry.Printing);
-        revealName.text = DisplayName(entry.Printing);
+        revealName.text = DisplayName(entry.Printing, entry.Printing.Identity.LanguageId);
         revealMetadata.text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
         revealNewBadge.text = entry.Award.IsNew
             ? CardUiText.Get("common.badge.new")
@@ -454,9 +596,9 @@ public sealed class GachaViewController : MonoBehaviour
                 revealIndex + 1,
                 revealEntries.Count)
             : CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
-        revealButton.text = revealIndex == revealEntries.Count - 1
+        revealAction.SetLabel(revealIndex == revealEntries.Count - 1
             ? CardUiText.Get("gacha.action.view_results")
-            : CardUiText.Get("gacha.action.reveal_next");
+            : CardUiText.Get("gacha.action.reveal_next"));
 
         currentRevealHighlighted = catalog.Rarities.TryGetValue(
             entry.Printing.RarityId,
@@ -477,7 +619,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     public bool RevealAllCards()
     {
-        if (currentBatchOutcome == null || packAnimating || revealEntries.Count == 0 || IsSummaryVisible)
+        if (pageState != GachaPageState.Revealing || currentBatchOutcome == null ||
+            packAnimating || revealEntries.Count == 0 || IsSummaryVisible)
             return false;
 
         revealAnimation?.Pause();
@@ -491,10 +634,39 @@ public sealed class GachaViewController : MonoBehaviour
     public void MenuBtnClick()
     {
         UIFeedbackService.Play(FeedbackCue.Back);
-        if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-            GameManager.Instance.loadManager.LoadScene(1);
+        NavigatePrimary(MobileDestination.Home);
+    }
+
+    private void NavigatePrimary(MobileDestination destination)
+    {
+        if (destination == MobileDestination.Gacha || navigationRequested || destroyed)
+            return;
+
+        navigationRequested = true;
+        primaryNavigation?.SetPending(destination);
+        ApplyActionAvailability();
+        string sceneName = MobilePrimaryNavigation.SceneName(destination);
+        if (destination == MobileDestination.Content)
+            ContentReturnNavigation.RememberCurrentScene();
         else
-            SceneManager.LoadScene("002_MainMenuScene");
+            ContentReturnNavigation.Clear();
+
+        try
+        {
+            if (SceneLoaderOverride != null)
+                SceneLoaderOverride(sceneName);
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName);
+            else
+                SceneManager.LoadScene(sceneName);
+        }
+        catch
+        {
+            navigationRequested = false;
+            primaryNavigation?.ClearPending(MobileDestination.Gacha);
+            ApplyActionAvailability();
+            throw;
+        }
     }
 
     private void QueryVisualElements()
@@ -519,9 +691,9 @@ public sealed class GachaViewController : MonoBehaviour
         summaryStage = Required<VisualElement>("summary-stage");
         productList = Required<ListView>("product-list");
         summaryList = Required<ScrollView>("summary-list");
-        openingHistory = Required<ScrollView>("opening-history");
-        title = Required<Label>("gacha-title");
-        subtitle = Required<Label>("gacha-subtitle");
+        openingHistory = Required<VisualElement>("opening-history");
+        title = mobileTopBar.Title;
+        subtitle = mobileTopBar.Subtitle;
         status = Required<Label>("gacha-status");
         selectedName = Required<Label>("selected-product-name");
         selectedMetadata = Required<Label>("selected-product-metadata");
@@ -538,19 +710,6 @@ public sealed class GachaViewController : MonoBehaviour
         summaryTitle = Required<Label>("summary-title");
         summaryMetadata = Required<Label>("summary-metadata");
         openingStatistics = Required<Label>("opening-statistics");
-        menuButton = Required<Button>("gacha-menu-button");
-        manageContentButton = Required<Button>("gacha-manage-content-button");
-        prepareButton = Required<Button>("prepare-pack-button");
-        prepareTenButton = Required<Button>("prepare-ten-button");
-        tearButton = Required<Button>("tear-pack-button");
-        revealButton = Required<Button>("reveal-next-button");
-        revealAllButton = Required<Button>("reveal-all-button");
-        backToProductsButton = Required<Button>("back-to-products-button");
-        openAgainButton = Required<Button>("open-again-button");
-        summaryProductsButton = Required<Button>("summary-products-button");
-        errorRetryButton = Required<Button>("gacha-error-retry");
-        errorManageButton = Required<Button>("gacha-error-manage");
-        errorHomeButton = Required<Button>("gacha-error-home");
         packParticles?.Dispose();
         revealParticles?.Dispose();
         packParticles = new ThemeParticleField(packParticleLayer);
@@ -559,8 +718,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ConfigureProductList()
     {
-        productList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-        productList.fixedItemHeight = 132f;
+        productList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
         productList.selectionType = SelectionType.Single;
         productList.makeItem = MakeProductRow;
         productList.bindItem = BindProductRow;
@@ -569,29 +727,52 @@ public sealed class GachaViewController : MonoBehaviour
         productList.selectionChanged += OnProductSelectionChanged;
     }
 
-    private void ConfigureButtons()
+    private void ConfigureActions()
     {
-        menuButton.clicked += MenuBtnClick;
-        manageContentButton.clicked += OpenContentManagement;
-        errorRetryButton.clicked += () => RetryInitialization();
-        errorManageButton.clicked += OpenContentManagement;
-        errorHomeButton.clicked += MenuBtnClick;
-        prepareButton.clicked += () => PrepareSelectedProduct();
-        prepareTenButton.clicked += () => PrepareTenProducts();
-        tearButton.clicked += () => TearPack();
-        revealButton.clicked += () => RevealNextCard();
-        revealAllButton.clicked += () => RevealAllCards();
-        backToProductsButton.clicked += () =>
+        manageContentAction = new MobileActionControl(
+            Required<VisualElement>("gacha-manage-content-button"),
+            OpenContentManagement);
+        errorRetryAction = new MobileActionControl(
+            Required<VisualElement>("gacha-error-retry"),
+            () => RetryInitialization());
+        errorManageAction = new MobileActionControl(
+            Required<VisualElement>("gacha-error-manage"),
+            OpenContentManagement);
+        errorHomeAction = new MobileActionControl(
+            Required<VisualElement>("gacha-error-home"),
+            MenuBtnClick);
+        prepareAction = new MobileActionControl(
+            Required<VisualElement>("prepare-pack-button"),
+            () => RequestOpenConfirmation(1));
+        prepareTenAction = new MobileActionControl(
+            Required<VisualElement>("prepare-ten-button"),
+            () => RequestOpenConfirmation(10));
+        tearAction = new MobileActionControl(
+            Required<VisualElement>("tear-pack-button"),
+            () => TearPack());
+        revealAction = new MobileActionControl(
+            Required<VisualElement>("reveal-next-button"),
+            () => RevealNextCard());
+        revealAllAction = new MobileActionControl(
+            Required<VisualElement>("reveal-all-button"),
+            () => RevealAllCards());
+        backToProductsAction = new MobileActionControl(
+            Required<VisualElement>("back-to-products-button"),
+            () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
             ShowSelectionPage();
-        };
-        openAgainButton.clicked += () => PrepareSelectedBatch(preparedProductCount);
-        summaryProductsButton.clicked += () =>
+        });
+        openAgainAction = new MobileActionControl(
+            Required<VisualElement>("open-again-button"),
+            RequestRepeatOpening);
+        summaryProductsAction = new MobileActionControl(
+            Required<VisualElement>("summary-products-button"),
+            () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
             ShowSelectionPage();
-        };
+        });
     }
 
     private void RebuildProducts()
@@ -626,19 +807,21 @@ public sealed class GachaViewController : MonoBehaviour
         {
             selectedProduct = null;
             selectedProfile = null;
-            prepareButton.SetEnabled(false);
-            prepareTenButton.SetEnabled(false);
+            prepareAction.SetEnabled(false);
+            prepareTenAction.SetEnabled(false);
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
-            manageContentButton.style.display = DisplayStyle.Flex;
+            manageContentAction.Root.style.display = DisplayStyle.Flex;
             RefreshOpeningJournal();
+            ApplyActionAvailability();
             return;
         }
 
-        manageContentButton.style.display = DisplayStyle.None;
+        manageContentAction.Root.style.display = DisplayStyle.None;
         SelectProduct(next);
         int index = products.IndexOf(next);
         productList.SetSelectionWithoutNotify(new[] { index });
         RefreshOpeningJournal();
+        ApplyActionAvailability();
     }
 
     private VisualElement MakeProductRow()
@@ -725,8 +908,8 @@ public sealed class GachaViewController : MonoBehaviour
             ? CardUiText.Get("gacha.rule.simulation_notice")
             : selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId);
         BuildRuleEvidence();
-        prepareButton.SetEnabled(true);
-        prepareTenButton.SetEnabled(true);
+        prepareAction.SetEnabled(true);
+        prepareTenAction.SetEnabled(true);
         PrintingDefinition cover = CoverFor(product);
         if (cover != null)
             selectedImage.Bind(cover);
@@ -869,6 +1052,7 @@ public sealed class GachaViewController : MonoBehaviour
         packParticles.Stop();
         revealParticles.Stop();
         packAnimating = false;
+        pageState = GachaPageState.Revealing;
         packStage.style.display = DisplayStyle.None;
         revealStage.style.display = DisplayStyle.Flex;
         summaryStage.style.display = DisplayStyle.None;
@@ -882,10 +1066,11 @@ public sealed class GachaViewController : MonoBehaviour
         revealMetadata.text = CardUiText.Get("gacha.reveal.one_at_time");
         revealNewBadge.text = string.Empty;
         revealProgress.text = CardUiText.Format("gacha.reveal.pending_progress", revealEntries.Count);
-        revealButton.text = CardUiText.Get("gacha.action.reveal_first");
-        revealButton.SetEnabled(true);
-        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
-        revealAllButton.SetEnabled(true);
+        revealAction.SetLabel(CardUiText.Get("gacha.action.reveal_first"));
+        revealAction.SetEnabled(true);
+        revealAllAction.SetLabel(CardUiText.Get("gacha.action.reveal_all"));
+        revealAllAction.SetEnabled(true);
+        ApplyActionAvailability();
     }
 
     private void ShowSummary()
@@ -895,10 +1080,12 @@ public sealed class GachaViewController : MonoBehaviour
         revealAnimation?.Pause();
         revealAnimation = null;
         revealAnimating = false;
+        pageState = GachaPageState.Summary;
         revealStage.style.display = DisplayStyle.None;
         summaryStage.style.display = DisplayStyle.Flex;
         ApplySummaryText();
         BuildSummaryList();
+        ApplyActionAvailability();
         if (currentBatchOutcome.Inventory.NewPrintingCount > 0)
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
         else
@@ -914,7 +1101,7 @@ public sealed class GachaViewController : MonoBehaviour
             row.AddToClassList("gacha-summary-row");
             var copy = new VisualElement();
             copy.AddToClassList("gacha-summary-row__copy");
-            var name = new Label(DisplayName(entry.Printing));
+            var name = new Label(DisplayName(entry.Printing, entry.Printing.Identity.LanguageId));
             name.AddToClassList("gacha-summary-row__name");
             var metadata = new Label(RevealMetadata(entry.Printing, entry.Award.CurrentCount));
             metadata.AddToClassList("gacha-summary-row__metadata");
@@ -933,6 +1120,8 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ShowSelectionPage()
     {
+        pendingConfirmationCount = 0;
+        confirmationPresenter?.Hide();
         packParticles?.Stop();
         revealParticles?.Stop();
         packAnimation?.Pause();
@@ -943,6 +1132,7 @@ public sealed class GachaViewController : MonoBehaviour
         revealEntries.Clear();
         revealIndex = -1;
         currentRevealHighlighted = false;
+        pageState = GachaPageState.Selection;
         openingPage.style.display = DisplayStyle.None;
         selectionPage.style.display = DisplayStyle.Flex;
         packStage.style.display = DisplayStyle.None;
@@ -956,6 +1146,14 @@ public sealed class GachaViewController : MonoBehaviour
             revealAura.style.opacity = 0f;
             revealAura.style.scale = new Scale(Vector3.one);
         }
+        frozenContentLanguageId = null;
+        if (pendingContentLanguageRefresh && IsReady && catalog != null)
+        {
+            pendingContentLanguageRefresh = false;
+            RebuildProducts();
+            RefreshLocalizedChrome();
+        }
+        ApplyActionAvailability();
     }
 
     private void AnimatePackTear(Action completed)
@@ -1032,12 +1230,12 @@ public sealed class GachaViewController : MonoBehaviour
             revealAura.style.opacity = highlighted ? 0.42f : 0f;
             revealAura.style.scale = new Scale(Vector3.one);
             revealAnimating = false;
-            revealButton.SetEnabled(true);
+            ApplyActionAvailability();
             return;
         }
 
         revealAnimating = true;
-        revealButton.SetEnabled(false);
+        ApplyActionAvailability();
         revealCard.style.opacity = 0f;
         revealCard.style.scale = new Scale(new Vector3(
             selectedTheme.RevealStartScale,
@@ -1071,7 +1269,7 @@ public sealed class GachaViewController : MonoBehaviour
             revealAnimating = false;
             revealAura.style.opacity = highlighted ? 0.42f : 0f;
             revealAura.style.scale = new Scale(Vector3.one);
-            revealButton.SetEnabled(true);
+            ApplyActionAvailability();
         }).Every(16);
     }
 
@@ -1082,18 +1280,19 @@ public sealed class GachaViewController : MonoBehaviour
         root.EnableInClassList("reduce-motion", UIFeedbackService.ReduceMotion);
         title.text = CardUiText.Get("gacha.title");
         subtitle.text = CardUiText.Get("gacha.subtitle");
-        menuButton.text = CardUiText.Get("common.action.main_menu");
-        manageContentButton.text = CardUiText.Get("common.action.manage_content");
+        menuAction?.SetLabel(CardUiText.Get("common.action.main_menu"));
+        manageContentAction?.SetLabel(CardUiText.Get("common.action.manage_content"));
         errorPresenter?.RefreshLanguage();
-        prepareButton.text = CardUiText.Get("gacha.action.open_one");
-        prepareTenButton.text = CardUiText.Get("gacha.action.open_ten");
-        tearButton.text = CardUiText.Get("gacha.action.tear");
-        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
-        backToProductsButton.text = CardUiText.Get("gacha.action.all_products");
-        openAgainButton.text = preparedProductCount == 1
+        prepareAction?.SetLabel(CardUiText.Get("gacha.action.open_one"));
+        prepareTenAction?.SetLabel(CardUiText.Get("gacha.action.open_ten"));
+        tearAction?.SetLabel(CardUiText.Get("gacha.action.tear"));
+        revealAllAction?.SetLabel(CardUiText.Get("gacha.action.reveal_all"));
+        backToProductsAction?.SetLabel(CardUiText.Get("gacha.action.all_products"));
+        openAgainAction?.SetLabel(preparedProductCount == 1
             ? CardUiText.Get("gacha.action.open_another")
-            : CardUiText.Get("gacha.action.open_ten_again");
-        summaryProductsButton.text = CardUiText.Get("gacha.action.choose_another");
+            : CardUiText.Get("gacha.action.open_ten_again"));
+        summaryProductsAction?.SetLabel(CardUiText.Get("gacha.action.choose_another"));
+        primaryNavigation?.RefreshText();
         oddsHeading.text = CardUiText.Get("gacha.odds.heading");
         if (selectedProduct != null)
             SelectProduct(selectedProduct);
@@ -1115,12 +1314,22 @@ public sealed class GachaViewController : MonoBehaviour
         if (openingService != null)
             RefreshOpeningJournal();
         productList?.RefreshItems();
+        if (confirmationPresenter?.IsVisible == true && pendingConfirmationCount > 0)
+            RequestOpenConfirmation(pendingConfirmationCount);
+        ApplyActionAvailability();
     }
 
-    private static void OpenContentManagement()
+    private void OpenContentManagement()
     {
-        ContentReturnNavigation.RememberCurrentScene();
-        SceneManager.LoadScene("006_ContentScene");
+        NavigatePrimary(MobileDestination.Content);
+    }
+
+    private void RequestRepeatOpening()
+    {
+        int count = preparedProductCount;
+        if (pendingContentLanguageRefresh)
+            ShowSelectionPage();
+        RequestOpenConfirmation(count);
     }
 
     private void OnUiLanguageChanged(string languageId)
@@ -1137,15 +1346,25 @@ public sealed class GachaViewController : MonoBehaviour
     {
         if (!IsReady || catalog == null)
             return;
+        pendingConfirmationCount = 0;
+        confirmationPresenter?.Hide();
+        if (pageState == GachaPageState.Opening ||
+            pageState == GachaPageState.Revealing ||
+            pageState == GachaPageState.Summary)
+        {
+            pendingContentLanguageRefresh = true;
+            return;
+        }
         string previousProductId = selectedProduct?.Id;
         productId = previousProductId;
+        ShowSelectionPage();
         RebuildProducts();
         RefreshLocalizedChrome();
-        ShowSelectionPage();
     }
 
     private void BuildRuleEvidence()
     {
+        DisposeRuleSourceActions();
         ruleSourceList.Clear();
         if (selectedProfile == null)
         {
@@ -1173,13 +1392,21 @@ public sealed class GachaViewController : MonoBehaviour
         {
             sourceIndex++;
             string source = evidence.SourceReference;
-            var button = new Button(() => OpenRuleSource(source))
+            var actionRoot = new VisualElement { name = $"gacha-rule-source-{sourceIndex}" };
+            actionRoot.AddToClassList("gacha-source-button");
+            var label = new Label
             {
                 text = CardUiText.Format("gacha.action.rule_source_number", sourceIndex, evidence.Title),
-                tooltip = source
+                pickingMode = PickingMode.Ignore
             };
-            button.AddToClassList("gacha-source-button");
-            ruleSourceList.Add(button);
+            label.AddToClassList("gacha-source-button__label");
+            actionRoot.Add(label);
+            var action = new MobileActionControl(
+                actionRoot,
+                () => OpenRuleSource(source),
+                fallbackLabelClass: "gacha-source-button__label");
+            ruleSourceActions.Add(action);
+            ruleSourceList.Add(action.Root);
         }
         ruleSourceList.style.display = ruleSourceList.childCount > 0
             ? DisplayStyle.Flex
@@ -1229,7 +1456,7 @@ public sealed class GachaViewController : MonoBehaviour
     private string RevealMetadata(PrintingDefinition printing, int ownedCount)
     {
         string rarity = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition definition)
-            ? DisplayName(definition)
+            ? DisplayName(definition, printing.Identity.LanguageId)
             : printing.RarityId;
         return CardUiText.Format(
             "gacha.reveal.metadata",
@@ -1242,6 +1469,101 @@ public sealed class GachaViewController : MonoBehaviour
     private string DisplayName(Definition definition)
     {
         return ApplicationServices.Languages.GetDisplayName(definition);
+    }
+
+    private static string DisplayName(Definition definition, string contentLanguageId)
+    {
+        return definition.GetDisplayName(contentLanguageId);
+    }
+
+    private static string RuleTrustLabel(ProductRuleTrust trust)
+    {
+        switch (trust)
+        {
+            case ProductRuleTrust.HistoricallyVerified:
+                return CardUiText.Get("gacha.rule.verified");
+            case ProductRuleTrust.SourceInformedSimulation:
+                return CardUiText.Get("gacha.rule.sourced_simulation");
+            default:
+                return CardUiText.Get("gacha.rule.simulation");
+        }
+    }
+
+    private void ApplyActionAvailability()
+    {
+        bool available = !destroyed && !navigationRequested;
+        menuAction?.SetEnabled(available);
+        manageContentAction?.SetEnabled(available);
+        errorRetryAction?.SetEnabled(available && pageState == GachaPageState.Error);
+        errorManageAction?.SetEnabled(available && pageState == GachaPageState.Error);
+        errorHomeAction?.SetEnabled(available && pageState == GachaPageState.Error);
+        prepareAction?.SetEnabled(
+            available && pageState == GachaPageState.Selection && selectedProduct != null);
+        prepareTenAction?.SetEnabled(
+            available && pageState == GachaPageState.Selection && selectedProduct != null);
+        tearAction?.SetEnabled(available && pageState == GachaPageState.Prepared && !packAnimating);
+        revealAction?.SetEnabled(available && pageState == GachaPageState.Revealing && !revealAnimating);
+        revealAllAction?.SetEnabled(available && pageState == GachaPageState.Revealing && !revealAnimating);
+        backToProductsAction?.SetEnabled(
+            available && (pageState == GachaPageState.Prepared || pageState == GachaPageState.Revealing));
+        openAgainAction?.SetEnabled(available && pageState == GachaPageState.Summary);
+        summaryProductsAction?.SetEnabled(available && pageState == GachaPageState.Summary);
+    }
+
+    private void CompleteActiveAnimationsForPause()
+    {
+        packAnimation?.Pause();
+        packAnimation = null;
+        revealAnimation?.Pause();
+        revealAnimation = null;
+        packParticles?.Stop();
+        revealParticles?.Stop();
+
+        if (pageState == GachaPageState.Opening && currentBatchOutcome != null)
+        {
+            packAnimating = false;
+            BeginRevealStage();
+            return;
+        }
+
+        packAnimating = false;
+        revealAnimating = false;
+        if (packShell != null)
+        {
+            packShell.style.opacity = 1f;
+            packShell.style.scale = new Scale(Vector3.one);
+        }
+        if (revealCard != null)
+        {
+            revealCard.style.opacity = 1f;
+            revealCard.style.scale = new Scale(Vector3.one);
+        }
+        ApplyActionAvailability();
+    }
+
+    private void HideLegacyCanvas()
+    {
+        foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())
+        {
+            foreach (Canvas canvas in sceneRoot.GetComponentsInChildren<Canvas>(true))
+            {
+                if (canvas != null && canvas.gameObject.scene == gameObject.scene)
+                    canvas.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private void DisposeRuleSourceActions()
+    {
+        foreach (MobileActionControl action in ruleSourceActions)
+            action.Dispose();
+        ruleSourceActions.Clear();
+    }
+
+    private static void DisposeAction(ref MobileActionControl action)
+    {
+        action?.Dispose();
+        action = null;
     }
 
     private void SetStatus(string message, bool isError)
@@ -1283,19 +1605,19 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ApplyRevealText()
     {
-        revealAllButton.text = CardUiText.Get("gacha.action.reveal_all");
+        revealAllAction.SetLabel(CardUiText.Get("gacha.action.reveal_all"));
         if (revealIndex < 0 || revealIndex >= revealEntries.Count)
         {
             revealName.text = CardUiText.Get("gacha.reveal.ready");
             revealMetadata.text = CardUiText.Get("gacha.reveal.one_at_time");
             revealNewBadge.text = string.Empty;
             revealProgress.text = CardUiText.Format("gacha.reveal.pending_progress", revealEntries.Count);
-            revealButton.text = CardUiText.Get("gacha.action.reveal_first");
+            revealAction.SetLabel(CardUiText.Get("gacha.action.reveal_first"));
             return;
         }
 
         RevealEntry entry = revealEntries[revealIndex];
-        revealName.text = DisplayName(entry.Printing);
+        revealName.text = DisplayName(entry.Printing, entry.Printing.Identity.LanguageId);
         revealMetadata.text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
         revealNewBadge.text = entry.Award.IsNew
             ? CardUiText.Get("common.badge.new")
@@ -1308,9 +1630,9 @@ public sealed class GachaViewController : MonoBehaviour
                 revealIndex + 1,
                 revealEntries.Count)
             : CardUiText.Format("gacha.reveal.progress", revealIndex + 1, revealEntries.Count);
-        revealButton.text = revealIndex == revealEntries.Count - 1
+        revealAction.SetLabel(revealIndex == revealEntries.Count - 1
             ? CardUiText.Get("gacha.action.view_results")
-            : CardUiText.Get("gacha.action.reveal_next");
+            : CardUiText.Get("gacha.action.reveal_next"));
     }
 
     private void ApplySummaryText()

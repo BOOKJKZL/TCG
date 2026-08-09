@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -11,9 +12,7 @@ public class TrainerUiVisualContractTests
     {
         foreach (string path in new[]
                  {
-                     "Assets/UI/GachaView.uxml",
-                     "Assets/UI/CollectionView.uxml",
-                     "Assets/UI/ContentManagementView.uxml"
+                     "Assets/UI/CollectionView.uxml"
                  })
         {
             VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(path);
@@ -26,6 +25,23 @@ public class TrainerUiVisualContractTests
             Assert.That(lights, Is.Not.Null, path);
             Assert.That(lights.childCount, Is.EqualTo(4), path);
         }
+
+        VisualTreeAsset mobileTopBar = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+            "Assets/Resources/UI/Mobile/MobileTopBar.uxml");
+        Assert.That(mobileTopBar, Is.Not.Null);
+        TemplateContainer mobileRoot = mobileTopBar.CloneTree();
+        VisualElement leading = mobileRoot.Q<VisualElement>("top-bar-leading");
+        Assert.That(leading, Is.Not.Null);
+        Assert.That(leading.childCount, Is.EqualTo(4));
+        Assert.That(leading.Q<VisualElement>(className: "mobile-top-bar__lens"), Is.Not.Null);
+        Assert.That(leading.Query<VisualElement>(className: "mobile-top-bar__light").ToList().Count,
+            Is.EqualTo(3));
+        foreach (string controllerPath in new[]
+                 {
+                     "Assets/Scripts/004_Controller/GachaViewController.cs",
+                     "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs"
+                 })
+            Assert.That(File.ReadAllText(controllerPath), Does.Contain("new MobileTopBar"), controllerPath);
     }
 
     [Test]

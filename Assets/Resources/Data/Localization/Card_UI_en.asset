@@ -1045,6 +1045,22 @@ MonoBehaviour:
     m_Localized: Queued for download
     m_Metadata:
       m_Items: []
+  - m_Id: 172203318969020422
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020423
+    m_Localized: Confirm pack opening
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020424
+    m_Localized: "{0} \xD7 {1}\nCard language: {2}\nRule: {3}\nYour collection updates when you tear the pack."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020425
+    m_Localized: Open now
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

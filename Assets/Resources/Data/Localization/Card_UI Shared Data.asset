@@ -1031,6 +1031,22 @@ MonoBehaviour:
     m_Key: content.status.queued
     m_Metadata:
       m_Items: []
+  - m_Id: 172203318969020422
+    m_Key: common.action.cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020423
+    m_Key: gacha.confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020424
+    m_Key: gacha.confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172203318969020425
+    m_Key: gacha.action.confirm_open
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

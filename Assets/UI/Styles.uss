@@ -1721,6 +1721,222 @@
     white-space: normal;
 }
 
+/* Mobile pack-opening presentation. The shared page shell owns the only Safe Area
+   binding; this host remains edge-to-edge and contains no durable inline state. */
+.gacha-opening-host {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgb(4, 9, 20);
+}
+
+.gacha-opening-host > .gacha-opening {
+    padding: 0;
+}
+
+.gacha-opening-host .is-hidden {
+    display: none;
+}
+
+.gacha-opening__body {
+    flex-grow: 1;
+    min-height: 0;
+    padding: 0 12px 12px 12px;
+}
+
+.gacha-opening .gacha-page,
+.gacha-opening .gacha-stage,
+.gacha-opening .gacha-summary-list {
+    min-height: 0;
+}
+
+.gacha-opening .gacha-summary-list {
+    overflow: hidden;
+}
+
+.gacha-opening .gacha-summary__actions {
+    flex-shrink: 0;
+}
+
+.gacha-opening .mobile-sheet__panel {
+    width: auto;
+    max-width: 760px;
+    align-self: stretch;
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-bottom: 20px;
+}
+
+.gacha-opening .mobile-sheet__safe-area.mobile-layout--compact .mobile-sheet__panel {
+    max-width: 640px;
+}
+
+.gacha-selection {
+    min-height: 0;
+}
+
+.gacha-product-list {
+    min-height: 240px;
+}
+
+.gacha-product-row {
+    height: auto;
+    min-height: 118px;
+    transition-property: none;
+}
+
+.gacha-product-row:hover {
+    scale: 1 1;
+}
+
+.gacha-selected-product-scroll {
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+.gacha-selected-product {
+    flex-grow: 0;
+    align-items: flex-start;
+}
+
+.gacha-selected-product__body {
+    min-width: 0;
+}
+
+.gacha-source-button {
+    min-height: 48px;
+    height: auto;
+    transition-property: none;
+}
+
+.gacha-source-button:hover {
+    background-color: rgba(24, 94, 65, 0.94);
+}
+
+.gacha-source-button:active {
+    scale: 1 1;
+}
+
+.gacha-source-button__label,
+.gacha-button__label {
+    color: white;
+    font-size: 18px;
+    -unity-font-style: bold;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.gacha-source-button__label {
+    color: rgb(205, 255, 227);
+    font-size: 15px;
+}
+
+.gacha-button {
+    min-height: 52px;
+    height: auto;
+    align-items: center;
+    justify-content: center;
+    transition-property: none;
+}
+
+.gacha-button:hover {
+    background-color: rgb(94, 55, 145);
+}
+
+.gacha-button.gacha-button--primary:hover {
+    background-color: rgb(164, 58, 133);
+}
+
+.gacha-button.gacha-button--quiet:hover {
+    background-color: rgba(55, 61, 91, 0.96);
+}
+
+.gacha-button:active {
+    scale: 1 1;
+}
+
+.gacha-button__label.is-pressed,
+.gacha-source-button__label.is-pressed {
+    opacity: 0.62;
+}
+
+.gacha-button__label.is-disabled,
+.gacha-source-button__label.is-disabled,
+.gacha-button:focus .gacha-button__label.is-disabled,
+.gacha-source-button:focus .gacha-source-button__label.is-disabled {
+    color: rgba(194, 198, 211, 0.58);
+}
+
+.gacha-button:focus .gacha-button__label,
+.gacha-source-button:focus .gacha-source-button__label {
+    color: rgb(255, 225, 126);
+}
+
+.gacha-opening-history {
+    max-height: none;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selection {
+    flex-direction: column;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-product-list {
+    width: 100%;
+    height: 220px;
+    margin-right: 0;
+    margin-bottom: 12px;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selected-product {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selected-product__art {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selected-product__body {
+    margin-left: 0;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-batch-actions,
+.gacha-opening .mobile-layout--compact .gacha-reveal__actions,
+.gacha-opening .mobile-layout--compact .gacha-summary__actions,
+.gacha-opening .mobile-layout--compact .player-error-panel__actions {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-batch-actions .gacha-button,
+.gacha-opening .mobile-layout--compact .gacha-reveal__actions .gacha-button,
+.gacha-opening .mobile-layout--compact .gacha-summary__actions .gacha-button,
+.gacha-opening .mobile-layout--compact .player-error-panel__actions .gacha-button {
+    width: 100%;
+    margin: 6px 0 0 0;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-pack-shell,
+.gacha-opening .mobile-layout--compact .gacha-reveal-card {
+    width: 286px;
+    height: 408px;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-pack-shell__art .async-card-image {
+    width: 230px;
+    height: 332px;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-reveal-card__art .async-card-image {
+    width: 260px;
+    height: 364px;
+}
+
 .content-management .mobile-layout--compact .content-package-row {
     height: auto;
     min-height: 236px;

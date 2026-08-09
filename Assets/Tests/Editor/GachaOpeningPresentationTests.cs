@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -26,11 +27,53 @@ public class GachaOpeningPresentationTests
         Assert.That(root.Q<VisualElement>("reveal-aura"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-art-slot"), Is.Not.Null);
         Assert.That(root.Q<ScrollView>("summary-list"), Is.Not.Null);
-        Assert.That(root.Q<Button>("tear-pack-button"), Is.Not.Null);
-        Assert.That(root.Q<Button>("reveal-next-button"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("tear-pack-button")?.Q<Label>(), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("reveal-next-button")?.Q<Label>(), Is.Not.Null);
         Assert.That(root.Q<Label>("rule-evidence-summary"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("rule-source-list"), Is.Not.Null);
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
+        Assert.That(root.Query<Button>().ToList(), Is.Empty);
+        string source = File.ReadAllText("Assets/UI/GachaView.uxml");
+        Assert.That(source, Does.Not.Contain("<ui:Button"));
+        Assert.That(source, Does.Not.Contain("style="));
+        Assert.That(source, Does.Contain("virtualization-method=\"DynamicHeight\""));
+    }
+
+    [Test]
+    public void GachaLocalization_ContainsConfirmationKeysInEveryLocale()
+    {
+        string[] keys =
+        {
+            "common.action.cancel",
+            "gacha.confirm.title",
+            "gacha.confirm.body",
+            "gacha.action.confirm_open"
+        };
+        string[] tables =
+        {
+            "Assets/Resources/Data/Localization/Card_UI_en.asset",
+            "Assets/Resources/Data/Localization/Card_UI_zh.asset",
+            "Assets/Resources/Data/Localization/Card_UI_ja.asset"
+        };
+        string shared = File.ReadAllText(
+            "Assets/Resources/Data/Localization/Card_UI Shared Data.asset");
+        foreach (string key in keys)
+        {
+            Assert.That(shared, Does.Contain("m_Key: " + key), key);
+            Assert.That(Gacha.Presentation.CardUiText.EnglishFallbacks.ContainsKey(key), Is.True, key);
+        }
+        foreach (string table in tables)
+        {
+            string contents = File.ReadAllText(table);
+            foreach (long id in new[]
+                     {
+                         172203318969020422L,
+                         172203318969020423L,
+                         172203318969020424L,
+                         172203318969020425L
+                     })
+                Assert.That(contents, Does.Contain("m_Id: " + id), table);
+        }
     }
 
     [Test]

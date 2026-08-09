@@ -17,6 +17,55 @@ namespace Gacha.Tests.PlayMode
     public class GachaOpeningPlayModeTests
     {
         [UnityTest]
+        public IEnumerator EmptyCatalog_KeepsMobileNavigationAndManageContentReachable()
+        {
+            Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("GachaViewController"))
+                .First(type => type != null);
+            PropertyInfo catalogOverride = controllerType.GetProperty(
+                "CatalogProviderOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            PropertyInfo storeOverride = controllerType.GetProperty(
+                "InventoryStoreOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            PropertyInfo sceneOverride = controllerType.GetProperty(
+                "SceneLoaderOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            string routedScene = null;
+            catalogOverride.SetValue(null, new EmptyCatalogProvider());
+            storeOverride.SetValue(null, new MemoryProgressStore());
+            sceneOverride.SetValue(null, (Action<string>)(scene => routedScene = scene));
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("003_GachaScene", LoadSceneMode.Single);
+                Component controller = UnityEngine.Object.FindFirstObjectByType(controllerType) as Component;
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (!(bool)GetProperty(controller, "IsReady") && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That((bool)GetProperty(controller, "IsReady"), Is.True,
+                    GetProperty(controller, "InitializationError") as string);
+                yield return null;
+                Assert.That((int)GetProperty(controller, "ProductCount"), Is.Zero);
+                UIDocument document = controller.GetComponent<UIDocument>();
+                VisualElement root = document.rootVisualElement;
+                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(5));
+                VisualElement manage = root.Q<VisualElement>("gacha-manage-content-button");
+                Assert.That(manage.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(manage.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                Assert.That(root.Q<Label>("gacha-status").text, Is.Not.Empty);
+                SendTap(manage);
+                yield return null;
+                Assert.That(routedScene, Is.EqualTo("006_ContentScene"));
+            }
+            finally
+            {
+                catalogOverride.SetValue(null, null);
+                storeOverride.SetValue(null, null);
+                sceneOverride.SetValue(null, null);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GachaScene_OpensAndRevealsASimulatedPack()
         {
             Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
@@ -27,8 +76,16 @@ namespace Gacha.Tests.PlayMode
                 "InventoryStoreOverride",
                 BindingFlags.Static | BindingFlags.Public);
             storeOverride.SetValue(null, store);
+            PropertyInfo sceneLoaderOverride = controllerType.GetProperty(
+                "SceneLoaderOverride",
+                BindingFlags.Static | BindingFlags.Public);
             var cues = new List<FeedbackCue>();
             string originalUiLanguage = null;
+            string originalContentLanguage = null;
+            bool originalReduceMotion = UIFeedbackService.ReduceMotion;
+            bool originalHaptics = UIFeedbackService.HapticsEnabled;
+            bool originalSound = UIFeedbackService.SoundEnabled;
+            float originalAnimationSpeed = UIFeedbackService.AnimationSpeed;
             UIFeedbackService.FeedbackPlayed += cues.Add;
             try
             {
@@ -50,11 +107,98 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(productCount, Is.GreaterThanOrEqualTo(5));
 
                 UIDocument document = controller.GetComponent<UIDocument>();
-                Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
+                var confirmation = GetPrivateField(controller, "confirmationPresenter") as MobileConfirmationPresenter;
+                Assert.That(confirmation, Is.Not.Null);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("safe-area")
                     .ClassListContains("safe-area-bound"), Is.True);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("mobile-bottom-navigation")
+                    .childCount, Is.EqualTo(5));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("nav-gacha")
+                    .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.True);
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");
                 Assert.That(productList.itemsSource.Count, Is.EqualTo(productCount));
-                Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.FixedHeight));
+                Assert.That(productList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
+                Assert.That(controller.gameObject.scene.GetRootGameObjects()
+                    .SelectMany(sceneRoot => sceneRoot.GetComponentsInChildren<Canvas>(true))
+                    .All(canvas => !canvas.gameObject.activeInHierarchy), Is.True);
+
+                var viewport = new VisualElement { name = "gacha-contract-viewport" };
+                viewport.style.position = Position.Relative;
+                viewport.style.width = 720f;
+                viewport.style.height = 1600f;
+                VisualElement gachaHost = document.rootVisualElement.Q<VisualElement>("gacha-opening");
+                VisualElement pageRoot = gachaHost.Q<VisualElement>("gacha-opening-page-shell");
+                document.rootVisualElement.Clear();
+                document.rootVisualElement.Add(viewport);
+                viewport.Add(gachaHost);
+                object pageShell = GetPrivateField(controller, "mobilePageShell");
+                var safeAreaBinding = GetPrivateField(pageShell, "safeAreaBinding") as UiToolkitSafeAreaBinding;
+                Assert.That(safeAreaBinding, Is.Not.Null);
+                safeAreaBinding.Suspend();
+                VisualElement safeArea = pageRoot.Q<VisualElement>("safe-area");
+                safeArea.AddToClassList("mobile-layout--compact");
+                safeArea.style.paddingLeft = 48f;
+                safeArea.style.paddingTop = 60f;
+                safeArea.style.paddingRight = 12f;
+                safeArea.style.paddingBottom = 84f;
+                yield return null;
+                yield return null;
+                Rect safeContent = InsetRect(safeArea.worldBound, safeArea.resolvedStyle);
+                AssertContained(safeContent, pageRoot.Q<VisualElement>("mobile-top-bar").worldBound, "top bar");
+                AssertContained(safeContent,
+                    pageRoot.Q<VisualElement>("mobile-bottom-navigation").worldBound,
+                    "bottom navigation");
+                foreach (string destination in new[] { "home", "gacha", "collection", "content", "settings" })
+                {
+                    VisualElement nav = pageRoot.Q<VisualElement>("nav-" + destination);
+                    Assert.That(nav.worldBound.height, Is.GreaterThanOrEqualTo(48f), destination);
+                    AssertContained(safeContent, nav.worldBound, destination);
+                }
+                ScrollView selectedScroll = pageRoot.Q<ScrollView>("selected-product-scroll");
+                Assert.That(selectedScroll.worldBound.yMin,
+                    Is.GreaterThanOrEqualTo(productList.worldBound.yMax - 1f));
+                ApplicationServices.Languages.SelectUiLanguage("ja");
+                yield return null;
+                yield return null;
+                VisualElement prepareTen = pageRoot.Q<VisualElement>("prepare-ten-button");
+                selectedScroll.ScrollTo(prepareTen);
+                yield return null;
+                yield return null;
+                Assert.That(selectedScroll.contentViewport.worldBound.Contains(prepareTen.worldBound.center), Is.True,
+                    $"Selected viewport {selectedScroll.contentViewport.worldBound}; action {prepareTen.worldBound}; " +
+                    $"scroll {selectedScroll.worldBound}.");
+                Assert.That(prepareTen.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                UiToolkitSafeAreaBinding sheetBinding = GetPrivateField(
+                    confirmation.Sheet,
+                    "safeAreaBinding") as UiToolkitSafeAreaBinding;
+                Assert.That(sheetBinding, Is.Not.Null);
+                sheetBinding.Suspend();
+                VisualElement sheetSafeArea = pageRoot.Q<VisualElement>("sheet-safe-area");
+                sheetSafeArea.AddToClassList("mobile-layout--compact");
+                sheetSafeArea.style.paddingLeft = 48f;
+                sheetSafeArea.style.paddingTop = 60f;
+                sheetSafeArea.style.paddingRight = 12f;
+                sheetSafeArea.style.paddingBottom = 84f;
+                SendTap(prepareTen);
+                yield return null;
+                yield return null;
+                Assert.That(confirmation.IsVisible, Is.True);
+                Assert.That(pageRoot.Q<Label>("sheet-title").text, Is.Not.EqualTo("Confirm pack opening"));
+                Rect sheetSafeContent = InsetRect(sheetSafeArea.worldBound, sheetSafeArea.resolvedStyle);
+                VisualElement sheetPanel = pageRoot.Q<VisualElement>("sheet-panel");
+                AssertContained(sheetSafeContent, sheetPanel.worldBound,
+                    $"Japanese confirmation sheet; safe={sheetSafeContent}; panel={sheetPanel.worldBound}; " +
+                    $"resolved width={sheetPanel.resolvedStyle.width}, margins=" +
+                    $"{sheetPanel.resolvedStyle.marginLeft}/{sheetPanel.resolvedStyle.marginRight}");
+                Assert.That(pageRoot.Q<VisualElement>("confirmation-confirm").worldBound.height,
+                    Is.GreaterThanOrEqualTo(48f));
+                Assert.That(pageRoot.Q<VisualElement>("confirmation-cancel").worldBound.height,
+                    Is.GreaterThanOrEqualTo(48f));
+                SendTap(confirmation.Cancel.Root);
+                yield return null;
+                Assert.That(confirmation.IsVisible, Is.False);
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                yield return null;
                 int initialBaseIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
                     .Single(pair => pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal))
@@ -78,26 +222,27 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
                     .ClassListContains("gacha-theme--vintage"), Is.True);
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+                originalContentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("开 1 包"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-ten-button").text, Is.EqualTo("十连开包"));
+                Assert.That(ActionText(document.rootVisualElement, "prepare-pack-button"), Is.EqualTo("开 1 包"));
+                Assert.That(ActionText(document.rootVisualElement, "prepare-ten-button"), Is.EqualTo("十连开包"));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
                     Does.Contain("已佐证").And.Contain("2026-07-23"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list").childCount,
                     Is.EqualTo(2));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
-                    .Children().OfType<Button>().First().text, Does.StartWith("来源 1："));
+                    .Children().First().Q<Label>().text, Does.StartWith("来源 1："));
                 ApplicationServices.Languages.SelectUiLanguage("en");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("Open a Pack"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-pack-button").text, Is.EqualTo("Open 1 pack"));
-                Assert.That(document.rootVisualElement.Q<Button>("prepare-ten-button").text, Is.EqualTo("Open 10 packs"));
+                Assert.That(ActionText(document.rootVisualElement, "prepare-pack-button"), Is.EqualTo("Open 1 pack"));
+                Assert.That(ActionText(document.rootVisualElement, "prepare-ten-button"), Is.EqualTo("Open 10 packs"));
                 Assert.That(document.rootVisualElement.Q<Label>("rule-evidence-summary").text,
                     Does.Contain("Corroborated").And.Contain("2026-07-23"));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
-                    .Children().OfType<Button>().First().text, Does.StartWith("Source 1:"));
+                    .Children().First().Q<Label>().text, Does.StartWith("Source 1:"));
 
                 int exIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
@@ -182,7 +327,50 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
                     .ClassListContains("gacha-theme--gallery"), Is.False);
 
-                Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
+                VisualElement preparePack = document.rootVisualElement.Q<VisualElement>("prepare-pack-button");
+                selectedScroll.ScrollTo(preparePack);
+                yield return null;
+                SendTap(preparePack);
+                yield return null;
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.True);
+                Assert.That(document.rootVisualElement.Q<Label>("sheet-body").text,
+                    Does.Contain("Card language:").And.Contain("Rule:"));
+                SendTap(confirmation.Cancel.Root);
+                yield return null;
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.False);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Selection"));
+                Assert.That(store.ProductsOpened, Is.Zero);
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (confirmation.Root.resolvedStyle.display != DisplayStyle.None &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(confirmation.Root.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                selectedScroll.ScrollTo(preparePack);
+                yield return null;
+                yield return null;
+                Assert.That(selectedScroll.contentViewport.worldBound.Contains(preparePack.worldBound.center), Is.True);
+                SendTap(preparePack);
+                yield return null;
+                yield return null;
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.True,
+                    "Reopening the confirmation after cancellation should succeed.");
+                VisualElement confirmOpen = confirmation.Confirm.Root;
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (confirmOpen.worldBound.width <= 0f && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(confirmation.Confirm.IsEnabled, Is.True);
+                Assert.That(confirmOpen.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(confirmOpen.worldBound.width, Is.GreaterThan(0f));
+                Assert.That(confirmOpen.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                SendTap(confirmOpen);
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.False,
+                    "The real pointer sequence should activate the confirmation action.");
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Prepared"),
+                    "The confirmation callback should advance the opening state exactly once.");
+                SendTap(confirmOpen);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Prepared"));
+                Assert.That(store.ProductsOpened, Is.Zero);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-stage").resolvedStyle.display,
                     Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-theme-artwork")
@@ -204,11 +392,11 @@ namespace Gacha.Tests.PlayMode
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("第 0 / 11 张"));
-                Assert.That(document.rootVisualElement.Q<Button>("reveal-next-button").text, Is.EqualTo("翻开第一张"));
+                Assert.That(ActionText(document.rootVisualElement, "reveal-next-button"), Is.EqualTo("翻开第一张"));
                 ApplicationServices.Languages.SelectUiLanguage("en");
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("0 of 11 cards"));
-                Assert.That(document.rootVisualElement.Q<Button>("reveal-next-button").text, Is.EqualTo("Reveal first card"));
+                Assert.That(ActionText(document.rootVisualElement, "reveal-next-button"), Is.EqualTo("Reveal first card"));
                 Assert.That(store.ProductsOpened, Is.EqualTo(1));
                 Assert.That(store.TotalCards, Is.EqualTo(openedCardCount));
                 Assert.That(cues, Does.Contain(FeedbackCue.PackOpen));
@@ -250,6 +438,46 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<Label>("summary-title").text, Is.EqualTo("Pack complete"));
                 Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text, Does.Contain("cards"));
 
+                string frozenLanguage = (string)GetProperty(controller, "FrozenContentLanguageId");
+                string firstSummaryName = document.rootVisualElement
+                    .Q<ScrollView>("summary-list").contentContainer
+                    .Q<Label>(className: "gacha-summary-row__name").text;
+                UniversalCatalog runtimeCatalog = GetPrivateField(controller, "catalog") as UniversalCatalog;
+                ApplicationServices.Languages.SelectContentLanguage("ja", runtimeCatalog);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Summary"));
+                Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
+                Assert.That((string)GetProperty(controller, "FrozenContentLanguageId"), Is.EqualTo(frozenLanguage));
+                Assert.That(document.rootVisualElement.Q<ScrollView>("summary-list").contentContainer
+                    .Q<Label>(className: "gacha-summary-row__name").text, Is.EqualTo(firstSummaryName));
+                UIFeedbackService.Configure(true, false, 1f, false);
+                SendTap(document.rootVisualElement.Q<VisualElement>("open-again-button"));
+                yield return null;
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Selection"));
+                Assert.That((string)GetProperty(controller, "FrozenContentLanguageId"), Is.Null);
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.True);
+                Assert.That(document.rootVisualElement.Q<Label>("sheet-body").text, Does.Contain("ja"));
+                yield return null;
+                SendTap(confirmation.Confirm.Root);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "FrozenContentLanguageId"), Is.EqualTo("ja"));
+                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
+                Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.False);
+                Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.False);
+                deadline = Time.realtimeSinceStartup + 3f;
+                while (revealStage.resolvedStyle.display != DisplayStyle.Flex &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(InvokeBool(controller, "RevealAllCards"), Is.True);
+                yield return null;
+                Assert.That(store.GetOpeningHistory(1).Single().LanguageId, Is.EqualTo("ja"));
+                UIFeedbackService.Configure(false, true, 1f, true);
+                ApplicationServices.Languages.SelectContentLanguage(originalContentLanguage, runtimeCatalog);
+                yield return null;
+                InvokePrivate(controller, "ShowSelectionPage");
+                yield return null;
+
                 int neoIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
                     .Single(pair => pair.product.SetId.EndsWith(":neo1", StringComparison.Ordinal))
@@ -270,6 +498,11 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
                 Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                InvokePrivate(controller, "OnApplicationPause", true);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
+                Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.False);
+                yield return new WaitForSecondsRealtime(0.35f);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
                 deadline = Time.realtimeSinceStartup + 3f;
                 while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
                     yield return null;
@@ -277,7 +510,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(store.LastCommittedIds.Count, Is.EqualTo(11));
                 Assert.That(store.LastCommittedIds.All(id => id.Contains("first-edition")), Is.True);
 
-                Button revealAll = document.rootVisualElement.Q<Button>("reveal-all-button");
+                VisualElement revealAll = document.rootVisualElement.Q<VisualElement>("reveal-all-button");
                 Assert.That(revealAll, Is.Not.Null);
                 Assert.That(revealAll.ClassListContains("gacha-button--quiet"), Is.True);
                 Assert.That(InvokeBool(controller, "RevealAllCards"), Is.True);
@@ -286,7 +519,31 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((bool)GetProperty(controller, "IsSummaryVisible"), Is.True);
                 Assert.That(InvokeBool(controller, "RevealAllCards"), Is.False);
 
-                Assert.That(InvokeBool(controller, "PrepareTenProducts"), Is.True);
+                VisualElement summaryProducts =
+                    document.rootVisualElement.Q<VisualElement>("summary-products-button");
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (summaryProducts.worldBound.height < 48f && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(summaryProducts.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                SendTap(summaryProducts);
+                yield return null;
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Selection"));
+                deadline = Time.realtimeSinceStartup + 1f;
+                do
+                {
+                    selectedScroll.ScrollTo(prepareTen);
+                    yield return null;
+                } while (!selectedScroll.contentViewport.worldBound.Contains(prepareTen.worldBound.center) &&
+                         Time.realtimeSinceStartup < deadline);
+                Assert.That(selectedScroll.contentViewport.worldBound.Contains(prepareTen.worldBound.center), Is.True);
+                SendTap(prepareTen);
+                yield return null;
+                yield return null;
+                Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.True);
+                VisualElement confirmTen = confirmation.Confirm.Root;
+                SendTap(confirmTen);
+                SendTap(confirmTen);
+                yield return null;
                 Assert.That((int)GetProperty(controller, "PreparedProductCount"), Is.EqualTo(10));
                 Assert.That(document.rootVisualElement.Q<Label>("pack-hint").text,
                     Does.Contain("first of 10 packs"));
@@ -296,26 +553,58 @@ namespace Gacha.Tests.PlayMode
                     yield return null;
                 Assert.That((int)GetProperty(controller, "LastOpenedProductCount"), Is.EqualTo(10));
                 Assert.That((int)GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(110));
-                Assert.That(store.ProductsOpened, Is.EqualTo(12));
+                Assert.That(store.ProductsOpened, Is.EqualTo(13));
                 Assert.That(InvokeBool(controller, "RevealAllCards"), Is.True);
                 yield return null;
                 Assert.That(document.rootVisualElement.Q<Label>("summary-title").text,
                     Is.EqualTo("Batch complete"));
                 Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text,
                     Does.Contain("10 packs").And.Contain("110 cards"));
-                Assert.That((int)GetProperty(controller, "RecentHistoryCount"), Is.EqualTo(3));
+                Assert.That((int)GetProperty(controller, "RecentHistoryCount"), Is.EqualTo(4));
                 Assert.That(document.rootVisualElement.Q<Label>("opening-statistics").text,
-                    Does.Contain("12 packs").And.Contain("132 cards"));
-                Assert.That(document.rootVisualElement.Q<ScrollView>("opening-history").contentContainer.childCount,
-                    Is.EqualTo(3));
-                Assert.That(cues.Count(cue => cue == FeedbackCue.PackOpen), Is.EqualTo(3));
+                    Does.Contain("13 packs").And.Contain("137 cards"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("opening-history").childCount,
+                    Is.EqualTo(4));
+                Assert.That(cues.Count(cue => cue == FeedbackCue.PackOpen), Is.EqualTo(4));
+
+                int routeCalls = 0;
+                string requestedScene = null;
+                sceneLoaderOverride.SetValue(null, (Action<string>)(sceneName =>
+                {
+                    routeCalls++;
+                    requestedScene = sceneName;
+                }));
+                SendTap(document.rootVisualElement.Q<VisualElement>("nav-gacha"));
+                yield return null;
+                Assert.That(routeCalls, Is.Zero);
+                SendTap(document.rootVisualElement.Q<VisualElement>("nav-content"));
+                SendTap(document.rootVisualElement.Q<VisualElement>("nav-settings"));
+                yield return null;
+                Assert.That(routeCalls, Is.EqualTo(1));
+                Assert.That(requestedScene, Is.EqualTo("006_ContentScene"));
+                Assert.That(document.rootVisualElement.Q<VisualElement>("nav-content")
+                    .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.True);
+                Assert.That(document.rootVisualElement.Q<VisualElement>("nav-gacha")
+                    .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.False);
             }
             finally
             {
                 if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
+                if (!string.IsNullOrWhiteSpace(originalContentLanguage) && ApplicationServices.IsConfigured)
+                {
+                    UniversalCatalog installed = ApplicationServices.Catalog.Catalog;
+                    if (installed != null)
+                        ApplicationServices.Languages.SelectContentLanguage(originalContentLanguage, installed);
+                }
                 UIFeedbackService.FeedbackPlayed -= cues.Add;
                 storeOverride.SetValue(null, null);
+                sceneLoaderOverride.SetValue(null, null);
+                UIFeedbackService.Configure(
+                    originalReduceMotion,
+                    originalHaptics,
+                    originalAnimationSpeed,
+                    originalSound);
             }
         }
 
@@ -324,9 +613,53 @@ namespace Gacha.Tests.PlayMode
             return target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(target);
         }
 
-        private static bool InvokeBool(object target, string name)
+        private static string ActionText(VisualElement root, string name) =>
+            root.Q<VisualElement>(name)?.Q<Label>()?.text;
+
+        private static bool InvokeBool(object target, string name, params object[] arguments)
         {
-            return (bool)target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public)?.Invoke(target, null);
+            return (bool)target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public)
+                ?.Invoke(target, arguments);
+        }
+
+        private static object GetPrivateField(object target, string name) =>
+            target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
+
+        private static void InvokePrivate(object target, string name, params object[] arguments) =>
+            target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(target, arguments);
+
+        private static Rect InsetRect(Rect bounds, IResolvedStyle style) => new Rect(
+            bounds.xMin + style.paddingLeft,
+            bounds.yMin + style.paddingTop,
+            bounds.width - style.paddingLeft - style.paddingRight,
+            bounds.height - style.paddingTop - style.paddingBottom);
+
+        private static void AssertContained(Rect outer, Rect inner, string label)
+        {
+            Assert.That(inner.xMin, Is.GreaterThanOrEqualTo(outer.xMin - 1f), label);
+            Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), label);
+            Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), label);
+            Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), label);
+        }
+
+        private static void SendTap(VisualElement control)
+        {
+            Assert.That(control, Is.Not.Null);
+            using (PointerDownEvent down = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(down);
+            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(up);
         }
 
         private sealed class MemoryProgressStore : IInventoryProgressStore
@@ -399,6 +732,23 @@ namespace Gacha.Tests.PlayMode
             {
                 counts[id] = counts.TryGetValue(id, out int current) ? current + amount : amount;
             }
+        }
+
+        private sealed class EmptyCatalogProvider : ICatalogProvider
+        {
+            public CatalogLoadResult Load() => CatalogLoadResult.Success(
+                new UniversalCatalog(
+                    Array.Empty<LanguageDefinition>(),
+                    Array.Empty<GameDefinition>(),
+                    Array.Empty<SetDefinition>(),
+                    Array.Empty<CollectibleItemDefinition>(),
+                    Array.Empty<RarityDefinition>(),
+                    Array.Empty<VariantDefinition>(),
+                    Array.Empty<PrintingDefinition>(),
+                    Array.Empty<ProductDefinition>()),
+                0,
+                0,
+                0);
         }
     }
 }
