@@ -10,22 +10,6 @@ public class TrainerUiVisualContractTests
     [Test]
     public void PrimaryScreens_ShareTrainerDeviceRailAndFourStatusLights()
     {
-        foreach (string path in new[]
-                 {
-                     "Assets/UI/CollectionView.uxml"
-                 })
-        {
-            VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(path);
-            Assert.That(asset, Is.Not.Null, path);
-            TemplateContainer root = asset.CloneTree();
-            VisualElement rail = root.Q<VisualElement>("trainer-device-rail");
-            VisualElement lights = root.Q<VisualElement>("trainer-status-lights");
-            Assert.That(rail, Is.Not.Null, path);
-            Assert.That(rail.childCount, Is.EqualTo(3), path);
-            Assert.That(lights, Is.Not.Null, path);
-            Assert.That(lights.childCount, Is.EqualTo(4), path);
-        }
-
         VisualTreeAsset mobileTopBar = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
             "Assets/Resources/UI/Mobile/MobileTopBar.uxml");
         Assert.That(mobileTopBar, Is.Not.Null);
@@ -37,10 +21,11 @@ public class TrainerUiVisualContractTests
         Assert.That(leading.Query<VisualElement>(className: "mobile-top-bar__light").ToList().Count,
             Is.EqualTo(3));
         foreach (string controllerPath in new[]
-                 {
-                     "Assets/Scripts/004_Controller/GachaViewController.cs",
-                     "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs"
-                 })
+                     {
+                         "Assets/Scripts/004_Controller/GachaViewController.cs",
+                         "Assets/Scripts/Modules/Gacha.Presentation/ContentManagementController.cs",
+                         "Assets/Scripts/004_Controller/CollectionViewController.cs"
+                     })
             Assert.That(File.ReadAllText(controllerPath), Does.Contain("new MobileTopBar"), controllerPath);
     }
 

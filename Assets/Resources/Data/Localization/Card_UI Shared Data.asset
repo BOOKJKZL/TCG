@@ -1047,6 +1047,30 @@ MonoBehaviour:
     m_Key: gacha.action.confirm_open
     m_Metadata:
       m_Items: []
+  - m_Id: 172420742666432512
+    m_Key: collection.sort.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569856
+    m_Key: collection.sort.number
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569857
+    m_Key: collection.sort.name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569858
+    m_Key: collection.sort.rarity
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172500000000000001
+    m_Key: collection.action.filters
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172500000000000002
+    m_Key: collection.filters.title
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -208,7 +208,6 @@ public class ContentManagementPresentationTests
     {
         foreach (string path in new[]
                  {
-                     "Assets/UI/CollectionView.uxml",
                      "Assets/Resources/UI/PokedexView.uxml"
                  })
         {
@@ -222,10 +221,15 @@ public class ContentManagementPresentationTests
         string gachaView = File.ReadAllText("Assets/UI/GachaView.uxml");
         string gachaController = File.ReadAllText(
             "Assets/Scripts/004_Controller/GachaViewController.cs");
+        string collectionView = File.ReadAllText("Assets/UI/CollectionView.uxml");
+        string collectionController = File.ReadAllText(
+            "Assets/Scripts/004_Controller/CollectionViewController.cs");
         Assert.That(contentView, Does.Not.Contain("safe-area-root"));
         Assert.That(contentController, Does.Contain("new MobilePageShell"));
         Assert.That(gachaView, Does.Not.Contain("safe-area-root"));
         Assert.That(gachaController, Does.Contain("new MobilePageShell"));
+        Assert.That(collectionView, Does.Not.Contain("safe-area-root"));
+        Assert.That(collectionController, Does.Contain("new MobilePageShell"));
 
         string helper = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/UiToolkitSafeArea.cs");

@@ -163,7 +163,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.OpenRelatedCard(0), Is.True);
                 yield return null;
                 Assert.That(root.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
-                Assert.That(document.rootVisualElement.Q<VisualElement>("details-panel").resolvedStyle.display,
+                Assert.That(document.rootVisualElement.Q<VisualElement>("collection-details-panel").resolvedStyle.display,
                     Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(controller.Open(), Is.True);
                 yield return null;

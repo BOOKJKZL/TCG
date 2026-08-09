@@ -6,6 +6,7 @@ using Gacha.Domain;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class AsyncCardImageViewTests
 {
@@ -41,6 +42,8 @@ public class AsyncCardImageViewTests
         var cache = new TextureCache();
         var view = new AsyncCardImageView(cache);
         var texture = new Texture2D(2, 2);
+        int staleReleaseCount = 0;
+        int currentReleaseCount = 0;
 
         try
         {
@@ -50,15 +53,63 @@ public class AsyncCardImageViewTests
             Task secondLoad = view.CurrentLoadTask;
 
             Assert.That(cache.Requests[0].CancellationToken.IsCancellationRequested, Is.True);
-            cache.Requests[0].Completion.SetResult(CardTextureLoadResult.Success(texture, false));
+            cache.Requests[0].Completion.SetResult(CardTextureLoadResult.Success(
+                texture,
+                false,
+                () => staleReleaseCount++));
             await firstLoad;
             Assert.That(view.State, Is.EqualTo(AsyncCardImageState.Loading));
             Assert.That(view.Printing.Id, Is.EqualTo("two"));
+            Assert.That(staleReleaseCount, Is.EqualTo(1));
 
-            cache.Requests[1].Completion.SetResult(CardTextureLoadResult.Success(texture, false));
+            cache.Requests[1].Completion.SetResult(CardTextureLoadResult.Success(
+                texture,
+                false,
+                () => currentReleaseCount++));
             await secondLoad;
             Assert.That(view.State, Is.EqualTo(AsyncCardImageState.Ready));
             Assert.That(view.RetryVisible, Is.False);
+            Assert.That(currentReleaseCount, Is.Zero);
+            view.Unbind();
+            Assert.That(currentReleaseCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            view.Dispose();
+            UnityEngine.Object.DestroyImmediate(texture);
+        }
+    }
+
+    [Test]
+    public async Task CurrentLease_IsReleasedExactlyOnceOnRebindAndDispose()
+    {
+        var cache = new TextureCache();
+        var view = new AsyncCardImageView(cache);
+        var texture = new Texture2D(2, 2);
+        int firstReleaseCount = 0;
+        int secondReleaseCount = 0;
+
+        try
+        {
+            view.Bind(CreatePrinting("one"));
+            cache.Requests[0].Completion.SetResult(CardTextureLoadResult.Success(
+                texture,
+                false,
+                () => firstReleaseCount++));
+            await view.CurrentLoadTask;
+
+            view.Bind(CreatePrinting("two"));
+            Assert.That(firstReleaseCount, Is.EqualTo(1));
+            cache.Requests[1].Completion.SetResult(CardTextureLoadResult.Success(
+                texture,
+                false,
+                () => secondReleaseCount++));
+            await view.CurrentLoadTask;
+
+            view.Dispose();
+            view.Dispose();
+            Assert.That(firstReleaseCount, Is.EqualTo(1));
+            Assert.That(secondReleaseCount, Is.EqualTo(1));
         }
         finally
         {
@@ -85,6 +136,8 @@ public class AsyncCardImageViewTests
 
             Assert.That(view.State, Is.EqualTo(AsyncCardImageState.Failed));
             Assert.That(view.RetryVisible, Is.True);
+            Assert.That(view.Element.Q<VisualElement>("card-image-retry").style.display.value,
+                Is.EqualTo(DisplayStyle.Flex));
             Assert.That(cues, Is.Empty);
 
             view.Retry();
@@ -95,6 +148,8 @@ public class AsyncCardImageViewTests
 
             Assert.That(cues, Is.EqualTo(new[] { FeedbackCue.Confirm, FeedbackCue.Error }));
             Assert.That(view.StatusText, Is.Not.Empty);
+            Assert.That(view.Element.Q<VisualElement>("card-image-retry").style.display.value,
+                Is.EqualTo(DisplayStyle.Flex));
         }
         finally
         {

@@ -1,80 +1,77 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
-    <ui:VisualElement name="collection-browser" class="collection-browser safe-area-root">
-        <ui:VisualElement class="collection-browser__shell">
-            <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
-                <ui:VisualElement class="trainer-device-rail__red" />
-                <ui:VisualElement class="trainer-device-rail__yellow" />
-                <ui:VisualElement class="trainer-device-rail__blue" />
-            </ui:VisualElement>
-            <ui:VisualElement class="collection-browser__header">
-                <ui:VisualElement name="trainer-status-lights" class="trainer-status-lights">
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--lens" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--red" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--yellow" />
-                    <ui:VisualElement class="trainer-status-light trainer-status-light--green" />
-                </ui:VisualElement>
-                <ui:VisualElement class="collection-browser__heading">
-                    <ui:Label name="collection-title" class="collection-browser__title" />
-                    <ui:Label name="collection-subtitle" class="collection-browser__subtitle" />
-                </ui:VisualElement>
-                <ui:VisualElement class="collection-browser__actions">
-                    <ui:Button name="pokedex-button" class="browser-button browser-button--pokedex" />
-                    <ui:Button name="menu-button" class="browser-button" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:Label name="browser-status" class="collection-browser__status" />
-            <ui:VisualElement name="collection-error-panel" class="player-error-panel" style="display: none;">
+    <ui:VisualElement name="collection-browser" class="collection-browser-host">
+        <ui:VisualElement name="collection-body" class="collection-browser__body">
+            <ui:Label name="browser-status" class="collection-browser__status is-hidden" />
+
+            <ui:VisualElement name="collection-error-panel" class="player-error-panel is-hidden">
                 <ui:Label name="collection-error-title" class="player-error-panel__title" />
                 <ui:Label name="collection-error-body" class="player-error-panel__body" />
                 <ui:VisualElement class="player-error-panel__actions">
-                    <ui:Button name="collection-error-retry" class="browser-button" />
-                    <ui:Button name="collection-error-manage" class="browser-button" />
-                    <ui:Button name="collection-error-home" class="browser-button browser-button--quiet" />
+                    <ui:VisualElement name="collection-error-retry" class="collection-action collection-action--primary">
+                        <ui:Label class="collection-action__label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="collection-error-manage" class="collection-action">
+                        <ui:Label class="collection-action__label" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="collection-error-home" class="collection-action collection-action--quiet">
+                        <ui:Label class="collection-action__label" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="collection-zero-content" class="zero-content-panel" style="display: none;">
+
+            <ui:VisualElement name="collection-zero-content" class="zero-content-panel is-hidden">
                 <ui:Label name="collection-zero-content-text" class="zero-content-panel__text" />
-                <ui:Button name="collection-manage-content-button" class="browser-button zero-content-action" />
+                <ui:VisualElement name="collection-manage-content-button" class="collection-action collection-action--primary zero-content-action">
+                    <ui:Label class="collection-action__label" />
+                </ui:VisualElement>
             </ui:VisualElement>
 
             <ui:VisualElement name="set-page" class="browser-page">
-                <ui:ListView name="set-list" class="browser-list" />
+                <ui:ListView name="set-list" class="browser-list collection-set-list" virtualization-method="DynamicHeight" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="card-page" class="browser-page" style="display: none;">
+            <ui:VisualElement name="card-page" class="browser-page is-hidden">
                 <ui:VisualElement class="card-page__header">
-                    <ui:Button name="back-to-sets-button" class="browser-button browser-button--quiet" />
+                    <ui:VisualElement name="back-to-sets-button" class="collection-action collection-action--quiet">
+                        <ui:Label class="collection-action__label" />
+                    </ui:VisualElement>
                     <ui:VisualElement class="card-page__heading">
                         <ui:Label name="card-page-title" class="card-page__title" />
                         <ui:Label name="card-count" class="card-page__count" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="collection-filters">
+                <ui:VisualElement name="open-filters-button" class="collection-action collection-action--quiet collection-filter-sheet-action">
+                    <ui:Label class="collection-action__label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="collection-filters" class="collection-filters">
                     <ui:TextField name="card-search" class="collection-filter collection-filter--search" />
                     <ui:DropdownField name="rarity-filter" class="collection-filter collection-filter--rarity" />
+                    <ui:DropdownField name="card-sort" class="collection-filter collection-filter--sort" />
                     <ui:VisualElement class="collection-filter__toggles">
-                        <ui:Button name="owned-only-button" class="browser-button browser-button--filter" />
-                        <ui:Button name="new-only-button" class="browser-button browser-button--filter" />
-                        <ui:Button name="clear-filters-button" class="browser-button browser-button--quiet browser-button--filter" />
+                        <ui:VisualElement name="owned-only-button" class="collection-action collection-action--filter">
+                            <ui:Label class="collection-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="new-only-button" class="collection-action collection-action--filter">
+                            <ui:Label class="collection-action__label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="clear-filters-button" class="collection-action collection-action--quiet collection-action--filter">
+                            <ui:Label class="collection-action__label" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label name="filter-empty" class="collection-filter__empty" style="display: none;" />
-                <ui:ListView name="card-list" class="browser-list" />
+                <ui:Label name="filter-empty" class="collection-filter__empty is-hidden" />
+                <ui:ListView name="card-list" class="browser-list collection-card-grid" virtualization-method="DynamicHeight" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="details-panel" class="details-panel" style="display: none;">
-                <ui:VisualElement class="details-panel__scrim" />
-                <ui:VisualElement class="details-panel__card">
-                    <ui:VisualElement name="detail-art-slot" class="details-panel__art" />
-                    <ui:Label name="detail-new-badge" class="details-panel__new" style="display: none;" />
-                    <ui:VisualElement name="detail-language-switcher" class="details-panel__languages" style="display: none;" />
-                    <ui:Label name="detail-name" class="details-panel__name" />
-                    <ui:Label name="detail-metadata" class="details-panel__metadata" />
-                    <ui:Label name="detail-progress" class="details-panel__progress" />
-                    <ui:Button name="details-close-button" class="browser-button" />
-                </ui:VisualElement>
-            </ui:VisualElement>
+            <ui:ScrollView name="detail-content" class="collection-detail" mode="Vertical">
+                <ui:VisualElement name="detail-art-slot" class="collection-detail__art" />
+                <ui:Label name="detail-new-badge" class="collection-detail__new is-hidden" />
+                <ui:VisualElement name="detail-language-switcher" class="collection-detail__languages is-hidden" />
+                <ui:Label name="detail-name" class="collection-detail__name" />
+                <ui:Label name="detail-metadata" class="collection-detail__metadata" />
+                <ui:Label name="detail-progress" class="collection-detail__progress" />
+            </ui:ScrollView>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

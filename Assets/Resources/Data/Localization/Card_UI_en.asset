@@ -1061,6 +1061,30 @@ MonoBehaviour:
     m_Localized: Open now
     m_Metadata:
       m_Items: []
+  - m_Id: 172420742666432512
+    m_Localized: Sort
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569856
+    m_Localized: Card number
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569857
+    m_Localized: Name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172420742712569858
+    m_Localized: Rarity
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172500000000000001
+    m_Localized: Filters and sorting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172500000000000002
+    m_Localized: Filter cards
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

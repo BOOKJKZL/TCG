@@ -13,23 +13,30 @@ using UnityEngine.UIElements;
 public class CollectionBrowserPresentationTests
 {
     [Test]
-    public void CardUiText_UsesCompleteEnglishAndChineseStringTableEntries()
+    public void CardUiText_UsesCompleteEnglishChineseAndJapaneseStringTableEntries()
     {
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection(CardUiText.TableName);
         StringTable english = collection.GetTable("en") as StringTable;
         StringTable chinese = collection.GetTable("zh") as StringTable;
+        StringTable japanese = collection.GetTable("ja") as StringTable;
 
         Assert.That(english, Is.Not.Null);
         Assert.That(chinese, Is.Not.Null);
+        Assert.That(japanese, Is.Not.Null);
         foreach (KeyValuePair<string, string> pair in CardUiText.EnglishFallbacks)
         {
             StringTableEntry englishEntry = english.GetEntry(pair.Key);
             StringTableEntry chineseEntry = chinese.GetEntry(pair.Key);
+            StringTableEntry japaneseEntry = japanese.GetEntry(pair.Key);
             Assert.That(englishEntry, Is.Not.Null, $"Missing English Card_UI key '{pair.Key}'.");
             Assert.That(chineseEntry, Is.Not.Null, $"Missing Chinese Card_UI key '{pair.Key}'.");
+            Assert.That(japaneseEntry, Is.Not.Null, $"Missing Japanese Card_UI key '{pair.Key}'.");
             Assert.That(englishEntry.Value, Is.EqualTo(pair.Value), $"English fallback drifted for '{pair.Key}'.");
             Assert.That(chineseEntry.Value, Is.Not.Empty, $"Chinese Card_UI key '{pair.Key}' is empty.");
             Assert.That(chineseEntry.Value, Is.Not.EqualTo(englishEntry.Value), $"Chinese Card_UI key '{pair.Key}' was not translated.");
+            Assert.That(japaneseEntry.Value, Is.Not.Empty, $"Japanese Card_UI key '{pair.Key}' is empty.");
+            if (pair.Key.StartsWith("collection.", System.StringComparison.Ordinal))
+                Assert.That(japaneseEntry.Value, Is.Not.EqualTo(englishEntry.Value), $"Japanese Card_UI key '{pair.Key}' was not translated.");
         }
     }
 
@@ -44,15 +51,34 @@ public class CollectionBrowserPresentationTests
         Assert.That(root.Q<ListView>("card-list"), Is.Not.Null);
         Assert.That(root.Q<TextField>("card-search"), Is.Not.Null);
         Assert.That(root.Q<DropdownField>("rarity-filter"), Is.Not.Null);
-        Assert.That(root.Q<Button>("owned-only-button"), Is.Not.Null);
-        Assert.That(root.Q<Button>("new-only-button"), Is.Not.Null);
+        Assert.That(root.Q<DropdownField>("card-sort"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("owned-only-button"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("new-only-button"), Is.Not.Null);
         Assert.That(root.Q<Label>("filter-empty"), Is.Not.Null);
-        Assert.That(root.Q<VisualElement>("details-panel"), Is.Not.Null);
+        Assert.That(root.Q<ScrollView>("detail-content"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("detail-art-slot"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("detail-language-switcher"), Is.Not.Null);
         Assert.That(root.Q<Label>("detail-progress"), Is.Not.Null);
         Assert.That(root.Q<Label>("detail-new-badge"), Is.Not.Null);
+        Assert.That(root.Query<Button>().ToList(), Is.Empty,
+            "CollectionView must keep player actions on the stable VisualElement + Label path.");
+        Assert.That(root.Q<ListView>("set-list").virtualizationMethod,
+            Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
+        Assert.That(root.Q<ListView>("card-list").virtualizationMethod,
+            Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
         Assert.That(root.styleSheets.count, Is.GreaterThan(0));
+
+        string source = System.IO.File.ReadAllText("Assets/UI/CollectionView.uxml");
+        Assert.That(source, Does.Not.Contain("style="));
+        Assert.That(source, Does.Not.Contain("<ui:Button"));
+        string controller = System.IO.File.ReadAllText(
+            "Assets/Scripts/004_Controller/CollectionViewController.cs");
+        Assert.That(controller, Does.Contain("new MobilePageShell"));
+        Assert.That(controller, Does.Contain("new MobilePrimaryNavigation"));
+        Assert.That(controller, Does.Not.Contain("new Button"));
+        string imageView = System.IO.File.ReadAllText(
+            "Assets/Scripts/Modules/Gacha.Presentation/AsyncCardImageView.cs");
+        Assert.That(imageView, Does.Not.Contain("new Button"));
     }
 
     [Test]

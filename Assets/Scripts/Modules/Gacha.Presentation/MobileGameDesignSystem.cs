@@ -137,13 +137,14 @@ namespace Gacha.Presentation
             Action clicked,
             bool playFeedback = false,
             bool showPressWhenUnavailable = true,
-            string fallbackLabelClass = "mobile-action__label")
+            string fallbackLabelClass = "mobile-action__label",
+            Label feedbackLabel = null)
         {
             Root = root ?? throw new ArgumentNullException(nameof(root));
             this.clicked = clicked ?? throw new ArgumentNullException(nameof(clicked));
             this.playFeedback = playFeedback;
             this.showPressWhenUnavailable = showPressWhenUnavailable;
-            Label = Root.Q<Label>();
+            Label = feedbackLabel ?? Root.Q<Label>();
             if (Label == null)
             {
                 Label = new Label { pickingMode = PickingMode.Ignore };

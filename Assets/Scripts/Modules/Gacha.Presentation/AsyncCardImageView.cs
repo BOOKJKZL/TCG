@@ -21,7 +21,8 @@ namespace Gacha.Presentation
         private readonly ICardTextureCache cache;
         private readonly VisualElement art;
         private readonly Label status;
-        private readonly Button retry;
+        private readonly VisualElement retry;
+        private readonly MobileActionControl retryAction;
         private CancellationTokenSource cancellation;
         private CardTextureLoadResult textureLease;
         private IVisualElementScheduledItem pulse;
@@ -38,8 +39,17 @@ namespace Gacha.Presentation
             art.AddToClassList("async-card-image__art");
             status = new Label { name = "card-image-status" };
             status.AddToClassList("async-card-image__status");
-            retry = new Button(Retry) { name = "card-image-retry" };
+            retry = new VisualElement { name = "card-image-retry" };
             retry.AddToClassList("async-card-image__retry");
+            var retryLabel = new Label { pickingMode = PickingMode.Ignore };
+            retryLabel.AddToClassList("async-card-image__retry-label");
+            retry.Add(retryLabel);
+            retryAction = new MobileActionControl(
+                retry,
+                Retry,
+                playFeedback: false,
+                showPressWhenUnavailable: false,
+                fallbackLabelClass: "async-card-image__retry-label");
             Element.Add(art);
             Element.Add(status);
             Element.Add(retry);
@@ -59,6 +69,7 @@ namespace Gacha.Presentation
                 throw new ArgumentNullException(nameof(printing));
             ThrowIfDisposed();
 
+            ReleaseTexture();
             Printing = printing;
             StartLoad(false);
         }
@@ -89,7 +100,7 @@ namespace Gacha.Presentation
                 return;
             disposed = true;
             UnbindInternal();
-            retry.clicked -= Retry;
+            retryAction.Dispose();
         }
 
         private void StartLoad(bool userInitiated)
@@ -145,11 +156,13 @@ namespace Gacha.Presentation
         private void SetState(AsyncCardImageState state, bool preserveStatus = false)
         {
             State = state;
-            retry.text = CardUiText.Get("common.action.retry");
+            retryAction.SetLabel(CardUiText.Get("common.action.retry"));
             Element.EnableInClassList("is-loading", state == AsyncCardImageState.Loading);
             Element.EnableInClassList("is-ready", state == AsyncCardImageState.Ready);
             Element.EnableInClassList("is-failed", state == AsyncCardImageState.Failed);
-            retry.style.display = state == AsyncCardImageState.Failed ? DisplayStyle.Flex : DisplayStyle.None;
+            retry.style.display = state == AsyncCardImageState.Failed
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
 
             if (!preserveStatus)
             {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Domain;
@@ -15,22 +16,53 @@ using UnityEngine.UIElements;
 public sealed class CollectionViewController : MonoBehaviour
 {
     private const int SearchDebounceMilliseconds = 120;
+    private static readonly IComparer<string> CardNumberComparer =
+        Comparer<string>.Create(CompareCardNumbers);
+
+    private enum CardSortMode
+    {
+        Number,
+        Name,
+        Rarity
+    }
 
     private sealed class SetRow
     {
         public AsyncCardImageView Image;
         public Label Name;
         public Label Metadata;
+        public MobileActionControl Action;
+        public SetDefinition Set;
     }
 
-    private sealed class CardRow
+    private sealed class CardTile
     {
+        public VisualElement Root;
         public AsyncCardImageView Image;
         public Label Name;
         public Label Number;
         public Label Rarity;
         public Label Owned;
         public Label NewBadge;
+        public MobileActionControl Action;
+        public PrintingDefinition Printing;
+    }
+
+    private sealed class CardGridRow
+    {
+        public CardTile[] Tiles;
+    }
+
+    private sealed class CardGridLine
+    {
+        public CardGridLine(PrintingDefinition first, PrintingDefinition second)
+        {
+            First = first;
+            Second = second;
+        }
+
+        public PrintingDefinition First { get; }
+        public PrintingDefinition Second { get; }
     }
 
     [SerializeField] private UIDocument uiDocument;
@@ -39,6 +71,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private readonly List<SetDefinition> sets = new List<SetDefinition>();
     private readonly List<PrintingDefinition> cards = new List<PrintingDefinition>();
+    private readonly List<CardGridLine> cardGridLines = new List<CardGridLine>();
     private readonly Dictionary<string, List<PrintingDefinition>> cardsBySet =
         new Dictionary<string, List<PrintingDefinition>>(StringComparer.Ordinal);
     private readonly HashSet<AsyncCardImageView> imageViews = new HashSet<AsyncCardImageView>();
@@ -47,16 +80,15 @@ public sealed class CollectionViewController : MonoBehaviour
     private UniversalCatalog catalog;
     private ICollectionProgressStore collectionProgress;
     private CardTextureCache textureCache;
-    private UiToolkitSafeAreaBinding safeAreaBinding;
     private VisualElement browserRoot;
+    private VisualElement body;
     private VisualElement setPage;
     private VisualElement cardPage;
-    private VisualElement detailsPanel;
+    private VisualElement filterPanel;
+    private ScrollView detailContent;
     private VisualElement detailLanguageSwitcher;
     private ListView setList;
     private ListView cardList;
-    private Label pageTitle;
-    private Label pageSubtitle;
     private Label browserStatus;
     private Label cardPageTitle;
     private Label cardCount;
@@ -66,24 +98,13 @@ public sealed class CollectionViewController : MonoBehaviour
     private Label detailNewBadge;
     private Label filterEmpty;
     private AsyncCardImageView detailImage;
-    private Button menuButton;
-    private Button manageContentButton;
     private VisualElement zeroContentPanel;
     private Label zeroContentText;
-    private Button pokedexButton;
-    private Button backToSetsButton;
-    private Button closeDetailsButton;
-    private Button ownedOnlyButton;
-    private Button newOnlyButton;
-    private Button clearFiltersButton;
-    private Button errorRetryButton;
-    private Button errorManageButton;
-    private Button errorHomeButton;
     private TextField searchField;
     private DropdownField rarityFilter;
+    private DropdownField sortField;
     private SetDefinition currentSet;
     private PrintingDefinition currentDetailPrinting;
-    private IVisualElementScheduledItem detailsAnimation;
     private IVisualElementScheduledItem languageSwapAnimation;
     private IVisualElementScheduledItem filterAnimation;
     private IVisualElementScheduledItem searchRefresh;
@@ -92,14 +113,37 @@ public sealed class CollectionViewController : MonoBehaviour
     private string selectedRarityId;
     private bool ownedOnly;
     private bool newOnly;
+    private CardSortMode sortMode;
     private bool updatingFilterControls;
     private bool shellInitialized;
     private bool contentLanguageSubscribed;
+    private bool navigationRequested;
+    private bool destroyed;
     private PlayerUiErrorPresenter errorPresenter;
+    private MobilePageShell mobilePageShell;
+    private MobileTopBar mobileTopBar;
+    private MobilePrimaryNavigation primaryNavigation;
+    private MobileSheetPresenter detailSheet;
+    private MobileSheetPresenter filterSheet;
+    private MobileActionControl menuAction;
+    private MobileActionControl pokedexAction;
+    private MobileActionControl manageContentAction;
+    private MobileActionControl backToSetsAction;
+    private MobileActionControl closeDetailsAction;
+    private MobileActionControl ownedOnlyAction;
+    private MobileActionControl newOnlyAction;
+    private MobileActionControl clearFiltersAction;
+    private MobileActionControl openFiltersAction;
+    private MobileActionControl closeFiltersAction;
+    private MobileActionControl errorRetryAction;
+    private MobileActionControl errorManageAction;
+    private MobileActionControl errorHomeAction;
+    private readonly List<MobileActionControl> detailLanguageActions = new List<MobileActionControl>();
 
     public static ICollectionProgressStore CollectionProgressStoreOverride { private get; set; }
     public static UniversalCatalog CatalogOverride { private get; set; }
     public static ICatalogProvider CatalogProviderOverride { private get; set; }
+    public static Action<string> SceneLoaderOverride { private get; set; }
 
     public bool IsReady { get; private set; }
     public string InitializationError { get; private set; }
@@ -117,6 +161,7 @@ public sealed class CollectionViewController : MonoBehaviour
         : catalog?.PrintingLanguages.GetGroup(currentDetailPrinting.Id)?.AvailableLanguageIds.Count ?? 0;
     public bool HasDetailLanguageSwitcher => currentDetailPrinting != null &&
         catalog?.PrintingLanguages.GetGroup(currentDetailPrinting.Id)?.HasMultipleLanguages == true;
+    public bool NavigationPending => navigationRequested;
 
     private IReadOnlyList<PrintingDefinition> CurrentSetCards =>
         currentSet != null && cardsBySet.TryGetValue(currentSet.Id, out List<PrintingDefinition> setCards)
@@ -129,6 +174,7 @@ public sealed class CollectionViewController : MonoBehaviour
         CollectionProgressStoreOverride = null;
         CatalogOverride = null;
         CatalogProviderOverride = null;
+        SceneLoaderOverride = null;
     }
 
     private void Awake()
@@ -155,8 +201,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void OnDestroy()
     {
-        safeAreaBinding?.Dispose();
-        safeAreaBinding = null;
+        destroyed = true;
         errorPresenter?.Dispose();
         errorPresenter = null;
         if (ApplicationServices.IsConfigured)
@@ -165,9 +210,6 @@ public sealed class CollectionViewController : MonoBehaviour
             ApplicationServices.Languages.ContentLanguageChanged -= OnContentLanguageChanged;
         }
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
-
-        detailsAnimation?.Pause();
-        detailsAnimation = null;
         languageSwapAnimation?.Pause();
         languageSwapAnimation = null;
         filterAnimation?.Pause();
@@ -178,6 +220,35 @@ public sealed class CollectionViewController : MonoBehaviour
         imageViews.Clear();
         textureCache?.Dispose();
         textureCache = null;
+        DisposeDetailLanguageActions();
+        detailSheet?.Dispose();
+        detailSheet = null;
+        filterSheet?.Dispose();
+        filterSheet = null;
+        primaryNavigation?.Dispose();
+        primaryNavigation = null;
+        DisposeAction(ref menuAction);
+        DisposeAction(ref pokedexAction);
+        DisposeAction(ref manageContentAction);
+        DisposeAction(ref backToSetsAction);
+        DisposeAction(ref closeDetailsAction);
+        DisposeAction(ref ownedOnlyAction);
+        DisposeAction(ref newOnlyAction);
+        DisposeAction(ref clearFiltersAction);
+        DisposeAction(ref openFiltersAction);
+        DisposeAction(ref closeFiltersAction);
+        DisposeAction(ref errorRetryAction);
+        DisposeAction(ref errorManageAction);
+        DisposeAction(ref errorHomeAction);
+        mobilePageShell?.Dispose();
+        mobilePageShell = null;
+    }
+
+    private void OnApplicationPause(bool paused)
+    {
+        if (!paused)
+            return;
+        CompleteTransientVisuals();
     }
 
     public bool OpenSet(string setId)
@@ -189,13 +260,13 @@ public sealed class CollectionViewController : MonoBehaviour
 
         currentSet = set;
         cardPageTitle.text = DisplayName(set);
-        cardList.itemsSource = cards;
-        setPage.style.display = DisplayStyle.None;
-        cardPage.style.display = DisplayStyle.Flex;
+        SetVisible(setPage, false);
+        SetVisible(cardPage, true);
         ResetFilters(false);
         RebuildRarityFilter();
         ApplyFilters(false);
         HideDetails(false);
+        ApplyActionAvailability();
         return true;
     }
 
@@ -208,11 +279,11 @@ public sealed class CollectionViewController : MonoBehaviour
             return false;
 
         currentDetailPrinting = printing;
+        filterSheet?.HideImmediately();
         RefreshPrintingDetails(printing, true);
         RebuildDetailLanguageSwitcher();
-        detailsPanel.style.display = DisplayStyle.Flex;
-        detailsPanel.BringToFront();
-        AnimateDetailsIn();
+        detailSheet.Show(CardUiText.Get("collection.title"));
+        ApplyActionAvailability();
         return true;
     }
 
@@ -235,10 +306,41 @@ public sealed class CollectionViewController : MonoBehaviour
     public void MenuBtnClick()
     {
         UIFeedbackService.Play(FeedbackCue.Back);
-        if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-            GameManager.Instance.loadManager.LoadScene(1);
+        NavigatePrimary(MobileDestination.Home);
+    }
+
+    private void NavigatePrimary(MobileDestination destination)
+    {
+        if (destination == MobileDestination.Collection || navigationRequested || destroyed)
+            return;
+
+        navigationRequested = true;
+        filterSheet?.HideImmediately();
+        detailSheet?.HideImmediately();
+        primaryNavigation?.SetPending(destination);
+        ApplyActionAvailability();
+        string sceneName = MobilePrimaryNavigation.SceneName(destination);
+        if (destination == MobileDestination.Content)
+            ContentReturnNavigation.RememberCurrentScene();
         else
-            SceneManager.LoadScene("002_MainMenuScene");
+            ContentReturnNavigation.Clear();
+
+        try
+        {
+            if (SceneLoaderOverride != null)
+                SceneLoaderOverride(sceneName);
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName);
+            else
+                SceneManager.LoadScene(sceneName);
+        }
+        catch
+        {
+            navigationRequested = false;
+            primaryNavigation?.ClearPending(MobileDestination.Collection);
+            ApplyActionAvailability();
+            throw;
+        }
     }
 
     private void Initialize()
@@ -270,27 +372,64 @@ public sealed class CollectionViewController : MonoBehaviour
         if (shellInitialized)
             return;
         GameApplicationBootstrap.EnsureConfigured();
-        if (uiDocument == null)
-            uiDocument = GetComponent<UIDocument>();
-        if (uiDocument == null)
-            throw new InvalidOperationException("The collection browser has no UIDocument.");
         EnsureDocumentAssets();
-        if (uiDocument.panelSettings == null)
-            throw new InvalidOperationException("The collection browser has no PanelSettings.");
+        if (uiDocument == null || uiDocument.panelSettings == null)
+            throw new InvalidOperationException("The collection browser UI document is not configured.");
         browserRoot = uiDocument.rootVisualElement.Q<VisualElement>("collection-browser");
         if (browserRoot == null)
             throw new InvalidOperationException("CollectionView.uxml is not attached to the UIDocument.");
-        safeAreaBinding = UiToolkitSafeArea.Attach(browserRoot);
+        HideLegacyCanvas();
+        body = browserRoot.Q<VisualElement>("collection-body");
+        if (body == null)
+            throw new InvalidOperationException("CollectionView.uxml is missing its mobile body.");
+        body.RemoveFromHierarchy();
+        mobilePageShell = new MobilePageShell("collection-page-shell");
+        mobilePageShell.Root.AddToClassList("collection-browser");
+        mobileTopBar = new MobileTopBar(string.Empty, string.Empty);
+        mobileTopBar.Title.name = "collection-title";
+        mobileTopBar.Subtitle.name = "collection-subtitle";
+        mobilePageShell.HeaderSlot.Add(mobileTopBar.Root);
+        mobilePageShell.ContentSlot.Add(body);
+        browserRoot.Clear();
+        browserRoot.Add(mobilePageShell.Root);
         QueryVisualElements();
+        filterPanel.RemoveFromHierarchy();
+        filterSheet = new MobileSheetPresenter("collection-filter-sheet");
+        filterSheet.Root.AddToClassList("collection-filter-sheet");
+        filterSheet.DismissRequested += () => filterSheet.Hide();
+        filterSheet.Content.Add(filterPanel);
+        mobilePageShell.ModalLayer.Add(filterSheet.Root);
+        detailContent.RemoveFromHierarchy();
+        detailSheet = new MobileSheetPresenter("collection-details-panel");
+        detailSheet.Root.AddToClassList("collection-detail-sheet");
+        detailSheet.DismissRequested += () => HideDetails(true);
+        detailSheet.Content.Add(detailContent);
+        mobilePageShell.ModalLayer.Add(detailSheet.Root);
+        ConfigureActions();
+        menuAction = new MobileActionControl(
+            "collection-menu-button",
+            string.Empty,
+            () => NavigatePrimary(MobileDestination.Home),
+            MobileActionTone.Quiet);
+        pokedexAction = new MobileActionControl(
+            "collection-pokedex-button",
+            string.Empty,
+            () => pokedexController?.Open(),
+            MobileActionTone.Standard);
+        mobileTopBar.AddAction(pokedexAction);
+        mobileTopBar.AddAction(menuAction);
+        primaryNavigation = new MobilePrimaryNavigation(
+            MobileDestination.Collection,
+            NavigatePrimary);
+        mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
         errorPresenter = new PlayerUiErrorPresenter(
             Required<VisualElement>("collection-error-panel"),
             Required<Label>("collection-error-title"),
             Required<Label>("collection-error-body"),
-            errorRetryButton,
-            errorManageButton,
-            errorHomeButton);
+            errorRetryAction.Root,
+            errorManageAction.Root,
+            errorHomeAction.Root);
         ConfigureLists();
-        ConfigureButtons();
         pokedexController = GetComponent<PokemonPokedexController>();
         if (pokedexController == null)
             pokedexController = gameObject.AddComponent<PokemonPokedexController>();
@@ -302,6 +441,7 @@ public sealed class CollectionViewController : MonoBehaviour
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
         shellInitialized = true;
         RefreshLocalizedChrome();
+        ApplyActionAvailability();
         SetBrowserStatus(CardUiText.Get("common.status.loading"), false);
     }
 
@@ -310,6 +450,9 @@ public sealed class CollectionViewController : MonoBehaviour
         IsReady = false;
         InitializationError = null;
         errorPresenter.Hide();
+        detailSheet?.HideImmediately();
+        filterSheet?.HideImmediately();
+        ApplyActionAvailability();
         SetBrowserStatus(CardUiText.Get("common.status.loading"), false);
         try
         {
@@ -345,6 +488,7 @@ public sealed class CollectionViewController : MonoBehaviour
             BuildBrowseData();
             RefreshLocalizedChrome();
             ShowSets();
+            ApplyActionAvailability();
             if (!contentLanguageSubscribed)
             {
                 ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
@@ -363,11 +507,13 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         InitializationError = developerDetail?.ToString() ?? "Collection initialization failed.";
         IsReady = false;
-        if (setPage != null) setPage.style.display = DisplayStyle.None;
-        if (cardPage != null) cardPage.style.display = DisplayStyle.None;
-        if (zeroContentPanel != null) zeroContentPanel.style.display = DisplayStyle.None;
+        SetVisible(setPage, false);
+        SetVisible(cardPage, false);
+        SetVisible(zeroContentPanel, false);
+        detailSheet?.HideImmediately();
         SetBrowserStatus(string.Empty, false);
         errorPresenter?.Show(error);
+        ApplyActionAvailability();
         Debug.LogWarning("Collection browser could not be initialized: " + InitializationError);
     }
 
@@ -375,12 +521,11 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         setPage = Required<VisualElement>("set-page");
         cardPage = Required<VisualElement>("card-page");
-        detailsPanel = Required<VisualElement>("details-panel");
+        filterPanel = Required<VisualElement>("collection-filters");
+        detailContent = Required<ScrollView>("detail-content");
         detailLanguageSwitcher = Required<VisualElement>("detail-language-switcher");
         setList = Required<ListView>("set-list");
         cardList = Required<ListView>("card-list");
-        pageTitle = Required<Label>("collection-title");
-        pageSubtitle = Required<Label>("collection-subtitle");
         browserStatus = Required<Label>("browser-status");
         zeroContentPanel = Required<VisualElement>("collection-zero-content");
         zeroContentText = Required<Label>("collection-zero-content-text");
@@ -391,19 +536,9 @@ public sealed class CollectionViewController : MonoBehaviour
         detailProgress = Required<Label>("detail-progress");
         detailNewBadge = Required<Label>("detail-new-badge");
         filterEmpty = Required<Label>("filter-empty");
-        menuButton = Required<Button>("menu-button");
-        manageContentButton = Required<Button>("collection-manage-content-button");
-        pokedexButton = Required<Button>("pokedex-button");
-        backToSetsButton = Required<Button>("back-to-sets-button");
-        closeDetailsButton = Required<Button>("details-close-button");
-        ownedOnlyButton = Required<Button>("owned-only-button");
-        newOnlyButton = Required<Button>("new-only-button");
-        clearFiltersButton = Required<Button>("clear-filters-button");
-        errorRetryButton = Required<Button>("collection-error-retry");
-        errorManageButton = Required<Button>("collection-error-manage");
-        errorHomeButton = Required<Button>("collection-error-home");
         searchField = Required<TextField>("card-search");
         rarityFilter = Required<DropdownField>("rarity-filter");
+        sortField = Required<DropdownField>("card-sort");
     }
 
     private void EnsureDocumentAssets()
@@ -431,62 +566,85 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void ConfigureLists()
     {
-        setList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-        setList.fixedItemHeight = 132f;
-        setList.selectionType = SelectionType.Single;
+        setList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+        setList.selectionType = SelectionType.None;
         setList.makeItem = MakeSetRow;
         setList.bindItem = BindSetRow;
         setList.unbindItem = UnbindSetRow;
         setList.destroyItem = DestroyRow;
-        setList.selectionChanged += OnSetSelectionChanged;
 
-        cardList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-        cardList.fixedItemHeight = 184f;
-        cardList.selectionType = SelectionType.Single;
-        cardList.makeItem = MakeCardRow;
-        cardList.bindItem = BindCardRow;
-        cardList.unbindItem = UnbindCardRow;
+        cardList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+        cardList.selectionType = SelectionType.None;
+        cardList.makeItem = MakeCardGridRow;
+        cardList.bindItem = BindCardGridRow;
+        cardList.unbindItem = UnbindCardGridRow;
         cardList.destroyItem = DestroyRow;
-        cardList.selectionChanged += OnCardSelectionChanged;
     }
 
-    private void ConfigureButtons()
+    private void ConfigureActions()
     {
-        menuButton.clicked += MenuBtnClick;
-        manageContentButton.clicked += OpenContentManagement;
-        errorRetryButton.clicked += () => RetryInitialization();
-        errorManageButton.clicked += OpenContentManagement;
-        errorHomeButton.clicked += MenuBtnClick;
-        pokedexButton.clicked += () => pokedexController?.Open();
-        backToSetsButton.clicked += () =>
+        manageContentAction = new MobileActionControl(
+            Required<VisualElement>("collection-manage-content-button"),
+            OpenContentManagement);
+        errorRetryAction = new MobileActionControl(
+            Required<VisualElement>("collection-error-retry"),
+            () => RetryInitialization());
+        errorManageAction = new MobileActionControl(
+            Required<VisualElement>("collection-error-manage"),
+            OpenContentManagement);
+        errorHomeAction = new MobileActionControl(
+            Required<VisualElement>("collection-error-home"),
+            MenuBtnClick);
+        backToSetsAction = new MobileActionControl(
+            Required<VisualElement>("back-to-sets-button"),
+            () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
             ShowSets();
-        };
-        closeDetailsButton.clicked += () =>
+        });
+        closeDetailsAction = new MobileActionControl(
+            "details-close-button",
+            string.Empty,
+            () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
             HideDetails(true);
-        };
-        ownedOnlyButton.clicked += () =>
+        }, MobileActionTone.Quiet);
+        detailSheet.Actions.Add(closeDetailsAction.Root);
+        openFiltersAction = new MobileActionControl(
+            Required<VisualElement>("open-filters-button"),
+            () => filterSheet.Show(CardUiText.Get("collection.filters.title")));
+        closeFiltersAction = new MobileActionControl(
+            "close-filters-button",
+            string.Empty,
+            () => filterSheet.Hide(),
+            MobileActionTone.Quiet);
+        filterSheet.Actions.Add(closeFiltersAction.Root);
+        ownedOnlyAction = new MobileActionControl(
+            Required<VisualElement>("owned-only-button"),
+            () =>
         {
             ownedOnly = !ownedOnly;
             UIFeedbackService.Play(FeedbackCue.Confirm);
             RefreshFilterControls();
             ApplyFilters(true);
-        };
-        newOnlyButton.clicked += () =>
+        });
+        newOnlyAction = new MobileActionControl(
+            Required<VisualElement>("new-only-button"),
+            () =>
         {
             newOnly = !newOnly;
             UIFeedbackService.Play(FeedbackCue.Confirm);
             RefreshFilterControls();
             ApplyFilters(true);
-        };
-        clearFiltersButton.clicked += () =>
+        });
+        clearFiltersAction = new MobileActionControl(
+            Required<VisualElement>("clear-filters-button"),
+            () =>
         {
             UIFeedbackService.Play(FeedbackCue.Back);
             ResetFilters(true);
-        };
+        });
         searchField.RegisterValueChangedCallback(evt =>
         {
             if (updatingFilterControls)
@@ -504,29 +662,40 @@ public sealed class CollectionViewController : MonoBehaviour
             UIFeedbackService.Play(FeedbackCue.Confirm);
             ApplyFilters(true);
         });
+        sortField.RegisterValueChangedCallback(_ =>
+        {
+            if (updatingFilterControls)
+                return;
+            sortMode = sortField.index >= 0 && sortField.index <= (int)CardSortMode.Rarity
+                ? (CardSortMode)sortField.index
+                : CardSortMode.Number;
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+            ApplyFilters(true);
+        });
     }
 
     private void BuildBrowseData()
     {
         string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
         sets.Clear();
-        sets.AddRange(catalog.Sets.Values
-            .OrderBy(set => set, new SetDefinitionComparer(SetSortMode.Generation, languageId)));
-
         cardsBySet.Clear();
-        foreach (SetDefinition set in sets)
+        foreach (SetDefinition set in catalog.Sets.Values
+                     .OrderBy(value => value, new SetDefinitionComparer(SetSortMode.Generation, languageId)))
         {
             List<PrintingDefinition> setCards = catalog.GetPrintings(set.Id, languageId)
-                .OrderBy(printing => printing.Identity.CardNumber, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(printing => printing.Identity.CardNumber, CardNumberComparer)
                 .ThenBy(printing => printing.Identity.VariantId, StringComparer.Ordinal)
                 .ToList();
+            if (setCards.Count == 0)
+                continue;
+            sets.Add(set);
             cardsBySet[set.Id] = setCards;
         }
 
         setList.itemsSource = sets;
         setList.Rebuild();
-        zeroContentPanel.style.display = sets.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-        setList.style.display = sets.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+        SetVisible(zeroContentPanel, sets.Count == 0);
+        SetVisible(setList, sets.Count > 0);
     }
 
     private VisualElement MakeSetRow()
@@ -545,7 +714,19 @@ public sealed class CollectionViewController : MonoBehaviour
         copy.Add(metadata);
         root.Add(image.Element);
         root.Add(copy);
-        root.userData = new SetRow { Image = image, Name = name, Metadata = metadata };
+        var row = new SetRow { Image = image, Name = name, Metadata = metadata };
+        row.Action = new MobileActionControl(
+            root,
+            () =>
+            {
+                if (row.Set == null || navigationRequested)
+                    return;
+                UIFeedbackService.Play(FeedbackCue.Confirm);
+                OpenSet(row.Set.Id);
+            },
+            playFeedback: false,
+            feedbackLabel: name);
+        root.userData = row;
         return root;
     }
 
@@ -555,6 +736,8 @@ public sealed class CollectionViewController : MonoBehaviour
             return;
         SetDefinition set = sets[index];
         var row = (SetRow)element.userData;
+        row.Set = set;
+        row.Action.SetEnabled(!navigationRequested);
         row.Name.text = DisplayName(set);
         int count = cardsBySet.TryGetValue(set.Id, out List<PrintingDefinition> setCards) ? setCards.Count : 0;
         int owned = setCards?.Count(printing => Progress(printing).IsOwned) ?? 0;
@@ -578,29 +761,46 @@ public sealed class CollectionViewController : MonoBehaviour
     private static void UnbindSetRow(VisualElement element, int index)
     {
         if (element.userData is SetRow row)
+        {
+            row.Set = null;
+            row.Action.SetEnabled(false);
             row.Image.Unbind();
+        }
     }
 
-    private VisualElement MakeCardRow()
+    private VisualElement MakeCardGridRow()
     {
         var root = new VisualElement();
-        root.AddToClassList("card-row");
+        root.AddToClassList("card-grid-row");
+        CardTile first = MakeCardTile(0);
+        CardTile second = MakeCardTile(1);
+        root.Add(first.Root);
+        root.Add(second.Root);
+        var row = new CardGridRow { Tiles = new[] { first, second } };
+        root.userData = row;
+        return root;
+    }
+
+    private CardTile MakeCardTile(int slot)
+    {
+        var root = new VisualElement { name = "card-tile-" + slot };
+        root.AddToClassList("card-tile");
         AsyncCardImageView image = Track(new AsyncCardImageView(textureCache));
-        image.Element.AddToClassList("card-row__image");
+        image.Element.AddToClassList("card-tile__image");
         var copy = new VisualElement();
-        copy.AddToClassList("browser-row__copy");
+        copy.AddToClassList("card-tile__copy");
         var name = new Label();
-        name.AddToClassList("browser-row__title");
+        name.AddToClassList("card-tile__name");
         var number = new Label();
-        number.AddToClassList("browser-row__metadata");
+        number.AddToClassList("card-tile__number");
         var rarity = new Label();
-        rarity.AddToClassList("card-row__rarity");
+        rarity.AddToClassList("card-tile__rarity");
         var progress = new VisualElement();
-        progress.AddToClassList("card-row__progress");
+        progress.AddToClassList("card-tile__progress");
         var owned = new Label();
-        owned.AddToClassList("card-row__owned");
+        owned.AddToClassList("card-tile__owned");
         var newBadge = new Label();
-        newBadge.AddToClassList("card-row__new");
+        newBadge.AddToClassList("card-tile__new");
         progress.Add(newBadge);
         progress.Add(owned);
         copy.Add(name);
@@ -609,24 +809,52 @@ public sealed class CollectionViewController : MonoBehaviour
         root.Add(image.Element);
         root.Add(copy);
         root.Add(progress);
-        root.userData = new CardRow
+        var tile = new CardTile
         {
+            Root = root,
             Image = image,
             Name = name,
             Number = number,
             Rarity = rarity,
             Owned = owned,
-            NewBadge = newBadge
+            NewBadge = newBadge,
         };
-        return root;
+        tile.Action = new MobileActionControl(
+            root,
+            () => ActivateCardTile(tile),
+            playFeedback: false,
+            feedbackLabel: name);
+        return tile;
     }
 
-    private void BindCardRow(VisualElement element, int index)
+    private void ActivateCardTile(CardTile tile)
     {
-        if (index < 0 || index >= cards.Count)
+        if (tile?.Printing == null || navigationRequested)
             return;
-        PrintingDefinition printing = cards[index];
-        var row = (CardRow)element.userData;
+        UIFeedbackService.Play(FeedbackCue.CardFlip, true);
+        ShowPrintingDetails(tile.Printing.Id);
+    }
+
+    private void BindCardGridRow(VisualElement element, int index)
+    {
+        if (index < 0 || index >= cardGridLines.Count)
+            return;
+        CardGridLine line = cardGridLines[index];
+        var row = (CardGridRow)element.userData;
+        BindCardTile(row.Tiles[0], line.First);
+        BindCardTile(row.Tiles[1], line.Second);
+    }
+
+    private void BindCardTile(CardTile row, PrintingDefinition printing)
+    {
+        row.Printing = printing;
+        SetVisible(row.Root, printing != null);
+        row.Action.SetEnabled(printing != null && !navigationRequested);
+        if (printing == null)
+        {
+            row.Image.Unbind();
+            return;
+        }
         row.Name.text = DisplayName(printing);
         row.Number.text = $"#{printing.Identity.CardNumber}  ·  {printing.Identity.VariantId}";
         row.Rarity.text = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarity)
@@ -636,49 +864,51 @@ public sealed class CollectionViewController : MonoBehaviour
         row.Owned.text = FormatOwnedCount(progress.OwnedCount);
         row.Owned.EnableInClassList("is-owned", progress.IsOwned);
         row.NewBadge.text = CardUiText.Get("common.badge.new");
-        row.NewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
-        element.EnableInClassList("is-unowned", !progress.IsOwned);
-        element.EnableInClassList("is-new", progress.IsNew);
+        SetVisible(row.NewBadge, progress.IsNew);
+        row.Root.EnableInClassList("is-unowned", !progress.IsOwned);
+        row.Root.EnableInClassList("is-new", progress.IsNew);
         row.Image.Bind(printing);
-        element.tooltip = row.Name.text;
+        row.Root.tooltip = row.Name.text;
     }
 
-    private static void UnbindCardRow(VisualElement element, int index)
+    private void UnbindCardGridRow(VisualElement element, int index)
     {
-        if (element.userData is CardRow row)
-            row.Image.Unbind();
+        if (!(element.userData is CardGridRow row))
+            return;
+        foreach (CardTile tile in row.Tiles)
+        {
+            tile.Printing = null;
+            tile.Action.SetEnabled(false);
+            tile.Image.Unbind();
+        }
     }
 
     private void DestroyRow(VisualElement element)
     {
         AsyncCardImageView image = null;
         if (element.userData is SetRow setRow)
+        {
             image = setRow.Image;
-        else if (element.userData is CardRow cardRow)
-            image = cardRow.Image;
-
-        if (image == null)
+            setRow.Action.Dispose();
+            setRow.Set = null;
+        }
+        else if (element.userData is CardGridRow cardRow)
+        {
+            foreach (CardTile tile in cardRow.Tiles)
+            {
+                tile.Action.Dispose();
+                tile.Printing = null;
+                tile.Image.Dispose();
+                imageViews.Remove(tile.Image);
+            }
             return;
-        image.Dispose();
-        imageViews.Remove(image);
-    }
+        }
 
-    private void OnSetSelectionChanged(IEnumerable<object> selection)
-    {
-        SetDefinition set = selection.OfType<SetDefinition>().FirstOrDefault();
-        if (set == null)
-            return;
-        UIFeedbackService.Play(FeedbackCue.Confirm);
-        OpenSet(set.Id);
-    }
-
-    private void OnCardSelectionChanged(IEnumerable<object> selection)
-    {
-        PrintingDefinition printing = selection.OfType<PrintingDefinition>().FirstOrDefault();
-        if (printing == null)
-            return;
-        UIFeedbackService.Play(FeedbackCue.CardFlip, true);
-        ShowPrintingDetails(printing.Id);
+        if (image != null)
+        {
+            image.Dispose();
+            imageViews.Remove(image);
+        }
     }
 
     public void RefreshCollectionProgress()
@@ -722,13 +952,37 @@ public sealed class CollectionViewController : MonoBehaviour
         if (newOnly)
             query = query.Where(printing => Progress(printing).IsNew);
 
+        string cardLanguageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
+        StringComparer cardNameComparer = CreateCardNameComparer(cardLanguageId);
+        query = sortMode switch
+        {
+            CardSortMode.Name => query
+                .OrderBy(printing => DisplayName(printing), cardNameComparer)
+                .ThenBy(printing => printing.Identity.CardNumber, CardNumberComparer)
+                .ThenBy(printing => printing.Id, StringComparer.Ordinal),
+            CardSortMode.Rarity => query
+                .OrderBy(RarityRank)
+                .ThenBy(printing => printing.Identity.CardNumber, CardNumberComparer)
+                .ThenBy(printing => printing.Id, StringComparer.Ordinal),
+            _ => query
+                .OrderBy(printing => printing.Identity.CardNumber, CardNumberComparer)
+                .ThenBy(printing => printing.Identity.VariantId, StringComparer.Ordinal)
+                .ThenBy(printing => printing.Id, StringComparer.Ordinal)
+        };
+
         cards.Clear();
         cards.AddRange(query);
+        cardGridLines.Clear();
+        for (int index = 0; index < cards.Count; index += 2)
+        {
+            cardGridLines.Add(new CardGridLine(
+                cards[index],
+                index + 1 < cards.Count ? cards[index + 1] : null));
+        }
         cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
         filterEmpty.text = CardUiText.Get("collection.filter.empty");
-        filterEmpty.style.display = cards.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-        cardList.itemsSource = cards;
-        cardList.ClearSelection();
+        SetVisible(filterEmpty, cards.Count == 0);
+        cardList.itemsSource = cardGridLines;
         cardList.Rebuild();
         if (hideDetails)
             HideDetails(false);
@@ -743,10 +997,13 @@ public sealed class CollectionViewController : MonoBehaviour
         selectedRarityId = null;
         ownedOnly = false;
         newOnly = false;
+        sortMode = CardSortMode.Number;
         updatingFilterControls = true;
         searchField.SetValueWithoutNotify(string.Empty);
         if (rarityFilter.choices != null && rarityFilter.choices.Count > 0)
             rarityFilter.index = 0;
+        if (sortField.choices != null && sortField.choices.Count > 0)
+            sortField.index = 0;
         updatingFilterControls = false;
         RefreshFilterControls();
         if (apply)
@@ -803,15 +1060,27 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         searchField.label = CardUiText.Get("collection.filter.search");
         rarityFilter.label = CardUiText.Get("collection.filter.rarity");
-        ownedOnlyButton.text = ownedOnly
+        sortField.label = CardUiText.Get("collection.sort.label");
+        updatingFilterControls = true;
+        sortField.choices = new List<string>
+        {
+            CardUiText.Get("collection.sort.number"),
+            CardUiText.Get("collection.sort.name"),
+            CardUiText.Get("collection.sort.rarity")
+        };
+        sortField.index = (int)sortMode;
+        updatingFilterControls = false;
+        ownedOnlyAction.SetLabel(ownedOnly
             ? CardUiText.Get("collection.filter.owned_on")
-            : CardUiText.Get("collection.filter.owned_off");
-        newOnlyButton.text = newOnly
+            : CardUiText.Get("collection.filter.owned_off"));
+        newOnlyAction.SetLabel(newOnly
             ? CardUiText.Get("collection.filter.new_on")
-            : CardUiText.Get("collection.filter.new_off");
-        clearFiltersButton.text = CardUiText.Get("common.action.clear");
-        ownedOnlyButton.EnableInClassList("is-selected", ownedOnly);
-        newOnlyButton.EnableInClassList("is-selected", newOnly);
+            : CardUiText.Get("collection.filter.new_off"));
+        clearFiltersAction.SetLabel(CardUiText.Get("common.action.clear"));
+        ownedOnlyAction.SetSelected(ownedOnly);
+        newOnlyAction.SetSelected(newOnly);
+        ownedOnlyAction.Root.EnableInClassList("is-selected", ownedOnly);
+        newOnlyAction.Root.EnableInClassList("is-selected", newOnly);
     }
 
     private void RefreshPrintingDetails(PrintingDefinition printing, bool markSeen)
@@ -832,7 +1101,7 @@ public sealed class CollectionViewController : MonoBehaviour
         CollectionItemProgress progress = Progress(printing);
         detailProgress.text = FormatOwnedCount(progress.OwnedCount);
         detailNewBadge.text = CardUiText.Get("common.badge.new");
-        detailNewBadge.style.display = progress.IsNew ? DisplayStyle.Flex : DisplayStyle.None;
+        SetVisible(detailNewBadge, progress.IsNew);
         detailImage.Bind(printing);
         if (markSeen && progress.IsNew)
             MarkPrintingSeen(printing);
@@ -840,13 +1109,14 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void RebuildDetailLanguageSwitcher()
     {
+        DisposeDetailLanguageActions();
         detailLanguageSwitcher.Clear();
         PrintingLanguageGroup group = currentDetailPrinting == null
             ? null
             : catalog.PrintingLanguages.GetGroup(currentDetailPrinting.Id);
         if (group == null || !group.HasMultipleLanguages)
         {
-            detailLanguageSwitcher.style.display = DisplayStyle.None;
+            SetVisible(detailLanguageSwitcher, false);
             return;
         }
 
@@ -855,19 +1125,21 @@ public sealed class CollectionViewController : MonoBehaviour
                      .ThenBy(value => value, StringComparer.OrdinalIgnoreCase))
         {
             string selectedLanguage = languageId;
-            var button = new Button(() => SwitchDetailCardLanguage(selectedLanguage))
-            {
-                text = LanguageBadge(selectedLanguage),
-                name = "detail-language-" + selectedLanguage.ToLowerInvariant().Replace('_', '-')
-            };
-            button.AddToClassList("details-panel__language");
-            button.EnableInClassList("is-selected", string.Equals(
+            var action = new MobileActionControl(
+                "detail-language-" + selectedLanguage.ToLowerInvariant().Replace('_', '-'),
+                LanguageBadge(selectedLanguage),
+                () => SwitchDetailCardLanguage(selectedLanguage));
+            action.Root.AddToClassList("collection-detail__language");
+            bool selected = string.Equals(
                 currentDetailPrinting.Identity.LanguageId,
                 selectedLanguage,
-                StringComparison.OrdinalIgnoreCase));
-            detailLanguageSwitcher.Add(button);
+                StringComparison.OrdinalIgnoreCase);
+            action.SetSelected(selected);
+            action.Root.EnableInClassList("is-selected", selected);
+            detailLanguageActions.Add(action);
+            detailLanguageSwitcher.Add(action.Root);
         }
-        detailLanguageSwitcher.style.display = DisplayStyle.Flex;
+        SetVisible(detailLanguageSwitcher, true);
     }
 
     private void AnimateLanguageSwap()
@@ -921,9 +1193,10 @@ public sealed class CollectionViewController : MonoBehaviour
         if (definition == null)
             return string.Empty;
         if (!string.IsNullOrWhiteSpace(cardLanguageId) &&
-            definition.Names.TryGetValue(cardLanguageId, out string exact))
+            definition.Names.TryGetValue(cardLanguageId, out string exact) &&
+            !string.IsNullOrWhiteSpace(exact))
             return exact;
-        return definition.Names.Values.First();
+        return definition.Id;
     }
 
     private void MarkPrintingSeen(PrintingDefinition printing)
@@ -933,15 +1206,13 @@ public sealed class CollectionViewController : MonoBehaviour
             if (!collectionProgress.MarkSeen(printing.Id))
                 return;
 
-            detailNewBadge.style.display = DisplayStyle.None;
+            SetVisible(detailNewBadge, false);
             setList.RefreshItems();
             if (newOnly)
                 ApplyFilters(true, false);
             else
             {
-                int index = cards.IndexOf(printing);
-                if (index >= 0)
-                    cardList.RefreshItem(index);
+                cardList.RefreshItems();
                 cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
             }
             SetBrowserStatus(FormatCollectionSummary(), false);
@@ -982,81 +1253,58 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void ShowSets()
     {
+        filterSheet?.HideImmediately();
         currentSet = null;
         cards.Clear();
-        setList.ClearSelection();
-        cardList.ClearSelection();
-        setPage.style.display = DisplayStyle.Flex;
-        cardPage.style.display = DisplayStyle.None;
+        cardGridLines.Clear();
+        SetVisible(setPage, sets.Count > 0);
+        SetVisible(cardPage, false);
+        SetVisible(zeroContentPanel, sets.Count == 0);
         HideDetails(false);
         SetBrowserStatus(FormatCollectionSummary(), false);
+        ApplyActionAvailability();
     }
 
     private void HideDetails(bool clearSelection)
     {
-        detailsAnimation?.Pause();
-        detailsAnimation = null;
         languageSwapAnimation?.Pause();
         languageSwapAnimation = null;
-        detailsPanel.style.display = DisplayStyle.None;
-        detailsPanel.style.opacity = 0f;
+        detailSheet?.Hide();
         detailImage?.Unbind();
         if (detailImage != null)
             detailImage.Element.style.opacity = 1f;
         currentDetailPrinting = null;
+        DisposeDetailLanguageActions();
         detailLanguageSwitcher?.Clear();
         if (detailLanguageSwitcher != null)
         {
-            detailLanguageSwitcher.style.display = DisplayStyle.None;
+            SetVisible(detailLanguageSwitcher, false);
             detailLanguageSwitcher.style.opacity = 1f;
         }
         if (detailNewBadge != null)
-            detailNewBadge.style.display = DisplayStyle.None;
-        if (clearSelection)
-            cardList?.ClearSelection();
-    }
-
-    private void AnimateDetailsIn()
-    {
-        detailsAnimation?.Pause();
-        if (UIFeedbackService.ReduceMotion)
-        {
-            detailsPanel.style.opacity = 1f;
-            detailsPanel.style.scale = new Scale(Vector3.one);
-            return;
-        }
-
-        float startedAt = Time.realtimeSinceStartup;
-        float duration = 0.22f / UIFeedbackService.AnimationSpeed;
-        detailsPanel.style.opacity = 0f;
-        detailsPanel.style.scale = new Scale(new Vector3(0.94f, 0.94f, 1f));
-        detailsAnimation = detailsPanel.schedule.Execute(() =>
-        {
-            float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / duration));
-            detailsPanel.style.opacity = progress;
-            float scale = Mathf.Lerp(0.94f, 1f, progress);
-            detailsPanel.style.scale = new Scale(new Vector3(scale, scale, 1f));
-            if (progress >= 1f)
-            {
-                detailsAnimation?.Pause();
-                detailsAnimation = null;
-            }
-        }).Every(16);
+            SetVisible(detailNewBadge, false);
+        ApplyActionAvailability();
     }
 
     private void RefreshLocalizedChrome()
     {
-        pageTitle.text = CardUiText.Get("collection.title");
-        pageSubtitle.text = CardUiText.Get("collection.subtitle");
-        menuButton.text = CardUiText.Get("common.action.main_menu");
-        manageContentButton.text = CardUiText.Get("common.action.manage_content");
+        mobileTopBar.SetText(
+            CardUiText.Get("collection.title"),
+            CardUiText.Get("collection.subtitle"));
+        menuAction.SetLabel(CardUiText.Get("common.action.main_menu"));
+        manageContentAction.SetLabel(CardUiText.Get("common.action.manage_content"));
         errorPresenter?.RefreshLanguage();
         zeroContentText.text = CardUiText.Get("collection.status.no_content");
-        pokedexButton.text = PokemonPokedexText.Get(
+        pokedexAction.SetLabel(PokemonPokedexText.Get(
             "title",
-            ApplicationServices.Languages.UiLanguageId);
-        backToSetsButton.text = CardUiText.Get("collection.action.all_sets");
-        closeDetailsButton.text = CardUiText.Get("common.action.close");
+            ApplicationServices.Languages.UiLanguageId));
+        backToSetsAction.SetLabel(CardUiText.Get("collection.action.all_sets"));
+        closeDetailsAction.SetLabel(CardUiText.Get("common.action.close"));
+        openFiltersAction.SetLabel(CardUiText.Get("collection.action.filters"));
+        closeFiltersAction.SetLabel(CardUiText.Get("common.action.close"));
+        primaryNavigation.RefreshText();
+        detailSheet.Title.text = CardUiText.Get("collection.title");
+        filterSheet.Title.text = CardUiText.Get("collection.filters.title");
         if (currentDetailPrinting != null)
         {
             CollectionItemProgress detailState = Progress(currentDetailPrinting);
@@ -1075,12 +1323,12 @@ public sealed class CollectionViewController : MonoBehaviour
 
         setList?.RefreshItems();
         cardList?.RefreshItems();
+        ApplyActionAvailability();
     }
 
-    private static void OpenContentManagement()
+    private void OpenContentManagement()
     {
-        ContentReturnNavigation.RememberCurrentScene();
-        SceneManager.LoadScene("006_ContentScene");
+        NavigatePrimary(MobileDestination.Content);
     }
 
     private void OnUiLanguageChanged(string languageId)
@@ -1107,6 +1355,90 @@ public sealed class CollectionViewController : MonoBehaviour
     private string DisplayName(Definition definition)
     {
         return ApplicationServices.Languages.GetDisplayName(definition);
+    }
+
+    private int RarityRank(PrintingDefinition printing)
+    {
+        return catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarity)
+            ? rarity.DisplayRank
+            : int.MaxValue;
+    }
+
+    private static StringComparer CreateCardNameComparer(string languageId)
+    {
+        string normalized = (languageId ?? string.Empty).Trim().ToLowerInvariant();
+        string cultureName = normalized switch
+        {
+            "zh" => "zh-CN",
+            "zh-cn" => "zh-CN",
+            "ja" => "ja-JP",
+            "en" => "en-US",
+            _ => normalized
+        };
+        try
+        {
+            return string.IsNullOrWhiteSpace(cultureName)
+                ? StringComparer.OrdinalIgnoreCase
+                : StringComparer.Create(CultureInfo.GetCultureInfo(cultureName), true);
+        }
+        catch (CultureNotFoundException)
+        {
+            return StringComparer.OrdinalIgnoreCase;
+        }
+    }
+
+    private static int CompareCardNumbers(string left, string right)
+    {
+        left ??= string.Empty;
+        right ??= string.Empty;
+        int leftIndex = 0;
+        int rightIndex = 0;
+        while (leftIndex < left.Length && rightIndex < right.Length)
+        {
+            bool leftDigit = char.IsDigit(left[leftIndex]);
+            bool rightDigit = char.IsDigit(right[rightIndex]);
+            if (leftDigit && rightDigit)
+            {
+                int leftRunStart = leftIndex;
+                int rightRunStart = rightIndex;
+                while (leftIndex < left.Length && left[leftIndex] == '0')
+                    leftIndex++;
+                while (rightIndex < right.Length && right[rightIndex] == '0')
+                    rightIndex++;
+                int leftSignificantStart = leftIndex;
+                int rightSignificantStart = rightIndex;
+                while (leftIndex < left.Length && char.IsDigit(left[leftIndex]))
+                    leftIndex++;
+                while (rightIndex < right.Length && char.IsDigit(right[rightIndex]))
+                    rightIndex++;
+                int leftSignificantLength = leftIndex - leftSignificantStart;
+                int rightSignificantLength = rightIndex - rightSignificantStart;
+                if (leftSignificantLength != rightSignificantLength)
+                    return leftSignificantLength.CompareTo(rightSignificantLength);
+                for (int offset = 0; offset < leftSignificantLength; offset++)
+                {
+                    int comparison = left[leftSignificantStart + offset]
+                        .CompareTo(right[rightSignificantStart + offset]);
+                    if (comparison != 0)
+                        return comparison;
+                }
+                int leftRunLength = leftIndex - leftRunStart;
+                int rightRunLength = rightIndex - rightRunStart;
+                if (leftRunLength != rightRunLength)
+                    return leftRunLength.CompareTo(rightRunLength);
+                continue;
+            }
+
+            if (leftDigit != rightDigit)
+                return leftDigit ? -1 : 1;
+            int characterComparison = char.ToUpperInvariant(left[leftIndex])
+                .CompareTo(char.ToUpperInvariant(right[rightIndex]));
+            if (characterComparison != 0)
+                return characterComparison;
+            leftIndex++;
+            rightIndex++;
+        }
+        return (left.Length - leftIndex).CompareTo(right.Length - rightIndex);
     }
 
     private string FormatCollectionSummary()
@@ -1139,7 +1471,100 @@ public sealed class CollectionViewController : MonoBehaviour
         if (browserStatus == null)
             return;
         browserStatus.text = message ?? string.Empty;
+        SetVisible(browserStatus, !string.IsNullOrWhiteSpace(browserStatus.text));
         browserStatus.EnableInClassList("is-error", isError);
+    }
+
+    private void ApplyActionAvailability()
+    {
+        bool available = !destroyed && !navigationRequested;
+        body?.EnableInClassList("is-pending", navigationRequested);
+        if (body != null)
+            body.pickingMode = available ? PickingMode.Position : PickingMode.Ignore;
+        menuAction?.SetEnabled(available);
+        pokedexAction?.SetEnabled(available);
+        manageContentAction?.SetEnabled(available);
+        errorRetryAction?.SetEnabled(available);
+        errorManageAction?.SetEnabled(available);
+        errorHomeAction?.SetEnabled(available);
+        backToSetsAction?.SetEnabled(available && IsReady && currentSet != null);
+        closeDetailsAction?.SetEnabled(available && currentDetailPrinting != null);
+        ownedOnlyAction?.SetEnabled(available && IsReady && currentSet != null);
+        newOnlyAction?.SetEnabled(available && IsReady && currentSet != null);
+        clearFiltersAction?.SetEnabled(available && IsReady && currentSet != null);
+        openFiltersAction?.SetEnabled(available && IsReady && currentSet != null);
+        closeFiltersAction?.SetEnabled(available);
+        foreach (MobileActionControl action in detailLanguageActions)
+            action.SetEnabled(available);
+        if (searchField != null)
+            searchField.SetEnabled(available && IsReady && currentSet != null);
+        if (rarityFilter != null)
+            rarityFilter.SetEnabled(available && IsReady && currentSet != null);
+        if (sortField != null)
+            sortField.SetEnabled(available && IsReady && currentSet != null);
+        if (setList != null)
+        {
+            foreach (VisualElement element in setList.Query<VisualElement>(className: "set-row").ToList())
+                if (element.userData is SetRow row)
+                    row.Action.SetEnabled(available && row.Set != null);
+        }
+        if (cardList != null)
+        {
+            foreach (VisualElement element in cardList.Query<VisualElement>(className: "card-grid-row").ToList())
+            {
+                if (!(element.userData is CardGridRow row))
+                    continue;
+                foreach (CardTile tile in row.Tiles)
+                    tile.Action.SetEnabled(available && tile.Printing != null);
+            }
+        }
+    }
+
+    private void CompleteTransientVisuals()
+    {
+        CancelSearchRefresh();
+        filterAnimation?.Pause();
+        filterAnimation = null;
+        languageSwapAnimation?.Pause();
+        languageSwapAnimation = null;
+        if (cardList != null)
+            cardList.style.opacity = 1f;
+        if (filterEmpty != null)
+            filterEmpty.style.opacity = 1f;
+        if (detailImage != null)
+            detailImage.Element.style.opacity = 1f;
+        if (detailLanguageSwitcher != null)
+            detailLanguageSwitcher.style.opacity = 1f;
+    }
+
+    private void DisposeDetailLanguageActions()
+    {
+        foreach (MobileActionControl action in detailLanguageActions)
+            action.Dispose();
+        detailLanguageActions.Clear();
+    }
+
+    private void HideLegacyCanvas()
+    {
+        foreach (GameObject sceneRoot in gameObject.scene.GetRootGameObjects())
+        {
+            foreach (Canvas canvas in sceneRoot.GetComponentsInChildren<Canvas>(true))
+            {
+                if (canvas != null && canvas.gameObject.scene == gameObject.scene)
+                    canvas.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private static void DisposeAction(ref MobileActionControl action)
+    {
+        action?.Dispose();
+        action = null;
+    }
+
+    private static void SetVisible(VisualElement element, bool visible)
+    {
+        element?.EnableInClassList("is-hidden", !visible);
     }
 
     private AsyncCardImageView Track(AsyncCardImageView imageView)

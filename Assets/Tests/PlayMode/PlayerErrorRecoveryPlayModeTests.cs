@@ -171,8 +171,7 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(root.Q<Label>("collection-error-title").text, Is.Not.EqualTo(englishTitle));
 
-                Assert.That(InvokeBool(controller, "RetryInitialization"), Is.True,
-                    GetProperty<string>(controller, "InitializationError"));
+                SendTap(root.Q<VisualElement>("collection-error-retry"));
                 float hideDeadline = Time.realtimeSinceStartup + 1f;
                 while (error.resolvedStyle.display != DisplayStyle.None &&
                        Time.realtimeSinceStartup < hideDeadline)
@@ -294,6 +293,26 @@ namespace Gacha.Tests.PlayMode
                 string label = action is Button button ? button.text : action.Q<Label>()?.text;
                 Assert.That(label, Is.Not.Empty, actionName);
             }
+        }
+
+        private static void SendTap(VisualElement control)
+        {
+            Assert.That(control, Is.Not.Null);
+            Vector2 position = control.worldBound.center;
+            using (PointerDownEvent down = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = position
+                   }))
+                control.SendEvent(down);
+            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = position
+                   }))
+                control.SendEvent(up);
         }
 
         private static Type FindRuntimeType(string name)
