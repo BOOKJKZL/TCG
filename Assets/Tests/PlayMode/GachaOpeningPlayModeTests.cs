@@ -373,8 +373,76 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(store.ProductsOpened, Is.Zero);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-stage").resolvedStyle.display,
                     Is.EqualTo(DisplayStyle.Flex));
-                Assert.That(document.rootVisualElement.Q<VisualElement>("pack-theme-artwork")
-                    .ClassListContains("is-visible"), Is.True);
+                VisualElement carouselRoot = document.rootVisualElement
+                    .Q<VisualElement>("interactive-pack-carousel");
+                Assert.That(carouselRoot, Is.Not.Null);
+                Assert.That(carouselRoot.Q<VisualElement>("interactive-pack-carousel-rail").childCount,
+                    Is.EqualTo(5));
+                InteractivePackView interactivePack = carouselRoot
+                    .Q<VisualElement>(className: "interactive-pack-carousel__slot--selected")
+                    .Q<InteractivePackView>();
+                ScrollView packStageScroll = document.rootVisualElement.Q<ScrollView>("pack-stage");
+                packStageScroll.ScrollTo(document.rootVisualElement.Q<VisualElement>("pack-shell"));
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (interactivePack.worldBound.width <= 0f && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                AssertContained(safeContent, packStageScroll.worldBound, "pack stage scroll");
+                AssertContained(
+                    document.rootVisualElement.Q<VisualElement>("pack-shell").worldBound,
+                    interactivePack.worldBound,
+                    "interactive pack");
+                ApplicationServices.Languages.SelectUiLanguage("ja");
+                yield return null;
+                Assert.That(document.rootVisualElement.Q<Label>("pack-hint").text,
+                    Does.Contain("パック").And.Not.Contain("Drag to rotate"));
+                VisualElement accessibleTear = document.rootVisualElement.Q<VisualElement>("tear-pack-button");
+                packStageScroll.ScrollTo(accessibleTear);
+                yield return null;
+                yield return null;
+                Assert.That(accessibleTear.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                Assert.That(packStageScroll.contentViewport.worldBound.Contains(accessibleTear.worldBound.center),
+                    Is.True);
+                AssertContained(safeContent, accessibleTear.worldBound, "accessible tear action");
+                ApplicationServices.Languages.SelectUiLanguage("en");
+                packStageScroll.ScrollTo(document.rootVisualElement.Q<VisualElement>("pack-shell"));
+                yield return null;
+                Assert.That(document.rootVisualElement
+                    .Q<Label>("interactive-pack-carousel-position").text, Does.Contain("1").And.Contain("10"));
+                VisualElement sidePack = carouselRoot.Q<VisualElement>(
+                    className: "interactive-pack-carousel__slot--near-right");
+                Label sidePackFeedback = sidePack.Q<Label>(className: "interactive-pack-carousel__slot-label");
+                yield return null;
+                yield return null;
+                Rect sidePackGeometry = sidePack.worldBound;
+                Color sidePackBackground = sidePack.resolvedStyle.backgroundColor;
+                Color sidePackBorder = sidePack.resolvedStyle.borderLeftColor;
+                SendPointerDown(sidePack);
+                yield return null;
+                Assert.That(sidePack.ClassListContains("is-pressed"), Is.False,
+                    "Pressed feedback must never mutate the stable carousel slot root.");
+                Assert.That(sidePackFeedback.ClassListContains("is-pressed"), Is.True);
+                Assert.That(sidePackFeedback.resolvedStyle.backgroundColor.a, Is.GreaterThan(0.1f),
+                    "The child pressed layer must resolve to visible feedback on Android UI Toolkit.");
+                Assert.That(sidePack.worldBound, Is.EqualTo(sidePackGeometry));
+                Assert.That(sidePack.resolvedStyle.backgroundColor, Is.EqualTo(sidePackBackground));
+                Assert.That(sidePack.resolvedStyle.borderLeftColor, Is.EqualTo(sidePackBorder));
+                SendPointerUp(sidePack, sidePack.worldBound.center);
+                yield return null;
+                Assert.That(sidePackFeedback.ClassListContains("is-pressed"), Is.False);
+                Assert.That((int)GetProperty(controller, "SelectedInteractivePackIndex"), Is.EqualTo(1));
+                Assert.That(document.rootVisualElement
+                    .Q<Label>("interactive-pack-carousel-position").text,
+                    Is.EqualTo("Pack 2 of 10 selected"));
+                SendPointerDown(sidePack);
+                Assert.That(sidePackFeedback.ClassListContains("is-pressed"), Is.True);
+                SendPointerCancel(sidePack);
+                Assert.That(sidePackFeedback.ClassListContains("is-pressed"), Is.False,
+                    "Pointer cancellation must clear the child pressed state without selection.");
+                Assert.That((int)GetProperty(controller, "SelectedInteractivePackIndex"), Is.EqualTo(1));
+                SendDesktopPartialTear(interactivePack);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Prepared"));
+                Assert.That(store.ProductsOpened, Is.Zero);
+                Assert.That(GetProperty(controller, "InteractivePackPhase").ToString(), Is.EqualTo("Idle"));
                 Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.True);
                 Assert.That((int)GetProperty(controller, "PackParticleCount"), Is.EqualTo(6));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-particle-layer").childCount,
@@ -383,10 +451,23 @@ namespace Gacha.Tests.PlayMode
                 Action<ProductDrawResult> throwingSubscriber = _ =>
                     throw new InvalidOperationException("post-commit presentation sentinel");
                 packOpenedEvent.AddEventHandler(controller, throwingSubscriber);
-                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                SendDesktopTear(interactivePack);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Opening"));
                 packOpenedEvent.RemoveEventHandler(controller, throwingSubscriber);
                 Assert.That(store.ProductsOpened, Is.EqualTo(1),
                     "A subscriber failure after OpenBatch must not roll back the committed result.");
+                int committedSelection = (int)GetProperty(controller, "SelectedInteractivePackIndex");
+                VisualElement disabledSidePack = carouselRoot.Q<VisualElement>(
+                    className: "interactive-pack-carousel__slot--near-right");
+                Assert.That(interactivePack.focusable, Is.False);
+                Assert.That(interactivePack.tabIndex, Is.EqualTo(-1));
+                Assert.That(disabledSidePack.focusable, Is.False);
+                Assert.That(disabledSidePack.Q<Label>(className: "interactive-pack-carousel__slot-label")
+                    .ClassListContains("is-disabled"), Is.True);
+                SendTap(disabledSidePack);
+                Assert.That((int)GetProperty(controller, "SelectedInteractivePackIndex"),
+                    Is.EqualTo(committedSelection),
+                    "Opening must disable the whole carousel, including side-pack selection actions.");
                 Assert.That(InvokeBool(controller, "TearPack"), Is.False,
                     "A committed opening must never return to the state that can draw again.");
 
@@ -470,7 +551,12 @@ namespace Gacha.Tests.PlayMode
                 SendTap(confirmation.Confirm.Root);
                 yield return null;
                 Assert.That((string)GetProperty(controller, "FrozenContentLanguageId"), Is.EqualTo("ja"));
-                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                VisualElement tearPackButton = document.rootVisualElement.Q<VisualElement>("tear-pack-button");
+                packStageScroll.ScrollTo(tearPackButton);
+                yield return null;
+                store.ThrowOnHistoryRead = true;
+                SendTap(tearPackButton);
+                store.ThrowOnHistoryRead = false;
                 Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
                 Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.False);
                 Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.False);
@@ -506,7 +592,9 @@ namespace Gacha.Tests.PlayMode
                     .ClassListContains("gacha-theme--forest"), Is.True);
 
                 Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
-                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                packStageScroll.ScrollTo(tearPackButton);
+                yield return null;
+                SendTap(tearPackButton);
                 InvokePrivate(controller, "OnApplicationPause", true);
                 Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
                 Assert.That((bool)GetProperty(controller, "ArePackParticlesRunning"), Is.False);
@@ -556,7 +644,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "PreparedProductCount"), Is.EqualTo(10));
                 Assert.That(document.rootVisualElement.Q<Label>("pack-hint").text,
                     Does.Contain("first of 10 packs"));
-                Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                packStageScroll.ScrollTo(tearPackButton);
+                yield return null;
+                SendTap(tearPackButton);
                 deadline = Time.realtimeSinceStartup + 3f;
                 while (revealStage.resolvedStyle.display != DisplayStyle.Flex && Time.realtimeSinceStartup < deadline)
                     yield return null;
@@ -575,6 +665,24 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("opening-history").childCount,
                     Is.EqualTo(4));
                 Assert.That(cues.Count(cue => cue == FeedbackCue.PackOpen), Is.EqualTo(4));
+
+                InvokePrivate(controller, "ShowSelectionPage");
+                yield return null;
+                int productsBeforeMalformedCommit = store.ProductsOpened;
+                store.ReturnMismatchedAwardsOnce = true;
+                Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
+                InteractivePackView malformedPack = document.rootVisualElement
+                    .Q<VisualElement>(className: "interactive-pack-carousel__slot--selected")
+                    .Q<InteractivePackView>();
+                packStageScroll.ScrollTo(malformedPack);
+                yield return null;
+                Assert.That(malformedPack.AcceptFromAccessibleAction(), Is.True);
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("CommittedFailure"));
+                Assert.That(store.ProductsOpened, Is.EqualTo(productsBeforeMalformedCommit + 1),
+                    "The malformed presentation fixture still represents an irreversible inventory commit.");
+                Assert.That(malformedPack.AcceptFromAccessibleAction(), Is.False);
+                Assert.That(InvokeBool(controller, "TearPack"), Is.False,
+                    "A reveal-entry mismatch after commit must never make the draw repeatable.");
 
                 int routeCalls = 0;
                 string requestedScene = null;
@@ -617,6 +725,115 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator GachaScene_MobileTwoPointerTearCommitsExactlyOnce()
+        {
+            Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("GachaViewController"))
+                .First(type => type != null);
+            PropertyInfo storeOverride = controllerType.GetProperty(
+                "InventoryStoreOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            PropertyInfo multiTouchOverride = controllerType.GetProperty(
+                "MultiTouchPackOverride",
+                BindingFlags.Static | BindingFlags.Public);
+            var store = new MemoryProgressStore();
+            bool originalReduceMotion = UIFeedbackService.ReduceMotion;
+            bool originalHaptics = UIFeedbackService.HapticsEnabled;
+            bool originalSound = UIFeedbackService.SoundEnabled;
+            float originalAnimationSpeed = UIFeedbackService.AnimationSpeed;
+            storeOverride.SetValue(null, store);
+            multiTouchOverride.SetValue(null, true);
+            UIFeedbackService.Configure(true, false, 1f, false);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("003_GachaScene", LoadSceneMode.Single);
+                MonoBehaviour controller = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                        FindObjectsInactive.Include,
+                        FindObjectsSortMode.None)
+                    .Single(component => component.GetType() == controllerType);
+                float deadline = Time.realtimeSinceStartup + 6f;
+                while (!(bool)GetProperty(controller, "IsReady") && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That((bool)GetProperty(controller, "IsReady"), Is.True,
+                    GetProperty(controller, "InitializationError") as string);
+                Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
+                yield return null;
+                UIDocument document = controller.GetComponent<UIDocument>();
+                InteractivePackView pack = document.rootVisualElement
+                    .Q<VisualElement>(className: "interactive-pack-carousel__slot--selected")
+                    .Q<InteractivePackView>();
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (pack.worldBound.width <= 0f && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+
+                Rect bounds = pack.worldBound;
+                int firstId = PointerId.touchPointerIdBase;
+                int secondId = PointerId.touchPointerIdBase + 1;
+                Vector2 firstStart = new Vector2(bounds.center.x - bounds.width * 0.04f, bounds.center.y);
+                Vector2 secondStart = new Vector2(bounds.center.x + bounds.width * 0.04f, bounds.center.y);
+
+                SendTouchDown(pack, firstId, firstStart, true);
+                SendTouchDown(pack, secondId, secondStart, false);
+                Assert.That(pack.HasPointerCapture(firstId), Is.True);
+                Assert.That(pack.HasPointerCapture(secondId), Is.True);
+                pack.ReleasePointer(firstId);
+                yield return null;
+                // UI Toolkit applies a release requested from inside PointerCaptureOut when
+                // the next event for that pointer is processed. A real touch move/up supplies
+                // that event; the assertion still fails if the sibling release was omitted.
+                SendTouchMove(pack, secondId, secondStart, false);
+                Assert.That(pack.HasPointerCapture(firstId), Is.False);
+                Assert.That(pack.HasPointerCapture(secondId), Is.False,
+                    "Losing either pointer capture must release the other pointer in the gesture transaction.");
+                Assert.That(pack.Phase, Is.EqualTo(InteractivePackGesturePhase.Idle));
+
+                SendTouchDown(pack, firstId, firstStart, true);
+                SendTouchDown(pack, secondId, secondStart, false);
+                SendTouchCancel(pack, firstId, firstStart, true);
+                Assert.That(pack.HasPointerCapture(firstId), Is.False);
+                Assert.That(pack.HasPointerCapture(secondId), Is.False);
+                Assert.That(pack.Phase, Is.EqualTo(InteractivePackGesturePhase.Idle));
+
+                SendTouchDown(pack, firstId, firstStart, true);
+                SendTouchDown(pack, secondId, secondStart, false);
+                InvokePrivate(controller, "OnApplicationPause", true);
+                Assert.That(pack.HasPointerCapture(firstId), Is.False);
+                Assert.That(pack.HasPointerCapture(secondId), Is.False);
+                Assert.That(pack.Phase, Is.EqualTo(InteractivePackGesturePhase.Idle));
+                Assert.That(store.ProductsOpened, Is.Zero);
+
+                SendTouchDown(pack, firstId, firstStart, true);
+                SendTouchMove(pack, firstId,
+                    new Vector2(bounds.center.x - bounds.width * 0.20f, bounds.center.y), true);
+                Assert.That(store.ProductsOpened, Is.Zero,
+                    "A single touch may rotate the mobile pack but must never open it.");
+                SendTouchDown(pack, secondId, secondStart, false);
+                SendTouchMove(pack, secondId,
+                    new Vector2(bounds.center.x + bounds.width * 0.28f, bounds.center.y), false);
+                SendTouchMove(pack, firstId,
+                    new Vector2(bounds.center.x - bounds.width * 0.28f, bounds.center.y), true);
+                Assert.That(store.ProductsOpened, Is.EqualTo(1));
+                Assert.That((string)GetProperty(controller, "CurrentStage"), Is.EqualTo("Revealing"));
+                SendTouchUp(pack, firstId,
+                    new Vector2(bounds.center.x - bounds.width * 0.28f, bounds.center.y), true);
+                SendTouchUp(pack, secondId,
+                    new Vector2(bounds.center.x + bounds.width * 0.28f, bounds.center.y), false);
+                Assert.That(store.ProductsOpened, Is.EqualTo(1),
+                    "Late pointer-up events after acceptance must not submit again.");
+            }
+            finally
+            {
+                storeOverride.SetValue(null, null);
+                multiTouchOverride.SetValue(null, null);
+                UIFeedbackService.Configure(
+                    originalReduceMotion,
+                    originalHaptics,
+                    originalAnimationSpeed,
+                    originalSound);
+            }
+        }
+
         private static object GetProperty(object target, string name)
         {
             return target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(target);
@@ -646,10 +863,11 @@ namespace Gacha.Tests.PlayMode
 
         private static void AssertContained(Rect outer, Rect inner, string label)
         {
-            Assert.That(inner.xMin, Is.GreaterThanOrEqualTo(outer.xMin - 1f), label);
-            Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), label);
-            Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), label);
-            Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), label);
+            string bounds = $"{label}: outer={outer}, inner={inner}";
+            Assert.That(inner.xMin, Is.GreaterThanOrEqualTo(outer.xMin - 1f), bounds);
+            Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), bounds);
+            Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), bounds);
+            Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), bounds);
         }
 
         private static void SendTap(VisualElement control)
@@ -671,6 +889,189 @@ namespace Gacha.Tests.PlayMode
                 control.SendEvent(up);
         }
 
+        private static void SendPointerDown(VisualElement control)
+        {
+            using (PointerDownEvent evt = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = control.worldBound.center
+                   }))
+                control.SendEvent(evt);
+        }
+
+        private static void SendPointerUp(VisualElement control, Vector2 position)
+        {
+            using (PointerUpEvent evt = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = position
+                   }))
+                control.SendEvent(evt);
+        }
+
+        private static void SendPointerCancel(VisualElement control)
+        {
+            using (PointerCancelEvent evt = PointerCancelEvent.GetPooled(
+                       new TestPointerEvent(
+                           PointerId.mousePointerId,
+                           control.worldBound.center,
+                           true,
+                           0,
+                           0,
+                           UnityEngine.UIElements.PointerType.mouse)))
+                control.SendEvent(evt);
+        }
+
+        private static void SendDesktopTear(InteractivePackView pack)
+        {
+            Assert.That(pack, Is.Not.Null);
+            Rect bounds = pack.worldBound;
+            Vector2 start = new Vector2(bounds.center.x - bounds.width * 0.03f, bounds.center.y);
+            Vector2 finish = new Vector2(bounds.center.x - bounds.width * 0.34f, bounds.center.y);
+            using (PointerDownEvent down = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = start
+                   }))
+                pack.SendEvent(down);
+            using (PointerMoveEvent move = PointerMoveEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDrag,
+                       button = 0,
+                       mousePosition = finish
+                   }))
+                pack.SendEvent(move);
+            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = finish
+                   }))
+                pack.SendEvent(up);
+        }
+
+        private static void SendDesktopPartialTear(InteractivePackView pack)
+        {
+            Assert.That(pack, Is.Not.Null);
+            Rect bounds = pack.worldBound;
+            Vector2 start = new Vector2(bounds.center.x - bounds.width * 0.03f, bounds.center.y);
+            Vector2 finish = new Vector2(bounds.center.x - bounds.width * 0.12f, bounds.center.y);
+            using (PointerDownEvent down = PointerDownEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDown,
+                       button = 0,
+                       mousePosition = start
+                   }))
+                pack.SendEvent(down);
+            using (PointerMoveEvent move = PointerMoveEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseDrag,
+                       button = 0,
+                       mousePosition = finish
+                   }))
+                pack.SendEvent(move);
+            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                   {
+                       type = EventType.MouseUp,
+                       button = 0,
+                       mousePosition = finish
+                   }))
+                pack.SendEvent(up);
+        }
+
+        private static void SendTouchDown(
+            VisualElement target,
+            int pointerId,
+            Vector2 position,
+            bool primary)
+        {
+            using (PointerDownEvent evt = PointerDownEvent.GetPooled(
+                       new TestPointerEvent(pointerId, position, primary, 0, 1)))
+                target.SendEvent(evt);
+        }
+
+        private static void SendTouchMove(
+            VisualElement target,
+            int pointerId,
+            Vector2 position,
+            bool primary)
+        {
+            using (PointerMoveEvent evt = PointerMoveEvent.GetPooled(
+                       new TestPointerEvent(pointerId, position, primary, -1, 1)))
+                target.SendEvent(evt);
+        }
+
+        private static void SendTouchUp(
+            VisualElement target,
+            int pointerId,
+            Vector2 position,
+            bool primary)
+        {
+            using (PointerUpEvent evt = PointerUpEvent.GetPooled(
+                       new TestPointerEvent(pointerId, position, primary, 0, 0)))
+                target.SendEvent(evt);
+        }
+
+        private static void SendTouchCancel(
+            VisualElement target,
+            int pointerId,
+            Vector2 position,
+            bool primary)
+        {
+            using (PointerCancelEvent evt = PointerCancelEvent.GetPooled(
+                       new TestPointerEvent(pointerId, position, primary, 0, 0)))
+                target.SendEvent(evt);
+        }
+
+        private sealed class TestPointerEvent : IPointerEvent
+        {
+            public TestPointerEvent(
+                int pointerId,
+                Vector2 position,
+                bool primary,
+                int button,
+                int pressedButtons,
+                string type = null)
+            {
+                this.pointerId = pointerId;
+                this.position = position;
+                localPosition = position;
+                isPrimary = primary;
+                this.button = button;
+                this.pressedButtons = pressedButtons;
+                pointerType = type ?? UnityEngine.UIElements.PointerType.touch;
+            }
+
+            public int pointerId { get; }
+            public string pointerType { get; }
+            public bool isPrimary { get; }
+            public int button { get; }
+            public int pressedButtons { get; }
+            public Vector3 position { get; }
+            public Vector3 localPosition { get; }
+            public Vector3 deltaPosition => Vector3.zero;
+            public float deltaTime => 0f;
+            public int clickCount => 1;
+            public float pressure => 1f;
+            public float tangentialPressure => 0f;
+            public float altitudeAngle => 0f;
+            public float azimuthAngle => 0f;
+            public float twist => 0f;
+            public Vector2 tilt => Vector2.zero;
+            public PenStatus penStatus => PenStatus.None;
+            public Vector2 radius => Vector2.one;
+            public Vector2 radiusVariance => Vector2.zero;
+            public EventModifiers modifiers => EventModifiers.None;
+            public bool shiftKey => false;
+            public bool ctrlKey => false;
+            public bool commandKey => false;
+            public bool altKey => false;
+            public bool actionKey => false;
+        }
+
         private sealed class MemoryProgressStore : IInventoryProgressStore
         {
             private readonly Dictionary<string, int> cards = new Dictionary<string, int>();
@@ -681,6 +1082,8 @@ namespace Gacha.Tests.PlayMode
             public int ProductsOpened { get; private set; }
             public int TotalCards => cards.Values.Sum();
             public IReadOnlyList<string> LastCommittedIds { get; private set; } = Array.Empty<string>();
+            public bool ReturnMismatchedAwardsOnce { get; set; }
+            public bool ThrowOnHistoryRead { get; set; }
 
             public int GetProductsOpened(string productId)
             {
@@ -700,6 +1103,11 @@ namespace Gacha.Tests.PlayMode
                         int previous = cards.TryGetValue(printing.PrintingId, out int count) ? count : 0;
                         cards[printing.PrintingId] = previous + 1;
                         awards.Add(new InventoryAward(printing.PrintingId, previous, previous + 1));
+                    }
+                    if (ReturnMismatchedAwardsOnce && awards.Count > 0)
+                    {
+                        ReturnMismatchedAwardsOnce = false;
+                        awards.RemoveAt(awards.Count - 1);
                     }
                     ProductsOpened++;
                     commits.Add(new ProductInventoryCommit(result.ProductId, ProductsOpened, awards.AsReadOnly()));
@@ -727,12 +1135,17 @@ namespace Gacha.Tests.PlayMode
                 return new ProductInventoryBatchCommit(request.TransactionId, commits.AsReadOnly());
             }
 
-            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount) => history
-                .AsEnumerable()
-                .Reverse()
-                .Take(maximumCount)
-                .ToList()
-                .AsReadOnly();
+            public IReadOnlyList<ProductOpeningHistoryEntry> GetOpeningHistory(int maximumCount)
+            {
+                if (ThrowOnHistoryRead)
+                    throw new InvalidOperationException("post-commit history sentinel");
+                return history
+                    .AsEnumerable()
+                    .Reverse()
+                    .Take(maximumCount)
+                    .ToList()
+                    .AsReadOnly();
+            }
 
             public ProductOpeningStatistics GetOpeningStatistics() =>
                 new ProductOpeningStatistics(productsByLanguage, productsBySet, cardsByRarity);

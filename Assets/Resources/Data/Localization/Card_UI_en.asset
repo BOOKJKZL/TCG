@@ -1085,6 +1085,18 @@ MonoBehaviour:
     m_Localized: Filter cards
     m_Metadata:
       m_Items: []
+  - m_Id: 172600000000000001
+    m_Localized: Drag to rotate. Pull apart with two fingers to tear.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172600000000000002
+    m_Localized: Drag to rotate. Pull outward from the center seam to tear.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172600000000000003
+    m_Localized: Pack {0} of {1} selected
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

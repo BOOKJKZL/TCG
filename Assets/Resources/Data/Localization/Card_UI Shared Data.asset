@@ -1071,6 +1071,18 @@ MonoBehaviour:
     m_Key: collection.filters.title
     m_Metadata:
       m_Items: []
+  - m_Id: 172600000000000001
+    m_Key: gacha.pack.interaction.mobile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172600000000000002
+    m_Key: gacha.pack.interaction.desktop
+    m_Metadata:
+      m_Items: []
+  - m_Id: 172600000000000003
+    m_Key: gacha.pack.selection
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

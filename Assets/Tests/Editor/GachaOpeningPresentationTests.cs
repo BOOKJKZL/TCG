@@ -17,11 +17,9 @@ public class GachaOpeningPresentationTests
 
         TemplateContainer root = asset.CloneTree();
         Assert.That(root.Q<ListView>("product-list"), Is.Not.Null);
-        Assert.That(root.Q<VisualElement>("pack-stage"), Is.Not.Null);
+        Assert.That(root.Q<ScrollView>("pack-stage"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("pack-particle-layer"), Is.Not.Null);
-        Assert.That(root.Q<VisualElement>("pack-theme-artwork"), Is.Not.Null);
-        Assert.That(root.Q<VisualElement>("pack-theme-band"), Is.Not.Null);
-        Assert.That(root.Q<VisualElement>("pack-tear-line"), Is.Not.Null);
+        Assert.That(root.Q<VisualElement>("interactive-pack-host"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-stage"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-particle-layer"), Is.Not.Null);
         Assert.That(root.Q<VisualElement>("reveal-aura"), Is.Not.Null);
@@ -37,6 +35,9 @@ public class GachaOpeningPresentationTests
         Assert.That(source, Does.Not.Contain("<ui:Button"));
         Assert.That(source, Does.Not.Contain("style="));
         Assert.That(source, Does.Contain("virtualization-method=\"DynamicHeight\""));
+        string styles = File.ReadAllText("Assets/UI/Styles.uss");
+        Assert.That(styles, Does.Contain(".interactive-pack-carousel__slot-label.is-pressed"));
+        Assert.That(styles, Does.Contain(".interactive-pack-carousel__slot-label.is-disabled"));
     }
 
     [Test]
@@ -47,7 +48,10 @@ public class GachaOpeningPresentationTests
             "common.action.cancel",
             "gacha.confirm.title",
             "gacha.confirm.body",
-            "gacha.action.confirm_open"
+            "gacha.action.confirm_open",
+            "gacha.pack.interaction.mobile",
+            "gacha.pack.interaction.desktop",
+            "gacha.pack.selection"
         };
         string[] tables =
         {
@@ -70,7 +74,10 @@ public class GachaOpeningPresentationTests
                          172203318969020422L,
                          172203318969020423L,
                          172203318969020424L,
-                         172203318969020425L
+                         172203318969020425L,
+                         172600000000000001L,
+                         172600000000000002L,
+                         172600000000000003L
                      })
                 Assert.That(contents, Does.Contain("m_Id: " + id), table);
         }

@@ -87,12 +87,42 @@ public class InteractivePackViewTests
         int initialChildren = view.childCount;
 
         view.SetInteractionEnabled(false);
+        Assert.That(view.focusable, Is.False);
+        Assert.That(view.tabIndex, Is.EqualTo(-1));
         view.SetInteractionEnabled(true);
+        Assert.That(view.focusable, Is.True);
+        Assert.That(view.tabIndex, Is.EqualTo(0));
         view.ResetInteraction(180f);
         view.Dispose();
 
         Assert.That(view.childCount, Is.EqualTo(initialChildren));
         Assert.That(view.IsInteractionEnabled, Is.False);
         Assert.That(view.AcceptFromAccessibleAction(), Is.False);
+    }
+
+    [Test]
+    public void Carousel_DisablesCenterAndEverySelectionActionAsOneState()
+    {
+        var carousel = new InteractivePackCarousel(new ProductOpeningPackPresentation(null), true);
+        try
+        {
+            carousel.SetInteractionEnabled(false);
+
+            Assert.That(carousel.IsInteractionEnabled, Is.False);
+            Assert.That(carousel.SelectedPack.IsInteractionEnabled, Is.False);
+            Assert.That(carousel.SelectedPack.focusable, Is.False);
+            Assert.That(carousel.Select(1), Is.False);
+            Assert.That(carousel.Root.Query<Label>(className: "interactive-pack-carousel__slot-label")
+                .ToList().All(label => label.ClassListContains("is-disabled")), Is.True);
+
+            carousel.SetInteractionEnabled(true);
+            Assert.That(carousel.IsInteractionEnabled, Is.True);
+            Assert.That(carousel.SelectedPack.IsInteractionEnabled, Is.True);
+            Assert.That(carousel.Select(1), Is.True);
+        }
+        finally
+        {
+            carousel.Dispose();
+        }
     }
 }

@@ -180,9 +180,14 @@ namespace Gacha.Presentation
         public void SetInteractionEnabled(bool enabled)
         {
             interactionEnabled = enabled;
+            focusable = enabled;
+            tabIndex = enabled ? 0 : -1;
             focusRing.EnableInClassList("is-disabled", !enabled);
             if (!enabled)
+            {
+                Blur();
                 CancelInteraction(true);
+            }
         }
 
         public void ResetInteraction(float rotationDegrees = 0f)
@@ -272,7 +277,10 @@ namespace Gacha.Presentation
         {
             if (!capturedPointers.Contains(evt.pointerId))
                 return;
-            CancelInteraction(false);
+            // A two-pointer gesture owns both captures as one transaction. Losing either
+            // capture must release the other one too, otherwise its later move/up events are
+            // ignored after the gesture set is cleared and Android can retain stale capture.
+            CancelInteraction(true);
         }
 
         private void OnDetachFromPanel(DetachFromPanelEvent evt) => CancelInteraction(false);
@@ -443,16 +451,18 @@ namespace Gacha.Presentation
         {
             public VisualElement Root;
             public InteractivePackView Pack;
-            public EventCallback<ClickEvent> Click;
-            public EventCallback<KeyDownEvent> KeyDown;
+            public MobileActionControl Action;
             public int Offset;
         }
 
         private readonly List<Slot> slots = new List<Slot>(VisibleSlotCount);
         private readonly Label positionLabel;
         private bool disposed;
+        private bool interactionEnabled = true;
         private int itemCount = 10;
         private int selectedIndex;
+        private Func<int, int, string> positionFormatter =
+            (index, count) => $"{index} / {count}";
 
         public InteractivePackCarousel(ProductOpeningPackPresentation presentation, bool requireTwoPointersToTear)
         {
@@ -466,7 +476,7 @@ namespace Gacha.Presentation
             {
                 var slot = new Slot
                 {
-                    Root = new VisualElement { focusable = offset != 0, tabIndex = offset == 0 ? -1 : 0 },
+                    Root = new VisualElement(),
                     Pack = new InteractivePackView(presentation, requireTwoPointersToTear),
                     Offset = offset
                 };
@@ -481,17 +491,13 @@ namespace Gacha.Presentation
                 else
                 {
                     Slot captured = slot;
-                    slot.Click = _ => SelectOffset(captured.Offset);
-                    slot.KeyDown = evt =>
-                    {
-                        if (evt.keyCode != KeyCode.Return && evt.keyCode != KeyCode.KeypadEnter &&
-                            evt.keyCode != KeyCode.Space)
-                            return;
-                        SelectOffset(captured.Offset);
-                        evt.StopPropagation();
-                    };
-                    slot.Root.RegisterCallback(slot.Click);
-                    slot.Root.RegisterCallback(slot.KeyDown);
+                    var actionLabel = new Label { pickingMode = PickingMode.Ignore };
+                    actionLabel.AddToClassList("interactive-pack-carousel__slot-label");
+                    slot.Root.Add(actionLabel);
+                    slot.Action = new MobileActionControl(
+                        slot.Root,
+                        () => SelectOffset(captured.Offset),
+                        fallbackLabelClass: "interactive-pack-carousel__slot-label");
                 }
                 slots.Add(slot);
                 rail.Add(slot.Root);
@@ -509,6 +515,7 @@ namespace Gacha.Presentation
         public InteractivePackView SelectedPack => slots[2].Pack;
         public int ItemCount => itemCount;
         public int SelectedIndex => selectedIndex;
+        public bool IsInteractionEnabled => interactionEnabled && !disposed;
 
         public void SetItemCount(int count)
         {
@@ -531,15 +538,42 @@ namespace Gacha.Presentation
                 slot.Pack.SetTextures(front, back);
         }
 
+        public void SetPositionFormatter(Func<int, int, string> formatter)
+        {
+            positionFormatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+            RefreshSlots();
+        }
+
+        public void SetInteractionEnabled(bool enabled)
+        {
+            if (disposed || interactionEnabled == enabled)
+                return;
+            interactionEnabled = enabled;
+            Root.EnableInClassList("is-disabled", !enabled);
+            foreach (Slot slot in slots)
+            {
+                if (slot.Offset == 0)
+                {
+                    slot.Pack.SetInteractionEnabled(enabled);
+                    continue;
+                }
+
+                slot.Action.SetEnabled(enabled);
+                slot.Root.focusable = enabled;
+                slot.Root.tabIndex = enabled ? 0 : -1;
+                if (!enabled)
+                    slot.Root.Blur();
+            }
+        }
+
         public bool Select(int index)
         {
-            if (disposed || index < 0 || index >= itemCount || index == selectedIndex)
+            if (!IsInteractionEnabled || index < 0 || index >= itemCount || index == selectedIndex)
                 return false;
             selectedIndex = index;
             foreach (Slot slot in slots)
                 slot.Pack.ResetInteraction();
             RefreshSlots();
-            UIFeedbackService.Play(FeedbackCue.ButtonClick);
             SelectionChanged?.Invoke(selectedIndex);
             return true;
         }
@@ -562,10 +596,7 @@ namespace Gacha.Presentation
                 if (slot.Offset == 0)
                     slot.Pack.TearAccepted -= OnTearAccepted;
                 else
-                {
-                    slot.Root.UnregisterCallback(slot.Click);
-                    slot.Root.UnregisterCallback(slot.KeyDown);
-                }
+                    slot.Action.Dispose();
                 slot.Pack.Dispose();
             }
             slots.Clear();
@@ -589,9 +620,9 @@ namespace Gacha.Presentation
                 if (index < 0)
                     index += itemCount;
                 slot.Root.userData = index;
-                slot.Root.tooltip = $"{index + 1} / {itemCount}";
+                slot.Root.tooltip = positionFormatter(index + 1, itemCount);
             }
-            positionLabel.text = $"{selectedIndex + 1} / {itemCount}";
+            positionLabel.text = positionFormatter(selectedIndex + 1, itemCount);
         }
 
         private void OnTearAccepted() => TearAccepted?.Invoke();

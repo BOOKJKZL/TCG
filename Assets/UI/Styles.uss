@@ -824,11 +824,12 @@
 }
 
 .gacha-pack-shell {
-    width: 330px;
-    height: 470px;
+    flex-shrink: 0;
+    width: 720px;
+    height: 520px;
     margin-top: 20px;
     margin-bottom: 22px;
-    padding: 16px;
+    padding: 0;
     align-items: center;
     justify-content: center;
     overflow: hidden;
@@ -838,42 +839,114 @@
     background-color: rgb(79, 37, 108);
 }
 
-.gacha-pack-shell__theme-band {
+.gacha-pack-stage {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.gacha-pack-stage > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.gacha-pack-stage > .unity-scroll-view__vertical-scroller {
+    width: 12px;
+}
+
+.gacha-interactive-pack-host,
+.interactive-pack-carousel {
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.interactive-pack-carousel__rail {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.interactive-pack-carousel__slot {
+    flex-shrink: 0;
+    width: 68px;
+    height: 240px;
+    opacity: 0.42;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.interactive-pack-carousel__slot--near-left,
+.interactive-pack-carousel__slot--near-right {
+    width: 100px;
+    height: 320px;
+    opacity: 0.70;
+}
+
+.interactive-pack-carousel__slot--selected {
+    width: 310px;
+    height: 460px;
+    opacity: 1;
+}
+
+.interactive-pack-carousel__slot-label {
     position: absolute;
     left: 0;
     right: 0;
     top: 0;
-    height: 30px;
-    background-color: rgb(219, 127, 255);
-}
-
-.gacha-pack-shell__theme-artwork {
-    position: absolute;
-    left: 14px;
-    right: 14px;
-    top: 18px;
-    bottom: 14px;
-    border-radius: 18px;
-    opacity: 0;
-    -unity-background-scale-mode: scale-and-crop;
-}
-
-.gacha-pack-shell__theme-artwork.is-visible {
+    bottom: 0;
+    color: rgba(255, 255, 255, 0);
+    background-color: rgba(255, 255, 255, 0);
     opacity: 1;
 }
 
-.gacha-pack-shell__art .async-card-image {
-    width: 270px;
-    height: 390px;
+.interactive-pack-carousel__slot-label.is-pressed {
+    background-color: rgba(255, 225, 126, 0.18);
 }
 
-.gacha-pack-shell__tear {
+.interactive-pack-carousel__slot-label.is-disabled {
+    background-color: rgba(7, 10, 19, 0.32);
+}
+
+.interactive-pack {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.interactive-pack__focus-ring {
     position: absolute;
-    left: 0;
-    top: 46%;
-    height: 7px;
-    width: 0;
-    background-color: rgb(255, 227, 125);
+    left: 4px;
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    border-width: 2px;
+    border-radius: 18px;
+    border-color: rgba(255, 225, 126, 0);
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.interactive-pack__focus-ring.is-focused,
+.interactive-pack-carousel__slot:focus .interactive-pack__focus-ring {
+    border-color: rgba(255, 225, 126, 0.92);
+}
+
+.interactive-pack__focus-ring.is-disabled {
+    background-color: rgba(7, 10, 19, 0.28);
+}
+
+.interactive-pack-carousel__position {
+    flex-shrink: 0;
+    min-height: 30px;
+    margin-bottom: 8px;
+    color: rgb(237, 226, 255);
+    font-size: 15px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
 }
 
 .gacha-reveal-card {
@@ -1923,13 +1996,24 @@
 
 .gacha-opening .mobile-layout--compact .gacha-pack-shell,
 .gacha-opening .mobile-layout--compact .gacha-reveal-card {
-    width: 286px;
-    height: 408px;
+    width: 100%;
+    height: 440px;
 }
 
-.gacha-opening .mobile-layout--compact .gacha-pack-shell__art .async-card-image {
-    width: 230px;
-    height: 332px;
+.gacha-opening .mobile-layout--compact .interactive-pack-carousel__slot {
+    width: 52px;
+    height: 190px;
+}
+
+.gacha-opening .mobile-layout--compact .interactive-pack-carousel__slot--near-left,
+.gacha-opening .mobile-layout--compact .interactive-pack-carousel__slot--near-right {
+    width: 70px;
+    height: 250px;
+}
+
+.gacha-opening .mobile-layout--compact .interactive-pack-carousel__slot--selected {
+    width: 250px;
+    height: 380px;
 }
 
 .gacha-opening .mobile-layout--compact .gacha-reveal-card__art .async-card-image {
