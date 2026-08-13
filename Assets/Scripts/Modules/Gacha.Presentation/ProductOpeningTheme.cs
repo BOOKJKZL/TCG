@@ -94,7 +94,8 @@ namespace Gacha.Presentation
             float rarePulseScale,
             IEnumerable<string> highlightedRarityIdFragments = null,
             string packArtworkResourcePath = null,
-            ProductOpeningParticleTheme particleTheme = null)
+            ProductOpeningParticleTheme particleTheme = null,
+            ProductOpeningPackPresentation packPresentation = null)
         {
             Id = Required(id, nameof(id));
             StyleClass = Required(styleClass, nameof(styleClass));
@@ -108,9 +109,12 @@ namespace Gacha.Presentation
                 revealDurationSeconds, 0.08f, 1f, nameof(revealDurationSeconds));
             RevealStartScale = InRange(revealStartScale, 0.4f, 1f, nameof(revealStartScale));
             RarePulseScale = InRange(rarePulseScale, 1f, 1.4f, nameof(rarePulseScale));
-            PackArtworkResourcePath = string.IsNullOrWhiteSpace(packArtworkResourcePath)
+            string legacyArtworkPath = string.IsNullOrWhiteSpace(packArtworkResourcePath)
                 ? null
                 : packArtworkResourcePath.Trim();
+            PackPresentation = packPresentation ??
+                new ProductOpeningPackPresentation(legacyArtworkPath, legacyArtworkPath);
+            PackArtworkResourcePath = PackPresentation.FrontArtworkResourcePath;
             ParticleTheme = particleTheme ?? ProductOpeningParticleTheme.Default;
             HighlightedRarityIdFragments = new ReadOnlyCollection<string>(
                 (highlightedRarityIdFragments ?? Array.Empty<string>())
@@ -131,6 +135,7 @@ namespace Gacha.Presentation
         public float RevealStartScale { get; }
         public float RarePulseScale { get; }
         public string PackArtworkResourcePath { get; }
+        public ProductOpeningPackPresentation PackPresentation { get; }
         public ProductOpeningParticleTheme ParticleTheme { get; }
         public IReadOnlyList<string> HighlightedRarityIdFragments { get; }
 
@@ -150,6 +155,54 @@ namespace Gacha.Presentation
                 throw new ArgumentException("Theme values cannot be empty.", parameterName);
             return value.Trim();
         }
+
+        private static float InRange(float value, float minimum, float maximum, string parameterName)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || value < minimum || value > maximum)
+                throw new ArgumentOutOfRangeException(parameterName);
+            return value;
+        }
+    }
+
+    public sealed class ProductOpeningPackPresentation
+    {
+        public ProductOpeningPackPresentation(
+            string frontArtworkResourcePath,
+            string backArtworkResourcePath = null,
+            float widthToHeightRatio = 0.70f,
+            float topSealHeightRatio = 0.115f,
+            float backSeamWidthRatio = 0.045f,
+            float acceptanceThreshold = 0.72f,
+            float singlePointerPullRatio = 0.34f,
+            float dualPointerPullRatio = 0.28f)
+        {
+            FrontArtworkResourcePath = OptionalPath(frontArtworkResourcePath);
+            BackArtworkResourcePath = OptionalPath(backArtworkResourcePath) ?? FrontArtworkResourcePath;
+            WidthToHeightRatio = InRange(
+                widthToHeightRatio, 0.45f, 1f, nameof(widthToHeightRatio));
+            TopSealHeightRatio = InRange(
+                topSealHeightRatio, 0.05f, 0.25f, nameof(topSealHeightRatio));
+            BackSeamWidthRatio = InRange(
+                backSeamWidthRatio, 0.015f, 0.15f, nameof(backSeamWidthRatio));
+            AcceptanceThreshold = InRange(
+                acceptanceThreshold, 0.5f, 1f, nameof(acceptanceThreshold));
+            SinglePointerPullRatio = InRange(
+                singlePointerPullRatio, 0.1f, 1f, nameof(singlePointerPullRatio));
+            DualPointerPullRatio = InRange(
+                dualPointerPullRatio, 0.1f, 1f, nameof(dualPointerPullRatio));
+        }
+
+        public string FrontArtworkResourcePath { get; }
+        public string BackArtworkResourcePath { get; }
+        public float WidthToHeightRatio { get; }
+        public float TopSealHeightRatio { get; }
+        public float BackSeamWidthRatio { get; }
+        public float AcceptanceThreshold { get; }
+        public float SinglePointerPullRatio { get; }
+        public float DualPointerPullRatio { get; }
+
+        private static string OptionalPath(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         private static float InRange(float value, float minimum, float maximum, string parameterName)
         {

@@ -41,6 +41,9 @@ public class ProductOpeningThemeTests
             .Distinct().Count(), Is.EqualTo(5));
         Assert.That(themes.All(theme =>
             !string.IsNullOrWhiteSpace(theme.PackArtworkResourcePath)), Is.True);
+        Assert.That(themes.All(theme =>
+            theme.PackPresentation.FrontArtworkResourcePath ==
+            theme.PackPresentation.BackArtworkResourcePath), Is.True);
         Assert.That(themes.All(theme => theme.PackTearDurationSeconds > 0f), Is.True);
         Assert.That(themes.All(theme => theme.RevealDurationSeconds > 0f), Is.True);
         Assert.That(themes.All(theme =>
@@ -80,7 +83,23 @@ public class ProductOpeningThemeTests
         Assert.That(pokemon.Id, Is.EqualTo("pokemon-ex1-ruby"));
         Assert.That(unknown, Is.SameAs(ProductOpeningThemeService.DefaultTheme));
         Assert.That(unknown.PackArtworkResourcePath, Is.Null);
+        Assert.That(unknown.PackPresentation, Is.Not.Null);
+        Assert.That(unknown.PackPresentation.FrontArtworkResourcePath, Is.Null);
         Assert.That(unknown.ParticleTheme, Is.SameAs(ProductOpeningParticleTheme.Default));
+    }
+
+    [Test]
+    public void PackPresentation_UsesFrontAsBackFallbackAndRejectsUnsafeGeometry()
+    {
+        var presentation = new ProductOpeningPackPresentation(" Gacha/Themes/front ");
+
+        Assert.That(presentation.FrontArtworkResourcePath, Is.EqualTo("Gacha/Themes/front"));
+        Assert.That(presentation.BackArtworkResourcePath, Is.EqualTo("Gacha/Themes/front"));
+        Assert.That(presentation.AcceptanceThreshold, Is.EqualTo(0.72f));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ProductOpeningPackPresentation("front", widthToHeightRatio: float.PositiveInfinity));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ProductOpeningPackPresentation("front", topSealHeightRatio: 0f));
     }
 
     [Test]
