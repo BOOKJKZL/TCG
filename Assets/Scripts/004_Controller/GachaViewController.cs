@@ -20,6 +20,7 @@ public sealed class GachaViewController : MonoBehaviour
         Selection,
         Prepared,
         Opening,
+        CommittedFailure,
         Revealing,
         Summary,
         Error
@@ -540,20 +541,12 @@ public sealed class GachaViewController : MonoBehaviour
             packAnimating || currentBatchOutcome != null)
             return false;
 
+        ProductOpeningBatchOutcome committedOutcome;
         try
         {
             pageState = GachaPageState.Opening;
             ApplyActionAvailability();
-            currentBatchOutcome = openingService.OpenBatch(selectedProduct.Id, preparedProductCount);
-            BuildRevealEntries();
-            foreach (ProductDrawResult draw in currentBatchOutcome.Draws)
-                PackOpened?.Invoke(draw);
-            RefreshOpeningJournal();
-            tearAction.SetEnabled(false);
-            packAnimating = true;
-            UIFeedbackService.Play(FeedbackCue.PackOpen, selectedTheme.PackOpenAudioKey, true);
-            AnimatePackTear(BeginRevealStage);
-            return true;
+            committedOutcome = openingService.OpenBatch(selectedProduct.Id, preparedProductCount);
         }
         catch (Exception exception)
         {
@@ -566,6 +559,71 @@ public sealed class GachaViewController : MonoBehaviour
             UIFeedbackService.Play(FeedbackCue.Error);
             return false;
         }
+
+        // OpenBatch is the irreversible inventory boundary. Once it returns, never clear the
+        // outcome or return to Prepared: presentation/event failures must not allow a second draw.
+        currentBatchOutcome = committedOutcome;
+        tearAction.SetEnabled(false);
+        try
+        {
+            BuildRevealEntries();
+        }
+        catch (Exception exception)
+        {
+            ShowCommittedPresentationFailure(exception);
+            return true;
+        }
+
+        NotifyPackOpenedSafely();
+        try
+        {
+            RefreshOpeningJournal();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"Pack journal refresh failed after inventory commit: {exception}");
+        }
+
+        packAnimating = true;
+        UIFeedbackService.Play(FeedbackCue.PackOpen, selectedTheme.PackOpenAudioKey, true);
+        AnimatePackTear(BeginRevealStage);
+        return true;
+    }
+
+    private void NotifyPackOpenedSafely()
+    {
+        Delegate[] subscribers = PackOpened?.GetInvocationList();
+        if (subscribers == null)
+            return;
+
+        foreach (ProductDrawResult draw in currentBatchOutcome.Draws)
+        {
+            foreach (Delegate subscriber in subscribers)
+            {
+                try
+                {
+                    ((Action<ProductDrawResult>)subscriber).Invoke(draw);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning($"Pack opened subscriber failed after inventory commit: {exception}");
+                }
+            }
+        }
+    }
+
+    private void ShowCommittedPresentationFailure(Exception exception)
+    {
+        packAnimation?.Pause();
+        packAnimation = null;
+        packParticles?.Stop();
+        packAnimating = false;
+        pageState = GachaPageState.CommittedFailure;
+        SetStatus(PlayerUiErrorText.Body(PlayerUiErrorMapper.FromException(exception)), true);
+        ApplyActionAvailability();
+        Debug.LogWarning($"Pack presentation failed after inventory commit: {exception}");
+        InitializationFailed?.Invoke(exception.Message);
+        UIFeedbackService.Play(FeedbackCue.Error);
     }
 
     public bool RevealNextCard()
@@ -1505,7 +1563,9 @@ public sealed class GachaViewController : MonoBehaviour
         revealAction?.SetEnabled(available && pageState == GachaPageState.Revealing && !revealAnimating);
         revealAllAction?.SetEnabled(available && pageState == GachaPageState.Revealing && !revealAnimating);
         backToProductsAction?.SetEnabled(
-            available && (pageState == GachaPageState.Prepared || pageState == GachaPageState.Revealing));
+            available && (pageState == GachaPageState.Prepared ||
+                          pageState == GachaPageState.CommittedFailure ||
+                          pageState == GachaPageState.Revealing));
         openAgainAction?.SetEnabled(available && pageState == GachaPageState.Summary);
         summaryProductsAction?.SetEnabled(available && pageState == GachaPageState.Summary);
     }

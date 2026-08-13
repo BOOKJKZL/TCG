@@ -379,7 +379,16 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "PackParticleCount"), Is.EqualTo(6));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("pack-particle-layer").childCount,
                     Is.EqualTo(ThemeParticleField.MaximumParticleCount));
+                EventInfo packOpenedEvent = controllerType.GetEvent("PackOpened");
+                Action<ProductDrawResult> throwingSubscriber = _ =>
+                    throw new InvalidOperationException("post-commit presentation sentinel");
+                packOpenedEvent.AddEventHandler(controller, throwingSubscriber);
                 Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                packOpenedEvent.RemoveEventHandler(controller, throwingSubscriber);
+                Assert.That(store.ProductsOpened, Is.EqualTo(1),
+                    "A subscriber failure after OpenBatch must not roll back the committed result.");
+                Assert.That(InvokeBool(controller, "TearPack"), Is.False,
+                    "A committed opening must never return to the state that can draw again.");
 
                 deadline = Time.realtimeSinceStartup + 3f;
                 VisualElement revealStage = document.rootVisualElement.Q<VisualElement>("reveal-stage");
