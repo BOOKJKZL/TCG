@@ -1,0 +1,140 @@
+.settings-scroll {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.settings-scroll .unity-scroll-view__content-container {
+    padding-top: 10px;
+    padding-bottom: 18px;
+}
+
+.settings-card {
+    padding: 20px;
+}
+
+.settings-card__title {
+    color: rgb(255, 255, 255);
+    font-size: 23px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.settings-card__description,
+.settings-card__summary,
+.settings-card__status {
+    margin-top: 8px;
+    color: rgb(184, 210, 225);
+    font-size: 16px;
+    white-space: normal;
+}
+
+.settings-card__summary {
+    padding: 12px;
+    border-width: 1px;
+    border-radius: 12px;
+    border-color: rgba(88, 162, 190, 0.54);
+    background-color: rgba(10, 31, 49, 0.96);
+}
+
+.settings-card__status {
+    color: rgb(145, 221, 190);
+    -unity-font-style: italic;
+}
+
+.settings-card__status.is-error {
+    color: rgb(255, 158, 166);
+}
+
+.settings-row {
+    min-height: 62px;
+    margin-top: 10px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.settings-row__label {
+    flex-grow: 1;
+    min-width: 180px;
+    margin-right: 12px;
+    color: rgb(226, 241, 250);
+    font-size: 17px;
+    white-space: normal;
+}
+
+.settings-row__action {
+    width: 44%;
+    min-width: 230px;
+}
+
+.settings-row__action .mobile-action,
+.settings-wide-action-slot .mobile-action {
+    width: 100%;
+}
+
+.settings-action-grid,
+.settings-cloud-summaries {
+    margin-top: 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.settings-action-slot {
+    width: 48%;
+    min-width: 280px;
+    flex-grow: 1;
+    margin: 5px;
+}
+
+.settings-action-slot .mobile-action {
+    width: 100%;
+    height: auto;
+    min-height: 54px;
+}
+
+.settings-wide-action-slot {
+    margin-top: 12px;
+}
+
+.settings-cloud-summary {
+    width: 48%;
+    min-width: 300px;
+    flex-grow: 1;
+    margin: 5px;
+}
+
+.settings-cloud-summary__title {
+    color: rgb(236, 247, 255);
+    font-size: 17px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.settings-scroll .is-hidden {
+    display: none;
+}
+
+.mobile-layout--compact .settings-card {
+    padding: 16px;
+}
+
+.mobile-layout--compact .settings-row,
+.mobile-layout--compact .settings-action-grid,
+.mobile-layout--compact .settings-cloud-summaries {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.mobile-layout--compact .settings-row__label {
+    margin-right: 0;
+    margin-bottom: 8px;
+}
+
+.mobile-layout--compact .settings-row__action,
+.mobile-layout--compact .settings-action-slot,
+.mobile-layout--compact .settings-cloud-summary {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+}

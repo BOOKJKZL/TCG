@@ -28,38 +28,42 @@ public final class RecoveryDocumentBridge {
     public static void createDocument(
             final String callbackObject,
             final String callbackMethod,
+            final String requestId,
             final String suggestedFileName,
             final String sourcePath) {
-        launch(callbackObject, callbackMethod, suggestedFileName, sourcePath, true);
+        launch(callbackObject, callbackMethod, requestId, suggestedFileName, sourcePath, true);
     }
 
     public static void openDocument(
             final String callbackObject,
             final String callbackMethod,
+            final String requestId,
             final String destinationPath) {
-        launch(callbackObject, callbackMethod, null, destinationPath, false);
+        launch(callbackObject, callbackMethod, requestId, null, destinationPath, false);
     }
 
     private static void launch(
             final String callbackObject,
             final String callbackMethod,
+            final String requestId,
             final String suggestedFileName,
             final String localPath,
             final boolean exporting) {
         new Handler(Looper.getMainLooper()).post(() -> {
             Activity activity = UnityPlayer.currentActivity;
             if (activity == null) {
-                send(callbackObject, callbackMethod, false, null, "Android activity is unavailable.");
+                send(callbackObject, callbackMethod, requestId, false, null, "Android activity is unavailable.");
                 return;
             }
             String tag = "universal-gacha-recovery-picker";
             if (activity.getFragmentManager().findFragmentByTag(tag) != null) {
-                send(callbackObject, callbackMethod, false, null, "A document picker is already open.");
+                send(callbackObject, callbackMethod, requestId, false, null, "A document picker is already open.");
                 return;
             }
             PickerFragment fragment = PickerFragment.create(
                     callbackObject,
                     callbackMethod,
+                    requestId,
                     suggestedFileName,
                     localPath,
                     exporting);
@@ -72,6 +76,7 @@ public final class RecoveryDocumentBridge {
     public static final class PickerFragment extends Fragment {
         private String callbackObject;
         private String callbackMethod;
+        private String requestId;
         private String suggestedFileName;
         private String localPath;
         private boolean exporting;
@@ -80,6 +85,7 @@ public final class RecoveryDocumentBridge {
         static PickerFragment create(
                 String callbackObject,
                 String callbackMethod,
+                String requestId,
                 String suggestedFileName,
                 String localPath,
                 boolean exporting) {
@@ -87,6 +93,7 @@ public final class RecoveryDocumentBridge {
             Bundle arguments = new Bundle();
             arguments.putString("callbackObject", callbackObject);
             arguments.putString("callbackMethod", callbackMethod);
+            arguments.putString("requestId", requestId);
             arguments.putString("suggestedFileName", suggestedFileName);
             arguments.putString("localPath", localPath);
             arguments.putBoolean("exporting", exporting);
@@ -100,9 +107,17 @@ public final class RecoveryDocumentBridge {
             Bundle arguments = getArguments();
             callbackObject = arguments.getString("callbackObject");
             callbackMethod = arguments.getString("callbackMethod");
+            requestId = arguments.getString("requestId");
             suggestedFileName = arguments.getString("suggestedFileName");
             localPath = arguments.getString("localPath");
             exporting = arguments.getBoolean("exporting");
+            launched = savedInstanceState != null && savedInstanceState.getBoolean("launched", false);
+        }
+
+        @Override
+        public void onSaveInstanceState(Bundle outState) {
+            outState.putBoolean("launched", launched);
+            super.onSaveInstanceState(outState);
         }
 
         @Override
@@ -188,7 +203,7 @@ public final class RecoveryDocumentBridge {
         }
 
         private void finish(boolean succeeded, String path, String error) {
-            send(callbackObject, callbackMethod, succeeded, path, error);
+            send(callbackObject, callbackMethod, requestId, succeeded, path, error);
             if (getActivity() != null) {
                 getActivity().getFragmentManager().beginTransaction()
                         .remove(this)
@@ -200,11 +215,13 @@ public final class RecoveryDocumentBridge {
     private static void send(
             String callbackObject,
             String callbackMethod,
+            String requestId,
             boolean succeeded,
             String path,
             String error) {
         try {
             JSONObject result = new JSONObject();
+            result.put("requestId", requestId);
             result.put("succeeded", succeeded);
             result.put("path", path == null ? JSONObject.NULL : path);
             result.put("error", error == null ? JSONObject.NULL : error);
@@ -213,7 +230,8 @@ public final class RecoveryDocumentBridge {
             UnityPlayer.UnitySendMessage(
                     callbackObject,
                     callbackMethod,
-                    "{\"succeeded\":false,\"error\":\"Document picker callback failed.\"}");
+                    "{\"requestId\":" + JSONObject.quote(requestId) +
+                            ",\"succeeded\":false,\"error\":\"Document picker callback failed.\"}");
         }
     }
 }

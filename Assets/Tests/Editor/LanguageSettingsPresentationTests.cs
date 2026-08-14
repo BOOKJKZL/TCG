@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Gacha.Presentation;
 using NUnit.Framework;
@@ -10,9 +13,137 @@ using UnityEngine.Localization.Platform.Android;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.Tables;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 public class LanguageSettingsPresentationTests
 {
+    [Test]
+    public void RecoveryPicker_AbandonedNativeRequestCannotConsumeTheNextPageCallback()
+    {
+        var host = new GameObject("Recovery Picker Contract Host");
+        var picker = host.AddComponent<RecoveryDocumentPicker>();
+        MethodInfo begin = typeof(RecoveryDocumentPicker).GetMethod(
+            "Begin",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(begin, Is.Not.Null);
+        var busyTransitions = new List<bool>();
+        picker.BusyChanged += busyTransitions.Add;
+        int firstCallbacks = 0;
+        int secondCallbacks = 0;
+
+        try
+        {
+            string first = (string)begin.Invoke(
+                picker,
+                new object[] { new Action<RecoveryDocumentPickerResult>(_ => firstCallbacks++) });
+            Assert.That(picker.IsBusy, Is.True);
+            picker.CancelPending();
+            Assert.That(picker.IsBusy, Is.True,
+                "Abandoning a page callback must retain the native picker tombstone.");
+            TargetInvocationException blocked = Assert.Throws<TargetInvocationException>(() => begin.Invoke(
+                picker,
+                new object[] { new Action<RecoveryDocumentPickerResult>(_ => secondCallbacks++) }));
+            Assert.That(blocked.InnerException, Is.TypeOf<InvalidOperationException>());
+
+            picker.OnDocumentPickerResult(
+                "{\"requestId\":\"wrong-request\",\"succeeded\":true,\"path\":\"C:/private/old.gachasave\"}");
+            Assert.That(picker.IsBusy, Is.True);
+            picker.OnDocumentPickerResult(
+                "{\"requestId\":\"" + first + "\",\"succeeded\":false,\"error\":\"cancelled\"}");
+            Assert.That(picker.IsBusy, Is.False);
+            Assert.That(firstCallbacks, Is.Zero);
+
+            string second = (string)begin.Invoke(
+                picker,
+                new object[] { new Action<RecoveryDocumentPickerResult>(_ => secondCallbacks++) });
+            picker.OnDocumentPickerResult(
+                "{\"requestId\":\"" + second + "\",\"succeeded\":true,\"path\":\"content://safe\"}");
+            picker.OnDocumentPickerResult(
+                "{\"requestId\":\"" + second + "\",\"succeeded\":true,\"path\":\"content://duplicate\"}");
+            Assert.That(secondCallbacks, Is.EqualTo(1));
+            Assert.That(picker.IsBusy, Is.False);
+            Assert.That(busyTransitions, Is.EqualTo(new[] { true, false, true, false }));
+
+            string java = File.ReadAllText("Assets/Plugins/Android/RecoveryDocumentBridge.java");
+            Assert.That(java, Does.Contain("requestId"));
+            Assert.That(java, Does.Contain("onSaveInstanceState"));
+            Assert.That(java, Does.Contain("getBoolean(\"launched\""));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(host);
+        }
+    }
+
+    [Test]
+    public void MobileSettingsView_UsesScrollableStableUiToolkitContract()
+    {
+        const string uxmlPath = "Assets/Resources/UI/SettingsView.uxml";
+        const string ussPath = "Assets/Resources/UI/SettingsView.uss";
+        string uxml = File.ReadAllText(uxmlPath);
+        string uss = File.ReadAllText(ussPath);
+
+        Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.VisualTreeAsset>(uxmlPath), Is.Not.Null);
+        Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.StyleSheet>(ussPath), Is.Not.Null);
+        Assert.That(uxml, Does.Contain("<ui:ScrollView"));
+        Assert.That(uxml, Does.Not.Contain("<ui:Button"));
+        Assert.That(uxml, Does.Not.Contain(" style="));
+        Assert.That(uxml, Does.Contain("settings-ui-language-slot"));
+        Assert.That(uxml, Does.Contain("settings-confirm-import-slot"));
+        Assert.That(uxml, Does.Contain("settings-cloud-merge-slot"));
+        foreach (string unsupported in new[]
+                 {
+                     "gap:", "z-index:", "box-shadow:", "filter:", "outline:", "gradient("
+                 })
+        {
+            Assert.That(uss, Does.Not.Contain(unsupported), unsupported);
+        }
+    }
+
+    [Test]
+    public void MobileSettingsLocalization_IsCompleteAndUsesSafeStatusMessages()
+    {
+        StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
+        string[] keys =
+        {
+            "settings.subtitle", "settings.language.description", "settings.language.status.ready",
+            "settings.experience.description", "settings.experience.save_failed_safe",
+            "settings.download.title", "settings.download.description", "settings.download.status.failed",
+            "settings.recovery.status.exported_safe", "settings.recovery.status.error_safe",
+            "settings.recovery.status.imported_safe", "settings.recovery.confirm.title",
+            "settings.recovery.confirm.body", "settings.account.title", "settings.account.description",
+            "settings.cloud.status.resolved_safe", "settings.cloud.status.failed_safe",
+            "settings.cloud.status.backup_failed_safe", "settings.cloud.confirm.title",
+            "settings.cloud.confirm.body", "settings.identity.status.cloud_pending_safe",
+            "settings.identity.status.failed_safe"
+        };
+        foreach (string locale in new[] { "en", "zh", "ja" })
+        {
+            StringTable table = collection.GetTable(locale) as StringTable;
+            Assert.That(table, Is.Not.Null, locale);
+            foreach (string key in keys)
+            {
+                StringTableEntry entry = table.GetEntry(key);
+                Assert.That(entry, Is.Not.Null, locale + ":" + key);
+                Assert.That(entry.Value, Is.Not.Empty, locale + ":" + key);
+            }
+        }
+
+        foreach (string key in new[]
+                 {
+                     "settings.recovery.status.exported_safe", "settings.recovery.status.error_safe",
+                     "settings.recovery.status.imported_safe", "settings.cloud.status.resolved_safe",
+                     "settings.cloud.status.failed_safe", "settings.identity.status.failed_safe",
+                     "settings.recovery.status.exported", "settings.recovery.status.error",
+                     "settings.recovery.status.imported", "settings.cloud.status.resolved",
+                     "settings.cloud.status.failed", "settings.cloud.status.backup_failed",
+                     "settings.identity.status.cloud_pending", "settings.identity.status.failed"
+                 })
+        {
+            Assert.That(CardUiText.EnglishFallbacks[key], Does.Not.Contain("{0}"), key);
+        }
+    }
+
     [Test]
     public void Project_UsesARealLocalizationSettingsAsset()
     {

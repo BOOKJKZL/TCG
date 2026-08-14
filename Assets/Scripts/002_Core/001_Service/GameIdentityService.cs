@@ -386,13 +386,12 @@ public sealed class UnityGameIdentityPlayerTarget : IGameIdentityPlayerTarget
             throw new InvalidOperationException("Player recovery services are unavailable.");
         }
 
-        CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
         recoveryTarget = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
             LocalSaveService.Save,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
-            load.Succeeded ? load.Catalog : null);
+            null);
     }
 
     public bool HasPendingConflict => GameCloudConflictSession.Current.HasPending;

@@ -42,11 +42,17 @@ public class ApplicationServicesTests
 
         public LanguagePreferences Saved { get; private set; }
         public int SaveCalls { get; private set; }
+        public bool FailNextSave { get; set; }
 
         public LanguagePreferences Load() => Saved;
 
         public void Save(LanguagePreferences preferences)
         {
+            if (FailNextSave)
+            {
+                FailNextSave = false;
+                throw new InvalidOperationException("private preference store failure");
+            }
             Saved = preferences;
             SaveCalls++;
         }
@@ -265,6 +271,28 @@ public class ApplicationServicesTests
         Assert.That(cardEvents, Is.EqualTo(1));
         Assert.That(store.Saved.UiLanguageId, Is.EqualTo("zh"));
         Assert.That(store.Saved.ContentLanguageId, Is.EqualTo("ja"));
+    }
+
+    [Test]
+    public void LanguageSelection_DoesNotPublishUiOrCardChangesWhenPersistenceFails()
+    {
+        var store = new PreferenceStore("en", "en");
+        var service = new LanguageSelectionService(store, new[] { "en", "zh", "ja" });
+        int uiEvents = 0;
+        int cardEvents = 0;
+        service.UiLanguageChanged += _ => uiEvents++;
+        service.ContentLanguageChanged += _ => cardEvents++;
+
+        store.FailNextSave = true;
+        Assert.Throws<InvalidOperationException>(() => service.SelectUiLanguage("zh"));
+        Assert.That(service.UiLanguageId, Is.EqualTo("en"));
+        Assert.That(uiEvents, Is.Zero);
+
+        store.FailNextSave = true;
+        Assert.Throws<InvalidOperationException>(() => service.SelectContentLanguage("ja", null));
+        Assert.That(service.RequestedContentLanguageId, Is.EqualTo("en"));
+        Assert.That(service.ContentLanguage.ResolvedLanguageId, Is.EqualTo("en"));
+        Assert.That(cardEvents, Is.Zero);
     }
 
     [Test]

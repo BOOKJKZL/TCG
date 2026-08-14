@@ -1083,6 +1083,114 @@ MonoBehaviour:
     m_Key: gacha.pack.selection
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389205782528
+    m_Key: settings.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251520
+    m_Key: settings.value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251521
+    m_Key: settings.language.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251522
+    m_Key: settings.language.status.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251523
+    m_Key: settings.language.status.saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251524
+    m_Key: settings.language.status.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251525
+    m_Key: settings.experience.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251526
+    m_Key: settings.experience.save_failed_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251527
+    m_Key: settings.download.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251528
+    m_Key: settings.download.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251529
+    m_Key: settings.download.status.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251530
+    m_Key: settings.download.status.saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251531
+    m_Key: settings.download.status.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251532
+    m_Key: settings.recovery.status.exported_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251533
+    m_Key: settings.recovery.status.error_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251534
+    m_Key: settings.recovery.status.imported_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251535
+    m_Key: settings.recovery.confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251536
+    m_Key: settings.recovery.confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251537
+    m_Key: settings.account.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251538
+    m_Key: settings.account.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251539
+    m_Key: settings.cloud.status.resolved_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251540
+    m_Key: settings.cloud.status.failed_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251541
+    m_Key: settings.cloud.status.backup_failed_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251542
+    m_Key: settings.cloud.confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251543
+    m_Key: settings.cloud.confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251544
+    m_Key: settings.identity.status.cloud_pending_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445824
+    m_Key: settings.identity.status.failed_safe
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

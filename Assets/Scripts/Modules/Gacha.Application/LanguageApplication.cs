@@ -87,21 +87,32 @@ namespace Gacha.Application
             if (string.Equals(UiLanguageId, resolved, StringComparison.OrdinalIgnoreCase))
                 return false;
 
+            store.Save(new LanguagePreferences(resolved, RequestedContentLanguageId));
             UiLanguageId = resolved;
-            Save();
             UiLanguageChanged?.Invoke(UiLanguageId);
             return true;
         }
 
         public ContentLanguageSelection SelectContentLanguage(string languageId, UniversalCatalog catalog)
         {
-            RequestedContentLanguageId = NormalizeOrDefault(languageId, defaultContentLanguageId);
-            return ResolveContentLanguage(catalog, true);
+            string requested = NormalizeOrDefault(languageId, defaultContentLanguageId);
+            string resolved = ResolveAvailableContentLanguage(requested, catalog);
+            var next = new ContentLanguageSelection(requested, resolved);
+            bool changed = ContentLanguage == null ||
+                           !string.Equals(ContentLanguage.RequestedLanguageId, next.RequestedLanguageId, StringComparison.OrdinalIgnoreCase) ||
+                           !string.Equals(ContentLanguage.ResolvedLanguageId, next.ResolvedLanguageId, StringComparison.OrdinalIgnoreCase);
+            store.Save(new LanguagePreferences(UiLanguageId, requested));
+            currentCatalog = catalog;
+            RequestedContentLanguageId = requested;
+            ContentLanguage = next;
+            if (changed)
+                ContentLanguageChanged?.Invoke(ContentLanguage);
+            return ContentLanguage;
         }
 
         public ContentLanguageSelection RefreshContentLanguage(UniversalCatalog catalog)
         {
-            return ResolveContentLanguage(catalog, false);
+            return ResolveContentLanguage(catalog);
         }
 
         public void ApplyPreferences(LanguagePreferences preferences, UniversalCatalog catalog)
@@ -158,7 +169,7 @@ namespace Gacha.Application
             return definition.Names.Values.First();
         }
 
-        private ContentLanguageSelection ResolveContentLanguage(UniversalCatalog catalog, bool persistRequest)
+        private ContentLanguageSelection ResolveContentLanguage(UniversalCatalog catalog)
         {
             currentCatalog = catalog;
             string resolved = ResolveAvailableContentLanguage(RequestedContentLanguageId, catalog);
@@ -168,8 +179,6 @@ namespace Gacha.Application
                            !string.Equals(ContentLanguage.ResolvedLanguageId, next.ResolvedLanguageId, StringComparison.OrdinalIgnoreCase);
             ContentLanguage = next;
 
-            if (persistRequest)
-                Save();
             if (changed)
                 ContentLanguageChanged?.Invoke(ContentLanguage);
             return ContentLanguage;
@@ -235,11 +244,6 @@ namespace Gacha.Application
                 yield return "zh-TW";
             else if (string.Equals(normalized, "zh-TW", StringComparison.OrdinalIgnoreCase))
                 yield return "zh-CN";
-        }
-
-        private void Save()
-        {
-            store.Save(new LanguagePreferences(UiLanguageId, RequestedContentLanguageId));
         }
 
         private static string MatchAvailable(string requested, IEnumerable<string> available)

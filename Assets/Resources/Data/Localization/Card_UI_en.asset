@@ -91,7 +91,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 166392714781962254
-    m_Localized: 'Unable to save: {0}'
+    m_Localized: The preference could not be saved. Nothing changed.
     m_Metadata:
       m_Items: []
   - m_Id: 166673783687131136
@@ -755,7 +755,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428339
-    m_Localized: Exported to {0}
+    m_Localized: Verified backup exported.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428340
@@ -763,7 +763,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428341
-    m_Localized: 'Recovery failed: {0}'
+    m_Localized: Recovery could not continue. Your current progress was not changed.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428342
@@ -771,7 +771,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428343
-    m_Localized: 'Import complete. Pre-import backup: {0}'
+    m_Localized: Import complete. A safety backup was created first.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428344
@@ -838,15 +838,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428359
-    m_Localized: 'Conflict resolved. Safety backup: {0}'
+    m_Localized: Conflict resolved. A safety backup was created first.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428360
-    m_Localized: 'Nothing changed: {0}'
+    m_Localized: Nothing changed. Review both saves and try again.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428361
-    m_Localized: 'Could not create a safety backup: {0}'
+    m_Localized: A safety backup could not be created, so nothing changed.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428362
@@ -875,7 +875,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428368
-    m_Localized: 'PLAYER ID is linked, but initial cloud sync is pending: {0}'
+    m_Localized: PLAYER ID is ready, but initial cloud sync is still pending. Your
+      local progress remains available.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428369
@@ -883,7 +884,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428370
-    m_Localized: 'PLAYER ID was not changed: {0}'
+    m_Localized: PLAYER ID was not changed. Your local progress remains available.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428371
@@ -891,7 +892,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428372
-    m_Localized: No card sets are installed yet. Open Content Library to choose what to download.
+    m_Localized: No card sets are installed yet. Open Content Library to choose what
+      to download.
     m_Metadata:
       m_Items: []
   - m_Id: 168879247036428373
@@ -1054,7 +1056,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 172203318969020424
-    m_Localized: "{0} \xD7 {1}\nCard language: {2}\nRule: {3}\nYour collection updates when you tear the pack."
+    m_Localized: "{0} \xD7 {1}\nCard language: {2}\nRule: {3}\nYour collection updates
+      when you tear the pack."
     m_Metadata:
       m_Items: []
   - m_Id: 172203318969020425
@@ -1095,6 +1098,120 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 172600000000000003
     m_Localized: Pack {0} of {1} selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389205782528
+    m_Localized: Languages, comfort, downloads, saves, and account safety
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251520
+    m_Localized: '{0}: {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251521
+    m_Localized: Interface language changes menus only. Card language controls which
+      card data you use.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251522
+    m_Localized: Interface and card languages are saved independently.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251523
+    m_Localized: Language preference saved.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251524
+    m_Localized: The language preference could not be saved.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251525
+    m_Localized: Choose the feedback and animation level that feels comfortable.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251526
+    m_Localized: The preference could not be saved. Nothing changed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251527
+    m_Localized: Downloads
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251528
+    m_Localized: Large downloads can wait for Wi-Fi. Every download still shows a
+      confirmation first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251529
+    m_Localized: This policy is shared with the Content Library.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251530
+    m_Localized: Download policy saved.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251531
+    m_Localized: The download policy could not be saved. Nothing changed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251532
+    m_Localized: Verified backup exported.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251533
+    m_Localized: Recovery could not continue. Your current progress was not changed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251534
+    m_Localized: Import complete. A safety backup was created first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251535
+    m_Localized: Replace current progress?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251536
+    m_Localized: The selected backup is verified. A safety backup of current progress
+      will be created before import.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251537
+    m_Localized: Account and cloud
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251538
+    m_Localized: A recoverable PLAYER ID is separate from anonymous cloud service
+      availability.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251539
+    m_Localized: Conflict resolved. A safety backup was created first.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251540
+    m_Localized: Nothing changed. Review both saves and try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251541
+    m_Localized: A safety backup could not be created, so nothing changed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251542
+    m_Localized: Confirm save choice
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251543
+    m_Localized: This choice updates local and cloud progress only after a safety
+      backup succeeds.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389302251544
+    m_Localized: PLAYER ID is ready, but initial cloud sync is still pending. Your
+      local progress remains available.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445824
+    m_Localized: PLAYER ID was not changed. Your local progress remains available.
     m_Metadata:
       m_Items: []
   references:

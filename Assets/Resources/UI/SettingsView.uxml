@@ -1,0 +1,78 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:ScrollView name="settings-scroll" class="settings-scroll" mode="Vertical">
+        <ui:Style src="SettingsView.uss" />
+        <ui:VisualElement name="settings-language-card" class="settings-card mobile-card">
+            <ui:Label name="settings-language-title" class="settings-card__title" />
+            <ui:Label name="settings-language-description" class="settings-card__description" />
+            <ui:VisualElement class="settings-row">
+                <ui:Label name="settings-ui-language-label" class="settings-row__label" />
+                <ui:VisualElement name="settings-ui-language-slot" class="settings-row__action" />
+            </ui:VisualElement>
+            <ui:VisualElement class="settings-row">
+                <ui:Label name="settings-card-language-label" class="settings-row__label" />
+                <ui:VisualElement name="settings-card-language-slot" class="settings-row__action" />
+            </ui:VisualElement>
+            <ui:Label name="settings-language-status" class="settings-card__status" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settings-experience-card" class="settings-card mobile-card">
+            <ui:Label name="settings-experience-title" class="settings-card__title" />
+            <ui:Label name="settings-experience-description" class="settings-card__description" />
+            <ui:VisualElement class="settings-action-grid">
+                <ui:VisualElement name="settings-sound-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-motion-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-haptics-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-speed-slot" class="settings-action-slot" />
+            </ui:VisualElement>
+            <ui:Label name="settings-experience-status" class="settings-card__status" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settings-download-card" class="settings-card mobile-card">
+            <ui:Label name="settings-download-title" class="settings-card__title" />
+            <ui:Label name="settings-download-description" class="settings-card__description" />
+            <ui:VisualElement name="settings-wifi-slot" class="settings-wide-action-slot" />
+            <ui:Label name="settings-download-status" class="settings-card__status" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settings-recovery-card" class="settings-card mobile-card">
+            <ui:Label name="settings-recovery-title" class="settings-card__title" />
+            <ui:Label name="settings-recovery-description" class="settings-card__description" />
+            <ui:VisualElement class="settings-action-grid">
+                <ui:VisualElement name="settings-export-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-import-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-confirm-import-slot" class="settings-action-slot" />
+            </ui:VisualElement>
+            <ui:Label name="settings-recovery-preview" class="settings-card__summary is-hidden" />
+            <ui:Label name="settings-recovery-status" class="settings-card__status" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settings-account-card" class="settings-card mobile-card">
+            <ui:Label name="settings-account-title" class="settings-card__title" />
+            <ui:Label name="settings-account-description" class="settings-card__description" />
+            <ui:Label name="settings-identity-status" class="settings-card__summary" />
+            <ui:VisualElement name="settings-connect-slot" class="settings-wide-action-slot" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="settings-cloud-card" class="settings-card settings-cloud-card mobile-card is-hidden">
+            <ui:Label name="settings-cloud-title" class="settings-card__title" />
+            <ui:Label name="settings-cloud-description" class="settings-card__description" />
+            <ui:VisualElement class="settings-cloud-summaries">
+                <ui:VisualElement class="settings-cloud-summary">
+                    <ui:Label name="settings-cloud-local-title" class="settings-cloud-summary__title" />
+                    <ui:Label name="settings-cloud-local" class="settings-card__summary" />
+                </ui:VisualElement>
+                <ui:VisualElement class="settings-cloud-summary">
+                    <ui:Label name="settings-cloud-remote-title" class="settings-cloud-summary__title" />
+                    <ui:Label name="settings-cloud-remote" class="settings-card__summary" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="settings-cloud-notice" class="settings-card__description" />
+            <ui:VisualElement class="settings-action-grid">
+                <ui:VisualElement name="settings-cloud-local-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-cloud-remote-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-cloud-merge-slot" class="settings-action-slot" />
+            </ui:VisualElement>
+            <ui:Label name="settings-cloud-status" class="settings-card__status" />
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

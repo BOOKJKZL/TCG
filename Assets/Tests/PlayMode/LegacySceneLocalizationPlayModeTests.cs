@@ -13,6 +13,21 @@ namespace Gacha.Tests.PlayMode
 {
     public class LegacySceneLocalizationPlayModeTests
     {
+        private Scene loadedScene;
+
+        [UnityTearDown]
+        public IEnumerator UnloadLegacyScene()
+        {
+            if (!loadedScene.IsValid() || !loadedScene.isLoaded)
+                yield break;
+            Scene cleanup = SceneManager.CreateScene("Legacy Localization Cleanup");
+            Assert.That(SceneManager.SetActiveScene(cleanup), Is.True);
+            yield return SceneManager.UnloadSceneAsync(loadedScene);
+            yield return null;
+            yield return null;
+            loadedScene = default;
+        }
+
         [UnityTest]
         public IEnumerator LegacyUguiScenes_RefreshMappedTextForRuntimeLanguageChanges()
         {
@@ -50,10 +65,11 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
-        private static IEnumerator LoadScene(string sceneName)
+        private IEnumerator LoadScene(string sceneName)
         {
             AsyncOperation operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
             yield return operation;
+            loadedScene = SceneManager.GetSceneByName(sceneName);
             yield return null;
         }
 

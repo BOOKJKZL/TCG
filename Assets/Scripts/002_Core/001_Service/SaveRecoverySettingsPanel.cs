@@ -117,7 +117,8 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
                 SetBusy(false);
                 if (result.Succeeded)
                 {
-                    SetStatus(CardUiText.Format("settings.recovery.status.exported", result.Path), false);
+                    Debug.Log("Recovery export completed through the document picker.");
+                    SetStatus(CardUiText.Get("settings.recovery.status.exported_safe"), false);
                     UIFeedbackService.Play(FeedbackCue.Confirm);
                 }
                 else if (result.Cancelled)
@@ -127,15 +128,17 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
                 }
                 else
                 {
-                    SetStatus(CardUiText.Format("settings.recovery.status.error", result.Error), true);
+                    Debug.LogWarning("Recovery export picker failed: " + result.Error);
+                    SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
                     UIFeedbackService.Play(FeedbackCue.Error);
                 }
             });
         }
         catch (Exception exception)
         {
+            Debug.LogWarning("Recovery export failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Format("settings.recovery.status.error", exception.Message), true);
+            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
             UIFeedbackService.Play(FeedbackCue.Error);
         }
     }
@@ -160,15 +163,17 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
                 }
                 else
                 {
-                    SetStatus(CardUiText.Format("settings.recovery.status.error", result.Error), true);
+                    Debug.LogWarning("Recovery import picker failed: " + result.Error);
+                    SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
                     UIFeedbackService.Play(FeedbackCue.Error);
                 }
             });
         }
         catch (Exception exception)
         {
+            Debug.LogWarning("Recovery import picker failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Format("settings.recovery.status.error", exception.Message), true);
+            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
             UIFeedbackService.Play(FeedbackCue.Error);
         }
     }
@@ -187,11 +192,12 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         }
         catch (Exception exception)
         {
+            Debug.LogWarning("Recovery preview failed: " + exception);
             pendingPreview = null;
             pendingImportPath = null;
             confirmImportButton.interactable = false;
             previewText.text = string.Empty;
-            SetStatus(CardUiText.Format("settings.recovery.status.error", exception.Message), true);
+            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
             UIFeedbackService.Play(FeedbackCue.Error);
             return false;
         }
@@ -225,7 +231,8 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             confirmImportButton.interactable = false;
             previewText.text = string.Empty;
             SetBusy(false);
-            SetStatus(CardUiText.Format("settings.recovery.status.imported", LastBackupPath), false);
+            Debug.Log("Recovery import completed with a verified safety backup.");
+            SetStatus(CardUiText.Get("settings.recovery.status.imported_safe"), false);
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
             if (CloudSaveServiceWrapper.IsReady)
                 _ = CloudSaveServiceWrapper.SaveInventoryAsync(Inventory.Instance.Data);
@@ -233,8 +240,9 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         }
         catch (Exception exception)
         {
+            Debug.LogWarning("Recovery import failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Format("settings.recovery.status.error", exception.Message), true);
+            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
             UIFeedbackService.Play(FeedbackCue.Error);
             return false;
         }
@@ -250,13 +258,12 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             error = CardUiText.Get("settings.recovery.status.unavailable");
             return false;
         }
-        CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
         target = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
             LocalSaveService.Save,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
-            load.Succeeded ? load.Catalog : null);
+            null);
         return true;
     }
 
@@ -419,6 +426,12 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     {
         if (!scene.IsValid() || !scene.isLoaded || scene.name != SettingsSceneName)
             return;
+        if (scene.GetRootGameObjects().Any(root =>
+            root.GetComponentsInChildren<MonoBehaviour>(true).Any(component =>
+                component != null && component.GetType().Name == "MainMenuBackController")))
+        {
+            return;
+        }
         if (scene.GetRootGameObjects().Any(root =>
             root.GetComponentInChildren<SaveRecoverySettingsPanel>(true) != null))
         {

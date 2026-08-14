@@ -54,18 +54,26 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(FindControllerCount(collectionControllerType), Is.Zero);
                     Assert.That(UnityEngine.Object.FindObjectsByType<LanguageSettingsPanel>(
                         FindObjectsInactive.Include,
-                        FindObjectsSortMode.None), Has.Length.EqualTo(1));
+                        FindObjectsSortMode.None), Is.Empty);
                     Assert.That(UnityEngine.Object.FindObjectsByType<ExperienceSettingsPanel>(
                         FindObjectsInactive.Include,
-                        FindObjectsSortMode.None), Has.Length.EqualTo(1));
+                        FindObjectsSortMode.None), Is.Empty);
                     Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
                             FindObjectsInactive.Include,
                             FindObjectsSortMode.None)
-                        .Count(component => component.GetType().Name == "SaveRecoverySettingsPanel"), Is.EqualTo(1));
+                        .Count(component => component.GetType().Name == "SaveRecoverySettingsPanel"), Is.Zero);
                     Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
                             FindObjectsInactive.Include,
                             FindObjectsSortMode.None)
-                        .Count(component => component.GetType().Name == "CloudConflictSettingsDialog"), Is.EqualTo(1));
+                        .Count(component => component.GetType().Name == "CloudConflictSettingsDialog"), Is.Zero);
+                    Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.None)
+                        .Count(component => component.GetType().Name == "MainMenuBackController"), Is.EqualTo(1));
+                    Assert.That(UnityEngine.Object.FindObjectsByType<UnityEngine.UIElements.UIDocument>(
+                            FindObjectsInactive.Include,
+                            FindObjectsSortMode.None)
+                        .Count(document => document.rootVisualElement.name == "mobile-settings-document"), Is.EqualTo(1));
 
                     yield return Resources.UnloadUnusedAssets();
                     GC.Collect();

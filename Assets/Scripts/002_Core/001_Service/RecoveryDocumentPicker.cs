@@ -22,6 +22,11 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
 {
     private const string JavaClass = "com.universalgacha.recovery.RecoveryDocumentBridge";
     private Action<RecoveryDocumentPickerResult> pendingCallback;
+    private string pendingRequestId;
+    private bool pendingAbandoned;
+
+    public bool IsBusy => !string.IsNullOrWhiteSpace(pendingRequestId);
+    public event Action<bool> BusyChanged;
 
     public static RecoveryDocumentPicker GetOrCreate()
     {
@@ -37,7 +42,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
         string suggestedFileName,
         Action<RecoveryDocumentPickerResult> completed)
     {
-        Begin(completed);
+        string requestId = Begin(completed);
         if (Application.platform == RuntimePlatform.Android)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -47,6 +52,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
                     "createDocument",
                     gameObject.name,
                     nameof(OnDocumentPickerResult),
+                    requestId,
                     suggestedFileName,
                     stagedSourcePath);
             }
@@ -60,11 +66,11 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
             Directory.CreateDirectory(directory);
             string destination = Path.Combine(directory, suggestedFileName);
             File.Copy(stagedSourcePath, destination, true);
-            Finish(new RecoveryDocumentPickerResult(true, false, destination, null));
+            Finish(requestId, new RecoveryDocumentPickerResult(true, false, destination, null));
         }
         catch (Exception exception)
         {
-            Finish(new RecoveryDocumentPickerResult(false, false, null, exception.Message));
+            Finish(requestId, new RecoveryDocumentPickerResult(false, false, null, exception.Message));
         }
     }
 
@@ -72,7 +78,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
         string stagedDestinationPath,
         Action<RecoveryDocumentPickerResult> completed)
     {
-        Begin(completed);
+        string requestId = Begin(completed);
         if (Application.platform == RuntimePlatform.Android)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -82,6 +88,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
                     "openDocument",
                     gameObject.name,
                     nameof(OnDocumentPickerResult),
+                    requestId,
                     stagedDestinationPath);
             }
             return;
@@ -96,7 +103,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
                 : null;
             if (source == null)
             {
-                Finish(new RecoveryDocumentPickerResult(
+                Finish(requestId, new RecoveryDocumentPickerResult(
                     false,
                     false,
                     null,
@@ -106,11 +113,11 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
             string parent = Path.GetDirectoryName(stagedDestinationPath);
             if (!string.IsNullOrWhiteSpace(parent)) Directory.CreateDirectory(parent);
             File.Copy(source, stagedDestinationPath, true);
-            Finish(new RecoveryDocumentPickerResult(true, false, stagedDestinationPath, null));
+            Finish(requestId, new RecoveryDocumentPickerResult(true, false, stagedDestinationPath, null));
         }
         catch (Exception exception)
         {
-            Finish(new RecoveryDocumentPickerResult(false, false, null, exception.Message));
+            Finish(requestId, new RecoveryDocumentPickerResult(false, false, null, exception.Message));
         }
     }
 
@@ -123,29 +130,58 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
         }
         catch (Exception exception)
         {
-            Finish(new RecoveryDocumentPickerResult(false, false, null, exception.Message));
+            Debug.LogWarning("Document picker returned an unreadable result: " + exception.Message);
+            return;
+        }
+        if (result == null || string.IsNullOrWhiteSpace(result.requestId) ||
+            !string.Equals(result.requestId, pendingRequestId, StringComparison.Ordinal))
+        {
             return;
         }
         bool cancelled = result != null && string.Equals(result.error, "cancelled", StringComparison.OrdinalIgnoreCase);
-        Finish(new RecoveryDocumentPickerResult(
+        Finish(result.requestId, new RecoveryDocumentPickerResult(
             result != null && result.succeeded,
             cancelled,
             result?.path,
             result?.error));
     }
 
-    private void Begin(Action<RecoveryDocumentPickerResult> completed)
+    /// <summary>
+    /// Relinquishes ownership of an outstanding platform picker result. The
+    /// Android activity may still finish, but its late result will be ignored.
+    /// </summary>
+    public void CancelPending()
     {
-        if (completed == null) throw new ArgumentNullException(nameof(completed));
-        if (pendingCallback != null)
-            throw new InvalidOperationException("A recovery document picker operation is already active.");
-        pendingCallback = completed;
+        if (!IsBusy)
+            return;
+        pendingCallback = null;
+        pendingAbandoned = true;
     }
 
-    private void Finish(RecoveryDocumentPickerResult result)
+    private string Begin(Action<RecoveryDocumentPickerResult> completed)
     {
-        Action<RecoveryDocumentPickerResult> callback = pendingCallback;
+        if (completed == null) throw new ArgumentNullException(nameof(completed));
+        if (IsBusy)
+            throw new InvalidOperationException("A recovery document picker operation is already active.");
+        pendingRequestId = Guid.NewGuid().ToString("N");
+        pendingCallback = completed;
+        pendingAbandoned = false;
+        BusyChanged?.Invoke(true);
+        return pendingRequestId;
+    }
+
+    private void Finish(string requestId, RecoveryDocumentPickerResult result)
+    {
+        if (string.IsNullOrWhiteSpace(requestId) ||
+            !string.Equals(requestId, pendingRequestId, StringComparison.Ordinal))
+        {
+            return;
+        }
+        Action<RecoveryDocumentPickerResult> callback = pendingAbandoned ? null : pendingCallback;
         pendingCallback = null;
+        pendingRequestId = null;
+        pendingAbandoned = false;
+        BusyChanged?.Invoke(false);
         callback?.Invoke(result);
     }
 
@@ -168,6 +204,7 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
     [Serializable]
     private sealed class AndroidPickerResult
     {
+        public string requestId;
         public bool succeeded;
         public string path;
         public string error;

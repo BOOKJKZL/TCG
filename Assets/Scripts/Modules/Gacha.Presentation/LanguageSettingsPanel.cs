@@ -414,6 +414,12 @@ namespace Gacha.Presentation
         {
             if (!scene.IsValid() || !scene.isLoaded || scene.name != SettingsSceneName)
                 return;
+            if (scene.GetRootGameObjects().Any(root =>
+                root.GetComponentsInChildren<MonoBehaviour>(true).Any(component =>
+                    component != null && component.GetType().Name == "MainMenuBackController")))
+            {
+                return;
+            }
 
             bool hasLanguagePanel = scene.GetRootGameObjects().Any(root =>
                 root.GetComponentInChildren<LanguageSettingsPanel>(true) != null);

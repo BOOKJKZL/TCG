@@ -146,9 +146,10 @@ namespace Gacha.Presentation
         {
             if (result == null || !result.Succeeded)
             {
-                statusKey = "settings.experience.save_failed";
-                statusFallback = "Unable to save: {0}";
-                statusArgument = result?.ErrorMessage ?? "Unknown error";
+                Debug.LogWarning("Experience preference was not saved: " + result?.ErrorMessage);
+                statusKey = "settings.experience.save_failed_safe";
+                statusFallback = "The preference could not be saved. Nothing changed.";
+                statusArgument = null;
                 UIFeedbackService.Play(FeedbackCue.Error);
                 RefreshView();
                 return;

@@ -155,7 +155,8 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         }
         catch (Exception exception)
         {
-            SetStatus("settings.cloud.status.backup_failed", exception.Message, true);
+            Debug.LogWarning("Cloud conflict safety backup failed: " + exception);
+            SetStatus("settings.cloud.status.backup_failed_safe", null, true);
             UIFeedbackService.Play(FeedbackCue.Error);
             return;
         }
@@ -167,12 +168,14 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
             new UnityInventoryConflictTarget());
         if (result.Succeeded)
         {
-            SetStatus("settings.cloud.status.resolved", LastBackupPath, false);
+            Debug.Log("Cloud conflict resolved with a verified safety backup.");
+            SetStatus("settings.cloud.status.resolved_safe", null, false);
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
         }
         else
         {
-            SetStatus("settings.cloud.status.failed", result.Error, true);
+            Debug.LogWarning("Cloud conflict resolution failed: " + result.Error);
+            SetStatus("settings.cloud.status.failed_safe", null, true);
             UIFeedbackService.Play(FeedbackCue.Error);
         }
         RefreshConflict();
@@ -199,8 +202,9 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
                 UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
                 break;
             case GameIdentityConnectOutcome.LinkedCurrentPlayerCloudPending:
-                identityStatusKey = "settings.identity.status.cloud_pending";
-                identityStatusArgument = result.Error;
+                Debug.LogWarning("Player identity linked with pending cloud sync: " + result.Error);
+                identityStatusKey = "settings.identity.status.cloud_pending_safe";
+                identityStatusArgument = null;
                 identityStatusError = true;
                 UIFeedbackService.Play(FeedbackCue.Error);
                 break;
@@ -217,8 +221,9 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
                 UIFeedbackService.Play(FeedbackCue.Error);
                 break;
             default:
-                identityStatusKey = "settings.identity.status.failed";
-                identityStatusArgument = result.Error;
+                Debug.LogWarning("Player identity was not changed: " + result.Error);
+                identityStatusKey = "settings.identity.status.failed_safe";
+                identityStatusArgument = null;
                 identityStatusError = true;
                 UIFeedbackService.Play(FeedbackCue.Error);
                 break;
@@ -236,13 +241,12 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
             throw new InvalidOperationException("Player recovery services are unavailable.");
         }
 
-        CatalogLoadResult load = ApplicationServices.Catalog.EnsureLoaded();
         var target = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
             LocalSaveService.Save,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
-            load.Succeeded ? load.Catalog : null);
+            null);
         string directory = Path.Combine(Application.persistentDataPath, "Recovery", "Backups");
         Directory.CreateDirectory(directory);
         string path = Path.Combine(
