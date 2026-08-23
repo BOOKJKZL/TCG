@@ -40,7 +40,7 @@ MonoBehaviour:
         m_CommandLineArgument: -language=
     - rid: 8753232393549643777
       type: {class: SystemLocaleSelector, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
-      data:
+      data: 
     - rid: 8753232393549643778
       type: {class: SpecificLocaleSelector, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
       data:
@@ -48,7 +48,7 @@ MonoBehaviour:
           m_Code: en
     - rid: 8753232393549643779
       type: {class: LocalesProvider, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
-      data:
+      data: 
     - rid: 8753232393549643780
       type: {class: LocalizedAssetDatabase, ns: UnityEngine.Localization.Settings, asm: Unity.Localization}
       data:
@@ -146,7 +146,7 @@ MonoBehaviour:
       data: 
     - rid: 8753232393549643791
       type: {class: DefaultSource, ns: UnityEngine.Localization.SmartFormat.Extensions, asm: Unity.Localization}
-      data:
+      data: 
     - rid: 8753232393549643792
       type: {class: PluralLocalizationFormatter, ns: UnityEngine.Localization.SmartFormat.Extensions, asm: Unity.Localization}
       data:
@@ -214,7 +214,7 @@ MonoBehaviour:
             m_TableCollectionName: GUID:e6fdc82fbde69d148bcf98415b9582a5
           m_TableEntryReference:
             m_KeyId: 166673783745851433
-            m_Key:
+            m_Key: 
           m_FallbackState: 0
           m_WaitForCompletion: 0
           m_LocalVariables: []

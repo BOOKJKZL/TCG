@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "workId": "WI-20260823-004",
+  "gameId": "universal-gacha-simulator",
+  "sourceRoot": "D:/2_GamesCode/!Build_Project/TCG",
+  "sourceAlias": "TCG",
+  "sourceGit": {
+    "head": "c93b45e021bf392a6c84ca4dbee4d90e9fbf78d5",
+    "branch": "main",
+    "origin": "https://github.com/BOOKJKZL/TCG.git",
+    "statusHash": "a80bd0a5a0a7e050ecb9a1ee035f4cd65798bca9fda0836406cecaa3e46635be"
+  },
+  "mode": "copy-verify-keep-source",
+  "categories": {
+    "archive": {
+      "files": 1459,
+      "bytes": 455164363,
+      "treeHash": "97b7c5a7e7dda6cbca6fb29d29e4a21a2bc6d0d6f8ac2e3700cb86672f124818"
+    },
+    "canonical": {
+      "files": 1544,
+      "bytes": 38996675,
+      "treeHash": "eed5a6f108e0391ee0f51670645eecd3950819d3b58c05ae5b9fb6e126849209"
+    },
+    "private": {
+      "files": 89979,
+      "bytes": 3833961310,
+      "treeHash": "a4352df2709a5942bebe7ab8fb1704839480ff0527eb74898262983ac3a4dac4"
+    }
+  },
+  "dirtyFiles": {
+    "modified": [
+      {
+        "path": "Assets/Fonts/Universal UI Chinese Fallback SDF.asset",
+        "bytes": 230940,
+        "sha256": "c855c946c8cb01a3b23d6d1cec159dc204b0fa5fa67f9b9251d7b4ab2f252635"
+      },
+      {
+        "path": "Assets/Resources/Data/Localization/Localization Settings.asset",
+        "bytes": 7775,
+        "sha256": "b2d90fd7799f185d16de6eed55956d55b2fdac5d0d1a3bb669309b0a39213d21"
+      },
+      {
+        "path": "Assets/Resources/Gacha/Themes/electric-pack.png.meta",
+        "bytes": 3728,
+        "sha256": "f65a607a5a463389e963db25901ac0c2a1947414936f41871a724f7baf2e10d7"
+      },
+      {
+        "path": "Assets/Resources/Gacha/Themes/forest-pack.png.meta",
+        "bytes": 3728,
+        "sha256": "b951728032bba518c3b931a05c75cb75bfce26a1c924f9122d577760cf7ba8a6"
+      },
+      {
+        "path": "Assets/Resources/Gacha/Themes/gallery-pack.png.meta",
+        "bytes": 3728,
+        "sha256": "492fe916527b6db9425d2c5f1668879219d8d80a37877c8a3a3e3a1f6a292b77"
+      },
+      {
+        "path": "Assets/Resources/Gacha/Themes/ruby-pack.png.meta",
+        "bytes": 3728,
+        "sha256": "5a56fb1500f352866c86a0e2f71ad0511514910d9033ec1dc15d2350080f9bd4"
+      },
+      {
+        "path": "Assets/Resources/Gacha/Themes/vintage-pack.png.meta",
+        "bytes": 3728,
+        "sha256": "69fdb555545ffa28f1bdc4dd2dc9ddc52d23008343b8bb1d8b2993a404b4c92e"
+      },
+      {
+        "path": "Assets/Settings/Mobile_RPAsset.asset",
+        "bytes": 4467,
+        "sha256": "764d74b40b8695261c9025019d04812a65dfefb82f2562570281d37020526fc4"
+      },
+      {
+        "path": "Assets/Settings/UniversalRenderPipelineGlobalSettings.asset",
+        "bytes": 21978,
+        "sha256": "14f541be0598bfa7e1cd8cc88d3197f909ca6cb344f002e2a20cf4639a005aca"
+      },
+      {
+        "path": "ProjectSettings/GraphicsSettings.asset",
+        "bytes": 2498,
+        "sha256": "674353be91a9a32dfa24e4db263f11105ee6c82ff20cc346bc150eb4903b33ff"
+      },
+      {
+        "path": "ProjectSettings/ProjectSettings.asset",
+        "bytes": 25260,
+        "sha256": "52a3b38d6276d462d67cf42848300084b873c3e7d4e43ac61209620cc71bb415"
+      },
+      {
+        "path": "ProjectSettings/QualitySettings.asset",
+        "bytes": 3619,
+        "sha256": "21adb0bde615094585758403e61254ef26ec6bf8daa45537b8c132a0e0ae34c7"
+      }
+    ],
+    "untracked": [
+      {
+        "path": ".codex-remote-attachments/019f5bef-14c8-72c0-a067-e7cc9d170e09/b35c182d-cea4-47c9-8b88-598b5ac8e0e8/1-Photo-1.jpg",
+        "bytes": 19474,
+        "sha256": "15b9c14d8a3ff7c2702f0791b9d6b9939623d43bc8f2bc6d2be00e2a12ec8b79"
+      },
+      {
+        "path": ".codex-remote-attachments/019f5bef-14c8-72c0-a067-e7cc9d170e09/b35c182d-cea4-47c9-8b88-598b5ac8e0e8/2-Photo-2.jpg",
+        "bytes": 24423,
+        "sha256": "c069d6c38c5501bca8232212a0cf2520dee3c64257c3563a266d29bf9cd14f27"
+      },
+      {
+        "path": "Assets/AddressableAssetsData/Android.meta",
+        "bytes": 172,
+        "sha256": "4d9fe3886324ae456f3147c3772723c624b17651430fcc963dc61c9851479bfb"
+      },
+      {
+        "path": "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "bytes": 826,
+        "sha256": "9ef795dc81990733c43b2430133ce87a30a34d370b340503649e36ad2aa189cc"
+      },
+      {
+        "path": "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "bytes": 189,
+        "sha256": "2b830b5b2a649c4ac85319e7dfc65e83076ad75a8268067fb4c5268b1e9f48cf"
+      }
+    ]
+  },
+  "explicitIncludes": {
+    "private": [
+      "LocalContent",
+      "Cloud/TCGContentSite/.env.local"
+    ],
+    "archive": [
+      "TestResults",
+      "Builds"
+    ]
+  },
+  "excluded": [
+    "TestResults/Emulator"
+  ],
+  "sourcePreserved": true,
+  "importedAt": "2026-08-23T16:25:51+00:00"
+}

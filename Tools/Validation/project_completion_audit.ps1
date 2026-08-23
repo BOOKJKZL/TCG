@@ -287,8 +287,19 @@ function Test-AndroidReceiptJson {
         if (($environmentType -eq "emulator") -ne $declaredEmulator) {
             throw "Android acceptance receipt emulator declaration is inconsistent."
         }
+        $testedAt = $receipt.testedAtUtc
         $date = [DateTimeOffset]::MinValue
-        if (-not [DateTimeOffset]::TryParse([string]$receipt.testedAtUtc, [ref]$date)) {
+        if ($testedAt -is [DateTimeOffset]) {
+            $date = $testedAt
+        }
+        elseif ($testedAt -is [DateTime]) {
+            $date = [DateTimeOffset]::new([DateTime]$testedAt)
+        }
+        elseif (-not [DateTimeOffset]::TryParse(
+            [string]$testedAt,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::RoundtripKind,
+            [ref]$date)) {
             throw "Android acceptance receipt requires testedAtUtc."
         }
         foreach ($name in $requiredDeviceChecks) {
@@ -485,9 +496,10 @@ function Invoke-SelfTest {
         evidence = $evidence
         limitations = @("physicalHaptics", "physicalSpeakerQuality", "cellularHandover")
     } | ConvertTo-Json -Depth 4
-    if (-not (Test-AndroidReceiptJson -Json $receipt -ExpectedSerial "emulator-5554" `
-        -ExpectedEnvironmentType "emulator").Passed) {
-        throw "Self-test failed: valid Android receipt."
+    $validReceipt = Test-AndroidReceiptJson -Json $receipt -ExpectedSerial "emulator-5554" `
+        -ExpectedEnvironmentType "emulator"
+    if (-not $validReceipt.Passed) {
+        throw "Self-test failed: valid Android receipt. $($validReceipt.Detail)"
     }
     $checks.haptics = $false
     $invalidReceipt = [ordered]@{

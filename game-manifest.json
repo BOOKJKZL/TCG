@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "portfolioId": "basic-studio",
+  "gameId": "universal-gacha-simulator",
+  "displayName": "Universal Gacha Simulator",
+  "projectRoot": "Games/universal-gacha-simulator",
+  "knowledgeRoot": "Studio-Knowledge/20_游戏/universal-gacha-simulator",
+  "engineProfile": {
+    "id": "unity",
+    "version": "6000.0.73f1",
+    "status": "selected"
+  },
+  "capabilities": {
+    "networkMode": "hybrid",
+    "features": [
+      "gacha",
+      "collection",
+      "pokedex",
+      "remote-content",
+      "localization",
+      "cloud-save",
+      "android"
+    ]
+  },
+  "lifecycle": {
+    "stage": 0,
+    "status": "legacy_baseline_pending"
+  },
+  "rolePacks": [],
+  "sharedModules": [],
+  "allowedSharedKnowledge": [],
+  "agentScope": {
+    "readRoots": [
+      "Games/universal-gacha-simulator",
+      "Studio-Knowledge/20_游戏/universal-gacha-simulator"
+    ],
+    "writeRoots": [
+      "Games/universal-gacha-simulator",
+      "Studio-Knowledge/20_游戏/universal-gacha-simulator"
+    ]
+  }
+}
