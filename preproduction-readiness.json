@@ -10,9 +10,9 @@
         "game_producer",
         "primary_agent"
       ],
-      "version": "0.1",
-      "contentHash": "b93a1838b0c680a350e26c7089cd3b6c3caace3151a0dbd54e2eeab47d293e95",
-      "syncedAt": "2026-08-24T01:20:36+00:00"
+      "version": "0.3",
+      "contentHash": "da348ab0b03f9c531e835a444b7c59f1bd3e89d530c5c79b64b91030843a5352",
+      "syncedAt": "2026-08-24T08:21:11+00:00"
     },
     "prd": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/PRD.md",
@@ -79,11 +79,11 @@
       "documents": [
         "hcd"
       ],
-      "status": "pending",
-      "snapshotHash": null,
-      "approvedBy": null,
-      "approvedAt": null,
-      "reason": null
+      "status": "approved",
+      "snapshotHash": "32eeb18af9dd0b0891ada6acdc68ab3c292eaed9850b64e9b1c27ffa6d3e0ac6",
+      "approvedBy": "user",
+      "approvedAt": "2026-08-24T08:55:37+00:00",
+      "reason": "用户批准 HCD 0.3 概念基线；snapshot SHA-256 32eeb18af9dd0b0891ada6acdc68ab3c292eaed9850b64e9b1c27ffa6d3e0ac6。"
     },
     "product": {
       "dependsOn": [
@@ -139,5 +139,5 @@
     "approvedAt": null,
     "reason": null
   },
-  "updatedAt": "2026-08-24T01:22:08+00:00"
+  "updatedAt": "2026-08-24T08:55:37+00:00"
 }
