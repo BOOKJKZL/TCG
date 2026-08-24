@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "gameId": "universal-gacha-simulator",
+  "status": "in_progress",
+  "documents": {
+    "hcd": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/HCD.md",
+      "owner": "design_director",
+      "reviewers": [
+        "game_producer",
+        "primary_agent"
+      ],
+      "version": "0.1",
+      "contentHash": "b93a1838b0c680a350e26c7089cd3b6c3caace3151a0dbd54e2eeab47d293e95",
+      "syncedAt": "2026-08-24T01:20:36+00:00"
+    },
+    "prd": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/PRD.md",
+      "owner": "game_producer",
+      "reviewers": [
+        "design_director",
+        "technical_director",
+        "qa_director"
+      ],
+      "version": "0.1",
+      "contentHash": "f8be6a1e4b119c28d37ec21e613f83d69b9bffe7f1709a15d899a53925d75611",
+      "syncedAt": "2026-08-24T01:20:36+00:00"
+    },
+    "engine-evaluation": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/03_技术工程/Engine-Evaluation.md",
+      "owner": "technical_director",
+      "reviewers": [
+        "game_producer",
+        "design_director"
+      ],
+      "version": "0.1",
+      "contentHash": "5d96eadf812b7b227b313eebd7ab2d82346112f4ad656b7367b1096d7db3e4d1",
+      "syncedAt": "2026-08-24T01:20:36+00:00"
+    },
+    "engine-decision": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/90_决策记录/ADR-0001-Engine-Selection.md",
+      "owner": "technical_director",
+      "reviewers": [
+        "studio_producer",
+        "design_director",
+        "primary_agent"
+      ],
+      "version": "0.1",
+      "contentHash": "7fc8add42c1473d2a94156cb8db520d258a8a692610faac779b4bf1e72a6e4d0",
+      "syncedAt": "2026-08-24T01:22:08+00:00"
+    },
+    "tdd": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/03_技术工程/TDD.md",
+      "owner": "technical_director",
+      "reviewers": [
+        "qa_director"
+      ],
+      "version": "0.1",
+      "contentHash": "d4a742fae87ab20c27df3c34f0603a625589c81e069152f8969bd0c2adf44e71",
+      "syncedAt": "2026-08-24T01:22:08+00:00"
+    },
+    "readiness-review": {
+      "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/Production-Readiness-Review.md",
+      "owner": "game_producer",
+      "reviewers": [
+        "design_director",
+        "technical_director",
+        "qa_director",
+        "primary_agent"
+      ],
+      "version": "0.1",
+      "contentHash": "73baa7f73535ddeddadb8c5d36a96d1729c719c176bf4d040f4d501eedddde92",
+      "syncedAt": "2026-08-24T01:22:08+00:00"
+    }
+  },
+  "gates": {
+    "concept": {
+      "dependsOn": [],
+      "documents": [
+        "hcd"
+      ],
+      "status": "pending",
+      "snapshotHash": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reason": null
+    },
+    "product": {
+      "dependsOn": [
+        "concept"
+      ],
+      "documents": [
+        "prd"
+      ],
+      "status": "pending",
+      "snapshotHash": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reason": null
+    },
+    "technology": {
+      "dependsOn": [
+        "product"
+      ],
+      "documents": [
+        "engine-evaluation",
+        "engine-decision"
+      ],
+      "status": "pending",
+      "snapshotHash": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reason": null
+    },
+    "start": {
+      "dependsOn": [
+        "technology"
+      ],
+      "documents": [
+        "tdd",
+        "readiness-review"
+      ],
+      "status": "pending",
+      "snapshotHash": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reason": null
+    }
+  },
+  "engineDecision": {
+    "id": "unity",
+    "version": "6000.0.73f1",
+    "status": "selected"
+  },
+  "projectAuthorization": {
+    "status": "blocked",
+    "gateHash": null,
+    "approvedBy": null,
+    "approvedAt": null,
+    "reason": null
+  },
+  "updatedAt": "2026-08-24T01:22:08+00:00"
+}

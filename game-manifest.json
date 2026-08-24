@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "portfolioId": "basic-studio",
   "gameId": "universal-gacha-simulator",
   "displayName": "Universal Gacha Simulator",
@@ -38,5 +38,6 @@
       "Games/universal-gacha-simulator",
       "Studio-Knowledge/20_游戏/universal-gacha-simulator"
     ]
-  }
+  },
+  "preproductionReadiness": "Games/universal-gacha-simulator/preproduction-readiness.json"
 }
