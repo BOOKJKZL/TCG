@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "gameId": "universal-gacha-simulator",
-  "status": "in_progress",
+  "status": "ready",
   "documents": {
     "hcd": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/HCD.md",
@@ -68,9 +68,9 @@
         "qa_director",
         "primary_agent"
       ],
-      "version": "0.1",
-      "contentHash": "73baa7f73535ddeddadb8c5d36a96d1729c719c176bf4d040f4d501eedddde92",
-      "syncedAt": "2026-08-24T01:22:08+00:00"
+      "version": "0.2",
+      "contentHash": "b534339378963655e186561f1ffca65c2db9047a12fac0da7692d705fa2d4d93",
+      "syncedAt": "2026-08-25T09:38:39+00:00"
     }
   },
   "gates": {
@@ -120,11 +120,11 @@
         "tdd",
         "readiness-review"
       ],
-      "status": "pending",
-      "snapshotHash": null,
-      "approvedBy": null,
-      "approvedAt": null,
-      "reason": null
+      "status": "approved",
+      "snapshotHash": "32c189c4989258fed3be832d337c1cdaa06b6fc946b1c337188bcdd399702cc7",
+      "approvedBy": "derived:WI-20260825-001/M4",
+      "approvedAt": "2026-08-25T09:38:50+00:00",
+      "reason": "Production Readiness Review 0.2@b534339378963655e186561f1ffca65c2db9047a12fac0da7692d705fa2d4d93 与 TDD 0.2 current；M3 设计、美术、音频规格完整；无 critical/open 风险。批准只允许进入 M5 legacy 基线认证，不代表阶段或发布通过。"
     }
   },
   "engineDecision": {
@@ -133,11 +133,11 @@
     "status": "selected"
   },
   "projectAuthorization": {
-    "status": "blocked",
-    "gateHash": null,
-    "approvedBy": null,
-    "approvedAt": null,
-    "reason": null
+    "status": "authorized",
+    "gateHash": "32c189c4989258fed3be832d337c1cdaa06b6fc946b1c337188bcdd399702cc7",
+    "approvedBy": "derived:WI-20260825-001/M4",
+    "approvedAt": "2026-08-25T09:38:50+00:00",
+    "reason": "四道 Gate 均绑定当前文档且有效；授权继续当前 Unity legacy 工程的 M5 基线认证与计划内缺口修复，不授权阶段跳级、RC、公开发行或云端正式发布。"
   },
-  "updatedAt": "2026-08-25T08:12:28+00:00"
+  "updatedAt": "2026-08-25T09:38:50+00:00"
 }
