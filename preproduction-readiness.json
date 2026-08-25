@@ -33,9 +33,9 @@
         "game_producer",
         "design_director"
       ],
-      "version": "0.1",
-      "contentHash": "5d96eadf812b7b227b313eebd7ab2d82346112f4ad656b7367b1096d7db3e4d1",
-      "syncedAt": "2026-08-24T01:20:36+00:00"
+      "version": "0.2",
+      "contentHash": "ae5ebefe03c7d81c77745a2f72fa420907cbaefda22f189b36523501b90cca2a",
+      "syncedAt": "2026-08-25T08:12:27+00:00"
     },
     "engine-decision": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/90_决策记录/ADR-0001-Engine-Selection.md",
@@ -45,9 +45,9 @@
         "design_director",
         "primary_agent"
       ],
-      "version": "0.1",
-      "contentHash": "7fc8add42c1473d2a94156cb8db520d258a8a692610faac779b4bf1e72a6e4d0",
-      "syncedAt": "2026-08-24T01:22:08+00:00"
+      "version": "0.2",
+      "contentHash": "80f11acc38edad62fd2accb205f92bbf32381c5f3f8cc534c5ed542702b9a8e9",
+      "syncedAt": "2026-08-25T08:12:28+00:00"
     },
     "tdd": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/03_技术工程/TDD.md",
@@ -55,9 +55,9 @@
       "reviewers": [
         "qa_director"
       ],
-      "version": "0.1",
-      "contentHash": "d4a742fae87ab20c27df3c34f0603a625589c81e069152f8969bd0c2adf44e71",
-      "syncedAt": "2026-08-24T01:22:08+00:00"
+      "version": "0.2",
+      "contentHash": "67d6f100c5b9dfa37759397afc0db1bc50d74250bde5d2b912ccd8869c95e52b",
+      "syncedAt": "2026-08-25T08:12:28+00:00"
     },
     "readiness-review": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/01_立项/Production-Readiness-Review.md",
@@ -106,11 +106,11 @@
         "engine-evaluation",
         "engine-decision"
       ],
-      "status": "pending",
-      "snapshotHash": null,
-      "approvedBy": null,
-      "approvedAt": null,
-      "reason": null
+      "status": "approved",
+      "snapshotHash": "f1ac2c920eba081a5fa458dfc405ea6e8d2b724dc202971a083089a627e13c4d",
+      "approvedBy": "derived:WI-20260825-001/M2",
+      "approvedAt": "2026-08-25T08:12:28+00:00",
+      "reason": "总计划 M2 授权内，approved 状态的 Engine Evaluation 0.2、ADR-0001 0.2 与 TDD 0.2 已绑定 HCD 0.3、PRD 0.2 和 f79c089 当前基线；选择继续使用 Unity 6000.0.73f1。Unity 6.3 前检未满足且未修改正式工程。"
     },
     "start": {
       "dependsOn": [
@@ -139,5 +139,5 @@
     "approvedAt": null,
     "reason": null
   },
-  "updatedAt": "2026-08-25T07:53:53+00:00"
+  "updatedAt": "2026-08-25T08:12:28+00:00"
 }
