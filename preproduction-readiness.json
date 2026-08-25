@@ -22,9 +22,9 @@
         "technical_director",
         "qa_director"
       ],
-      "version": "0.1",
-      "contentHash": "f8be6a1e4b119c28d37ec21e613f83d69b9bffe7f1709a15d899a53925d75611",
-      "syncedAt": "2026-08-24T01:20:36+00:00"
+      "version": "0.2",
+      "contentHash": "6cf7919103dc4d7c87483b98afe2ca843c5ba6fea83f77ec14d3927f49426bc1",
+      "syncedAt": "2026-08-25T07:53:53+00:00"
     },
     "engine-evaluation": {
       "path": "Studio-Knowledge/20_游戏/universal-gacha-simulator/03_技术工程/Engine-Evaluation.md",
@@ -92,11 +92,11 @@
       "documents": [
         "prd"
       ],
-      "status": "pending",
-      "snapshotHash": null,
-      "approvedBy": null,
-      "approvedAt": null,
-      "reason": null
+      "status": "approved",
+      "snapshotHash": "60884e41d30a3651240497ee35463dfb15c55177cc8c5e0c4b0bae74561535e0",
+      "approvedBy": "user-via-WI-20260825-001",
+      "approvedAt": "2026-08-25T07:53:53+00:00",
+      "reason": "用户已批准总计划 plan-v1@b34e288343062d5eb68cd40baf56f8cb0401549b41677697a177d52c79f72441，并同时接受 PRD 0.2@6cf7919103dc4d7c87483b98afe2ca843c5ba6fea83f77ec14d3927f49426bc1；此记录为 M1 派生 Product Gate。"
     },
     "technology": {
       "dependsOn": [
@@ -139,5 +139,5 @@
     "approvedAt": null,
     "reason": null
   },
-  "updatedAt": "2026-08-24T08:55:37+00:00"
+  "updatedAt": "2026-08-25T07:53:53+00:00"
 }
