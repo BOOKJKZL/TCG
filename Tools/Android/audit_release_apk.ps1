@@ -79,8 +79,8 @@ function Get-BadgingMetadata {
     })
     $permissions = @([regex]::Matches($Text, "(?m)^uses-permission:\s+name='([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-    $target = [regex]::Match($Text, "(?m)^targetSdkVersion:'(\d+)'$")
-    $minimum = [regex]::Match($Text, "(?m)^sdkVersion:'(\d+)'$")
+    $target = [regex]::Match($Text, "(?m)^targetSdkVersion:'(\d+)'[ \t\r]*$")
+    $minimum = [regex]::Match($Text, "(?m)^sdkVersion:'(\d+)'[ \t\r]*$")
     return [pscustomobject]@{
         PackageId = $package.Groups[1].Value
         VersionCode = [int]$package.Groups[2].Value
@@ -195,9 +195,14 @@ uses-permission: name='com.personal.universalgacha.DYNAMIC_RECEIVER_NOT_EXPORTED
 native-code: 'arm64-v8a'
 "@
     $metadata = Get-BadgingMetadata $validBadging
+    $lfMetadata = Get-BadgingMetadata ($validBadging -replace "`r`n", "`n")
+    $pollutedMetadata = Get-BadgingMetadata ($validBadging -replace "targetSdkVersion:'36'", "targetSdkVersion:'36'garbage")
     if ($metadata.PackageId -ne "com.personal.universalgacha" -or
         $metadata.VersionCode -ne 2 -or $metadata.VersionName -ne "0.1.1" -or
-        $metadata.TargetSdk -ne 36 -or $metadata.Abis.Count -ne 1 -or $metadata.Abis[0] -ne "arm64-v8a") {
+        $metadata.MinSdk -ne 23 -or $metadata.TargetSdk -ne 36 -or
+        $lfMetadata.MinSdk -ne 23 -or $lfMetadata.TargetSdk -ne 36 -or
+        $pollutedMetadata.TargetSdk -ne 0 -or
+        $metadata.Abis.Count -ne 1 -or $metadata.Abis[0] -ne "arm64-v8a") {
         throw "Self-test failed: valid aapt badging metadata."
     }
     $passed++

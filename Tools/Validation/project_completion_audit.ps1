@@ -175,7 +175,7 @@ function Test-AaptBadgingContract {
         "$PackageId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     )
     $unexpectedPermissions = @($permissions | Where-Object { $allowedPermissions -notcontains $_ })
-    $targetMatch = [regex]::Match($Text, "(?m)^targetSdkVersion:'(\d+)'$")
+    $targetMatch = [regex]::Match($Text, "(?m)^targetSdkVersion:'(\d+)'[ \t\r]*$")
     $targetSdk = if ($targetMatch.Success) { [int]$targetMatch.Groups[1].Value } else { 0 }
     $permissionsPassed = $unexpectedPermissions.Count -eq 0 -and $targetSdk -ge 34
 
@@ -546,9 +546,14 @@ uses-permission: name='android.permission.READ_EXTERNAL_STORAGE'
 native-code: 'arm64-v8a'
 "@
     $validContract = Test-AaptBadgingContract $validBadging
+    $validLfContract = Test-AaptBadgingContract ($validBadging -replace "`r`n", "`n")
+    $pollutedTargetContract = Test-AaptBadgingContract `
+        ($validBadging -replace "targetSdkVersion:'36'", "targetSdkVersion:'36'garbage")
     $invalidAbiContract = Test-AaptBadgingContract $invalidAbiBadging
     $invalidPermissionContract = Test-AaptBadgingContract $invalidPermissionBadging
     if (-not $validContract.AbiPassed -or -not $validContract.PermissionsPassed -or
+        -not $validLfContract.AbiPassed -or -not $validLfContract.PermissionsPassed -or
+        -not $pollutedTargetContract.AbiPassed -or $pollutedTargetContract.PermissionsPassed -or
         $invalidAbiContract.AbiPassed -or -not $invalidAbiContract.PermissionsPassed -or
         -not $invalidPermissionContract.AbiPassed -or $invalidPermissionContract.PermissionsPassed) {
         throw "Self-test failed: Android APK static contract validation."
