@@ -49,7 +49,7 @@ public class InventoryData
 
         if (UnseenPrintings != null)
         {
-            foreach (string printingId in UnseenPrintings)
+            foreach (string printingId in UnseenPrintings.OrderBy(id => id, StringComparer.Ordinal))
             {
                 if (!string.IsNullOrWhiteSpace(printingId))
                     snapshot.UnseenPrintings.Add(printingId);
@@ -77,11 +77,14 @@ public class InventoryData
         if (snapshot == null)
             return data;
 
+        snapshot = InventorySnapshotMigrator.Migrate(snapshot);
+        InventorySnapshotValidator.Validate(snapshot);
+
         data.Gold = snapshot.Gold;
         data.LastModifiedUtcTicks = snapshot.LastModifiedUtcTicks;
         CopyEntries(snapshot.Cards, data.Cards);
         CopyEntries(snapshot.PacksOpened, data.PacksOpened);
-        if (snapshot.Version >= 3 && snapshot.UnseenPrintings != null)
+        if (snapshot.UnseenPrintings != null)
         {
             foreach (string printingId in snapshot.UnseenPrintings)
             {
@@ -92,21 +95,18 @@ public class InventoryData
                 }
             }
         }
-        if (snapshot.Version >= 4)
+        if (snapshot.OpeningHistory != null)
         {
-            if (snapshot.OpeningHistory != null)
+            foreach (OpeningHistorySnapshot entry in snapshot.OpeningHistory)
             {
-                foreach (OpeningHistorySnapshot entry in snapshot.OpeningHistory)
-                {
-                    OpeningHistoryData restored = OpeningHistoryData.FromSnapshot(entry);
-                    if (restored != null)
-                        data.OpeningHistory.Add(restored);
-                }
+                OpeningHistoryData restored = OpeningHistoryData.FromSnapshot(entry);
+                if (restored != null)
+                    data.OpeningHistory.Add(restored);
             }
-            CopyEntries(snapshot.ProductsOpenedByLanguage, data.ProductsOpenedByLanguage);
-            CopyEntries(snapshot.ProductsOpenedBySet, data.ProductsOpenedBySet);
-            CopyEntries(snapshot.CardsDrawnByRarity, data.CardsDrawnByRarity);
         }
+        CopyEntries(snapshot.ProductsOpenedByLanguage, data.ProductsOpenedByLanguage);
+        CopyEntries(snapshot.ProductsOpenedBySet, data.ProductsOpenedBySet);
+        CopyEntries(snapshot.CardsDrawnByRarity, data.CardsDrawnByRarity);
         return data;
     }
 
@@ -234,6 +234,142 @@ public sealed class InventorySnapshot
     public List<InventoryEntry> CardsDrawnByRarity = new List<InventoryEntry>();
     public int Gold;
     public long LastModifiedUtcTicks;
+}
+
+public static class InventorySnapshotMigrator
+{
+    public const int MinimumSupportedVersion = 2;
+    public const int CurrentVersion = 4;
+
+    public static InventorySnapshot Migrate(InventorySnapshot snapshot)
+    {
+        if (snapshot == null)
+            throw new ArgumentNullException(nameof(snapshot));
+        if (snapshot.Version < MinimumSupportedVersion || snapshot.Version > CurrentVersion)
+        {
+            throw new InvalidOperationException(
+                $"Inventory snapshot version {snapshot.Version} is not supported.");
+        }
+
+        NormalizeCommonLists(snapshot);
+        while (snapshot.Version < CurrentVersion)
+        {
+            switch (snapshot.Version)
+            {
+                case 2:
+                    // Existing collections pre-date the unseen-card badge and must
+                    // not be presented to the player as newly obtained cards.
+                    snapshot.UnseenPrintings = new List<string>();
+                    snapshot.Version = 3;
+                    break;
+                case 3:
+                    snapshot.OpeningHistory = new List<OpeningHistorySnapshot>();
+                    snapshot.ProductsOpenedByLanguage = new List<InventoryEntry>();
+                    snapshot.ProductsOpenedBySet = new List<InventoryEntry>();
+                    snapshot.CardsDrawnByRarity = new List<InventoryEntry>();
+                    snapshot.Version = 4;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"No migration is defined for inventory snapshot version {snapshot.Version}.");
+            }
+        }
+
+        NormalizeCommonLists(snapshot);
+        return snapshot;
+    }
+
+    private static void NormalizeCommonLists(InventorySnapshot snapshot)
+    {
+        snapshot.Cards = snapshot.Cards ?? new List<InventoryEntry>();
+        snapshot.PacksOpened = snapshot.PacksOpened ?? new List<InventoryEntry>();
+        snapshot.UnseenPrintings = snapshot.UnseenPrintings ?? new List<string>();
+        snapshot.OpeningHistory = snapshot.OpeningHistory ?? new List<OpeningHistorySnapshot>();
+        snapshot.ProductsOpenedByLanguage = snapshot.ProductsOpenedByLanguage ?? new List<InventoryEntry>();
+        snapshot.ProductsOpenedBySet = snapshot.ProductsOpenedBySet ?? new List<InventoryEntry>();
+        snapshot.CardsDrawnByRarity = snapshot.CardsDrawnByRarity ?? new List<InventoryEntry>();
+    }
+}
+
+public static class InventorySnapshotValidator
+{
+    private const int MaximumIdLength = 512;
+    private const int MaximumInventoryEntries = 200000;
+    private const int MaximumCounterEntries = 10000;
+    private const int MaximumHistoryEntries = 250;
+
+    public static void Validate(InventorySnapshot snapshot)
+    {
+        if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+        if (snapshot.Version != InventorySnapshotMigrator.CurrentVersion)
+            throw new InvalidOperationException("The inventory snapshot must be migrated before validation.");
+        if (snapshot.Gold < 0 || snapshot.LastModifiedUtcTicks < 0 ||
+            snapshot.LastModifiedUtcTicks > DateTime.MaxValue.Ticks)
+        {
+            throw new InvalidOperationException("The inventory scalar metadata is invalid.");
+        }
+
+        Dictionary<string, int> cards = ValidateEntries(
+            snapshot.Cards, MaximumInventoryEntries, "card", false);
+        ValidateEntries(snapshot.PacksOpened, MaximumCounterEntries, "product", false);
+        ValidateEntries(snapshot.ProductsOpenedByLanguage, MaximumCounterEntries, "language statistic", false);
+        ValidateEntries(snapshot.ProductsOpenedBySet, MaximumCounterEntries, "set statistic", false);
+        ValidateEntries(snapshot.CardsDrawnByRarity, MaximumCounterEntries, "rarity statistic", false);
+
+        if (snapshot.UnseenPrintings == null || snapshot.UnseenPrintings.Count > MaximumInventoryEntries)
+            throw new InvalidOperationException("The unseen-card list is invalid.");
+        var unseen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string printingId in snapshot.UnseenPrintings)
+        {
+            if (!ValidId(printingId) || !unseen.Add(printingId) ||
+                !cards.TryGetValue(printingId, out int count) || count <= 0)
+            {
+                throw new InvalidOperationException("The unseen-card list contains an invalid reference.");
+            }
+        }
+
+        if (snapshot.OpeningHistory == null || snapshot.OpeningHistory.Count > MaximumHistoryEntries)
+            throw new InvalidOperationException("The opening history is invalid.");
+        var transactionIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (OpeningHistorySnapshot entry in snapshot.OpeningHistory)
+        {
+            if (entry == null || !ValidId(entry.TransactionId) || !transactionIds.Add(entry.TransactionId) ||
+                !ValidId(entry.ProductId) || !ValidId(entry.SetId) || !ValidId(entry.LanguageId) ||
+                !ValidId(entry.ProfileId) || entry.OpenedAtUtcTicks <= 0 ||
+                entry.OpenedAtUtcTicks > DateTime.MaxValue.Ticks || entry.ProductCount <= 0 ||
+                entry.CardCount <= 0 || entry.NewPrintingCount < 0 || entry.NewPrintingCount > entry.CardCount)
+            {
+                throw new InvalidOperationException("The opening history contains an invalid entry.");
+            }
+            ValidateEntries(entry.RarityCounts, MaximumCounterEntries, "history rarity", true);
+        }
+    }
+
+    private static Dictionary<string, int> ValidateEntries(
+        List<InventoryEntry> entries,
+        int maximumCount,
+        string label,
+        bool requirePositive)
+    {
+        if (entries == null || entries.Count > maximumCount)
+            throw new InvalidOperationException($"The {label} entry count is invalid.");
+        var values = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (InventoryEntry entry in entries)
+        {
+            if (entry == null || !ValidId(entry.Id) || values.ContainsKey(entry.Id) ||
+                entry.Amount < 0 || requirePositive && entry.Amount == 0)
+            {
+                throw new InvalidOperationException($"The {label} data contains an invalid entry.");
+            }
+            values.Add(entry.Id, entry.Amount);
+        }
+        return values;
+    }
+
+    private static bool ValidId(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Trim().Length <= MaximumIdLength;
+    }
 }
 
 [System.Serializable]

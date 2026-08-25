@@ -465,6 +465,7 @@ public sealed class UnityPlayerRecoveryTarget : IPlayerRecoveryTarget
         if (state == null) throw new ArgumentNullException(nameof(state));
         InventoryData nextInventory = InventoryData.FromSnapshot(state.Inventory.ToSnapshot());
         inventory.ReplaceData(nextInventory);
+        LocalSaveService.ResumeAutomaticSaveAfterRecovery();
         saveInventory(nextInventory);
         languages.ApplyPreferences(state.Languages, catalog);
         ExperienceSettingsUpdateResult result = experience.Apply(state.Experience);

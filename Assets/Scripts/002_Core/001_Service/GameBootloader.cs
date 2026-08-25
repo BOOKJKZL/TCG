@@ -17,7 +17,8 @@ public class GameBootloader : MonoBehaviour
         EnsureCoreObjectsExist();
 
         // Local data is available immediately and is always the offline fallback.
-        InventoryData local = LocalSaveService.Load();
+        LocalSaveLoadResult localLoad = LocalSaveService.LoadDetailed();
+        InventoryData local = localLoad.Data;
         Inventory.Instance.ReplaceData(local);
 
         _cloudReady = await CloudSaveServiceWrapper.InitializeAsync();
