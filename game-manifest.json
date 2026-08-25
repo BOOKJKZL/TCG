@@ -23,8 +23,8 @@
     ]
   },
   "lifecycle": {
-    "stage": 0,
-    "status": "legacy_baseline_pending"
+    "stage": 2,
+    "status": "vertical_slice_certified_with_gaps"
   },
   "rolePacks": [],
   "sharedModules": [],
