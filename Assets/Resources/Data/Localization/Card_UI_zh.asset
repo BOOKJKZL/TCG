@@ -1210,6 +1210,62 @@ MonoBehaviour:
     m_Localized: "PLAYER ID \u672A\u6539\u53D8\u3002\u672C\u673A\u8FDB\u5EA6\u4ECD\u53EF\u4F7F\u7528\u3002"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445825
+    m_Localized: "本地数据与诊断"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445826
+    m_Localized: "脱敏诊断只保留在本机；是否导出或清除由你决定。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445827
+    m_Localized: "{0} 个文件 · 已用 {1} · 最长保留 {2} 天／{3}。不会自动上传。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445828
+    m_Localized: "本地自动存档可用。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445829
+    m_Localized: "存档保护已启用；恢复成功前不会自动覆盖本地存档。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445830
+    m_Localized: "导出诊断"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445831
+    m_Localized: "清除诊断"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445832
+    m_Localized: "只会包含受控且已脱敏的诊断日志。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445833
+    m_Localized: "脱敏诊断已导出。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445834
+    m_Localized: "本机诊断日志已清除。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445835
+    m_Localized: "已取消导出诊断。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445836
+    m_Localized: "无法继续诊断操作；存档与设置未改变。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445837
+    m_Localized: "清除本机诊断？"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445838
+    m_Localized: "这会永久删除本机受控诊断日志；卡片、存档、设置与已下载内容不会改变。"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

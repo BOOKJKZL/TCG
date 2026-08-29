@@ -46,6 +46,18 @@
             <ui:Label name="settings-recovery-status" class="settings-card__status" />
         </ui:VisualElement>
 
+        <ui:VisualElement name="settings-diagnostics-card" class="settings-card mobile-card">
+            <ui:Label name="settings-diagnostics-title" class="settings-card__title" />
+            <ui:Label name="settings-diagnostics-description" class="settings-card__description" />
+            <ui:Label name="settings-diagnostics-summary" class="settings-card__summary" />
+            <ui:Label name="settings-save-protection-status" class="settings-card__status" />
+            <ui:VisualElement class="settings-action-grid">
+                <ui:VisualElement name="settings-diagnostics-export-slot" class="settings-action-slot" />
+                <ui:VisualElement name="settings-diagnostics-clear-slot" class="settings-action-slot" />
+            </ui:VisualElement>
+            <ui:Label name="settings-diagnostics-status" class="settings-card__status" />
+        </ui:VisualElement>
+
         <ui:VisualElement name="settings-account-card" class="settings-card mobile-card">
             <ui:Label name="settings-account-title" class="settings-card__title" />
             <ui:Label name="settings-account-description" class="settings-card__description" />

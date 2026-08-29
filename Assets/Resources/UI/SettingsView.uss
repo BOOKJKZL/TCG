@@ -45,6 +45,11 @@
     color: rgb(255, 158, 166);
 }
 
+.settings-card__status.is-warning {
+    color: rgb(255, 205, 126);
+    -unity-font-style: bold;
+}
+
 .settings-row {
     min-height: 62px;
     margin-top: 10px;

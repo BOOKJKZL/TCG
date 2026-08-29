@@ -1214,6 +1214,65 @@ MonoBehaviour:
     m_Localized: PLAYER ID was not changed. Your local progress remains available.
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445825
+    m_Localized: Local data and diagnostics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445826
+    m_Localized: Redacted diagnostics stay on this device. You decide when to export
+      or clear them.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445827
+    m_Localized: '{0} files · {1} used · kept up to {2} days / {3}. No automatic upload.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445828
+    m_Localized: Automatic local save is available.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445829
+    m_Localized: Save protection is active. Automatic overwrite stays off until recovery
+      succeeds.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445830
+    m_Localized: Export diagnostics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445831
+    m_Localized: Clear diagnostics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445832
+    m_Localized: Only controlled, redacted diagnostic logs are included.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445833
+    m_Localized: Redacted diagnostics exported.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445834
+    m_Localized: Local diagnostic logs cleared.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445835
+    m_Localized: Diagnostic export cancelled.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445836
+    m_Localized: Diagnostics could not continue. Your saves and settings were not changed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445837
+    m_Localized: Clear local diagnostics?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445838
+    m_Localized: This permanently deletes controlled diagnostic logs on this device.
+      Cards, saves, settings, and downloaded content are not changed.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

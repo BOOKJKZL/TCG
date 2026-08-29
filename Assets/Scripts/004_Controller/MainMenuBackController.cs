@@ -19,6 +19,7 @@ public sealed class MainMenuBackController : MonoBehaviour
     private ContentDownloadPolicyService downloadPolicy;
     private InventoryRecoveryService recovery;
     private RecoveryDocumentPicker picker;
+    private LocalDiagnosticLogStore diagnostics;
     private InventoryRecoveryPreview pendingPreview;
     private MobileSettingsRecoveryPreviewData pendingPreviewOverride;
     private string pendingImportPath;
@@ -28,12 +29,14 @@ public sealed class MainMenuBackController : MonoBehaviour
     private string downloadStatusKey = "settings.download.status.ready";
     private string identityStatusKey;
     private string cloudStatusKey = "settings.cloud.status.none";
+    private string diagnosticsStatusKey = "settings.diagnostics.status.ready";
     private bool recoveryStatusError;
     private bool languageStatusError;
     private bool experienceStatusError;
     private bool downloadStatusError;
     private bool identityStatusError;
     private bool cloudStatusError;
+    private bool diagnosticsStatusError;
     private bool navigationRequested;
     private bool busy;
     private bool pickerRequestActive;
@@ -60,6 +63,8 @@ public sealed class MainMenuBackController : MonoBehaviour
         downloadPolicy = ApplicationServices.ContentDownloadPolicy;
         recovery = new InventoryRecoveryService();
         picker = RecoveryDocumentPicker.GetOrCreate();
+        diagnostics = new LocalDiagnosticLogStore(
+            Path.Combine(Application.persistentDataPath, "diagnostics"));
 
         presenter = new MobileSettingsPresenter(gameObject, new MobileSettingsCallbacks
         {
@@ -73,6 +78,8 @@ public sealed class MainMenuBackController : MonoBehaviour
             ExportSave = ExportSave,
             ChooseImport = ChooseImport,
             ConfirmImport = RequestImportConfirmation,
+            ExportDiagnostics = ExportDiagnostics,
+            ClearDiagnostics = RequestClearDiagnostics,
             ConnectIdentity = ConnectIdentity,
             KeepLocal = () => RequestCloudChoice(InventoryConflictChoice.KeepLocal),
             UseCloud = () => RequestCloudChoice(InventoryConflictChoice.UseCloud),
@@ -473,6 +480,104 @@ public sealed class MainMenuBackController : MonoBehaviour
         }
     }
 
+    private void ExportDiagnostics()
+    {
+        if (busy || !DiagnosticsAvailable())
+            return;
+        int generation = BeginBusy(presenter.ExportDiagnosticsAction);
+        try
+        {
+            pickerRequestActive = true;
+            Action<MobileSettingsOperationResult> completed = result =>
+            {
+                pickerRequestActive = false;
+                if (!CanComplete(generation))
+                    return;
+                EndBusy(presenter.ExportDiagnosticsAction);
+                if (result != null && result.Succeeded)
+                {
+                    diagnosticsStatusKey = "settings.diagnostics.status.exported_safe";
+                    diagnosticsStatusError = false;
+                    UIFeedbackService.Play(FeedbackCue.Confirm);
+                }
+                else if (result != null && result.Cancelled)
+                {
+                    diagnosticsStatusKey = "settings.diagnostics.status.cancelled";
+                    diagnosticsStatusError = false;
+                    UIFeedbackService.Play(FeedbackCue.Back);
+                }
+                else
+                {
+                    Debug.LogWarning("Diagnostic export picker failed: " + result?.DeveloperDetail);
+                    SetDiagnosticsFailure();
+                }
+                RefreshAll();
+            };
+            if (operationOverridesForTests?.ExportDiagnostics != null)
+            {
+                operationOverridesForTests.ExportDiagnostics(completed);
+            }
+            else
+            {
+                string directory = StagingDirectory();
+                Directory.CreateDirectory(directory);
+                string fileName = "universal-gacha-diagnostics-" +
+                                  DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".json";
+                string stagingPath = Path.Combine(directory, fileName);
+                diagnostics.Export(stagingPath);
+                picker.CreateDocument(stagingPath, fileName, result => completed(ToMobileResult(result)));
+            }
+        }
+        catch (Exception exception)
+        {
+            pickerRequestActive = false;
+            Debug.LogWarning("Diagnostic export failed: " + exception);
+            EndBusy(presenter.ExportDiagnosticsAction);
+            SetDiagnosticsFailure();
+            RefreshAll();
+        }
+    }
+
+    private void RequestClearDiagnostics()
+    {
+        if (busy || !DiagnosticsAvailable())
+            return;
+        presenter.Confirmation.Show(
+            CardUiText.Get("settings.diagnostics.confirm.title"),
+            CardUiText.Get("settings.diagnostics.confirm.body"),
+            CardUiText.Get("settings.diagnostics.action.clear"),
+            CardUiText.Get("common.action.cancel"),
+            ConfirmClearDiagnostics,
+            null,
+            true);
+    }
+
+    private void ConfirmClearDiagnostics()
+    {
+        if (busy || !DiagnosticsAvailable())
+            return;
+        BeginBusy(presenter.ClearDiagnosticsAction);
+        try
+        {
+            if (operationOverridesForTests?.ClearDiagnostics != null)
+                operationOverridesForTests.ClearDiagnostics();
+            else
+                diagnostics.Clear();
+            diagnosticsStatusKey = "settings.diagnostics.status.cleared";
+            diagnosticsStatusError = false;
+            EndBusy(presenter.ClearDiagnosticsAction);
+            UIFeedbackService.Play(FeedbackCue.Confirm);
+            RefreshAll();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Diagnostic clear failed: " + exception);
+            EndBusy(presenter.ClearDiagnosticsAction);
+            SetDiagnosticsFailure();
+            RefreshAll();
+        }
+    }
+
     private async void ConnectIdentity()
     {
         if (busy || GetIdentityStatus().State != MobileSettingsIdentityState.Available ||
@@ -671,6 +776,17 @@ public sealed class MainMenuBackController : MonoBehaviour
             ? FormatRecoveryPreview(pendingPreviewOverride)
             : pendingPreview == null ? null : FormatRecoveryPreview(pendingPreview));
         presenter.SetStatus(presenter.RecoveryStatus, CardUiText.Get(recoveryStatusKey), recoveryStatusError);
+        MobileSettingsDiagnosticsData diagnosticStatus = GetDiagnosticsStatus();
+        presenter.SetDiagnosticsSummary(
+            FormatDiagnosticsSummary(diagnosticStatus),
+            CardUiText.Get(diagnosticStatus.SaveProtectionActive
+                ? "settings.diagnostics.save_protection.active"
+                : "settings.diagnostics.save_protection.available"),
+            diagnosticStatus.SaveProtectionActive);
+        presenter.SetStatus(
+            presenter.DiagnosticsStatus,
+            CardUiText.Get(diagnosticsStatusKey),
+            diagnosticsStatusError);
         RefreshIdentity();
         RefreshConflict();
         RefreshAvailability();
@@ -720,6 +836,7 @@ public sealed class MainMenuBackController : MonoBehaviour
         if (presenter == null || navigationRequested)
             return;
         bool recoveryAvailable = RecoveryAvailable() && !PickerBusy();
+        bool diagnosticsAvailable = DiagnosticsAvailable() && !PickerBusy();
         MobileSettingsIdentityState identity = GetIdentityStatus().State;
         MobileSettingsCloudStateData conflict = GetCloudState();
         bool conflictAvailable = conflict.HasPending && !conflict.IsResolving;
@@ -727,6 +844,7 @@ public sealed class MainMenuBackController : MonoBehaviour
             !busy,
             recoveryAvailable,
             HasPendingImport,
+            diagnosticsAvailable,
             identity == MobileSettingsIdentityState.Available && !conflict.HasPending,
             conflictAvailable);
     }
@@ -757,6 +875,45 @@ public sealed class MainMenuBackController : MonoBehaviour
     private bool PickerBusy() => operationOverridesForTests?.PickerBusy != null
         ? operationOverridesForTests.PickerBusy()
         : picker != null && picker.IsBusy;
+
+    private bool DiagnosticsAvailable() => diagnostics != null ||
+                                           operationOverridesForTests?.DiagnosticsStatus != null;
+
+    private MobileSettingsDiagnosticsData GetDiagnosticsStatus()
+    {
+        try
+        {
+            if (operationOverridesForTests?.DiagnosticsStatus != null)
+            {
+                return operationOverridesForTests.DiagnosticsStatus() ??
+                       DefaultDiagnosticsStatus();
+            }
+            LocalDiagnosticLogSummary summary = diagnostics?.GetSummary();
+            return summary == null
+                ? DefaultDiagnosticsStatus()
+                : new MobileSettingsDiagnosticsData(
+                    summary.FileCount,
+                    summary.TotalBytes,
+                    summary.MaximumAgeDays,
+                    summary.MaximumBytes,
+                    !LocalSaveService.IsAutomaticSaveEnabled);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Diagnostic status could not be read: " + exception);
+            diagnosticsStatusKey = "settings.diagnostics.status.error_safe";
+            diagnosticsStatusError = true;
+            return DefaultDiagnosticsStatus();
+        }
+    }
+
+    private static MobileSettingsDiagnosticsData DefaultDiagnosticsStatus() =>
+        new MobileSettingsDiagnosticsData(
+            0,
+            0,
+            LocalDiagnosticLogStore.DefaultMaximumAgeDays,
+            LocalDiagnosticLogStore.DefaultMaximumBytes,
+            !LocalSaveService.IsAutomaticSaveEnabled);
 
     private MobileSettingsIdentityStatusData GetIdentityStatus()
     {
@@ -821,6 +978,13 @@ public sealed class MainMenuBackController : MonoBehaviour
         UIFeedbackService.Play(FeedbackCue.Error);
     }
 
+    private void SetDiagnosticsFailure()
+    {
+        diagnosticsStatusKey = "settings.diagnostics.status.error_safe";
+        diagnosticsStatusError = true;
+        UIFeedbackService.Play(FeedbackCue.Error);
+    }
+
     private void OnUiLanguageChanged(string _) => RefreshAll();
     private void OnContentLanguageChanged(ContentLanguageSelection _) => RefreshAll();
     private void OnExperienceChanged(ExperienceSettings _) => RefreshAll();
@@ -879,6 +1043,24 @@ public sealed class MainMenuBackController : MonoBehaviour
             preview.HistoryCount,
             preview.UiLanguageId,
             preview.ContentLanguageId);
+
+    private static string FormatDiagnosticsSummary(MobileSettingsDiagnosticsData status) =>
+        CardUiText.Format(
+            "settings.diagnostics.summary",
+            Math.Max(0, status.FileCount),
+            FormatBytes(status.TotalBytes),
+            Math.Max(1, status.MaximumAgeDays),
+            FormatBytes(status.MaximumBytes));
+
+    private static string FormatBytes(long bytes)
+    {
+        double safe = Math.Max(0L, bytes);
+        if (safe >= 1024d * 1024d)
+            return (safe / (1024d * 1024d)).ToString("0.##") + " MiB";
+        if (safe >= 1024d)
+            return (safe / 1024d).ToString("0.##") + " KiB";
+        return ((long)safe) + " B";
+    }
 
     private static string FormatCloudSummary(InventoryProgressSummary summary)
     {

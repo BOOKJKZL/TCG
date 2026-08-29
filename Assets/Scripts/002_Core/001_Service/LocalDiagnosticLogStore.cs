@@ -9,6 +9,26 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
+public sealed class LocalDiagnosticLogSummary
+{
+    public LocalDiagnosticLogSummary(
+        int fileCount,
+        long totalBytes,
+        int maximumAgeDays,
+        long maximumBytes)
+    {
+        FileCount = fileCount;
+        TotalBytes = totalBytes;
+        MaximumAgeDays = maximumAgeDays;
+        MaximumBytes = maximumBytes;
+    }
+
+    public int FileCount { get; }
+    public long TotalBytes { get; }
+    public int MaximumAgeDays { get; }
+    public long MaximumBytes { get; }
+}
+
 public sealed class LocalDiagnosticLogStore
 {
     public const int DefaultMaximumAgeDays = 7;
@@ -99,6 +119,20 @@ public sealed class LocalDiagnosticLogStore
                 deleted++;
             }
             return deleted;
+        }
+    }
+
+    public LocalDiagnosticLogSummary GetSummary()
+    {
+        lock (gate)
+        {
+            PruneCore(utcNow().ToUniversalTime());
+            FileInfo[] files = GetControlledFiles().ToArray();
+            return new LocalDiagnosticLogSummary(
+                files.Length,
+                files.Sum(file => file.Length),
+                maximumAgeDays,
+                maximumBytes);
         }
     }
 

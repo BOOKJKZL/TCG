@@ -1226,6 +1226,62 @@ MonoBehaviour:
     m_Localized: "PLAYER ID \u306F\u5909\u66F4\u3055\u308C\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u7AEF\u672B\u306E\u9032\u884C\u5EA6\u306F\u5229\u7528\u3067\u304D\u307E\u3059\u3002"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445825
+    m_Localized: "ローカルデータと診断"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445826
+    m_Localized: "匿名化された診断はこの端末だけに保存されます。書き出しと消去は自分で選べます。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445827
+    m_Localized: "{0} ファイル · 使用量 {1} · 最大 {2} 日／{3}。自動送信はありません。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445828
+    m_Localized: "ローカル自動保存を利用できます。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445829
+    m_Localized: "セーブ保護が有効です。復元が成功するまで自動上書きは停止します。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445830
+    m_Localized: "診断を書き出す"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445831
+    m_Localized: "診断を消去"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445832
+    m_Localized: "管理対象で匿名化済みの診断ログだけが含まれます。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445833
+    m_Localized: "匿名化された診断を書き出しました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445834
+    m_Localized: "端末の診断ログを消去しました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445835
+    m_Localized: "診断の書き出しをキャンセルしました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445836
+    m_Localized: "診断操作を続行できませんでした。セーブと設定は変更されていません。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445837
+    m_Localized: "端末の診断を消去しますか？"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445838
+    m_Localized: "この端末の管理対象診断ログを完全に削除します。カード、セーブ、設定、ダウンロード済みコンテンツは変更されません。"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

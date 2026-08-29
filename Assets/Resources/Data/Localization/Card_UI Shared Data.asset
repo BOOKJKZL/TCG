@@ -1191,6 +1191,62 @@ MonoBehaviour:
     m_Key: settings.identity.status.failed_safe
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445825
+    m_Key: settings.diagnostics.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445826
+    m_Key: settings.diagnostics.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445827
+    m_Key: settings.diagnostics.summary
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445828
+    m_Key: settings.diagnostics.save_protection.available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445829
+    m_Key: settings.diagnostics.save_protection.active
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445830
+    m_Key: settings.diagnostics.action.export
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445831
+    m_Key: settings.diagnostics.action.clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445832
+    m_Key: settings.diagnostics.status.ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445833
+    m_Key: settings.diagnostics.status.exported_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445834
+    m_Key: settings.diagnostics.status.cleared
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445835
+    m_Key: settings.diagnostics.status.cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445836
+    m_Key: settings.diagnostics.status.error_safe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445837
+    m_Key: settings.diagnostics.confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445838
+    m_Key: settings.diagnostics.confirm.body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

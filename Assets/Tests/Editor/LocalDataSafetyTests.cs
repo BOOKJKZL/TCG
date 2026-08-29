@@ -327,6 +327,27 @@ public sealed class LocalDiagnosticLogStoreTests
     }
 
     [Test]
+    public void GetSummary_PrunesAndCountsOnlyControlledFilesWithoutExposingPaths()
+    {
+        var store = Store();
+        store.Append("save", "ONE", "one");
+        string sentinel = Path.Combine(root, "diagnostic-user-notes.jsonl");
+        File.WriteAllText(sentinel, "private notes");
+
+        LocalDiagnosticLogSummary summary = store.GetSummary();
+        long controlledBytes = Directory.GetFiles(root, "diagnostic-20260826-*.jsonl")
+            .Sum(path => new FileInfo(path).Length);
+
+        Assert.That(summary.FileCount, Is.EqualTo(1));
+        Assert.That(summary.TotalBytes, Is.EqualTo(controlledBytes));
+        Assert.That(summary.MaximumAgeDays, Is.EqualTo(7));
+        Assert.That(summary.MaximumBytes, Is.EqualTo(20L * 1024L * 1024L));
+        Assert.That(summary.GetType().GetProperties().Select(property => property.Name),
+            Does.Not.Contain("RootDirectory"));
+        Assert.That(File.Exists(sentinel), Is.True);
+    }
+
+    [Test]
     public void Export_RejectsDestinationInsideManagedLogDirectory()
     {
         var store = Store();

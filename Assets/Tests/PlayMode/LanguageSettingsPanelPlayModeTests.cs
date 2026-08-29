@@ -197,12 +197,21 @@ namespace Gacha.Tests.PlayMode
             int cancelPendingCalls = 0;
             int identityCalls = 0;
             int cloudCalls = 0;
+            int diagnosticExportCalls = 0;
+            int diagnosticClearCalls = 0;
             Action<MobileSettingsOperationResult> exportCompletion = null;
             Action<MobileSettingsOperationResult> importCompletion = null;
+            Action<MobileSettingsOperationResult> diagnosticExportCompletion = null;
             MobileSettingsIdentityState identityState = MobileSettingsIdentityState.Available;
             MobileSettingsIdentityResultData identityResult =
                 new MobileSettingsIdentityResultData(MobileSettingsIdentityOutcome.Failed, secret);
             MobileSettingsCloudStateData cloudState = new MobileSettingsCloudStateData(false, false);
+            MobileSettingsDiagnosticsData diagnosticState = new MobileSettingsDiagnosticsData(
+                2,
+                4096,
+                7,
+                20L * 1024L * 1024L,
+                true);
             var operations = new MobileSettingsOperationOverrides
             {
                 RecoveryAvailable = () => true,
@@ -243,6 +252,23 @@ namespace Gacha.Tests.PlayMode
                     cloudCalls++;
                     cloudState = new MobileSettingsCloudStateData(false, false);
                     return Task.FromResult(new MobileSettingsOperationResult(true));
+                },
+                DiagnosticsStatus = () => diagnosticState,
+                ExportDiagnostics = completed =>
+                {
+                    diagnosticExportCalls++;
+                    diagnosticExportCompletion = completed;
+                },
+                ClearDiagnostics = () =>
+                {
+                    diagnosticClearCalls++;
+                    diagnosticState = new MobileSettingsDiagnosticsData(
+                        0,
+                        0,
+                        7,
+                        20L * 1024L * 1024L,
+                        true);
+                    return 2;
                 }
             };
             SetPrivateField(controller, "operationOverridesForTests", operations);
@@ -287,6 +313,49 @@ namespace Gacha.Tests.PlayMode
                 Tap(page.Confirmation.DangerConfirm);
                 Assert.That(restoreCalls, Is.EqualTo(1), "Import confirmation must be one-shot.");
                 Assert.That(controller.GetType().GetProperty("HasPendingImport")?.GetValue(controller), Is.False);
+
+                Assert.That(page.SaveProtectionStatus.text,
+                    Is.EqualTo(CardUiText.Get("settings.diagnostics.save_protection.active")));
+                Assert.That(page.DiagnosticsSummary.text, Does.Contain("2"));
+                yield return ScrollToAndTap(page, page.ExportDiagnosticsAction);
+                Tap(page.ExportDiagnosticsAction);
+                Assert.That(diagnosticExportCalls, Is.EqualTo(1),
+                    "Busy diagnostic export must reject duplicate taps.");
+                diagnosticExportCompletion(new MobileSettingsOperationResult(false, developerDetail: secret));
+                yield return null;
+                Assert.That(page.DiagnosticsStatus.text,
+                    Is.EqualTo(CardUiText.Get("settings.diagnostics.status.error_safe")));
+                AssertPlayerTextDoesNotContain(page, secret);
+
+                yield return ScrollToAndTap(page, page.ExportDiagnosticsAction);
+                diagnosticExportCompletion(new MobileSettingsOperationResult(false, cancelled: true));
+                yield return null;
+                Assert.That(page.DiagnosticsStatus.text,
+                    Is.EqualTo(CardUiText.Get("settings.diagnostics.status.cancelled")));
+
+                yield return ScrollToAndTap(page, page.ExportDiagnosticsAction);
+                diagnosticExportCompletion(new MobileSettingsOperationResult(true, path: secret));
+                yield return null;
+                Assert.That(page.DiagnosticsStatus.text,
+                    Is.EqualTo(CardUiText.Get("settings.diagnostics.status.exported_safe")));
+                AssertPlayerTextDoesNotContain(page, secret);
+
+                yield return ScrollToAndTap(page, page.ClearDiagnosticsAction);
+                Assert.That(page.Confirmation.IsVisible, Is.True);
+                SendKeyboardActivate(page.Confirmation.Cancel.Root);
+                yield return WaitFor(() =>
+                    page.Confirmation.Root.resolvedStyle.display == DisplayStyle.None);
+                Assert.That(diagnosticClearCalls, Is.Zero);
+                Assert.That(page.Confirmation.IsVisible, Is.False);
+                yield return ScrollToAndTap(page, page.ClearDiagnosticsAction);
+                Assert.That(page.Confirmation.IsVisible, Is.True);
+                SendKeyboardActivate(page.Confirmation.DangerConfirm.Root);
+                SendKeyboardActivate(page.Confirmation.DangerConfirm.Root);
+                yield return null;
+                Assert.That(diagnosticClearCalls, Is.EqualTo(1),
+                    "Diagnostic clear confirmation must be one-shot.");
+                Assert.That(page.DiagnosticsStatus.text,
+                    Is.EqualTo(CardUiText.Get("settings.diagnostics.status.cleared")));
 
                 foreach (MobileSettingsIdentityOutcome outcome in Enum.GetValues(typeof(MobileSettingsIdentityOutcome)))
                 {
@@ -419,6 +488,14 @@ namespace Gacha.Tests.PlayMode
                     Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
                 Assert.That(page.CloudDescription.resolvedStyle.whiteSpace, Is.EqualTo(WhiteSpace.Normal));
 
+                page.Scroll.ScrollTo(page.ClearDiagnosticsAction.Root);
+                yield return null;
+                yield return null;
+                Assert.That(page.Scroll.contentViewport.worldBound.Contains(
+                    page.ClearDiagnosticsAction.Root.worldBound.center), Is.True);
+                Assert.That(page.ClearDiagnosticsAction.Root.resolvedStyle.height,
+                    Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
+
                 page.Confirmation.Show(
                     CardUiText.Get("settings.recovery.confirm.title"),
                     CardUiText.Get("settings.recovery.confirm.body"),
@@ -448,7 +525,8 @@ namespace Gacha.Tests.PlayMode
             CycleUiLanguage = () => { }, CycleCardLanguage = () => { }, ToggleSound = () => { },
             ToggleReduceMotion = () => { }, ToggleHaptics = () => { }, CycleAnimationSpeed = () => { },
             ToggleWifiOnly = () => { }, ExportSave = () => { }, ChooseImport = () => { },
-            ConfirmImport = () => { }, ConnectIdentity = () => { }, KeepLocal = () => { },
+            ConfirmImport = () => { }, ExportDiagnostics = () => { }, ClearDiagnostics = () => { },
+            ConnectIdentity = () => { }, KeepLocal = () => { },
             UseCloud = () => { }, SafeMerge = () => { }, Navigate = _ => { }
         };
 

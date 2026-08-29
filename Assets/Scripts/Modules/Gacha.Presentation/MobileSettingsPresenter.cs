@@ -148,6 +148,29 @@ namespace Gacha.Presentation
         public MobileSettingsProgressSummaryData Cloud { get; }
     }
 
+    public sealed class MobileSettingsDiagnosticsData
+    {
+        public MobileSettingsDiagnosticsData(
+            int fileCount,
+            long totalBytes,
+            int maximumAgeDays,
+            long maximumBytes,
+            bool saveProtectionActive)
+        {
+            FileCount = fileCount;
+            TotalBytes = totalBytes;
+            MaximumAgeDays = maximumAgeDays;
+            MaximumBytes = maximumBytes;
+            SaveProtectionActive = saveProtectionActive;
+        }
+
+        public int FileCount { get; }
+        public long TotalBytes { get; }
+        public int MaximumAgeDays { get; }
+        public long MaximumBytes { get; }
+        public bool SaveProtectionActive { get; }
+    }
+
     public sealed class MobileSettingsOperationOverrides
     {
         public Func<bool> RecoveryAvailable { get; set; }
@@ -161,6 +184,9 @@ namespace Gacha.Presentation
         public Func<Task<MobileSettingsIdentityResultData>> ConnectIdentity { get; set; }
         public Func<MobileSettingsCloudStateData> CloudState { get; set; }
         public Func<MobileSettingsCloudChoice, Task<MobileSettingsOperationResult>> ResolveCloud { get; set; }
+        public Func<MobileSettingsDiagnosticsData> DiagnosticsStatus { get; set; }
+        public Action<Action<MobileSettingsOperationResult>> ExportDiagnostics { get; set; }
+        public Func<int> ClearDiagnostics { get; set; }
     }
 
     public sealed class MobileSettingsCallbacks
@@ -179,6 +205,8 @@ namespace Gacha.Presentation
         public Action KeepLocal { get; set; }
         public Action UseCloud { get; set; }
         public Action SafeMerge { get; set; }
+        public Action ExportDiagnostics { get; set; }
+        public Action ClearDiagnostics { get; set; }
         public Action<MobileDestination> Navigate { get; set; }
     }
 
@@ -230,6 +258,15 @@ namespace Gacha.Presentation
                 "settings-confirm-import-action",
                 callbacks.ConfirmImport,
                 MobileActionTone.Danger);
+            ExportDiagnosticsAction = Add(
+                "settings-diagnostics-export-slot",
+                "settings-diagnostics-export-action",
+                callbacks.ExportDiagnostics);
+            ClearDiagnosticsAction = Add(
+                "settings-diagnostics-clear-slot",
+                "settings-diagnostics-clear-action",
+                callbacks.ClearDiagnostics,
+                MobileActionTone.Danger);
             IdentityAction = Add("settings-connect-slot", "settings-connect-action", callbacks.ConnectIdentity);
             KeepLocalAction = Add("settings-cloud-local-slot", "settings-cloud-local-action", callbacks.KeepLocal);
             UseCloudAction = Add(
@@ -242,6 +279,7 @@ namespace Gacha.Presentation
             {
                 UiLanguageAction, CardLanguageAction, SoundAction, MotionAction, HapticsAction,
                 SpeedAction, WifiOnlyAction, ExportAction, ImportAction, ConfirmImportAction,
+                ExportDiagnosticsAction, ClearDiagnosticsAction,
                 IdentityAction, KeepLocalAction, UseCloudAction, MergeAction
             };
 
@@ -268,6 +306,11 @@ namespace Gacha.Presentation
             RecoveryDescription = RequiredLabel("settings-recovery-description");
             RecoveryPreview = RequiredLabel("settings-recovery-preview");
             RecoveryStatus = RequiredLabel("settings-recovery-status");
+            DiagnosticsTitle = RequiredLabel("settings-diagnostics-title");
+            DiagnosticsDescription = RequiredLabel("settings-diagnostics-description");
+            DiagnosticsSummary = RequiredLabel("settings-diagnostics-summary");
+            SaveProtectionStatus = RequiredLabel("settings-save-protection-status");
+            DiagnosticsStatus = RequiredLabel("settings-diagnostics-status");
             AccountTitle = RequiredLabel("settings-account-title");
             AccountDescription = RequiredLabel("settings-account-description");
             IdentityStatus = RequiredLabel("settings-identity-status");
@@ -298,6 +341,8 @@ namespace Gacha.Presentation
         public MobileActionControl ExportAction { get; }
         public MobileActionControl ImportAction { get; }
         public MobileActionControl ConfirmImportAction { get; }
+        public MobileActionControl ExportDiagnosticsAction { get; }
+        public MobileActionControl ClearDiagnosticsAction { get; }
         public MobileActionControl IdentityAction { get; }
         public MobileActionControl KeepLocalAction { get; }
         public MobileActionControl UseCloudAction { get; }
@@ -317,6 +362,11 @@ namespace Gacha.Presentation
         public Label RecoveryDescription { get; }
         public Label RecoveryPreview { get; }
         public Label RecoveryStatus { get; }
+        public Label DiagnosticsTitle { get; }
+        public Label DiagnosticsDescription { get; }
+        public Label DiagnosticsSummary { get; }
+        public Label SaveProtectionStatus { get; }
+        public Label DiagnosticsStatus { get; }
         public Label AccountTitle { get; }
         public Label AccountDescription { get; }
         public Label IdentityStatus { get; }
@@ -371,6 +421,10 @@ namespace Gacha.Presentation
             ExportAction.SetLabel(CardUiText.Get("settings.recovery.action.export"));
             ImportAction.SetLabel(CardUiText.Get("settings.recovery.action.preview"));
             ConfirmImportAction.SetLabel(CardUiText.Get("settings.recovery.action.confirm"));
+            DiagnosticsTitle.text = CardUiText.Get("settings.diagnostics.title");
+            DiagnosticsDescription.text = CardUiText.Get("settings.diagnostics.description");
+            ExportDiagnosticsAction.SetLabel(CardUiText.Get("settings.diagnostics.action.export"));
+            ClearDiagnosticsAction.SetLabel(CardUiText.Get("settings.diagnostics.action.clear"));
             AccountTitle.text = CardUiText.Get("settings.account.title");
             AccountDescription.text = CardUiText.Get("settings.account.description");
             IdentityAction.SetLabel(CardUiText.Get("settings.identity.action.connect"));
@@ -397,6 +451,15 @@ namespace Gacha.Presentation
         {
             RecoveryPreview.text = text ?? string.Empty;
             RecoveryPreview.EnableInClassList("is-hidden", string.IsNullOrWhiteSpace(text));
+        }
+
+        public void SetDiagnosticsSummary(string summary, string saveProtection, bool protectionActive)
+        {
+            if (disposed)
+                return;
+            DiagnosticsSummary.text = summary ?? string.Empty;
+            SaveProtectionStatus.text = saveProtection ?? string.Empty;
+            SaveProtectionStatus.EnableInClassList("is-warning", protectionActive);
         }
 
         public void SetCloudVisible(bool visible)
@@ -428,6 +491,7 @@ namespace Gacha.Presentation
             bool enabled,
             bool recoveryAvailable,
             bool hasPendingImport,
+            bool diagnosticsAvailable,
             bool identityAvailable,
             bool conflictAvailable)
         {
@@ -443,6 +507,8 @@ namespace Gacha.Presentation
             ExportAction.SetEnabled(enabled && recoveryAvailable);
             ImportAction.SetEnabled(enabled && recoveryAvailable);
             ConfirmImportAction.SetEnabled(enabled && recoveryAvailable && hasPendingImport);
+            ExportDiagnosticsAction.SetEnabled(enabled && diagnosticsAvailable);
+            ClearDiagnosticsAction.SetEnabled(enabled && diagnosticsAvailable);
             IdentityAction.SetEnabled(enabled && identityAvailable);
             KeepLocalAction.SetEnabled(enabled && conflictAvailable);
             UseCloudAction.SetEnabled(enabled && conflictAvailable);

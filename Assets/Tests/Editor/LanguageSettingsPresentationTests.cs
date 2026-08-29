@@ -90,6 +90,8 @@ public class LanguageSettingsPresentationTests
         Assert.That(uxml, Does.Not.Contain(" style="));
         Assert.That(uxml, Does.Contain("settings-ui-language-slot"));
         Assert.That(uxml, Does.Contain("settings-confirm-import-slot"));
+        Assert.That(uxml, Does.Contain("settings-diagnostics-export-slot"));
+        Assert.That(uxml, Does.Contain("settings-diagnostics-clear-slot"));
         Assert.That(uxml, Does.Contain("settings-cloud-merge-slot"));
         foreach (string unsupported in new[]
                  {
@@ -111,7 +113,15 @@ public class LanguageSettingsPresentationTests
             "settings.download.title", "settings.download.description", "settings.download.status.failed",
             "settings.recovery.status.exported_safe", "settings.recovery.status.error_safe",
             "settings.recovery.status.imported_safe", "settings.recovery.confirm.title",
-            "settings.recovery.confirm.body", "settings.account.title", "settings.account.description",
+            "settings.recovery.confirm.body", "settings.diagnostics.title",
+            "settings.diagnostics.description", "settings.diagnostics.summary",
+            "settings.diagnostics.save_protection.available",
+            "settings.diagnostics.save_protection.active",
+            "settings.diagnostics.action.export", "settings.diagnostics.action.clear",
+            "settings.diagnostics.status.ready", "settings.diagnostics.status.exported_safe",
+            "settings.diagnostics.status.cleared", "settings.diagnostics.status.cancelled",
+            "settings.diagnostics.status.error_safe", "settings.diagnostics.confirm.title",
+            "settings.diagnostics.confirm.body", "settings.account.title", "settings.account.description",
             "settings.cloud.status.resolved_safe", "settings.cloud.status.failed_safe",
             "settings.cloud.status.backup_failed_safe", "settings.cloud.confirm.title",
             "settings.cloud.confirm.body", "settings.identity.status.cloud_pending_safe",
@@ -133,6 +143,8 @@ public class LanguageSettingsPresentationTests
                  {
                      "settings.recovery.status.exported_safe", "settings.recovery.status.error_safe",
                      "settings.recovery.status.imported_safe", "settings.cloud.status.resolved_safe",
+                     "settings.diagnostics.status.exported_safe", "settings.diagnostics.status.cleared",
+                     "settings.diagnostics.status.cancelled", "settings.diagnostics.status.error_safe",
                      "settings.cloud.status.failed_safe", "settings.identity.status.failed_safe",
                      "settings.recovery.status.exported", "settings.recovery.status.error",
                      "settings.recovery.status.imported", "settings.cloud.status.resolved",
