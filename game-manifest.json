@@ -26,7 +26,12 @@
     "stage": 2,
     "status": "vertical_slice_certified_with_gaps"
   },
-  "rolePacks": [],
+  "rolePacks": [
+    {
+      "packId": "live-card-content",
+      "version": "1.0.0"
+    }
+  ],
   "sharedModules": [],
   "allowedSharedKnowledge": [],
   "agentScope": {
