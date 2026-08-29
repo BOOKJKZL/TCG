@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { access, readFile } from "node:fs/promises";
+import { once } from "node:events";
+import { access, readFile, unlink, writeFile } from "node:fs/promises";
 import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -9,8 +10,21 @@ const port = 32000 + (process.pid % 1000);
 const origin = `http://localhost:${port}`;
 let server;
 let serverOutput = "";
+let ownsTestEnvFile = false;
+const testEnvFile = new URL("../.env.local", import.meta.url);
 
 before(async () => {
+  try {
+    await writeFile(
+      testEnvFile,
+      `TCG_CONTENT_OWNER_EMAIL=owner@example.test\nTCG_ANDROID_RELEASE_CERT_SHA256=${"a".repeat(64)}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
+    ownsTestEnvFile = true;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+
   const cli = new URL("../node_modules/vinext/dist/cli.js", import.meta.url);
   server = spawn(process.execPath, [fileURLToPath(cli), "dev", "--port", String(port)], {
     cwd: fileURLToPath(projectRoot),
@@ -26,8 +40,22 @@ before(async () => {
   await waitForServer();
 });
 
-after(() => {
-  server?.kill();
+after(async () => {
+  if (server?.exitCode === null) {
+    server.kill();
+    await Promise.race([
+      once(server, "exit"),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]);
+    if (server.exitCode === null) server.kill("SIGKILL");
+  }
+  if (ownsTestEnvFile) {
+    try {
+      await unlink(testEnvFile);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
 });
 
 async function render(pathname = "/") {
