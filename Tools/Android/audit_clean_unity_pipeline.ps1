@@ -5,6 +5,7 @@ param(
     [string]$ScratchRoot,
     [string]$EvidenceDirectory,
     [string]$PrivateImportsPath,
+    [string]$PrivatePokedexPath,
     [string]$PrimaryKeystorePath,
     [string[]]$BackupKeystorePaths,
     [string]$KeyAlias = "universal-gacha-release",
@@ -126,8 +127,8 @@ function Get-PrivateInputMetadata {
     if ($manifestCount -lt 1) {
         throw "Private Imports input contains no manifest files."
     }
+    $rootPrefix = (Get-FullPath $Path).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
     $records = @($files | ForEach-Object {
-        $rootPrefix = (Get-FullPath $Path).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
         $relative = $_.FullName.Substring($rootPrefix.Length).Replace('\', '/')
         "$relative`0$($_.Length)"
     } | Sort-Object -CaseSensitive)
@@ -151,7 +152,57 @@ function Get-PrivateInputMetadata {
     }
 }
 
-function Copy-PrivateImports {
+function Get-PrivatePokedexInputMetadata {
+    param([string]$Path)
+    $requiredDirectories = @('snapshot', 'artwork', 'links')
+    foreach ($name in $requiredDirectories) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Path $name) -PathType Container)) {
+            throw "Private Pokedex runtime input is missing '$name'."
+        }
+    }
+    $taxonomyPath = Join-Path $Path 'snapshot\pokemon-taxonomy.json'
+    $englishLinksPath = Join-Path $Path 'links\pokemon-card-subject-links.en.json'
+    $artworkManifestCount = @(
+        Get-ChildItem -LiteralPath (Join-Path $Path 'artwork') -Recurse -Filter 'manifest.json' -File
+    ).Count
+    if (-not (Test-Path -LiteralPath $taxonomyPath -PathType Leaf)) {
+        throw "Private Pokedex runtime input is missing the taxonomy snapshot."
+    }
+    if (-not (Test-Path -LiteralPath $englishLinksPath -PathType Leaf)) {
+        throw "Private Pokedex runtime input is missing English card-subject links."
+    }
+    if ($artworkManifestCount -lt 1) {
+        throw "Private Pokedex runtime input contains no artwork manifests."
+    }
+    $files = @($requiredDirectories | ForEach-Object {
+        Get-ChildItem -LiteralPath (Join-Path $Path $_) -Recurse -File -ErrorAction Stop
+    })
+    $rootPrefix = (Get-FullPath $Path).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $records = @($files | ForEach-Object {
+        $relative = $_.FullName.Substring($rootPrefix.Length).Replace('\', '/')
+        "$relative`0$($_.Length)"
+    } | Sort-Object -CaseSensitive)
+    $treeBytes = [Text.UTF8Encoding]::new($false).GetBytes(($records -join "`n"))
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $treeHash = (($sha256.ComputeHash($treeBytes) | ForEach-Object {
+            $_.ToString('x2')
+        }) -join '')
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    return [ordered]@{
+        logicalSource = "LocalContent/Pokedex/{snapshot,artwork,links}"
+        fileCount = $files.Count
+        artworkManifestCount = $artworkManifestCount
+        totalBytes = [long](($files | Measure-Object Length -Sum).Sum)
+        treeMetadataSha256 = $treeHash
+        injected = $false
+    }
+}
+
+function Copy-PrivateDirectory {
     param([string]$Source, [string]$Destination)
     [IO.Directory]::CreateDirectory($Destination) | Out-Null
     $process = Start-Process `
@@ -258,7 +309,26 @@ function Invoke-SelfTest {
             $privateMetadata.treeMetadataSha256 -notmatch '^[0-9a-f]{64}$') {
             throw "Private input aggregate metadata mismatch."
         }
-        Write-Output "Self-test passed: 4/4"
+
+        $pokedexFixture = Join-Path $testRoot "private-pokedex"
+        foreach ($relativeDirectory in @('snapshot', 'artwork\generation-1', 'links')) {
+            [IO.Directory]::CreateDirectory((Join-Path $pokedexFixture $relativeDirectory)) | Out-Null
+        }
+        [IO.File]::WriteAllText(
+            (Join-Path $pokedexFixture 'snapshot\pokemon-taxonomy.json'), '{}',
+            [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText(
+            (Join-Path $pokedexFixture 'artwork\generation-1\manifest.json'), '{}',
+            [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText(
+            (Join-Path $pokedexFixture 'links\pokemon-card-subject-links.en.json'), '{}',
+            [Text.UTF8Encoding]::new($false))
+        $pokedexMetadata = Get-PrivatePokedexInputMetadata $pokedexFixture
+        if ($pokedexMetadata.fileCount -ne 3 -or $pokedexMetadata.artworkManifestCount -ne 1 -or
+            $pokedexMetadata.treeMetadataSha256 -notmatch '^[0-9a-f]{64}$') {
+            throw "Private Pokedex aggregate metadata mismatch."
+        }
+        Write-Output "Self-test passed: 5/5"
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {
@@ -281,6 +351,9 @@ if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
 if ([string]::IsNullOrWhiteSpace($PrivateImportsPath)) {
     throw "PrivateImportsPath is required."
 }
+if ([string]::IsNullOrWhiteSpace($PrivatePokedexPath)) {
+    throw "PrivatePokedexPath is required."
+}
 if (-not $SkipReleaseBuild) {
     if ([string]::IsNullOrWhiteSpace($PrimaryKeystorePath)) {
         throw "PrimaryKeystorePath is required unless SkipReleaseBuild is used."
@@ -294,11 +367,19 @@ $scratchFullPath = Assert-SafeScratchPath $ScratchRoot
 $evidenceFullPath = Get-FullPath $EvidenceDirectory
 $privateImportsFullPath = Get-FullPath $PrivateImportsPath
 $expectedPrivateImportsPath = Get-FullPath (Join-Path $repoRoot "LocalContent\Imports")
+$privatePokedexFullPath = Get-FullPath $PrivatePokedexPath
+$expectedPrivatePokedexPath = Get-FullPath (Join-Path $repoRoot "LocalContent\Pokedex")
 if (-not $privateImportsFullPath.Equals($expectedPrivateImportsPath, [StringComparison]::OrdinalIgnoreCase)) {
     throw "PrivateImportsPath must be the source repository LocalContent/Imports directory."
 }
 if (-not (Test-Path -LiteralPath $privateImportsFullPath -PathType Container)) {
     throw "PrivateImportsPath was not found."
+}
+if (-not $privatePokedexFullPath.Equals($expectedPrivatePokedexPath, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "PrivatePokedexPath must be the source repository LocalContent/Pokedex directory."
+}
+if (-not (Test-Path -LiteralPath $privatePokedexFullPath -PathType Container)) {
+    throw "PrivatePokedexPath was not found."
 }
 if (Test-IsPathUnder $evidenceFullPath $scratchFullPath) {
     throw "EvidenceDirectory must be outside ScratchRoot."
@@ -306,6 +387,10 @@ if (Test-IsPathUnder $evidenceFullPath $scratchFullPath) {
 if ((Test-IsPathUnder $privateImportsFullPath $scratchFullPath) -or
     (Test-IsPathUnder $privateImportsFullPath $evidenceFullPath)) {
     throw "PrivateImportsPath must be outside ScratchRoot and EvidenceDirectory."
+}
+if ((Test-IsPathUnder $privatePokedexFullPath $scratchFullPath) -or
+    (Test-IsPathUnder $privatePokedexFullPath $evidenceFullPath)) {
+    throw "PrivatePokedexPath must be outside ScratchRoot and EvidenceDirectory."
 }
 if (Test-Path -LiteralPath $scratchFullPath) {
     throw "ScratchRoot already exists; refusing to overwrite or delete it: $scratchFullPath"
@@ -331,7 +416,12 @@ $privateIgnored = @(& git -C $repoRoot check-ignore -q -- 'LocalContent/Imports'
 if ($LASTEXITCODE -ne 0) {
     throw "LocalContent/Imports is not protected by the repository ignore policy."
 }
+$privatePokedexIgnored = @(& git -C $repoRoot check-ignore -q -- 'LocalContent/Pokedex')
+if ($LASTEXITCODE -ne 0) {
+    throw "LocalContent/Pokedex is not protected by the repository ignore policy."
+}
 $privateInputMetadata = Get-PrivateInputMetadata $privateImportsFullPath
+$privatePokedexMetadata = Get-PrivatePokedexInputMetadata $privatePokedexFullPath
 $scratchDrive = [IO.Path]::GetPathRoot($scratchFullPath).TrimEnd('\', '/')
 $driveName = $scratchDrive.TrimEnd(':')
 $drive = Get-PSDrive -Name $driveName -PSProvider FileSystem
@@ -343,6 +433,7 @@ if ($drive.Free -lt ($MinimumFreeGiB * 1GB)) {
 $startedUtc = [DateTime]::UtcNow
 $checkoutPath = Join-Path $scratchFullPath "checkout"
 $checkoutPrivateImportsPath = Join-Path $checkoutPath "LocalContent\Imports"
+$checkoutPrivatePokedexPath = Join-Path $checkoutPath "LocalContent\Pokedex"
 $archivePath = Join-Path $scratchFullPath "source.zip"
 $testResultsPath = Join-Path $checkoutPath "TestResults"
 $fileVersion = [regex]::Replace($VersionName, '[^0-9A-Za-z.-]', '-')
@@ -363,7 +454,10 @@ $summary = [ordered]@{
     startedAtUtc = $startedUtc.ToString('o')
     finishedAtUtc = $null
     scratchRemoved = $false
-    privateInput = $privateInputMetadata
+    privateInputs = [ordered]@{
+        imports = $privateInputMetadata
+        pokedexRuntime = $privatePokedexMetadata
+    }
     tests = [ordered]@{}
     release = $null
     evidenceSecretScan = "not_run"
@@ -378,8 +472,14 @@ try {
     $summary.archiveSha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Expand-Archive -LiteralPath $archivePath -DestinationPath $checkoutPath
     Remove-Item -LiteralPath $archivePath -Force
-    Copy-PrivateImports $privateImportsFullPath $checkoutPrivateImportsPath
-    $summary.privateInput.injected = $true
+    Copy-PrivateDirectory $privateImportsFullPath $checkoutPrivateImportsPath
+    $summary.privateInputs.imports.injected = $true
+    foreach ($name in @('snapshot', 'artwork', 'links')) {
+        Copy-PrivateDirectory `
+            (Join-Path $privatePokedexFullPath $name) `
+            (Join-Path $checkoutPrivatePokedexPath $name)
+    }
+    $summary.privateInputs.pokedexRuntime.injected = $true
     [IO.Directory]::CreateDirectory($testResultsPath) | Out-Null
 
     $projectVersionText = Get-Content -LiteralPath (Join-Path $checkoutPath "ProjectSettings\ProjectVersion.txt") -Raw
@@ -495,7 +595,8 @@ finally {
     Write-JsonUtf8 $summaryPath $summary
 
     try {
-        $privatePaths = @($PrimaryKeystorePath) + @($BackupKeystorePaths) + @($privateImportsFullPath)
+        $privatePaths = @($PrimaryKeystorePath) + @($BackupKeystorePaths) +
+            @($privateImportsFullPath, $privatePokedexFullPath)
         Assert-EvidenceSecretBoundary $evidenceFullPath $privatePaths
         $summary.evidenceSecretScan = "passed"
     }
