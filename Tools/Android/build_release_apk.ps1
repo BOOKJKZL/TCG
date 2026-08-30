@@ -123,6 +123,27 @@ $logPath = Join-Path $repoRoot "Builds\Android\Release\build-$fileVersion+$Versi
 $reportPath = [IO.Path]::ChangeExtension($outputPath, ".release-audit.json")
 [IO.Directory]::CreateDirectory((Split-Path -Parent $outputPath)) | Out-Null
 $buildStartedUtc = [DateTime]::UtcNow
+$projectSettingsPath = Join-Path $repoRoot "ProjectSettings\ProjectSettings.asset"
+$projectSettingsSnapshot = [IO.File]::ReadAllBytes($projectSettingsPath)
+$transientRelativePaths = @(
+    "Assets\AddressableAssetsData\Windows.meta",
+    "Assets\AddressableAssetsData\link.xml",
+    "Assets\AddressableAssetsData\link.xml.meta",
+    "Assets\Resources\PerformanceTestRunInfo.json",
+    "Assets\Resources\PerformanceTestRunInfo.json.meta",
+    "Assets\Resources\PerformanceTestRunSettings.json",
+    "Assets\Resources\PerformanceTestRunSettings.json.meta"
+)
+$transientSnapshots = @{}
+foreach ($relativePath in $transientRelativePaths) {
+    $fullPath = Join-Path $repoRoot $relativePath
+    $transientSnapshots[$fullPath] = if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
+        [IO.File]::ReadAllBytes($fullPath)
+    }
+    else {
+        $null
+    }
+}
 
 try {
     foreach ($entry in $environment.GetEnumerator()) {
@@ -147,11 +168,27 @@ try {
     }
 }
 finally {
-    foreach ($entry in $originalEnvironment.GetEnumerator()) {
-        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+    try {
+        foreach ($entry in $originalEnvironment.GetEnumerator()) {
+            [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+        }
     }
-    $keystorePassword = $null
-    $keyPassword = $null
+    finally {
+        $keystorePassword = $null
+        $keyPassword = $null
+        [IO.File]::WriteAllBytes($projectSettingsPath, $projectSettingsSnapshot)
+        foreach ($snapshot in $transientSnapshots.GetEnumerator()) {
+            if ($null -eq $snapshot.Value) {
+                if (Test-Path -LiteralPath $snapshot.Key -PathType Leaf) {
+                    Remove-Item -LiteralPath $snapshot.Key -Force
+                }
+                continue
+            }
+
+            [IO.Directory]::CreateDirectory((Split-Path -Parent $snapshot.Key)) | Out-Null
+            [IO.File]::WriteAllBytes($snapshot.Key, [byte[]]$snapshot.Value)
+        }
+    }
 }
 
 if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
