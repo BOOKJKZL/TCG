@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
@@ -144,15 +145,23 @@ public static class GameApplicationBootstrap
             TimeSpan timeout = configuration.timeoutSeconds > 0
                 ? TimeSpan.FromSeconds(configuration.timeoutSeconds)
                 : HttpContentPackageCatalogProvider.DefaultTimeout;
+            var compatibilityPolicy = new ContentCatalogCompatibilityPolicy(
+                UnityEngine.Application.version,
+                ContentPackageCatalog.CurrentContentSchemaVersion,
+                ContentPackageCatalog.CurrentRuleSchemaVersion,
+                new RsaContentCatalogSignatureVerifier(TrustedCatalogKeys(configuration)));
+            var reader = new JsonContentPackageCatalogReader(compatibilityPolicy);
             var provider = new HttpContentPackageCatalogProvider(
                 catalogUri,
                 maximumCatalogBytes: maximumBytes,
-                timeout: timeout);
+                timeout: timeout,
+                reader: reader);
             var cachedProvider = new CachedContentPackageCatalogProvider(
                 provider,
                 ResolveCatalogCachePath(),
                 catalogUri,
-                maximumBytes);
+                maximumBytes,
+                reader);
             Debug.Log("Remote content catalog and its verified offline cache are configured from runtime settings.");
             return cachedProvider;
         }
@@ -171,6 +180,23 @@ public static class GameApplicationBootstrap
             return Path.GetFullPath(overridePath.Trim());
 #endif
         return Path.Combine(ResolveDownloadRoot(), "catalog-cache-v1.json");
+    }
+
+    private static IReadOnlyDictionary<string, string> TrustedCatalogKeys(
+        RemoteContentConfiguration configuration)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (TrustedCatalogKeyConfiguration key in
+                 configuration.trustedCatalogKeys ?? Array.Empty<TrustedCatalogKeyConfiguration>())
+        {
+            if (key == null || string.IsNullOrWhiteSpace(key.keyId) ||
+                string.IsNullOrWhiteSpace(key.subjectPublicKeyInfoBase64))
+                throw new InvalidDataException(
+                    "Remote content trustedCatalogKeys entries require keyId and subjectPublicKeyInfoBase64.");
+            if (!result.TryAdd(key.keyId.Trim(), key.subjectPublicKeyInfoBase64.Trim()))
+                throw new InvalidDataException("Remote content trusted catalog keyId repeats: " + key.keyId);
+        }
+        return result;
     }
 
     private static RemoteContentConfiguration LoadRemoteContentConfiguration()
@@ -307,5 +333,13 @@ public static class GameApplicationBootstrap
         public string catalogUrl;
         public int timeoutSeconds;
         public int maxCatalogBytes;
+        public TrustedCatalogKeyConfiguration[] trustedCatalogKeys;
+    }
+
+    [Serializable]
+    private sealed class TrustedCatalogKeyConfiguration
+    {
+        public string keyId;
+        public string subjectPublicKeyInfoBase64;
     }
 }

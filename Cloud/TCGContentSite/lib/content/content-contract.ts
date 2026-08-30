@@ -1,6 +1,6 @@
 import { ApiError } from "./api-error.ts";
 
-export const CONTENT_CATALOG_SCHEMA_VERSION = 2;
+export const CONTENT_CATALOG_SCHEMA_VERSION = 3;
 export const MINIMUM_CONTENT_CATALOG_SCHEMA_VERSION = 1;
 export const MAX_CATALOG_BYTES = 1024 * 1024;
 export const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
@@ -9,6 +9,9 @@ const PACKAGE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const LANGUAGE_ID_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/;
 const RELEASE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const SEMANTIC_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 export type ContentPackageMetadata = {
   kind: string;
@@ -37,18 +40,28 @@ export type ContentPackage = {
 };
 
 export type ContentCatalog = {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   revision: number;
   packages: ContentPackage[];
+  minAppVersion?: string;
+  contentSchemaVersion?: number;
+  ruleSchemaVersion?: number;
+  signature?: ContentCatalogSignature;
+};
+
+export type ContentCatalogSignature = {
+  algorithm: "RS256";
+  keyId: string;
+  value: string;
 };
 
 export function parseContentCatalog(value: unknown): ContentCatalog {
   if (!isRecord(value)) {
     throw new ApiError(400, "Catalog 必须是 JSON 对象。");
   }
-  requireExactKeys(value, ["schemaVersion", "revision", "packages"], "Catalog");
   if (
     value.schemaVersion !== MINIMUM_CONTENT_CATALOG_SCHEMA_VERSION &&
+    value.schemaVersion !== 2 &&
     value.schemaVersion !== CONTENT_CATALOG_SCHEMA_VERSION
   ) {
     throw new ApiError(
@@ -57,6 +70,21 @@ export function parseContentCatalog(value: unknown): ContentCatalog {
     );
   }
   const schemaVersion = value.schemaVersion;
+  requireExactKeys(
+    value,
+    schemaVersion === 3
+      ? [
+        "schemaVersion",
+        "revision",
+        "minAppVersion",
+        "contentSchemaVersion",
+        "ruleSchemaVersion",
+        "packages",
+        "signature",
+      ]
+      : ["schemaVersion", "revision", "packages"],
+    "Catalog",
+  );
   const revision = requirePositiveInteger(value.revision, "Catalog revision");
   if (!Array.isArray(value.packages) || value.packages.length === 0) {
     throw new ApiError(400, "Catalog 至少需要一个内容包。");
@@ -78,10 +106,27 @@ export function parseContentCatalog(value: unknown): ContentCatalog {
     packageIds.add(item.packageId);
     installPaths.add(item.installRelativePath);
   }
-  if (schemaVersion === 2) {
+  if (schemaVersion >= 2) {
     validateDependencies(packages, packageIds);
   }
 
+  if (schemaVersion === 3) {
+    return {
+      schemaVersion,
+      revision,
+      minAppVersion: requireSemanticVersion(value.minAppVersion, "Catalog minAppVersion"),
+      contentSchemaVersion: requirePositiveInteger(
+        value.contentSchemaVersion,
+        "Catalog contentSchemaVersion",
+      ),
+      ruleSchemaVersion: requirePositiveInteger(
+        value.ruleSchemaVersion,
+        "Catalog ruleSchemaVersion",
+      ),
+      packages,
+      signature: parseSignature(value.signature),
+    };
+  }
   return { schemaVersion, revision, packages };
 }
 
@@ -101,7 +146,7 @@ export function archiveObjectKey(packageId: string, sha256: string): string {
 
 export const catalogObjectKey = "content/releases/catalog.json";
 
-function parsePackage(value: unknown, index: number, schemaVersion: 1 | 2): ContentPackage {
+function parsePackage(value: unknown, index: number, schemaVersion: 1 | 2 | 3): ContentPackage {
   if (!isRecord(value)) {
     throw new ApiError(400, `packages[${index}] 必须是 JSON 对象。`);
   }
@@ -115,7 +160,7 @@ function parsePackage(value: unknown, index: number, schemaVersion: 1 | 2): Cont
     "sha256",
     "archiveUrl",
   ];
-  if (schemaVersion === 2) keys.push("metadata");
+  if (schemaVersion >= 2) keys.push("metadata");
   requireExactKeys(value, keys, `packages[${index}]`);
 
   const packageId = requireString(value.packageId, `packages[${index}].packageId`, 80);
@@ -153,10 +198,38 @@ function parsePackage(value: unknown, index: number, schemaVersion: 1 | 2): Cont
     sha256,
     archiveUrl,
   };
-  if (schemaVersion === 2) {
+  if (schemaVersion >= 2) {
     parsed.metadata = parseMetadata(value.metadata, index);
   }
   return parsed;
+}
+
+function parseSignature(value: unknown): ContentCatalogSignature {
+  if (!isRecord(value)) {
+    throw new ApiError(400, "Catalog signature 必须是 JSON 对象。");
+  }
+  requireExactKeys(value, ["algorithm", "keyId", "value"], "Catalog signature");
+  if (value.algorithm !== "RS256") {
+    throw new ApiError(400, "Catalog signature algorithm 必须是 RS256。");
+  }
+  const keyId = requireString(value.keyId, "Catalog signature keyId", 64);
+  if (!KEY_ID_PATTERN.test(keyId)) {
+    throw new ApiError(400, "Catalog signature keyId 格式不正确。");
+  }
+  const signature = requireString(value.value, "Catalog signature value", 2048);
+  if (!BASE64_PATTERN.test(signature)) {
+    throw new ApiError(400, "Catalog signature value 必须是 Base64。 ");
+  }
+  let bytes: string;
+  try {
+    bytes = atob(signature);
+  } catch {
+    throw new ApiError(400, "Catalog signature value 必须是有效 Base64。");
+  }
+  if (bytes.length < 128 || bytes.length > 1024) {
+    throw new ApiError(400, "Catalog signature 长度不符合 RS256 签名范围。");
+  }
+  return { algorithm: "RS256", keyId, value: signature };
 }
 
 function parseMetadata(value: unknown, packageIndex: number): ContentPackageMetadata {
@@ -343,6 +416,18 @@ function requireString(value: unknown, label: string, maximumLength: number): st
     throw new ApiError(400, `${label} 必须是 1–${maximumLength} 个字符的字符串。`);
   }
   return value;
+}
+
+function requireSemanticVersion(value: unknown, label: string): string {
+  const version = requireString(value, label, 120);
+  if (!SEMANTIC_VERSION_PATTERN.test(version)) {
+    throw new ApiError(400, `${label} 必须是 semantic version。`);
+  }
+  const prerelease = version.split("+", 1)[0].split("-", 2)[1];
+  if (prerelease?.split(".").some((item) => /^\d+$/.test(item) && item.length > 1 && item.startsWith("0"))) {
+    throw new ApiError(400, `${label} 的预发布数字不能有前导零。`);
+  }
+  return version;
 }
 
 function requireExactKeys(value: Record<string, unknown>, expected: string[], label: string): void {

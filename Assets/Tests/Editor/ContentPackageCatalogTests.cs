@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 public class ContentPackageCatalogTests
@@ -127,7 +131,7 @@ public class ContentPackageCatalogTests
     }
 
     [TestCase(0)]
-    [TestCase(3)]
+    [TestCase(4)]
     public void Reader_RejectsUnsupportedSchema(int schemaVersion)
     {
         ContentPackageCatalogLoadResult result = Reader().Read(
@@ -136,6 +140,108 @@ public class ContentPackageCatalogTests
 
         Assert.That(result.Succeeded, Is.False);
         Assert.That(result.ErrorMessage, Does.Contain("not supported"));
+    }
+
+    [Test]
+    public void Reader_VerifiesCompatibleCatalogV3AndRejectsTampering()
+    {
+        using (var signer = new FixtureSigner())
+        {
+            string json = ProtectedJson(signer, "1.0.0");
+            JsonContentPackageCatalogReader reader = ProtectedReader("1.2.0", signer);
+
+            ContentPackageCatalogLoadResult valid = reader.Read(
+                json,
+                new Uri("https://content.example.test/catalog.json"));
+            JObject tamperedRoot = JObject.Parse(json);
+            tamperedRoot["revision"] = 8;
+            ContentPackageCatalogLoadResult tampered = reader.Read(
+                tamperedRoot.ToString(Formatting.None),
+                new Uri("https://content.example.test/catalog.json"));
+
+            Assert.That(valid.Succeeded, Is.True, valid.ErrorMessage);
+            Assert.That(valid.Catalog.IsProtected, Is.True);
+            Assert.That(valid.Catalog.CanonicalSha256, Has.Length.EqualTo(64));
+            Assert.That(tampered.Succeeded, Is.False);
+            Assert.That(tampered.ErrorMessage, Does.Contain("signature verification failed"));
+        }
+    }
+
+    [Test]
+    public void Reader_CatalogV3FailsClosedWithoutTrustOrCompatibleApp()
+    {
+        using (var signer = new FixtureSigner())
+        {
+            string json = ProtectedJson(signer, "2.0.0");
+            Uri uri = new Uri("https://content.example.test/catalog.json");
+
+            ContentPackageCatalogLoadResult noPolicy = Reader().Read(json, uri);
+            ContentPackageCatalogLoadResult oldApp = ProtectedReader("1.9.9", signer).Read(json, uri);
+            var unknownVerifier = new RsaContentCatalogSignatureVerifier(
+                new Dictionary<string, string>());
+            var unknownPolicy = new ContentCatalogCompatibilityPolicy(
+                "2.0.0",
+                ContentPackageCatalog.CurrentContentSchemaVersion,
+                ContentPackageCatalog.CurrentRuleSchemaVersion,
+                unknownVerifier);
+            ContentPackageCatalogLoadResult unknownKey =
+                new JsonContentPackageCatalogReader(unknownPolicy).Read(json, uri);
+
+            Assert.That(noPolicy.Succeeded, Is.False);
+            Assert.That(noPolicy.ErrorMessage, Does.Contain("requires a runtime compatibility and trust policy"));
+            Assert.That(oldApp.Succeeded, Is.False);
+            Assert.That(oldApp.ErrorMessage, Does.Contain("requires app 2.0.0 or later"));
+            Assert.That(unknownKey.Succeeded, Is.False);
+            Assert.That(unknownKey.ErrorMessage, Does.Contain("is not trusted"));
+        }
+    }
+
+    [Test]
+    public void Reader_CatalogV3RejectsSchemaMismatchAndMissingSignature()
+    {
+        using (var signer = new FixtureSigner())
+        {
+            string json = ProtectedJson(signer, "1.0.0");
+            Uri uri = new Uri("https://content.example.test/catalog.json");
+            var verifier = new RsaContentCatalogSignatureVerifier(
+                new Dictionary<string, string> { [signer.KeyId] = signer.PublicKey });
+            var incompatiblePolicy = new ContentCatalogCompatibilityPolicy(
+                "1.0.0",
+                ContentPackageCatalog.CurrentContentSchemaVersion + 1,
+                ContentPackageCatalog.CurrentRuleSchemaVersion,
+                verifier);
+            ContentPackageCatalogLoadResult schemaMismatch =
+                new JsonContentPackageCatalogReader(incompatiblePolicy).Read(json, uri);
+            JObject missingRoot = JObject.Parse(json);
+            missingRoot.Remove("signature");
+            ContentPackageCatalogLoadResult missingSignature = ProtectedReader("1.0.0", signer).Read(
+                missingRoot.ToString(Formatting.None),
+                uri);
+
+            Assert.That(schemaMismatch.Succeeded, Is.False);
+            Assert.That(schemaMismatch.ErrorMessage, Does.Contain("content schema"));
+            Assert.That(missingSignature.Succeeded, Is.False);
+            Assert.That(missingSignature.ErrorMessage, Does.Contain("has no signature"));
+        }
+    }
+
+    [Test]
+    public void RsaVerifier_RejectsMalformedSubjectPublicKeyInfo()
+    {
+        var verifier = new RsaContentCatalogSignatureVerifier(
+            new Dictionary<string, string>
+            {
+                ["malformed"] = Convert.ToBase64String(new byte[] { 0x30, 0x00 })
+            });
+        var signature = new ContentCatalogSignature(
+            "RS256",
+            "malformed",
+            Convert.ToBase64String(new byte[256]));
+
+        bool verified = verifier.Verify(signature, new byte[] { 1, 2, 3 }, out string error);
+
+        Assert.That(verified, Is.False);
+        Assert.That(error, Does.Contain("invalid"));
     }
 
     [Test]
@@ -212,6 +318,91 @@ public class ContentPackageCatalogTests
     private static JsonContentPackageCatalogReader Reader()
     {
         return new JsonContentPackageCatalogReader();
+    }
+
+    private static JsonContentPackageCatalogReader ProtectedReader(
+        string currentAppVersion,
+        FixtureSigner signer)
+    {
+        var verifier = new RsaContentCatalogSignatureVerifier(
+            new Dictionary<string, string> { [signer.KeyId] = signer.PublicKey });
+        return new JsonContentPackageCatalogReader(new ContentCatalogCompatibilityPolicy(
+            currentAppVersion,
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            verifier));
+    }
+
+    private static string ProtectedJson(FixtureSigner signer, string minimumAppVersion)
+    {
+        const string archiveUrl = "packages/en.base1/" + HashA + ".zip";
+        var metadata = new ContentPackageMetadata(
+            "fixture",
+            new Dictionary<string, string> { ["en"] = "Base" });
+        var package = new ContentPackageDescriptor(
+            "en.base1", "en/base1", 3, "3.0.0", 100, 200, HashA);
+        var entry = new ContentPackageCatalogEntry(
+            package,
+            new Uri("https://content.example.test/" + archiveUrl),
+            metadata,
+            archiveUrl);
+        byte[] canonical = ContentCatalogCanonicalizer.Canonicalize(
+            ContentPackageCatalog.ProtectedSchemaVersion,
+            7,
+            minimumAppVersion,
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            new[] { entry });
+        var root = new JObject
+        {
+            ["schemaVersion"] = ContentPackageCatalog.ProtectedSchemaVersion,
+            ["revision"] = 7,
+            ["minAppVersion"] = minimumAppVersion,
+            ["contentSchemaVersion"] = ContentPackageCatalog.CurrentContentSchemaVersion,
+            ["ruleSchemaVersion"] = ContentPackageCatalog.CurrentRuleSchemaVersion,
+            ["packages"] = new JArray(JObject.Parse(PackageJson(
+                "en.base1", HashA, archiveUrl, Metadata("Base")))),
+            ["signature"] = new JObject
+            {
+                ["algorithm"] = signer.Algorithm,
+                ["keyId"] = signer.KeyId,
+                ["value"] = signer.Sign(canonical)
+            }
+        };
+        return root.ToString(Formatting.None);
+    }
+
+    private sealed class FixtureSigner : IContentCatalogSigner, IDisposable
+    {
+        private readonly RSA rsa;
+
+        public FixtureSigner()
+        {
+            rsa = new RSACryptoServiceProvider(2048);
+            PublicKey = Convert.ToBase64String(
+                RsaSubjectPublicKeyInfo.Encode(rsa.ExportParameters(false)));
+        }
+
+        public string Algorithm => RsaContentCatalogSignatureVerifier.SupportedAlgorithm;
+        public string KeyId => "fixture-2026";
+        public string PublicKey { get; }
+
+        public string Sign(byte[] canonicalPayload) => Convert.ToBase64String(rsa.SignData(
+            canonicalPayload,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1));
+
+        public bool Verify(
+            ContentCatalogSignature signature,
+            byte[] canonicalPayload,
+            out string errorMessage)
+        {
+            return new RsaContentCatalogSignatureVerifier(
+                    new Dictionary<string, string> { [KeyId] = PublicKey })
+                .Verify(signature, canonicalPayload, out errorMessage);
+        }
+
+        public void Dispose() => rsa.Dispose();
     }
 
     private static string Json(string packages, int schemaVersion = 1)

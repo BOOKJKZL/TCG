@@ -233,7 +233,7 @@ function Test-RemoteConfigurationJson {
         if ($null -eq $config -or $config -is [Array] -or $config -is [ValueType] -or $config -is [string]) {
             throw "Configuration must contain one JSON object."
         }
-        $allowed = @("catalogUrl", "timeoutSeconds", "maxCatalogBytes")
+        $allowed = @("catalogUrl", "timeoutSeconds", "maxCatalogBytes", "trustedCatalogKeys")
         $unknown = @($config.PSObject.Properties.Name | Where-Object { $allowed -notcontains $_ })
         if ($unknown.Count -gt 0) {
             throw "Unsupported or secret-bearing fields: $($unknown -join ', ')."
@@ -245,7 +245,46 @@ function Test-RemoteConfigurationJson {
             -not [string]::IsNullOrEmpty($uri.Fragment)) {
             throw "catalogUrl must be public HTTPS without credentials or a fragment."
         }
-        return [pscustomobject]@{ Passed = $true; Detail = "Public catalog: $($uri.AbsoluteUri)" }
+        $trustedKeyCount = 0
+        if ($null -ne $config.PSObject.Properties["trustedCatalogKeys"]) {
+            if ($config.trustedCatalogKeys -isnot [Array]) {
+                throw "trustedCatalogKeys must be an array."
+            }
+            $keyIds = @{}
+            foreach ($key in @($config.trustedCatalogKeys)) {
+                if ($null -eq $key -or $key -is [Array] -or $key -is [ValueType] -or $key -is [string]) {
+                    throw "trustedCatalogKeys entries must be objects."
+                }
+                $keyFields = @($key.PSObject.Properties.Name)
+                $unexpectedKeyFields = @($keyFields | Where-Object {
+                    $_ -notin @("keyId", "subjectPublicKeyInfoBase64")
+                })
+                if ($unexpectedKeyFields.Count -gt 0 -or
+                    $keyFields -notcontains "keyId" -or
+                    $keyFields -notcontains "subjectPublicKeyInfoBase64") {
+                    throw "trustedCatalogKeys entries must contain only keyId and subjectPublicKeyInfoBase64."
+                }
+                $keyId = [string]$key.keyId
+                if ($keyId -notmatch '^[A-Za-z0-9._-]{1,64}$' -or $keyIds.ContainsKey($keyId)) {
+                    throw "trustedCatalogKeys contains an invalid or duplicate keyId."
+                }
+                $keyIds[$keyId] = $true
+                try {
+                    $keyBytes = [Convert]::FromBase64String([string]$key.subjectPublicKeyInfoBase64)
+                }
+                catch {
+                    throw "trustedCatalogKeys public keys must be Base64 SubjectPublicKeyInfo."
+                }
+                if ($keyBytes.Length -lt 256 -or $keyBytes.Length -gt 1024) {
+                    throw "trustedCatalogKeys public key length is outside the accepted range."
+                }
+                $trustedKeyCount++
+            }
+        }
+        return [pscustomobject]@{
+            Passed = $true
+            Detail = "Public catalog: $($uri.AbsoluteUri); trusted catalog keys=$trustedKeyCount."
+        }
     }
     catch {
         return [pscustomobject]@{ Passed = $false; Detail = $_.Exception.Message }
@@ -451,6 +490,56 @@ function Test-RemoteReleaseEvidence {
     }
 }
 
+function Test-ProtectedCatalogDeclaration {
+    param([string]$ConfigPath, [string]$CatalogPath)
+    if (-not (Test-Path -LiteralPath $ConfigPath) -or -not (Test-Path -LiteralPath $CatalogPath)) {
+        return New-AuditResult "Protected Catalog v3 contract" "Remote" $false `
+            "Runtime config or release Catalog is missing."
+    }
+    try {
+        $configJson = Get-Content -LiteralPath $ConfigPath -Raw -Encoding utf8
+        $configContract = Test-RemoteConfigurationJson $configJson
+        if (-not $configContract.Passed) {
+            throw $configContract.Detail
+        }
+        $config = $configJson | ConvertFrom-Json
+        $catalog = Get-Content -LiteralPath $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
+        if ([int]$catalog.schemaVersion -ne 3) {
+            throw "Current Catalog schemaVersion is $($catalog.schemaVersion); protected hot-update requires v3."
+        }
+        if ([string]$catalog.minAppVersion -notmatch `
+            '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$' -or
+            [int]$catalog.contentSchemaVersion -lt 1 -or
+            [int]$catalog.ruleSchemaVersion -lt 1) {
+            throw "Catalog v3 compatibility fields are invalid."
+        }
+        if ([string]$catalog.signature.algorithm -ne "RS256" -or
+            [string]$catalog.signature.keyId -notmatch '^[A-Za-z0-9._-]{1,64}$') {
+            throw "Catalog v3 signature declaration is invalid."
+        }
+        try {
+            $signatureBytes = [Convert]::FromBase64String([string]$catalog.signature.value)
+        }
+        catch {
+            throw "Catalog v3 signature value is not Base64."
+        }
+        if ($signatureBytes.Length -lt 128 -or $signatureBytes.Length -gt 1024) {
+            throw "Catalog v3 signature length is invalid."
+        }
+        $matchingKeys = @($config.trustedCatalogKeys | Where-Object {
+            [string]$_.keyId -eq [string]$catalog.signature.keyId
+        })
+        if ($matchingKeys.Count -ne 1) {
+            throw "Runtime config does not contain exactly one trusted public key for the Catalog keyId."
+        }
+        return New-AuditResult "Protected Catalog v3 contract" "Remote" $true `
+            "v3 compatibility fields, RS256 declaration, and matching runtime trust key are present; device acceptance performs cryptographic consumption."
+    }
+    catch {
+        return New-AuditResult "Protected Catalog v3 contract" "Remote" $false $_.Exception.Message
+    }
+}
+
 function Invoke-SelfTest {
     $passed = 0
     $devices = @(Get-AuthorizedDeviceSerials @(
@@ -466,7 +555,16 @@ function Invoke-SelfTest {
 
     $validConfig = Test-RemoteConfigurationJson '{"catalogUrl":"https://content.example.test/releases/catalog.json","timeoutSeconds":15}'
     $secretConfig = Test-RemoteConfigurationJson '{"catalogUrl":"https://content.example.test/catalog.json","secretAccessKey":"no"}'
-    if (-not $validConfig.Passed -or $secretConfig.Passed) {
+    $fixturePublicKey = [Convert]::ToBase64String([byte[]](0..293 | ForEach-Object { $_ % 251 }))
+    $protectedConfigJson = [ordered]@{
+        catalogUrl = "https://content.example.test/releases/catalog.json"
+        trustedCatalogKeys = @([ordered]@{
+            keyId = "fixture-2026"
+            subjectPublicKeyInfoBase64 = $fixturePublicKey
+        })
+    } | ConvertTo-Json -Depth 4
+    $protectedConfig = Test-RemoteConfigurationJson $protectedConfigJson
+    if (-not $validConfig.Passed -or -not $protectedConfig.Passed -or $secretConfig.Passed) {
         throw "Self-test failed: remote configuration validation."
     }
     $passed++
@@ -719,6 +817,7 @@ $results.Add((New-AuditResult -Name "R2 publisher prerequisites" -Scope "Prerequ
     -Passed ($missingR2.Count -eq 0) -Detail $r2Detail -RequiredFor100 $false))
 
 $results.Add((Test-RemoteReleaseEvidence $remoteFullPath $remoteAuditFullPath $catalogFullPath))
+$results.Add((Test-ProtectedCatalogDeclaration $remoteFullPath $catalogFullPath))
 
 $adb = Resolve-AdbPath
 $serials = @()

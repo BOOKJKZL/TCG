@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -160,6 +161,53 @@ public class DeterministicContentPackagePublisherTests
     }
 
     [Test]
+    public void Publish_ProtectedCatalogRequiresExplicitSignerAndProducesVerifiableV3()
+    {
+        using (var signer = new FixtureSigner())
+        {
+            var contract = new ProtectedContentCatalogPublishContract(
+                "1.0.0",
+                ContentPackageCatalog.CurrentContentSchemaVersion,
+                ContentPackageCatalog.CurrentRuleSchemaVersion,
+                signer);
+            var request = new ContentPackagePublishRequest(
+                output,
+                5,
+                new[] { Definition("en.fixture", source, "en/fixture") },
+                contract);
+
+            ContentPackagePublishResult result = Publisher().Publish(request);
+            var reader = new JsonContentPackageCatalogReader(
+                new ContentCatalogCompatibilityPolicy(
+                    "1.0.0",
+                    ContentPackageCatalog.CurrentContentSchemaVersion,
+                    ContentPackageCatalog.CurrentRuleSchemaVersion,
+                    signer));
+            ContentPackageCatalogLoadResult catalog = reader.Read(
+                result.CatalogJson,
+                new Uri("https://cdn.example.test/releases/catalog.json"));
+
+            Assert.That(catalog.Succeeded, Is.True, catalog.ErrorMessage);
+            Assert.That(catalog.Catalog.SchemaVersion,
+                Is.EqualTo(ContentPackageCatalog.ProtectedSchemaVersion));
+            Assert.That(catalog.Catalog.Signature.Algorithm, Is.EqualTo("RS256"));
+            Assert.That(catalog.Catalog.CanonicalSha256, Has.Length.EqualTo(64));
+        }
+
+        var missingSigner = new ProtectedContentCatalogPublishContract(
+            "1.0.0",
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            null);
+        Assert.Throws<ArgumentException>(() => Publisher().Publish(
+            new ContentPackagePublishRequest(
+                output,
+                6,
+                new[] { Definition("en.fixture", source, "en/fixture") },
+                missingSigner)));
+    }
+
+    [Test]
     public void Publish_RejectsNestedOutputAndDuplicateInstallPaths()
     {
         string nestedOutput = Path.Combine(source, "release");
@@ -291,5 +339,36 @@ public class DeterministicContentPackagePublisherTests
         for (int index = 0; index < count; index++)
             bytes[index] = (byte)(index % 251);
         return bytes;
+    }
+
+    private sealed class FixtureSigner : IContentCatalogSigner, IDisposable
+    {
+        private readonly RSA rsa;
+        private readonly RsaContentCatalogSignatureVerifier verifier;
+
+        public FixtureSigner()
+        {
+            rsa = new RSACryptoServiceProvider(2048);
+            string publicKey = Convert.ToBase64String(
+                RsaSubjectPublicKeyInfo.Encode(rsa.ExportParameters(false)));
+            verifier = new RsaContentCatalogSignatureVerifier(
+                new Dictionary<string, string> { [KeyId] = publicKey });
+        }
+
+        public string Algorithm => RsaContentCatalogSignatureVerifier.SupportedAlgorithm;
+        public string KeyId => "fixture-publisher-2026";
+
+        public string Sign(byte[] canonicalPayload) => Convert.ToBase64String(rsa.SignData(
+            canonicalPayload,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1));
+
+        public bool Verify(
+            ContentCatalogSignature signature,
+            byte[] canonicalPayload,
+            out string errorMessage) =>
+            verifier.Verify(signature, canonicalPayload, out errorMessage);
+
+        public void Dispose() => rsa.Dispose();
     }
 }

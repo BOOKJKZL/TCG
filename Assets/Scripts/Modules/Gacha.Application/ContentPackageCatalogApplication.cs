@@ -11,7 +11,8 @@ namespace Gacha.Application
         public ContentPackageCatalogEntry(
             ContentPackageDescriptor package,
             Uri archiveUri,
-            ContentPackageMetadata metadata = null)
+            ContentPackageMetadata metadata = null,
+            string catalogArchiveUrl = null)
         {
             Package = package ?? throw new ArgumentNullException(nameof(package));
             ArchiveUri = archiveUri ?? throw new ArgumentNullException(nameof(archiveUri));
@@ -22,11 +23,40 @@ namespace Gacha.Application
                 throw new ArgumentException("Content package archive URI cannot contain embedded credentials.", nameof(archiveUri));
             if (!string.IsNullOrEmpty(archiveUri.Fragment))
                 throw new ArgumentException("Content package archive URI cannot contain a fragment.", nameof(archiveUri));
+            if (catalogArchiveUrl != null && string.IsNullOrWhiteSpace(catalogArchiveUrl))
+                throw new ArgumentException("Catalog archive URL cannot be empty.", nameof(catalogArchiveUrl));
+            CatalogArchiveUrl = string.IsNullOrWhiteSpace(catalogArchiveUrl)
+                ? archiveUri.AbsoluteUri
+                : catalogArchiveUrl.Trim();
         }
 
         public ContentPackageDescriptor Package { get; }
         public Uri ArchiveUri { get; }
         public ContentPackageMetadata Metadata { get; }
+        public string CatalogArchiveUrl { get; }
+    }
+
+    public sealed class ContentCatalogSignature
+    {
+        public ContentCatalogSignature(string algorithm, string keyId, string value)
+        {
+            Algorithm = Required(algorithm, nameof(algorithm));
+            KeyId = Required(keyId, nameof(keyId));
+            Value = Required(value, nameof(value));
+        }
+
+        public string Algorithm { get; }
+        public string KeyId { get; }
+        public string Value { get; }
+
+        private static string Required(string value, string name)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException(name + " cannot be empty.", name);
+            if (!string.Equals(value, value.Trim(), StringComparison.Ordinal))
+                throw new ArgumentException(name + " cannot contain surrounding whitespace.", name);
+            return value;
+        }
     }
 
     /// <summary>
@@ -37,7 +67,12 @@ namespace Gacha.Application
     public sealed class ContentPackageCatalog : IContentPackageUriResolver
     {
         public const int MinimumSupportedSchemaVersion = 1;
-        public const int SupportedSchemaVersion = 2;
+        public const int LegacyPublishSchemaVersion = 2;
+        public const int ProtectedSchemaVersion = 3;
+        public const int SupportedSchemaVersion = LegacyPublishSchemaVersion;
+        public const int MaximumSupportedSchemaVersion = ProtectedSchemaVersion;
+        public const int CurrentContentSchemaVersion = 1;
+        public const int CurrentRuleSchemaVersion = 1;
 
         private readonly ReadOnlyCollection<ContentPackageCatalogEntry> packages;
         private readonly Dictionary<string, ContentPackageCatalogEntry> packagesById;
@@ -46,19 +81,55 @@ namespace Gacha.Application
             int schemaVersion,
             long revision,
             IEnumerable<ContentPackageCatalogEntry> packages)
+            : this(schemaVersion, revision, packages, null, 0, 0, null, null)
+        {
+        }
+
+        public ContentPackageCatalog(
+            int schemaVersion,
+            long revision,
+            IEnumerable<ContentPackageCatalogEntry> packages,
+            string minimumAppVersion,
+            int contentSchemaVersion,
+            int ruleSchemaVersion,
+            ContentCatalogSignature signature,
+            string canonicalSha256)
         {
             if (schemaVersion < MinimumSupportedSchemaVersion ||
-                schemaVersion > SupportedSchemaVersion)
+                schemaVersion > MaximumSupportedSchemaVersion)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(schemaVersion),
                     $"Content package catalog schema {schemaVersion} is not supported; " +
-                    $"expected {MinimumSupportedSchemaVersion}-{SupportedSchemaVersion}.");
+                    $"expected {MinimumSupportedSchemaVersion}-{MaximumSupportedSchemaVersion}.");
             }
             if (revision <= 0)
                 throw new ArgumentOutOfRangeException(nameof(revision), "Catalog revision must be greater than zero.");
             if (packages == null)
                 throw new ArgumentNullException(nameof(packages));
+            bool isProtected = schemaVersion >= ProtectedSchemaVersion;
+            if (isProtected)
+            {
+                if (string.IsNullOrWhiteSpace(minimumAppVersion))
+                    throw new ArgumentException(
+                        "Protected catalogs require a minimum app version.", nameof(minimumAppVersion));
+                if (contentSchemaVersion <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(contentSchemaVersion));
+                if (ruleSchemaVersion <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(ruleSchemaVersion));
+                if (signature == null)
+                    throw new ArgumentNullException(nameof(signature));
+                if (!IsSha256(canonicalSha256))
+                    throw new ArgumentException(
+                        "Protected catalog canonical SHA-256 must contain 64 hexadecimal characters.",
+                        nameof(canonicalSha256));
+            }
+            else if (minimumAppVersion != null || contentSchemaVersion != 0 ||
+                     ruleSchemaVersion != 0 || signature != null || canonicalSha256 != null)
+            {
+                throw new ArgumentException(
+                    "Legacy catalogs cannot contain protected schema fields.", nameof(schemaVersion));
+            }
 
             var copy = new List<ContentPackageCatalogEntry>();
             packagesById = new Dictionary<string, ContentPackageCatalogEntry>(StringComparer.Ordinal);
@@ -78,11 +149,22 @@ namespace Gacha.Application
 
             SchemaVersion = schemaVersion;
             Revision = revision;
+            MinimumAppVersion = minimumAppVersion?.Trim();
+            ContentSchemaVersion = contentSchemaVersion;
+            RuleSchemaVersion = ruleSchemaVersion;
+            Signature = signature;
+            CanonicalSha256 = canonicalSha256?.ToLowerInvariant();
             this.packages = copy.AsReadOnly();
         }
 
         public int SchemaVersion { get; }
         public long Revision { get; }
+        public string MinimumAppVersion { get; }
+        public int ContentSchemaVersion { get; }
+        public int RuleSchemaVersion { get; }
+        public ContentCatalogSignature Signature { get; }
+        public string CanonicalSha256 { get; }
+        public bool IsProtected => SchemaVersion >= ProtectedSchemaVersion;
         public IReadOnlyList<ContentPackageCatalogEntry> Packages => packages;
 
         public ContentPackageCatalogEntry Find(string packageId)
@@ -116,6 +198,21 @@ namespace Gacha.Application
                    string.Equals(expected.InstallRelativePath, actual.InstallRelativePath, StringComparison.Ordinal) &&
                    string.Equals(expected.Version, actual.Version, StringComparison.Ordinal) &&
                    string.Equals(expected.Sha256, actual.Sha256, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSha256(string value)
+        {
+            if (value == null || value.Length != 64)
+                return false;
+            foreach (char character in value)
+            {
+                bool digit = character >= '0' && character <= '9';
+                bool lower = character >= 'a' && character <= 'f';
+                bool upper = character >= 'A' && character <= 'F';
+                if (!digit && !lower && !upper)
+                    return false;
+            }
+            return true;
         }
 
         private static void ValidateDependencies(

@@ -81,7 +81,18 @@ namespace Gacha.Infrastructure.Content
                         ValidateUri(responseUri);
                         ValidateResponse(response);
                         string json = await ReadJsonAsync(response.Content, timeoutCancellation.Token);
-                        return reader.Read(json, responseUri);
+                        ContentPackageCatalogLoadResult result = reader.Read(json, responseUri);
+                        if (result.Succeeded && result.Catalog.IsProtected &&
+                            !string.Equals(
+                                responseUri.AbsoluteUri,
+                                catalogUri.AbsoluteUri,
+                                StringComparison.Ordinal))
+                        {
+                            return ContentPackageCatalogLoadResult.Failure(
+                                "Protected content package catalogs cannot be consumed through redirects; " +
+                                "configure the final HTTPS catalog URL directly.");
+                        }
+                        return result;
                     }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

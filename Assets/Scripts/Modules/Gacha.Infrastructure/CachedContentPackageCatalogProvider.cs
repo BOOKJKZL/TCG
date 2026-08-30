@@ -81,7 +81,18 @@ namespace Gacha.Infrastructure.Content
                     try
                     {
                         lock (gate)
+                        {
+                            ContentPackageCatalog cached = ReadCache();
+                            string rejection = RejectReplacement(online.Catalog, cached);
+                            if (rejection != null)
+                            {
+                                return ContentPackageCatalogLoadResult.Success(
+                                    cached,
+                                    CombineWarnings(warning, rejection + " The last verified catalog is being used."),
+                                    true);
+                            }
                             WriteCache(online.Catalog);
+                        }
                     }
                     catch (Exception exception) when (!(exception is OutOfMemoryException))
                     {
@@ -276,18 +287,31 @@ namespace Gacha.Infrastructure.Content
                     ["downloadBytes"] = package.DownloadBytes,
                     ["installedBytes"] = package.InstalledBytes,
                     ["sha256"] = package.Sha256,
-                    ["archiveUrl"] = entry.ArchiveUri.AbsoluteUri
+                    ["archiveUrl"] = entry.CatalogArchiveUrl
                 };
                 if (catalog.SchemaVersion >= 2)
                     packageObject["metadata"] = SerializeMetadata(entry.Metadata);
                 packages.Add(packageObject);
             }
-            return new JObject
+            var root = new JObject
             {
                 ["schemaVersion"] = catalog.SchemaVersion,
                 ["revision"] = catalog.Revision,
                 ["packages"] = packages
             };
+            if (catalog.IsProtected)
+            {
+                root["minAppVersion"] = catalog.MinimumAppVersion;
+                root["contentSchemaVersion"] = catalog.ContentSchemaVersion;
+                root["ruleSchemaVersion"] = catalog.RuleSchemaVersion;
+                root["signature"] = new JObject
+                {
+                    ["algorithm"] = catalog.Signature.Algorithm,
+                    ["keyId"] = catalog.Signature.KeyId,
+                    ["value"] = catalog.Signature.Value
+                };
+            }
+            return root;
         }
 
         private static JObject SerializeMetadata(ContentPackageMetadata metadata)
@@ -324,6 +348,25 @@ namespace Gacha.Infrastructure.Content
             if (string.IsNullOrWhiteSpace(second))
                 return first.Trim();
             return first.Trim() + " | " + second.Trim();
+        }
+
+        private static string RejectReplacement(
+            ContentPackageCatalog candidate,
+            ContentPackageCatalog cached)
+        {
+            if (cached == null)
+                return null;
+            if (cached.IsProtected && !candidate.IsProtected)
+                return "A legacy catalog cannot replace an authenticity-protected cache.";
+            if (candidate.Revision < cached.Revision)
+                return $"Catalog revision {candidate.Revision} cannot replace newer cached revision {cached.Revision}.";
+            if (cached.IsProtected && candidate.Revision == cached.Revision &&
+                !string.Equals(
+                    candidate.CanonicalSha256,
+                    cached.CanonicalSha256,
+                    StringComparison.OrdinalIgnoreCase))
+                return $"Catalog revision {candidate.Revision} has different signed content than the cached revision.";
+            return null;
         }
 
         private void ThrowIfDisposed()

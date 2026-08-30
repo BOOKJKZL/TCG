@@ -46,12 +46,48 @@ function validCatalogV2() {
   };
 }
 
+function validCatalogV3() {
+  return {
+    ...validCatalogV2(),
+    schemaVersion: 3,
+    minAppVersion: "1.2.0",
+    contentSchemaVersion: 1,
+    ruleSchemaVersion: 1,
+    signature: {
+      algorithm: "RS256",
+      keyId: "production-2026-01",
+      value: Buffer.alloc(256, 7).toString("base64"),
+    },
+  };
+}
+
 test("accepts the exact catalog v1 contract", () => {
   assert.deepEqual(parseContentCatalog(validCatalog()), validCatalog());
 });
 
 test("accepts and preserves the exact catalog v2 metadata contract", () => {
   assert.deepEqual(parseContentCatalog(validCatalogV2()), validCatalogV2());
+});
+
+test("accepts and preserves the exact protected catalog v3 contract", () => {
+  assert.deepEqual(parseContentCatalog(validCatalogV3()), validCatalogV3());
+});
+
+test("rejects malformed or incomplete protected catalog v3 fields", () => {
+  const invalidVersion = validCatalogV3();
+  invalidVersion.minAppVersion = "1.2";
+  assert.throws(() => parseContentCatalog(invalidVersion), ApiError);
+
+  const invalidAlgorithm = validCatalogV3();
+  invalidAlgorithm.signature.algorithm = "none";
+  assert.throws(() => parseContentCatalog(invalidAlgorithm), ApiError);
+
+  const missingSignature = validCatalogV3();
+  delete (missingSignature as { signature?: unknown }).signature;
+  assert.throws(() => parseContentCatalog(missingSignature), ApiError);
+
+  const legacyWithProtectedField = { ...validCatalogV2(), minAppVersion: "1.0.0" };
+  assert.throws(() => parseContentCatalog(legacyWithProtectedField), ApiError);
 });
 
 test("rejects incomplete or malformed catalog v2 metadata", () => {

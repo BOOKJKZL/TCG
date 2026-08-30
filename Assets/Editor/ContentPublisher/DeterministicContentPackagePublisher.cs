@@ -10,6 +10,7 @@ using System.Threading;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Gacha.EditorTools.Content
 {
@@ -42,21 +43,44 @@ namespace Gacha.EditorTools.Content
         public ContentPackageMetadata Metadata { get; }
     }
 
+    public sealed class ProtectedContentCatalogPublishContract
+    {
+        public ProtectedContentCatalogPublishContract(
+            string minimumAppVersion,
+            int contentSchemaVersion,
+            int ruleSchemaVersion,
+            IContentCatalogSigner signer)
+        {
+            MinimumAppVersion = minimumAppVersion;
+            ContentSchemaVersion = contentSchemaVersion;
+            RuleSchemaVersion = ruleSchemaVersion;
+            Signer = signer;
+        }
+
+        public string MinimumAppVersion { get; }
+        public int ContentSchemaVersion { get; }
+        public int RuleSchemaVersion { get; }
+        public IContentCatalogSigner Signer { get; }
+    }
+
     public sealed class ContentPackagePublishRequest
     {
         public ContentPackagePublishRequest(
             string outputDirectory,
             long catalogRevision,
-            IEnumerable<ContentPackagePublishDefinition> packages)
+            IEnumerable<ContentPackagePublishDefinition> packages,
+            ProtectedContentCatalogPublishContract protectedCatalog = null)
         {
             OutputDirectory = outputDirectory;
             CatalogRevision = catalogRevision;
             Packages = (packages ?? throw new ArgumentNullException(nameof(packages))).ToArray();
+            ProtectedCatalog = protectedCatalog;
         }
 
         public string OutputDirectory { get; }
         public long CatalogRevision { get; }
         public IReadOnlyList<ContentPackagePublishDefinition> Packages { get; }
+        public ProtectedContentCatalogPublishContract ProtectedCatalog { get; }
     }
 
     public sealed class PublishedContentPackage
@@ -125,8 +149,8 @@ namespace Gacha.EditorTools.Content
                     published.Add(PublishPackage(outputRoot, temporaryRoot, definition, cancellationToken));
                 }
 
-                string catalogJson = SerializeCatalog(request.CatalogRevision, published);
-                ContentPackageCatalogLoadResult validation = new JsonContentPackageCatalogReader().Read(
+                string catalogJson = SerializeCatalog(request, published);
+                ContentPackageCatalogLoadResult validation = Reader(request).Read(
                     catalogJson,
                     new Uri("https://publisher.invalid/releases/catalog.json"));
                 if (!validation.Succeeded)
@@ -185,8 +209,8 @@ namespace Gacha.EditorTools.Content
                     package, archivePath, archiveUrl, definition.Metadata));
             }
 
-            string catalogJson = SerializeCatalog(request.CatalogRevision, published);
-            ContentPackageCatalogLoadResult validation = new JsonContentPackageCatalogReader().Read(
+            string catalogJson = SerializeCatalog(request, published);
+            ContentPackageCatalogLoadResult validation = Reader(request).Read(
                 catalogJson,
                 new Uri("https://publisher.invalid/releases/catalog.json"));
             if (!validation.Succeeded)
@@ -201,7 +225,7 @@ namespace Gacha.EditorTools.Content
         internal static string SerializeCatalogSnapshot(
             long revision,
             IReadOnlyList<PublishedContentPackage> packages) =>
-            SerializeCatalog(revision, packages);
+            SerializeLegacyCatalog(revision, packages);
 
         private static PublishedContentPackage PublishPackage(
             string outputRoot,
@@ -417,12 +441,19 @@ namespace Gacha.EditorTools.Content
         }
 
         private static string SerializeCatalog(
+            ContentPackagePublishRequest request,
+            IReadOnlyList<PublishedContentPackage> packages) =>
+            request.ProtectedCatalog == null
+                ? SerializeLegacyCatalog(request.CatalogRevision, packages)
+                : SerializeProtectedCatalog(request.CatalogRevision, packages, request.ProtectedCatalog);
+
+        private static string SerializeLegacyCatalog(
             long revision,
             IReadOnlyList<PublishedContentPackage> packages)
         {
             var dto = new CatalogDto
             {
-                schemaVersion = ContentPackageCatalog.SupportedSchemaVersion,
+                schemaVersion = ContentPackageCatalog.LegacyPublishSchemaVersion,
                 revision = revision,
                 packages = packages.Select(item => new PackageDto
                 {
@@ -450,6 +481,86 @@ namespace Gacha.EditorTools.Content
                 JsonSerializer.CreateDefault().Serialize(json, dto);
             }
             return builder.ToString().TrimEnd('\r', '\n') + "\n";
+        }
+
+        private static string SerializeProtectedCatalog(
+            long revision,
+            IReadOnlyList<PublishedContentPackage> packages,
+            ProtectedContentCatalogPublishContract contract)
+        {
+            PackageDto[] packageDtos = PackageDtos(packages);
+            var entries = packages.Select(item => new ContentPackageCatalogEntry(
+                item.Package,
+                new Uri(new Uri("https://publisher.invalid/releases/"), item.ArchiveUrl),
+                item.Metadata,
+                item.ArchiveUrl)).ToArray();
+            byte[] canonicalPayload = ContentCatalogCanonicalizer.Canonicalize(
+                ContentPackageCatalog.ProtectedSchemaVersion,
+                revision,
+                contract.MinimumAppVersion,
+                contract.ContentSchemaVersion,
+                contract.RuleSchemaVersion,
+                entries);
+            var signature = new ContentCatalogSignature(
+                contract.Signer.Algorithm,
+                contract.Signer.KeyId,
+                contract.Signer.Sign(canonicalPayload));
+            var root = new JObject
+            {
+                ["schemaVersion"] = ContentPackageCatalog.ProtectedSchemaVersion,
+                ["revision"] = revision,
+                ["minAppVersion"] = contract.MinimumAppVersion,
+                ["contentSchemaVersion"] = contract.ContentSchemaVersion,
+                ["ruleSchemaVersion"] = contract.RuleSchemaVersion,
+                ["packages"] = JArray.FromObject(packageDtos),
+                ["signature"] = new JObject
+                {
+                    ["algorithm"] = signature.Algorithm,
+                    ["keyId"] = signature.KeyId,
+                    ["value"] = signature.Value
+                }
+            };
+            return FormatJson(root);
+        }
+
+        private static PackageDto[] PackageDtos(IReadOnlyList<PublishedContentPackage> packages) =>
+            packages.Select(item => new PackageDto
+            {
+                packageId = item.Package.PackageId,
+                installRelativePath = item.Package.InstallRelativePath,
+                revision = item.Package.Revision,
+                version = item.Package.Version,
+                downloadBytes = item.Package.DownloadBytes,
+                installedBytes = item.Package.InstalledBytes,
+                sha256 = item.Package.Sha256,
+                archiveUrl = item.ArchiveUrl,
+                metadata = Metadata(item.Metadata)
+            }).ToArray();
+
+        private static string FormatJson(JToken token)
+        {
+            var builder = new StringBuilder();
+            using (var text = new StringWriter(builder, CultureInfo.InvariantCulture) { NewLine = "\n" })
+            using (var json = new JsonTextWriter(text)
+            {
+                Formatting = Formatting.Indented,
+                Indentation = 2,
+                IndentChar = ' '
+            })
+                token.WriteTo(json);
+            return builder.ToString().TrimEnd('\r', '\n') + "\n";
+        }
+
+        private static JsonContentPackageCatalogReader Reader(ContentPackagePublishRequest request)
+        {
+            ProtectedContentCatalogPublishContract contract = request.ProtectedCatalog;
+            return contract == null
+                ? new JsonContentPackageCatalogReader()
+                : new JsonContentPackageCatalogReader(new ContentCatalogCompatibilityPolicy(
+                    contract.MinimumAppVersion,
+                    contract.ContentSchemaVersion,
+                    contract.RuleSchemaVersion,
+                    contract.Signer));
         }
 
         private static MetadataDto Metadata(ContentPackageMetadata source)
@@ -516,6 +627,21 @@ namespace Gacha.EditorTools.Content
                 throw new ArgumentOutOfRangeException(nameof(request), "Catalog revision must be greater than zero.");
             if (request.Packages == null || request.Packages.Count == 0)
                 throw new ArgumentException("At least one content package is required.", nameof(request));
+            if (request.ProtectedCatalog != null)
+            {
+                if (string.IsNullOrWhiteSpace(request.ProtectedCatalog.MinimumAppVersion))
+                    throw new ArgumentException("Protected catalog minimum app version cannot be empty.", nameof(request));
+                if (request.ProtectedCatalog.ContentSchemaVersion <= 0 ||
+                    request.ProtectedCatalog.RuleSchemaVersion <= 0)
+                    throw new ArgumentException("Protected catalog schema versions must be positive.", nameof(request));
+                if (request.ProtectedCatalog.Signer == null)
+                    throw new ArgumentException("Protected catalog requires an external signer.", nameof(request));
+                if (!string.Equals(
+                        request.ProtectedCatalog.Signer.Algorithm,
+                        RsaContentCatalogSignatureVerifier.SupportedAlgorithm,
+                        StringComparison.Ordinal))
+                    throw new InvalidDataException("Protected catalog signer must use RS256.");
+            }
 
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var installPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

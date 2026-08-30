@@ -15,6 +15,14 @@ namespace Gacha.Infrastructure.Content
     /// </summary>
     public sealed class JsonContentPackageCatalogReader
     {
+        private readonly ContentCatalogCompatibilityPolicy compatibilityPolicy;
+
+        public JsonContentPackageCatalogReader(
+            ContentCatalogCompatibilityPolicy compatibilityPolicy = null)
+        {
+            this.compatibilityPolicy = compatibilityPolicy;
+        }
+
         public ContentPackageCatalogLoadResult Read(string json, Uri catalogUri)
         {
             if (string.IsNullOrWhiteSpace(json))
@@ -24,11 +32,13 @@ namespace Gacha.Infrastructure.Content
 
             try
             {
-                CatalogDto dto = JsonConvert.DeserializeObject<CatalogDto>(json);
+                CatalogDto dto = JsonConvert.DeserializeObject<CatalogDto>(
+                    json,
+                    new JsonSerializerSettings { MissingMemberHandling = MissingMemberHandling.Error });
                 if (dto == null)
                     return ContentPackageCatalogLoadResult.Failure("Content package catalog JSON has no root object.");
                 if (dto.SchemaVersion < ContentPackageCatalog.MinimumSupportedSchemaVersion ||
-                    dto.SchemaVersion > ContentPackageCatalog.SupportedSchemaVersion)
+                    dto.SchemaVersion > ContentPackageCatalog.MaximumSupportedSchemaVersion)
                     throw new InvalidDataException(
                         $"Content package catalog schema {dto.SchemaVersion} is not supported.");
 
@@ -77,14 +87,61 @@ namespace Gacha.Infrastructure.Content
                         ContentPackageMetadata metadata = dto.SchemaVersion >= 2
                             ? ParseMetadata(item, package.PackageId)
                             : null;
-                        entries.Add(new ContentPackageCatalogEntry(package, archiveUri, metadata));
+                        if (dto.SchemaVersion < 2 && item.Metadata != null)
+                            throw new InvalidDataException(
+                                $"Package '{package.PackageId}' cannot contain metadata before schema v2.");
+                        entries.Add(new ContentPackageCatalogEntry(
+                            package,
+                            archiveUri,
+                            metadata,
+                            item.ArchiveUrl.Trim()));
                     }
                 }
+
+                if (dto.SchemaVersion < ContentPackageCatalog.ProtectedSchemaVersion)
+                {
+                    if (dto.MinAppVersion != null || dto.ContentSchemaVersion != 0 ||
+                        dto.RuleSchemaVersion != 0 || dto.Signature != null)
+                        throw new InvalidDataException(
+                            "Protected catalog fields require schema v3.");
+                    return ContentPackageCatalogLoadResult.Success(
+                        new ContentPackageCatalog(dto.SchemaVersion, dto.Revision, entries));
+                }
+
+                if (compatibilityPolicy == null)
+                    throw new InvalidDataException(
+                        "Catalog schema v3 requires a runtime compatibility and trust policy.");
+                SignatureDto signatureDto = dto.Signature ?? throw new InvalidDataException(
+                    "Catalog schema v3 has no signature.");
+                var signature = new ContentCatalogSignature(
+                    signatureDto.Algorithm,
+                    signatureDto.KeyId,
+                    signatureDto.Value);
+                byte[] canonicalPayload = ContentCatalogCanonicalizer.Canonicalize(
+                    dto.SchemaVersion,
+                    dto.Revision,
+                    dto.MinAppVersion,
+                    dto.ContentSchemaVersion,
+                    dto.RuleSchemaVersion,
+                    entries);
+                string compatibilityError = compatibilityPolicy.Validate(
+                    dto.MinAppVersion,
+                    dto.ContentSchemaVersion,
+                    dto.RuleSchemaVersion,
+                    signature,
+                    canonicalPayload);
+                if (compatibilityError != null)
+                    throw new InvalidDataException(compatibilityError);
 
                 return ContentPackageCatalogLoadResult.Success(new ContentPackageCatalog(
                     dto.SchemaVersion,
                     dto.Revision,
-                    entries));
+                    entries,
+                    dto.MinAppVersion,
+                    dto.ContentSchemaVersion,
+                    dto.RuleSchemaVersion,
+                    signature,
+                    ContentCatalogCanonicalizer.ComputeSha256(canonicalPayload)));
             }
             catch (Exception exception) when (!(exception is OutOfMemoryException))
             {
@@ -97,7 +154,18 @@ namespace Gacha.Infrastructure.Content
         {
             public int SchemaVersion;
             public long Revision;
+            public string MinAppVersion;
+            public int ContentSchemaVersion;
+            public int RuleSchemaVersion;
             public List<PackageDto> Packages;
+            public SignatureDto Signature;
+        }
+
+        private sealed class SignatureDto
+        {
+            public string Algorithm;
+            public string KeyId;
+            public string Value;
         }
 
         private sealed class PackageDto

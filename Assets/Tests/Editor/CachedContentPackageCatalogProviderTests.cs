@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
@@ -130,6 +131,38 @@ public class CachedContentPackageCatalogProviderTests
     }
 
     [Test]
+    public async Task ProtectedCache_RejectsLegacyDowngradeAndSameRevisionMutation()
+    {
+        using (var signer = new FixtureSigner())
+        {
+            JsonContentPackageCatalogReader reader = ProtectedReader(signer);
+            ContentPackageCatalog protectedCatalog = ProtectedCatalog(7, 'a', signer);
+            using (var first = Cached(Success(protectedCatalog), sourceUri, reader))
+                Assert.That((await first.LoadAsync(CancellationToken.None)).Succeeded, Is.True);
+
+            using (var downgrade = Cached(Success(Catalog(8, 'b')), sourceUri, reader))
+            {
+                ContentPackageCatalogLoadResult result = await downgrade.LoadAsync(CancellationToken.None);
+                Assert.That(result.Succeeded, Is.True, result.ErrorMessage);
+                Assert.That(result.UsedCachedCatalog, Is.True);
+                Assert.That(result.Catalog.IsProtected, Is.True);
+                Assert.That(result.Catalog.Revision, Is.EqualTo(7));
+                Assert.That(result.WarningMessage, Does.Contain("cannot replace"));
+            }
+
+            using (var mutation = Cached(
+                       Success(ProtectedCatalog(7, 'c', signer)), sourceUri, reader))
+            {
+                ContentPackageCatalogLoadResult result = await mutation.LoadAsync(CancellationToken.None);
+                Assert.That(result.Succeeded, Is.True, result.ErrorMessage);
+                Assert.That(result.UsedCachedCatalog, Is.True);
+                Assert.That(result.Catalog.Packages[0].Package.Sha256, Is.EqualTo(new string('a', 64)));
+                Assert.That(result.WarningMessage, Does.Contain("different signed content"));
+            }
+        }
+    }
+
+    [Test]
     public async Task InterruptedReplacement_BackupIsRecoveredOnOfflineRestart()
     {
         using (var online = Cached(Success(Catalog(1, 'a')), sourceUri))
@@ -185,12 +218,14 @@ public class CachedContentPackageCatalogProviderTests
 
     private CachedContentPackageCatalogProvider Cached(
         ContentPackageCatalogLoadResult result,
-        Uri configuredSource)
+        Uri configuredSource,
+        JsonContentPackageCatalogReader reader = null)
     {
         return new CachedContentPackageCatalogProvider(
             new Provider(_ => Task.FromResult(result)),
             cachePath,
-            configuredSource);
+            configuredSource,
+            reader: reader);
     }
 
     private static ContentPackageCatalogLoadResult Success(ContentPackageCatalog catalog)
@@ -234,5 +269,83 @@ public class CachedContentPackageCatalogProviderTests
                         1,
                         new[] { "fixture" }))
             });
+    }
+
+    private static ContentPackageCatalog ProtectedCatalog(
+        long revision,
+        char hashCharacter,
+        FixtureSigner signer)
+    {
+        ContentPackageCatalog legacy = Catalog(revision, hashCharacter);
+        ContentPackageCatalogEntry[] entries = new[]
+        {
+            new ContentPackageCatalogEntry(
+                legacy.Packages[0].Package,
+                legacy.Packages[0].ArchiveUri,
+                legacy.Packages[0].Metadata,
+                "packages/en.base1/" + legacy.Packages[0].Package.Sha256 + ".zip")
+        };
+        byte[] canonical = ContentCatalogCanonicalizer.Canonicalize(
+            ContentPackageCatalog.ProtectedSchemaVersion,
+            revision,
+            "1.0.0",
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            entries);
+        var signature = new ContentCatalogSignature(
+            signer.Algorithm,
+            signer.KeyId,
+            signer.Sign(canonical));
+        return new ContentPackageCatalog(
+            ContentPackageCatalog.ProtectedSchemaVersion,
+            revision,
+            entries,
+            "1.0.0",
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            signature,
+            ContentCatalogCanonicalizer.ComputeSha256(canonical));
+    }
+
+    private static JsonContentPackageCatalogReader ProtectedReader(FixtureSigner signer)
+    {
+        var verifier = new RsaContentCatalogSignatureVerifier(
+            new Dictionary<string, string> { [signer.KeyId] = signer.PublicKey });
+        return new JsonContentPackageCatalogReader(new ContentCatalogCompatibilityPolicy(
+            "1.0.0",
+            ContentPackageCatalog.CurrentContentSchemaVersion,
+            ContentPackageCatalog.CurrentRuleSchemaVersion,
+            verifier));
+    }
+
+    private sealed class FixtureSigner : IContentCatalogSigner, IDisposable
+    {
+        private readonly RSA rsa;
+
+        public FixtureSigner()
+        {
+            rsa = new RSACryptoServiceProvider(2048);
+            PublicKey = Convert.ToBase64String(
+                RsaSubjectPublicKeyInfo.Encode(rsa.ExportParameters(false)));
+        }
+
+        public string Algorithm => RsaContentCatalogSignatureVerifier.SupportedAlgorithm;
+        public string KeyId => "fixture-cache-2026";
+        public string PublicKey { get; }
+
+        public string Sign(byte[] canonicalPayload) => Convert.ToBase64String(rsa.SignData(
+            canonicalPayload,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1));
+
+        public bool Verify(
+            ContentCatalogSignature signature,
+            byte[] canonicalPayload,
+            out string errorMessage) =>
+            new RsaContentCatalogSignatureVerifier(
+                    new Dictionary<string, string> { [KeyId] = PublicKey })
+                .Verify(signature, canonicalPayload, out errorMessage);
+
+        public void Dispose() => rsa.Dispose();
     }
 }
