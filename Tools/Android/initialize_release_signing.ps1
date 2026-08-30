@@ -115,7 +115,7 @@ function Read-DialogPassword {
         $heading = New-Object Windows.Forms.Label
         $heading.Location = New-Object Drawing.Point(24, 20)
         $heading.Size = New-Object Drawing.Size(470, 42)
-        $heading.Text = "Create a 20+ character release password. Store it in your password manager; this tool will not save it."
+        $heading.Text = "Create a 12+ character release password. Store it in your password manager; this tool will not save it."
 
         $firstLabel = New-Object Windows.Forms.Label
         $firstLabel.Location = New-Object Drawing.Point(24, 76)
@@ -143,8 +143,8 @@ function Read-DialogPassword {
         $confirmButton.Size = New-Object Drawing.Size(84, 30)
         $confirmButton.Text = "Continue"
         $confirmButton.Add_Click({
-            if ($firstBox.Text.Length -lt 20) {
-                $warning.Text = "Password must contain at least 20 characters."
+            if ($firstBox.Text.Length -lt 12) {
+                $warning.Text = "Password must contain at least 12 characters."
                 return
             }
             if (-not [string]::Equals($firstBox.Text, $secondBox.Text, [StringComparison]::Ordinal)) {
@@ -196,7 +196,7 @@ function Read-ConfirmedPassword {
     if ($UseDialog) {
         return Read-DialogPassword
     }
-    $first = Read-Host -Prompt "Release keystore password (20+ characters; store it in your password manager)" -AsSecureString
+    $first = Read-Host -Prompt "Release keystore password (12+ characters; store it in your password manager)" -AsSecureString
     $second = Read-Host -Prompt "Confirm release keystore password" -AsSecureString
     $firstPointer = [IntPtr]::Zero
     $secondPointer = [IntPtr]::Zero
@@ -205,8 +205,8 @@ function Read-ConfirmedPassword {
         $secondPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($second)
         $firstPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstPointer)
         $secondPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondPointer)
-        if ($firstPlain.Length -lt 20) {
-            throw "Release keystore password must contain at least 20 characters."
+        if ($firstPlain.Length -lt 12) {
+            throw "Release keystore password must contain at least 12 characters."
         }
         if (-not [string]::Equals($firstPlain, $secondPlain, [StringComparison]::Ordinal)) {
             throw "Release keystore password confirmation did not match."
