@@ -128,15 +128,22 @@ try {
     foreach ($entry in $environment.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
     }
-    & $unityFullPath `
-        -batchmode `
-        -nographics `
-        -quit `
-        -projectPath $repoRoot `
-        -executeMethod Gacha.EditorTools.AndroidReleaseBuilder.BuildBatch `
-        -logFile $logPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unity release build failed with exit code $LASTEXITCODE. See $logPath"
+    $unityArguments = @(
+        "-batchmode",
+        "-nographics",
+        "-quit",
+        "-projectPath", ('"{0}"' -f $repoRoot),
+        "-executeMethod", "Gacha.EditorTools.AndroidReleaseBuilder.BuildBatch",
+        "-logFile", ('"{0}"' -f $logPath)
+    )
+    $unityProcess = Start-Process `
+        -FilePath $unityFullPath `
+        -ArgumentList $unityArguments `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru
+    if ($unityProcess.ExitCode -ne 0) {
+        throw "Unity release build failed with exit code $($unityProcess.ExitCode). See $logPath"
     }
 }
 finally {

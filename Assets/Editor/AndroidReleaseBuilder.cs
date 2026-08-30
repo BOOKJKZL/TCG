@@ -173,8 +173,15 @@ namespace Gacha.EditorTools
             }
             finally
             {
-                snapshot.Restore();
-                configuration.ClearSecrets();
+                try
+                {
+                    snapshot.Restore();
+                    AssetDatabase.SaveAssets();
+                }
+                finally
+                {
+                    configuration.ClearSecrets();
+                }
             }
         }
 
