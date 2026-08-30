@@ -4,6 +4,7 @@ param(
     [string]$UnityPath,
     [string]$ScratchRoot,
     [string]$EvidenceDirectory,
+    [string]$PrivateImportsPath,
     [string]$PrimaryKeystorePath,
     [string[]]$BackupKeystorePaths,
     [string]$KeyAlias = "universal-gacha-release",
@@ -75,8 +76,7 @@ function Invoke-GitCapture {
 function Invoke-WaitingProcess {
     param(
         [string]$Executable,
-        [string[]]$Arguments,
-        [string]$FailureMessage
+        [string[]]$Arguments
     )
     $process = Start-Process `
         -FilePath $Executable `
@@ -84,9 +84,7 @@ function Invoke-WaitingProcess {
         -WindowStyle Hidden `
         -Wait `
         -PassThru
-    if ($process.ExitCode -ne 0) {
-        throw "$FailureMessage (exit=$($process.ExitCode))."
-    }
+    return [int]$process.ExitCode
 }
 
 function Read-UnityTestResult {
@@ -104,10 +102,8 @@ function Read-UnityTestResult {
     $passed = [int]$run.passed
     $failed = [int]$run.failed
     $skipped = [int]$run.skipped
-    if ($result -ne "Passed" -or $failed -ne 0 -or $total -lt 1 -or $passed -ne $total) {
-        throw "$Label failed: result=$result total=$total passed=$passed failed=$failed skipped=$skipped"
-    }
     return [ordered]@{
+        valid = $result -eq "Passed" -and $failed -eq 0 -and $total -ge 1 -and $passed -eq $total
         result = $result
         total = $total
         passed = $passed
@@ -115,6 +111,62 @@ function Read-UnityTestResult {
         skipped = $skipped
         startTime = [string]$run.'start-time'
         endTime = [string]$run.'end-time'
+    }
+}
+
+function Get-PrivateInputMetadata {
+    param([string]$Path)
+    $files = @(Get-ChildItem -LiteralPath $Path -Recurse -File -ErrorAction Stop)
+    if ($files.Count -lt 1) {
+        throw "Private Imports input contains no files."
+    }
+    $manifestCount = @($files | Where-Object {
+        $_.Name -eq 'manifest.json' -or $_.Name -eq 'printing-language-groups.json'
+    }).Count
+    if ($manifestCount -lt 1) {
+        throw "Private Imports input contains no manifest files."
+    }
+    $records = @($files | ForEach-Object {
+        $rootPrefix = (Get-FullPath $Path).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+        $relative = $_.FullName.Substring($rootPrefix.Length).Replace('\', '/')
+        "$relative`0$($_.Length)"
+    } | Sort-Object -CaseSensitive)
+    $treeBytes = [Text.UTF8Encoding]::new($false).GetBytes(($records -join "`n"))
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $treeHash = (($sha256.ComputeHash($treeBytes) | ForEach-Object {
+            $_.ToString('x2')
+        }) -join '')
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    return [ordered]@{
+        logicalSource = "LocalContent/Imports"
+        fileCount = $files.Count
+        manifestCount = $manifestCount
+        totalBytes = [long](($files | Measure-Object Length -Sum).Sum)
+        treeMetadataSha256 = $treeHash
+        injected = $false
+    }
+}
+
+function Copy-PrivateImports {
+    param([string]$Source, [string]$Destination)
+    [IO.Directory]::CreateDirectory($Destination) | Out-Null
+    $process = Start-Process `
+        -FilePath "robocopy.exe" `
+        -ArgumentList @(
+            ('"{0}"' -f $Source),
+            ('"{0}"' -f $Destination),
+            '/E', '/COPY:DAT', '/DCOPY:DAT', '/R:2', '/W:1',
+            '/NFL', '/NDL', '/NJH', '/NJS', '/NP'
+        ) `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru
+    if ($process.ExitCode -gt 7) {
+        throw "Private Imports injection failed (robocopy exit=$($process.ExitCode))."
     }
 }
 
@@ -176,7 +228,7 @@ function Invoke-SelfTest {
             '<test-run result="Passed" total="2" passed="2" failed="0" skipped="0" start-time="2026-08-30 00:00:00Z" end-time="2026-08-30 00:00:01Z" />',
             [Text.UTF8Encoding]::new($false))
         $parsed = Read-UnityTestResult $passedXml "self-test"
-        if ($parsed.passed -ne 2) {
+        if (-not $parsed.valid -or $parsed.passed -ne 2) {
             throw "Passed XML count mismatch."
         }
 
@@ -194,7 +246,19 @@ function Invoke-SelfTest {
         $secretFile = Join-Path $testRoot "clean.log"
         [IO.File]::WriteAllText($secretFile, "clean evidence", [Text.UTF8Encoding]::new($false))
         Assert-EvidenceSecretBoundary $testRoot @()
-        Write-Output "Self-test passed: 3/3"
+
+        $privateFixture = Join-Path $testRoot "private-input"
+        [IO.Directory]::CreateDirectory($privateFixture) | Out-Null
+        [IO.File]::WriteAllText(
+            (Join-Path $privateFixture "manifest.json"),
+            '{"SchemaVersion":2}',
+            [Text.UTF8Encoding]::new($false))
+        $privateMetadata = Get-PrivateInputMetadata $privateFixture
+        if ($privateMetadata.fileCount -ne 1 -or $privateMetadata.manifestCount -ne 1 -or
+            $privateMetadata.treeMetadataSha256 -notmatch '^[0-9a-f]{64}$') {
+            throw "Private input aggregate metadata mismatch."
+        }
+        Write-Output "Self-test passed: 4/4"
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {
@@ -214,6 +278,9 @@ if ([string]::IsNullOrWhiteSpace($ScratchRoot)) {
 if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
     throw "EvidenceDirectory is required."
 }
+if ([string]::IsNullOrWhiteSpace($PrivateImportsPath)) {
+    throw "PrivateImportsPath is required."
+}
 if (-not $SkipReleaseBuild) {
     if ([string]::IsNullOrWhiteSpace($PrimaryKeystorePath)) {
         throw "PrimaryKeystorePath is required unless SkipReleaseBuild is used."
@@ -225,8 +292,20 @@ if (-not $SkipReleaseBuild) {
 
 $scratchFullPath = Assert-SafeScratchPath $ScratchRoot
 $evidenceFullPath = Get-FullPath $EvidenceDirectory
+$privateImportsFullPath = Get-FullPath $PrivateImportsPath
+$expectedPrivateImportsPath = Get-FullPath (Join-Path $repoRoot "LocalContent\Imports")
+if (-not $privateImportsFullPath.Equals($expectedPrivateImportsPath, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "PrivateImportsPath must be the source repository LocalContent/Imports directory."
+}
+if (-not (Test-Path -LiteralPath $privateImportsFullPath -PathType Container)) {
+    throw "PrivateImportsPath was not found."
+}
 if (Test-IsPathUnder $evidenceFullPath $scratchFullPath) {
     throw "EvidenceDirectory must be outside ScratchRoot."
+}
+if ((Test-IsPathUnder $privateImportsFullPath $scratchFullPath) -or
+    (Test-IsPathUnder $privateImportsFullPath $evidenceFullPath)) {
+    throw "PrivateImportsPath must be outside ScratchRoot and EvidenceDirectory."
 }
 if (Test-Path -LiteralPath $scratchFullPath) {
     throw "ScratchRoot already exists; refusing to overwrite or delete it: $scratchFullPath"
@@ -248,6 +327,11 @@ if ($sourceCommitFull -notmatch '^[0-9a-f]{40}$') {
     throw "SourceCommit did not resolve to a full commit."
 }
 $sourceStatus = @(Invoke-GitCapture @('status', '--short'))
+$privateIgnored = @(& git -C $repoRoot check-ignore -q -- 'LocalContent/Imports')
+if ($LASTEXITCODE -ne 0) {
+    throw "LocalContent/Imports is not protected by the repository ignore policy."
+}
+$privateInputMetadata = Get-PrivateInputMetadata $privateImportsFullPath
 $scratchDrive = [IO.Path]::GetPathRoot($scratchFullPath).TrimEnd('\', '/')
 $driveName = $scratchDrive.TrimEnd(':')
 $drive = Get-PSDrive -Name $driveName -PSProvider FileSystem
@@ -258,6 +342,7 @@ if ($drive.Free -lt ($MinimumFreeGiB * 1GB)) {
 
 $startedUtc = [DateTime]::UtcNow
 $checkoutPath = Join-Path $scratchFullPath "checkout"
+$checkoutPrivateImportsPath = Join-Path $checkoutPath "LocalContent\Imports"
 $archivePath = Join-Path $scratchFullPath "source.zip"
 $testResultsPath = Join-Path $checkoutPath "TestResults"
 $fileVersion = [regex]::Replace($VersionName, '[^0-9A-Za-z.-]', '-')
@@ -278,6 +363,7 @@ $summary = [ordered]@{
     startedAtUtc = $startedUtc.ToString('o')
     finishedAtUtc = $null
     scratchRemoved = $false
+    privateInput = $privateInputMetadata
     tests = [ordered]@{}
     release = $null
     evidenceSecretScan = "not_run"
@@ -292,6 +378,8 @@ try {
     $summary.archiveSha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Expand-Archive -LiteralPath $archivePath -DestinationPath $checkoutPath
     Remove-Item -LiteralPath $archivePath -Force
+    Copy-PrivateImports $privateImportsFullPath $checkoutPrivateImportsPath
+    $summary.privateInput.injected = $true
     [IO.Directory]::CreateDirectory($testResultsPath) | Out-Null
 
     $projectVersionText = Get-Content -LiteralPath (Join-Path $checkoutPath "ProjectSettings\ProjectVersion.txt") -Raw
@@ -301,25 +389,33 @@ try {
 
     $editXml = Join-Path $testResultsPath "g08-clean-editmode.xml"
     $editLog = Join-Path $testResultsPath "g08-clean-editmode.log"
-    Invoke-WaitingProcess $unityFullPath @(
+    $editExitCode = Invoke-WaitingProcess $unityFullPath @(
         '-batchmode', '-nographics',
         '-projectPath', ('"{0}"' -f $checkoutPath),
         '-runTests', '-testPlatform', 'EditMode',
         '-testResults', ('"{0}"' -f $editXml),
         '-logFile', ('"{0}"' -f $editLog)
-    ) "Clean EditMode Unity process failed"
+    )
     $summary.tests.editMode = Read-UnityTestResult $editXml "Clean EditMode"
+    $summary.tests.editMode['processExitCode'] = $editExitCode
+    if (-not $summary.tests.editMode.valid -or $editExitCode -ne 0) {
+        throw "Clean EditMode failed: result=$($summary.tests.editMode.result) total=$($summary.tests.editMode.total) passed=$($summary.tests.editMode.passed) failed=$($summary.tests.editMode.failed) skipped=$($summary.tests.editMode.skipped) exit=$editExitCode"
+    }
 
     $playXml = Join-Path $testResultsPath "g08-clean-playmode.xml"
     $playLog = Join-Path $testResultsPath "g08-clean-playmode.log"
-    Invoke-WaitingProcess $unityFullPath @(
+    $playExitCode = Invoke-WaitingProcess $unityFullPath @(
         '-batchmode',
         '-projectPath', ('"{0}"' -f $checkoutPath),
         '-runTests', '-testPlatform', 'PlayMode',
         '-testResults', ('"{0}"' -f $playXml),
         '-logFile', ('"{0}"' -f $playLog)
-    ) "Clean PlayMode Unity process failed"
+    )
     $summary.tests.playMode = Read-UnityTestResult $playXml "Clean PlayMode"
+    $summary.tests.playMode['processExitCode'] = $playExitCode
+    if (-not $summary.tests.playMode.valid -or $playExitCode -ne 0) {
+        throw "Clean PlayMode failed: result=$($summary.tests.playMode.result) total=$($summary.tests.playMode.total) passed=$($summary.tests.playMode.passed) failed=$($summary.tests.playMode.failed) skipped=$($summary.tests.playMode.skipped) exit=$playExitCode"
+    }
 
     if (-not $SkipReleaseBuild) {
         & (Join-Path $checkoutPath "Tools\Android\initialize_release_signing.ps1") `
@@ -399,7 +495,7 @@ finally {
     Write-JsonUtf8 $summaryPath $summary
 
     try {
-        $privatePaths = @($PrimaryKeystorePath) + @($BackupKeystorePaths)
+        $privatePaths = @($PrimaryKeystorePath) + @($BackupKeystorePaths) + @($privateImportsFullPath)
         Assert-EvidenceSecretBoundary $evidenceFullPath $privatePaths
         $summary.evidenceSecretScan = "passed"
     }
