@@ -10,6 +10,7 @@ param(
     [int]$VersionCode,
     [switch]$BuildCandidate,
     [switch]$UseExisting,
+    [switch]$UseCredentialDialog,
     [switch]$SelfTest
 )
 
@@ -96,7 +97,105 @@ function Protect-PrivatePath {
     }
 }
 
+function Read-DialogPassword {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $form = New-Object Windows.Forms.Form
+    $firstBox = New-Object Windows.Forms.TextBox
+    $secondBox = New-Object Windows.Forms.TextBox
+    try {
+        $form.Text = "Universal Gacha Simulator - Release Signing"
+        $form.StartPosition = [Windows.Forms.FormStartPosition]::CenterScreen
+        $form.FormBorderStyle = [Windows.Forms.FormBorderStyle]::FixedDialog
+        $form.MaximizeBox = $false
+        $form.MinimizeBox = $false
+        $form.TopMost = $true
+        $form.ClientSize = New-Object Drawing.Size(520, 240)
+
+        $heading = New-Object Windows.Forms.Label
+        $heading.Location = New-Object Drawing.Point(24, 20)
+        $heading.Size = New-Object Drawing.Size(470, 42)
+        $heading.Text = "Create a 20+ character release password. Store it in your password manager; this tool will not save it."
+
+        $firstLabel = New-Object Windows.Forms.Label
+        $firstLabel.Location = New-Object Drawing.Point(24, 76)
+        $firstLabel.Size = New-Object Drawing.Size(150, 20)
+        $firstLabel.Text = "Release password"
+        $firstBox.Location = New-Object Drawing.Point(180, 72)
+        $firstBox.Size = New-Object Drawing.Size(310, 24)
+        $firstBox.UseSystemPasswordChar = $true
+
+        $secondLabel = New-Object Windows.Forms.Label
+        $secondLabel.Location = New-Object Drawing.Point(24, 118)
+        $secondLabel.Size = New-Object Drawing.Size(150, 20)
+        $secondLabel.Text = "Confirm password"
+        $secondBox.Location = New-Object Drawing.Point(180, 114)
+        $secondBox.Size = New-Object Drawing.Size(310, 24)
+        $secondBox.UseSystemPasswordChar = $true
+
+        $warning = New-Object Windows.Forms.Label
+        $warning.Location = New-Object Drawing.Point(24, 150)
+        $warning.Size = New-Object Drawing.Size(466, 36)
+        $warning.ForeColor = [Drawing.Color]::DarkRed
+
+        $confirmButton = New-Object Windows.Forms.Button
+        $confirmButton.Location = New-Object Drawing.Point(314, 194)
+        $confirmButton.Size = New-Object Drawing.Size(84, 30)
+        $confirmButton.Text = "Continue"
+        $confirmButton.Add_Click({
+            if ($firstBox.Text.Length -lt 20) {
+                $warning.Text = "Password must contain at least 20 characters."
+                return
+            }
+            if (-not [string]::Equals($firstBox.Text, $secondBox.Text, [StringComparison]::Ordinal)) {
+                $warning.Text = "Password confirmation does not match."
+                return
+            }
+            $form.Tag = $firstBox.Text
+            $form.DialogResult = [Windows.Forms.DialogResult]::OK
+            $form.Close()
+        })
+
+        $cancelButton = New-Object Windows.Forms.Button
+        $cancelButton.Location = New-Object Drawing.Point(406, 194)
+        $cancelButton.Size = New-Object Drawing.Size(84, 30)
+        $cancelButton.Text = "Cancel"
+        $cancelButton.DialogResult = [Windows.Forms.DialogResult]::Cancel
+
+        $form.Controls.AddRange(@(
+            $heading,
+            $firstLabel,
+            $firstBox,
+            $secondLabel,
+            $secondBox,
+            $warning,
+            $confirmButton,
+            $cancelButton))
+        $form.AcceptButton = $confirmButton
+        $form.CancelButton = $cancelButton
+        $form.Add_Shown({ $firstBox.Focus() })
+
+        $result = $form.ShowDialog()
+        if ($result -ne [Windows.Forms.DialogResult]::OK -or $null -eq $form.Tag) {
+            throw "Release signing password entry was cancelled."
+        }
+        return [string]$form.Tag
+    }
+    finally {
+        $firstBox.Text = [string]::Empty
+        $secondBox.Text = [string]::Empty
+        $form.Tag = $null
+        $firstBox.Dispose()
+        $secondBox.Dispose()
+        $form.Dispose()
+    }
+}
+
 function Read-ConfirmedPassword {
+    param([bool]$UseDialog)
+    if ($UseDialog) {
+        return Read-DialogPassword
+    }
     $first = Read-Host -Prompt "Release keystore password (20+ characters; store it in your password manager)" -AsSecureString
     $second = Read-Host -Prompt "Confirm release keystore password" -AsSecureString
     $firstPointer = [IntPtr]::Zero
@@ -278,7 +377,7 @@ $originalStorePassword = [Environment]::GetEnvironmentVariable("TCG_ANDROID_KEYS
 $originalKeyPassword = [Environment]::GetEnvironmentVariable("TCG_ANDROID_KEY_PASSWORD", "Process")
 $createdPrimary = $false
 try {
-    $password = Read-ConfirmedPassword
+    $password = Read-ConfirmedPassword -UseDialog:$UseCredentialDialog
     [Environment]::SetEnvironmentVariable($secretEnvironmentName, $password, "Process")
     [Environment]::SetEnvironmentVariable("TCG_ANDROID_KEYSTORE_PASSWORD", $password, "Process")
     [Environment]::SetEnvironmentVariable("TCG_ANDROID_KEY_PASSWORD", $password, "Process")
