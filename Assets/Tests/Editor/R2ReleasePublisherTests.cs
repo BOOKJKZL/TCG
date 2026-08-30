@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.EditorTools.Content;
+using Gacha.Infrastructure.Content;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 public class R2ReleasePublisherTests
@@ -86,6 +89,46 @@ public class R2ReleasePublisherTests
         private static R2RemoteObjectState Present(byte[] bytes)
         {
             return R2RemoteObjectState.Present(bytes.LongLength, R2ReleasePublisher.ComputeSha256(bytes));
+        }
+    }
+
+    private sealed class FixtureSigner : IContentCatalogSigner, IDisposable
+    {
+        private readonly RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
+
+        public FixtureSigner(string keyId)
+        {
+            KeyId = keyId;
+            SubjectPublicKeyInfoBase64 = Convert.ToBase64String(
+                RsaSubjectPublicKeyInfo.Encode(rsa.ExportParameters(false)));
+        }
+
+        public string Algorithm => RsaContentCatalogSignatureVerifier.SupportedAlgorithm;
+        public string KeyId { get; }
+        public string SubjectPublicKeyInfoBase64 { get; }
+
+        public string Sign(byte[] canonicalPayload)
+        {
+            return Convert.ToBase64String(rsa.SignData(
+                canonicalPayload,
+                HashAlgorithmName.SHA256,
+                RSASignaturePadding.Pkcs1));
+        }
+
+        public bool Verify(
+            Gacha.Application.ContentCatalogSignature signature,
+            byte[] canonicalPayload,
+            out string errorMessage)
+        {
+            return new RsaContentCatalogSignatureVerifier(new Dictionary<string, string>
+            {
+                [KeyId] = SubjectPublicKeyInfoBase64
+            }).Verify(signature, canonicalPayload, out errorMessage);
+        }
+
+        public void Dispose()
+        {
+            rsa.Dispose();
         }
     }
 
@@ -253,13 +296,153 @@ public class R2ReleasePublisherTests
             config)));
     }
 
-    private R2ReleaseUploadPlan CreatePlan()
+    [Test]
+    public void CreatePlan_ProtectedCatalogRequiresMatchingTrustBundle()
+    {
+        using (var signer = new FixtureSigner("catalog-2026-new"))
+        using (var unknown = new FixtureSigner("catalog-2026-unknown"))
+        {
+            PublishProtected(signer);
+
+            Assert.Throws<InvalidDataException>(() => CreatePlan());
+            Assert.Throws<InvalidDataException>(() => CreatePlan(Trust("0.2.0", 1, 1, unknown)));
+
+            R2ReleaseUploadPlan plan = CreatePlan(Trust("0.2.0", 1, 1, signer));
+            Assert.That(plan.CatalogSchemaVersion, Is.EqualTo(3));
+            Assert.That(plan.TrustBundle.TrustedKeys.Single().KeyId, Is.EqualTo(signer.KeyId));
+        }
+    }
+
+    [Test]
+    public void CreatePlan_ProtectedCatalogRejectsOldAppAndSchemaMismatch()
+    {
+        using (var signer = new FixtureSigner("catalog-2026"))
+        {
+            PublishProtected(signer, "0.2.0");
+
+            Assert.Throws<InvalidDataException>(() => CreatePlan(Trust("0.1.9", 1, 1, signer)));
+            Assert.Throws<InvalidDataException>(() => CreatePlan(Trust("0.2.0", 2, 1, signer)));
+            Assert.Throws<InvalidDataException>(() => CreatePlan(Trust("0.2.0", 1, 2, signer)));
+        }
+    }
+
+    [Test]
+    public void CreatePlan_TrustBundleMustMatchCandidateAppVersion()
+    {
+        using (var signer = new FixtureSigner("catalog-2026"))
+        {
+            ContentCatalogTrustBundle trust = Trust("0.2.0", 1, 1, signer);
+            Assert.Throws<InvalidDataException>(() => R2ReleasePublisher.CreatePlan(
+                new R2ReleasePublishRequest(
+                    release,
+                    new Uri("https://cards.example.test"),
+                    "releases/android",
+                    config,
+                    trust,
+                    "0.2.1")));
+        }
+    }
+
+    [Test]
+    public void CreatePlan_ProtectedCatalogRejectsTamperedSignature()
+    {
+        using (var signer = new FixtureSigner("catalog-2026"))
+        {
+            PublishProtected(signer);
+            string catalogPath = Path.Combine(release, "catalog.json");
+            JObject catalog = JObject.Parse(File.ReadAllText(catalogPath));
+            byte[] signature = Convert.FromBase64String(catalog["signature"]["value"].Value<string>());
+            signature[0] ^= 0x01;
+            catalog["signature"]["value"] = Convert.ToBase64String(signature);
+            File.WriteAllText(catalogPath, catalog.ToString());
+
+            Assert.Throws<InvalidDataException>(() => CreatePlan(Trust("0.2.0", 1, 1, signer)));
+        }
+    }
+
+    [Test]
+    public async Task Publish_LegacyCatalogCanPreloadSortedAppFirstTrust()
+    {
+        using (var oldKey = new FixtureSigner("z-old"))
+        using (var newKey = new FixtureSigner("a-new"))
+        {
+            R2ReleaseUploadPlan plan = CreatePlan(Trust("0.2.0", 1, 1, oldKey, newKey));
+            var store = new FakeStore();
+
+            await new R2ReleasePublisher(store).PublishAsync(plan);
+
+            JObject runtime = JObject.Parse(File.ReadAllText(config));
+            Assert.That(plan.CatalogSchemaVersion, Is.EqualTo(2));
+            Assert.That(runtime["trustedCatalogKeys"].Select(value => value["keyId"].Value<string>()),
+                Is.EqualTo(new[] { "a-new", "z-old" }));
+            Assert.That(runtime.Properties().Select(value => value.Name), Is.EqualTo(new[]
+            {
+                "catalogUrl", "timeoutSeconds", "maxCatalogBytes", "trustedCatalogKeys"
+            }));
+            Assert.That(File.ReadAllText(config), Does.Not.Contain("PRIVATE KEY"));
+            Assert.That(File.ReadAllText(config), Does.Not.Contain("publisherToken"));
+        }
+    }
+
+    [Test]
+    public async Task Publish_ProtectedCatalogWritesSameVerifiedPublicTrust()
+    {
+        using (var oldKey = new FixtureSigner("z-old"))
+        using (var newKey = new FixtureSigner("a-new"))
+        {
+            PublishProtected(newKey);
+            ContentCatalogTrustBundle trust = Trust("0.2.0", 1, 1, oldKey, newKey);
+            R2ReleaseUploadPlan plan = CreatePlan(trust);
+            var store = new FakeStore();
+
+            await new R2ReleasePublisher(store).PublishAsync(plan);
+
+            JObject runtime = JObject.Parse(File.ReadAllText(config));
+            Assert.That(plan.CatalogSchemaVersion, Is.EqualTo(3));
+            Assert.That(plan.TrustBundle.IdentitySha256, Is.EqualTo(trust.IdentitySha256));
+            Assert.That(runtime["trustedCatalogKeys"].Select(value => value["keyId"].Value<string>()),
+                Is.EqualTo(new[] { "a-new", "z-old" }));
+            Assert.That(store.Operations.Last(value => value.StartsWith("upload-bytes:", StringComparison.Ordinal)),
+                Does.StartWith("upload-bytes:releases/android/catalog.json"));
+        }
+    }
+
+    private R2ReleaseUploadPlan CreatePlan(ContentCatalogTrustBundle trustBundle = null)
     {
         return R2ReleasePublisher.CreatePlan(new R2ReleasePublishRequest(
             release,
             new Uri("https://cards.example.test"),
             "releases/android",
-            config));
+            config,
+            trustBundle,
+            trustBundle?.CurrentAppVersion));
+    }
+
+    private void PublishProtected(FixtureSigner signer, string minimumAppVersion = "0.1.0")
+    {
+        new DeterministicContentPackagePublisher().Publish(new ContentPackagePublishRequest(
+            release,
+            8,
+            new[]
+            {
+                new ContentPackagePublishDefinition("en.fixture", source, "en/fixture", 4, "4.0.0")
+            },
+            new ProtectedContentCatalogPublishContract(minimumAppVersion, 1, 1, signer)));
+    }
+
+    private static ContentCatalogTrustBundle Trust(
+        string currentAppVersion,
+        int contentSchemaVersion,
+        int ruleSchemaVersion,
+        params FixtureSigner[] signers)
+    {
+        return new ContentCatalogTrustBundle(
+            currentAppVersion,
+            contentSchemaVersion,
+            ruleSchemaVersion,
+            signers.Select(signer => new ContentCatalogTrustKey(
+                signer.KeyId,
+                signer.SubjectPublicKeyInfoBase64)));
     }
 
     private static byte[] Bytes(int count)

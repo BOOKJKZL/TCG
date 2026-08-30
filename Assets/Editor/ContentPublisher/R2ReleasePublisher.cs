@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Application;
 using Gacha.Infrastructure.Content;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Gacha.EditorTools.Content
@@ -18,18 +20,24 @@ namespace Gacha.EditorTools.Content
             string releaseDirectory,
             Uri publicBaseUri,
             string objectPrefix,
-            string runtimeConfigPath)
+            string runtimeConfigPath,
+            ContentCatalogTrustBundle trustBundle = null,
+            string candidateAppVersion = null)
         {
             ReleaseDirectory = releaseDirectory;
             PublicBaseUri = publicBaseUri;
             ObjectPrefix = objectPrefix;
             RuntimeConfigPath = runtimeConfigPath;
+            TrustBundle = trustBundle;
+            CandidateAppVersion = candidateAppVersion;
         }
 
         public string ReleaseDirectory { get; }
         public Uri PublicBaseUri { get; }
         public string ObjectPrefix { get; }
         public string RuntimeConfigPath { get; }
+        public ContentCatalogTrustBundle TrustBundle { get; }
+        public string CandidateAppVersion { get; }
     }
 
     public sealed class R2ReleaseObject
@@ -65,7 +73,9 @@ namespace Gacha.EditorTools.Content
             string runtimeConfigPath,
             IReadOnlyList<R2ReleaseObject> archives,
             long catalogBytes,
-            string catalogSha256)
+            string catalogSha256,
+            int catalogSchemaVersion,
+            ContentCatalogTrustBundle trustBundle)
         {
             ReleaseDirectory = releaseDirectory;
             CatalogPath = catalogPath;
@@ -75,6 +85,8 @@ namespace Gacha.EditorTools.Content
             Archives = archives;
             CatalogBytes = catalogBytes;
             CatalogSha256 = catalogSha256;
+            CatalogSchemaVersion = catalogSchemaVersion;
+            TrustBundle = trustBundle;
         }
 
         public string ReleaseDirectory { get; }
@@ -85,6 +97,8 @@ namespace Gacha.EditorTools.Content
         public IReadOnlyList<R2ReleaseObject> Archives { get; }
         public long CatalogBytes { get; }
         public string CatalogSha256 { get; }
+        public int CatalogSchemaVersion { get; }
+        public ContentCatalogTrustBundle TrustBundle { get; }
     }
 
     public sealed class R2RemoteObjectState
@@ -190,7 +204,10 @@ namespace Gacha.EditorTools.Content
             if (catalogBytes.LongLength > RuntimeCatalogLimitBytes)
                 throw new InvalidDataException("Published content catalog exceeds the runtime 1 MiB limit.");
             string catalogJson = DecodeStrictUtf8(catalogBytes, catalogPath);
-            ContentPackageCatalogLoadResult parsed = new JsonContentPackageCatalogReader().Read(catalogJson, catalogUri);
+            JsonContentPackageCatalogReader reader = request.TrustBundle == null
+                ? new JsonContentPackageCatalogReader()
+                : request.TrustBundle.CreateCatalogReader();
+            ContentPackageCatalogLoadResult parsed = reader.Read(catalogJson, catalogUri);
             if (!parsed.Succeeded)
                 throw new InvalidDataException("Published content catalog failed runtime validation: " + parsed.ErrorMessage);
             if (parsed.Catalog.Packages.Count == 0)
@@ -239,7 +256,9 @@ namespace Gacha.EditorTools.Content
                 Path.GetFullPath(request.RuntimeConfigPath),
                 archives.AsReadOnly(),
                 catalogBytes.LongLength,
-                ComputeSha256(catalogBytes));
+                ComputeSha256(catalogBytes),
+                parsed.Catalog.SchemaVersion,
+                request.TrustBundle);
         }
 
         public async Task<R2ReleasePublishResult> PublishAsync(
@@ -322,7 +341,7 @@ namespace Gacha.EditorTools.Content
                 plan.CatalogSha256,
                 false);
 
-            WriteRuntimeConfigAtomic(plan.RuntimeConfigPath, plan.CatalogUri);
+            WriteRuntimeConfigAtomic(plan.RuntimeConfigPath, plan.CatalogUri, plan.TrustBundle);
             return new R2ReleasePublishResult(uploaded, reused, plan.CatalogUri, plan.RuntimeConfigPath);
         }
 
@@ -382,6 +401,27 @@ namespace Gacha.EditorTools.Content
                 throw new ArgumentException("Public content base URL cannot contain credentials, query, or fragment.", nameof(request));
             if (string.IsNullOrWhiteSpace(request.RuntimeConfigPath))
                 throw new ArgumentException("Runtime configuration path cannot be empty.", nameof(request));
+            if (request.TrustBundle != null)
+            {
+                if (string.IsNullOrWhiteSpace(request.CandidateAppVersion) ||
+                    !string.Equals(
+                        request.CandidateAppVersion,
+                        request.CandidateAppVersion.Trim(),
+                        StringComparison.Ordinal))
+                    throw new ArgumentException(
+                        "A trust bundle requires an exact candidate App version.", nameof(request));
+                if (!string.Equals(
+                        request.CandidateAppVersion,
+                        request.TrustBundle.CurrentAppVersion,
+                        StringComparison.Ordinal))
+                    throw new InvalidDataException(
+                        "Catalog trust bundle currentAppVersion does not match the candidate App version.");
+            }
+            else if (!string.IsNullOrEmpty(request.CandidateAppVersion))
+            {
+                throw new ArgumentException(
+                    "Candidate App version is valid only when a Catalog trust bundle is supplied.", nameof(request));
+            }
             NormalizeObjectPrefix(request.ObjectPrefix);
         }
 
@@ -465,16 +505,23 @@ namespace Gacha.EditorTools.Content
             return BitConverter.ToString(bytes).Replace("-", string.Empty).ToLowerInvariant();
         }
 
-        private static void WriteRuntimeConfigAtomic(string path, Uri catalogUri)
+        private static void WriteRuntimeConfigAtomic(
+            string path,
+            Uri catalogUri,
+            ContentCatalogTrustBundle trustBundle)
         {
             string directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
-            string json = "{\n" +
-                          "  \"catalogUrl\": \"" + catalogUri.AbsoluteUri + "\",\n" +
-                          "  \"timeoutSeconds\": 15,\n" +
-                          "  \"maxCatalogBytes\": 1048576\n" +
-                          "}\n";
+            var root = new JObject
+            {
+                ["catalogUrl"] = catalogUri.AbsoluteUri,
+                ["timeoutSeconds"] = 15,
+                ["maxCatalogBytes"] = RuntimeCatalogLimitBytes
+            };
+            if (trustBundle != null)
+                root["trustedCatalogKeys"] = trustBundle.RuntimeTrustedKeys();
+            string json = root.ToString(Formatting.Indented) + "\n";
             string temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
             File.WriteAllText(temporary, json, new UTF8Encoding(false));
             try

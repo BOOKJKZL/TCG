@@ -11,6 +11,7 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
 
     private string releaseRoot;
     private string runtimeConfigPath;
+    private string trustBundlePath;
     private string credentialPath;
     private string siteBaseUrl = DefaultSiteBaseUrl;
     private string publisherToken;
@@ -31,6 +32,7 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
         string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
         releaseRoot = ContentPackagePublisherBatch.DefaultReleaseRoot;
         runtimeConfigPath = Path.Combine(projectRoot, "LocalContent", "remote-content.json");
+        trustBundlePath = Environment.GetEnvironmentVariable("GACHA_CATALOG_TRUST_PATH") ?? string.Empty;
         credentialPath = Path.Combine(projectRoot, "LocalContent", "site-publisher-credential.json");
         siteBaseUrl = Environment.GetEnvironmentVariable("GACHA_SITE_BASE_URL") ?? DefaultSiteBaseUrl;
         publisherToken = Environment.GetEnvironmentVariable("GACHA_SITE_PUBLISH_TOKEN") ?? string.Empty;
@@ -56,6 +58,11 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
 
         releaseRoot = EditorGUILayout.TextField("Release directory", releaseRoot);
         runtimeConfigPath = EditorGUILayout.TextField("Runtime config", runtimeConfigPath);
+        trustBundlePath = EditorGUILayout.TextField("Public Catalog trust", trustBundlePath);
+        EditorGUILayout.HelpBox(
+            "Leave the trust path empty for the current legacy Catalog. A protected v3 Catalog requires a " +
+            "public-only trust bundle; private keys and publisher credentials are not valid bundle fields.",
+            MessageType.None);
         credentialPath = EditorGUILayout.TextField("Local credential", credentialPath);
         siteBaseUrl = EditorGUILayout.TextField("Site base URL", siteBaseUrl);
         publisherToken = EditorGUILayout.PasswordField("Publisher token", publisherToken);
@@ -99,6 +106,8 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Preflight result", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Catalog", preview.CatalogUri.AbsoluteUri);
+            EditorGUILayout.LabelField("Catalog schema", preview.CatalogSchemaVersion.ToString());
+            EditorGUILayout.LabelField("Trusted public keys", (preview.TrustBundle?.TrustedKeys.Count ?? 0).ToString());
             EditorGUILayout.LabelField("Archives", preview.Archives.Count.ToString());
             EditorGUILayout.LabelField("Catalog SHA-256", preview.CatalogSha256);
             scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.MaxHeight(150f));
@@ -187,11 +196,14 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
         try
         {
             Uri publicContentBase = new Uri(ParseSiteBaseUri(), "api/content/");
+            ContentCatalogTrustBundle trustBundle = ResolveTrustBundle();
             preview = R2ReleasePublisher.CreatePlan(new R2ReleasePublishRequest(
                 releaseRoot,
                 publicContentBase,
                 string.Empty,
-                runtimeConfigPath));
+                runtimeConfigPath,
+                trustBundle,
+                trustBundle == null ? null : Application.version));
             Debug.Log(
                 "Sites offline preflight passed: archives=" + preview.Archives.Count +
                 ", catalog='" + preview.CatalogUri + "', sha256=" + preview.CatalogSha256 + ".");
@@ -265,6 +277,13 @@ public sealed class PrivateSitesPublisherWindow : EditorWindow
             .SiteBaseUri;
     }
 
+    private ContentCatalogTrustBundle ResolveTrustBundle()
+    {
+        return string.IsNullOrWhiteSpace(trustBundlePath)
+            ? null
+            : ContentCatalogTrustBundle.Load(trustBundlePath.Trim());
+    }
+
     private void UpdateTokenFingerprint()
     {
         tokenSha256 = string.IsNullOrEmpty(publisherToken)
@@ -280,6 +299,7 @@ public static class PrivateSitesPublisherBatch
     private const string PublisherTokenVariable = "GACHA_SITE_PUBLISH_TOKEN";
     private const string CredentialPathVariable = "GACHA_SITE_CREDENTIAL_PATH";
     private const string ReleaseRootVariable = "GACHA_RELEASE_ROOT";
+    private const string CatalogTrustPathVariable = "GACHA_CATALOG_TRUST_PATH";
 
     public static void GenerateCredentialFromEnvironment()
     {
@@ -303,6 +323,8 @@ public static class PrivateSitesPublisherBatch
         R2ReleaseUploadPlan plan = CreatePlan(ResolveSiteBaseUri());
         Debug.Log(
             "Sites batch offline preflight passed: archives=" + plan.Archives.Count +
+            ", schema=" + plan.CatalogSchemaVersion +
+            ", trustedKeys=" + (plan.TrustBundle?.TrustedKeys.Count ?? 0) +
             ", catalog='" + plan.CatalogUri + "', sha256=" + plan.CatalogSha256 + ".");
     }
 
@@ -331,11 +353,14 @@ public static class PrivateSitesPublisherBatch
     private static R2ReleaseUploadPlan CreatePlan(Uri siteBaseUri)
     {
         string runtimeConfig = Path.Combine(ResolveProjectRoot(), "LocalContent", "remote-content.json");
+        ContentCatalogTrustBundle trustBundle = ResolveTrustBundle();
         return R2ReleasePublisher.CreatePlan(new R2ReleasePublishRequest(
             ResolveReleaseRoot(),
             new Uri(siteBaseUri, "api/content/"),
             string.Empty,
-            runtimeConfig));
+            runtimeConfig,
+            trustBundle,
+            trustBundle == null ? null : Application.version));
     }
 
     private static Uri ResolveSiteBaseUri()
@@ -385,6 +410,14 @@ public static class PrivateSitesPublisherBatch
         return string.IsNullOrWhiteSpace(configuredPath)
             ? ContentPackagePublisherBatch.DefaultReleaseRoot
             : Path.GetFullPath(configuredPath.Trim());
+    }
+
+    private static ContentCatalogTrustBundle ResolveTrustBundle()
+    {
+        string configuredPath = Environment.GetEnvironmentVariable(CatalogTrustPathVariable);
+        return string.IsNullOrWhiteSpace(configuredPath)
+            ? null
+            : ContentCatalogTrustBundle.Load(Path.GetFullPath(configuredPath.Trim()));
     }
 
     private static string ResolveProjectRoot()
