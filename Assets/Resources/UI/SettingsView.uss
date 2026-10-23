@@ -1,3 +1,5 @@
+@import url("CoreNeutralTokens.uss");
+
 .settings-scroll {
     flex-grow: 1;
     min-height: 0;
@@ -13,7 +15,7 @@
 }
 
 .settings-card__title {
-    color: rgb(255, 255, 255);
+    color: var(--ui-text);
     font-size: 23px;
     -unity-font-style: bold;
     white-space: normal;
@@ -23,7 +25,7 @@
 .settings-card__summary,
 .settings-card__status {
     margin-top: 8px;
-    color: rgb(184, 210, 225);
+    color: var(--ui-text-secondary);
     font-size: 16px;
     white-space: normal;
 }
@@ -32,21 +34,21 @@
     padding: 12px;
     border-width: 1px;
     border-radius: 12px;
-    border-color: rgba(88, 162, 190, 0.54);
-    background-color: rgba(10, 31, 49, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .settings-card__status {
-    color: rgb(145, 221, 190);
+    color: var(--ui-success);
     -unity-font-style: italic;
 }
 
 .settings-card__status.is-error {
-    color: rgb(255, 158, 166);
+    color: var(--ui-error);
 }
 
 .settings-card__status.is-warning {
-    color: rgb(255, 205, 126);
+    color: var(--ui-warning);
     -unity-font-style: bold;
 }
 
@@ -61,7 +63,7 @@
     flex-grow: 1;
     min-width: 180px;
     margin-right: 12px;
-    color: rgb(226, 241, 250);
+    color: var(--ui-text);
     font-size: 17px;
     white-space: normal;
 }
@@ -109,7 +111,7 @@
 }
 
 .settings-cloud-summary__title {
-    color: rgb(236, 247, 255);
+    color: var(--ui-text);
     font-size: 17px;
     -unity-font-style: bold;
     white-space: normal;

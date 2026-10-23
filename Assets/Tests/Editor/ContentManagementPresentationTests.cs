@@ -143,7 +143,8 @@ public class ContentManagementPresentationTests
             "Keyboard focus must remain visible without mutating the root render background.");
         Assert.That(disabledFocusRule.Success, Is.True,
             "Focus must not override the unavailable action's disabled appearance.");
-        Assert.That(disabledFocusRule.Groups["body"].Value, Does.Contain("rgba(171, 190, 204, 0.58)"));
+        Assert.That(disabledFocusRule.Groups["body"].Value, Does.Contain("var(--ui-text-secondary)"),
+            "Disabled focus keeps the readable neutral text token, not the old translucent light text.");
         Assert.That(view, Does.Not.Contain("<ui:Button"),
             "The Android content page must use stable VisualElement + Label action controls.");
         Assert.That(styles, Does.Not.Contain(".content-button:active"),

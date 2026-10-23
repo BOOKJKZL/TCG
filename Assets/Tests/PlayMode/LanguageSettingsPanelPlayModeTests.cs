@@ -443,9 +443,18 @@ namespace Gacha.Tests.PlayMode
             Locale originalLocale = LocalizationSettings.SelectedLocale;
             GameObject host = new GameObject("Mobile Settings Contract Host");
             MobileSettingsPresenter page = null;
+            CoreNeutralSceneCapture visualCapture = null;
             try
             {
                 page = new MobileSettingsPresenter(host, Callbacks());
+                foreach (string language in new[] { "en", "zh", "ja" })
+                {
+                    SelectLocale(language);
+                    page.RefreshText(language, "zh-cn", new ExperienceSettings(), true);
+                    Assert.That(page.SpeedAction.Label.text, Does.Contain(1f.ToString("0.0") + "×"));
+                    Assert.That(page.SpeedAction.Label.text, Does.Not.Contain("No translation found"),
+                        "Animation speed is a literal numeric value, not a localization key: " + language);
+                }
                 SelectLocale("ja");
                 page.RefreshText("ja", "zh-cn", new ExperienceSettings(), true);
                 page.SetCloudVisible(true);
@@ -466,6 +475,9 @@ namespace Gacha.Tests.PlayMode
                 page.Shell.SafeArea.style.paddingTop = 60f;
                 page.Shell.SafeArea.style.paddingRight = 12f;
                 page.Shell.SafeArea.style.paddingBottom = 84f;
+                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(page.Document, viewport,
+                    "Existing MobileSettingsPresenter contract fixture, Japanese UI, fixed fake cloud summaries, " +
+                    "default ExperienceSettings and no-op callbacks; no account, cloud or save operation.");
                 yield return null;
                 yield return null;
 
@@ -479,6 +491,8 @@ namespace Gacha.Tests.PlayMode
                         Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f), destination.ToString());
                     AssertContained(safe, action.Root.worldBound, destination.ToString());
                 }
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("settings", "japanese-settings-top", page.Shell.Root);
 
                 page.Scroll.ScrollTo(page.MergeAction.Root);
                 yield return null;
@@ -510,9 +524,13 @@ namespace Gacha.Tests.PlayMode
                 AssertContained(page.Shell.Root.worldBound, page.Confirmation.Sheet.Panel.worldBound, "confirmation sheet");
                 Assert.That(page.Confirmation.DangerConfirm.Root.resolvedStyle.height,
                     Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("settings-confirmation", "japanese-confirmation-open",
+                        page.Confirmation.Sheet.Panel);
             }
             finally
             {
+                visualCapture?.Dispose();
                 if (originalLocale != null)
                     LocalizationSettings.SelectedLocale = originalLocale;
                 page?.Dispose();

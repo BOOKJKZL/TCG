@@ -82,6 +82,7 @@ namespace Gacha.Tests.PlayMode
             var cues = new List<FeedbackCue>();
             string originalUiLanguage = null;
             string originalContentLanguage = null;
+            CoreNeutralSceneCapture visualCapture = null;
             bool originalReduceMotion = UIFeedbackService.ReduceMotion;
             bool originalHaptics = UIFeedbackService.HapticsEnabled;
             bool originalSound = UIFeedbackService.SoundEnabled;
@@ -141,6 +142,8 @@ namespace Gacha.Tests.PlayMode
                 safeArea.style.paddingTop = 60f;
                 safeArea.style.paddingRight = 12f;
                 safeArea.style.paddingBottom = 84f;
+                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                    "GachaScene_OpensAndRevealsASimulatedPack; installed local catalog/art; MemoryProgressStore inventory");
                 yield return null;
                 yield return null;
                 Rect safeContent = InsetRect(safeArea.worldBound, safeArea.resolvedStyle);
@@ -330,6 +333,9 @@ namespace Gacha.Tests.PlayMode
                 VisualElement preparePack = document.rootVisualElement.Q<VisualElement>("prepare-pack-button");
                 selectedScroll.ScrollTo(preparePack);
                 yield return null;
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("gacha-selection", "Selection; base1 product; existing selected-product scroll position",
+                        productList);
                 SendTap(preparePack);
                 yield return null;
                 Assert.That((bool)GetProperty(controller, "IsConfirmationVisible"), Is.True);
@@ -408,6 +414,17 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(document.rootVisualElement
                     .Q<Label>("interactive-pack-carousel-position").text, Does.Contain("1").And.Contain("10"));
+                if (visualCapture != null)
+                {
+                    VisualElement animatedPack = document.rootVisualElement.Q<VisualElement>("pack-shell");
+                    float visualDeadline = Time.realtimeSinceStartup + 3f;
+                    while (animatedPack.resolvedStyle.opacity < 0.99f && Time.realtimeSinceStartup < visualDeadline)
+                        yield return null;
+                    Assert.That(animatedPack.resolvedStyle.opacity, Is.GreaterThanOrEqualTo(0.99f),
+                        "Capture the settled pack, not a transient fade-in frame.");
+                    yield return visualCapture.Capture("gacha-pack", "Prepared; vintage interactive pack; before opening transaction",
+                        interactivePack);
+                }
                 VisualElement sidePack = carouselRoot.Q<VisualElement>(
                     className: "interactive-pack-carousel__slot--near-right");
                 Label sidePackFeedback = sidePack.Q<Label>(className: "interactive-pack-carousel__slot-label");
@@ -513,6 +530,13 @@ namespace Gacha.Tests.PlayMode
                     .ClassListContains("is-highlighted"), Is.True);
                 Assert.That(cues.Count(cue => cue == FeedbackCue.CardFlip), Is.EqualTo(openedCardCount));
                 Assert.That(cues, Does.Contain(FeedbackCue.RareReveal));
+                if (visualCapture != null)
+                {
+                    var revealArt = GetPrivateField(controller, "revealImage") as AsyncCardImageView;
+                    Assert.That(revealArt, Is.Not.Null);
+                    yield return visualCapture.Capture("gacha-single-card", "Revealing; current single-card view after 11 reveals in one pack",
+                        revealStage, revealArt);
+                }
 
                 Assert.That(InvokeBool(controller, "RevealNextCard"), Is.True);
                 yield return null;
@@ -665,6 +689,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("opening-history").childCount,
                     Is.EqualTo(4));
                 Assert.That(cues.Count(cue => cue == FeedbackCue.PackOpen), Is.EqualTo(4));
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("gacha-ten-pack-summary", "Summary; existing test completed 10 packs and 110 cards",
+                        document.rootVisualElement.Q<VisualElement>("summary-stage"));
 
                 InvokePrivate(controller, "ShowSelectionPage");
                 yield return null;
@@ -706,6 +733,7 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                visualCapture?.Dispose();
                 if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
                 if (!string.IsNullOrWhiteSpace(originalContentLanguage) && ApplicationServices.IsConfigured)

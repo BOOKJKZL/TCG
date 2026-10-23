@@ -1,0 +1,38 @@
+/* One palette shared by standalone templates and runtime-composed pages. */
+:root,
+.mobile-design-system,
+.mobile-page,
+.mobile-top-bar,
+.mobile-action,
+.mobile-bottom-navigation,
+.mobile-card,
+.mobile-state-card,
+.mobile-progress,
+.mobile-toast,
+.mobile-sheet,
+.home-scroll,
+.settings-scroll,
+.first-run-content,
+.pokedex-overlay,
+.content-management,
+.gacha-opening,
+.gacha-opening-host,
+.collection-browser,
+.collection-browser-host {
+    --ui-canvas: #F7F8FA;
+    --ui-surface: #FFFFFF;
+    --ui-raised: #F1F4F8;
+    --ui-text: #14171A;
+    --ui-text-secondary: #556170;
+    --ui-primary: #2563EB;
+    --ui-on-primary: #FFFFFF;
+    --ui-primary-soft: #EAF0FF;
+    --ui-outline: #C7CED8;
+    --ui-success: #176B45;
+    --ui-success-surface: #EAF5EE;
+    --ui-warning: #805600;
+    --ui-warning-surface: #FFF4D6;
+    --ui-error: #B42332;
+    --ui-error-surface: #FFF0F1;
+    --ui-scrim: rgba(20, 23, 26, 0.38);
+}

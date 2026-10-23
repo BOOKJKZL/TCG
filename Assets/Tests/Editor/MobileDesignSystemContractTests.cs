@@ -6,12 +6,15 @@ using System.Text.RegularExpressions;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 public class MobileDesignSystemContractTests
 {
     private const string MobileUiPath = "Assets/Resources/UI/Mobile";
     private const string StylesPath = "Assets/Resources/UI/MobileGameDesignSystem.uss";
+    private const string HomeStylesPath = "Assets/Resources/UI/HomeView.uss";
+    private const string TokensPath = "Assets/Resources/UI/CoreNeutralTokens.uss";
 
     private static readonly (string File, string Root)[] Templates =
     {
@@ -73,6 +76,8 @@ public class MobileDesignSystemContractTests
         Match pressed = Regex.Match(styles, @"(?ms)^\.mobile-action__label\.is-pressed\s*\{(?<body>.*?)\}");
         Assert.That(action.Success, Is.True);
         Assert.That(action.Groups["body"].Value, Does.Contain("min-height: 50px;"));
+        Assert.That(action.Groups["body"].Value, Does.Not.Match(@"(?m)^\s*height\s*:"),
+            "Long localized labels must be allowed to grow beyond the minimum touch target.");
         Assert.That(action.Groups["body"].Value, Does.Not.Contain("transition"));
         Assert.That(action.Groups["body"].Value, Does.Not.Contain("scale"));
         Assert.That(pressed.Success, Is.True);
@@ -80,6 +85,47 @@ public class MobileDesignSystemContractTests
         Assert.That(pressed.Groups["body"].Value, Does.Not.Contain("background-color:"));
         Assert.That(pressed.Groups["body"].Value, Does.Not.Contain("border-color:"));
         Assert.That(MobileUiTokens.MinimumTouchTarget, Is.GreaterThanOrEqualTo(48f));
+    }
+
+    [Test]
+    public void CoreNeutral_ImportsOnePaletteForSharedComponentsAndHome()
+    {
+        Assert.That(AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensPath), Is.Not.Null);
+        foreach (string path in new[] { StylesPath, HomeStylesPath })
+        {
+            Assert.That(AssetDatabase.GetDependencies(path), Does.Contain(TokensPath),
+                path + " must resolve the shared palette as an imported Unity asset.");
+            string source = File.ReadAllText(path);
+            Assert.That(source, Does.Not.Match(@"#[0-9A-Fa-f]{3,8}\b|\brgba?\s*\("),
+                path + " must consume semantic tokens rather than duplicate palette values.");
+        }
+    }
+
+    [TestCase("text", "canvas")]
+    [TestCase("text", "surface")]
+    [TestCase("text", "raised")]
+    [TestCase("text-secondary", "canvas")]
+    [TestCase("text-secondary", "surface")]
+    [TestCase("text-secondary", "raised")]
+    [TestCase("primary", "surface")]
+    [TestCase("primary", "raised")]
+    [TestCase("primary", "primary-soft")]
+    [TestCase("on-primary", "primary")]
+    [TestCase("primary-soft", "primary")]
+    [TestCase("on-primary", "error")]
+    [TestCase("error-surface", "error")]
+    [TestCase("success", "success-surface")]
+    [TestCase("warning", "warning-surface")]
+    [TestCase("error", "error-surface")]
+    public void CoreNeutral_TextAndStatePairsMeetMinimumContrast(string foreground, string background)
+    {
+        string source = File.ReadAllText(TokensPath);
+        double foregroundLuminance = Luminance(ReadTokenColor(source, foreground));
+        double backgroundLuminance = Luminance(ReadTokenColor(source, background));
+        double contrast = (Math.Max(foregroundLuminance, backgroundLuminance) + 0.05d) /
+                          (Math.Min(foregroundLuminance, backgroundLuminance) + 0.05d);
+        Assert.That(contrast, Is.GreaterThanOrEqualTo(4.5d),
+            foreground + " on " + background + " must remain readable, including pressed and disabled text.");
     }
 
     [Test]
@@ -139,7 +185,9 @@ public class MobileDesignSystemContractTests
             "Transient messages must inherit the page Safe Area.");
         Assert.That(shell.ModalLayer.parent, Is.SameAs(shell.Root),
             "Modal sheets own their edge-to-edge scrim and Safe Area binding.");
-        Assert.That(topBar.Leading.childCount, Is.EqualTo(4));
+        Assert.That(topBar.Leading.childCount, Is.Zero);
+        Assert.That(topBar.Root.Q<VisualElement>(className: "mobile-top-bar__lens"), Is.Null);
+        Assert.That(topBar.Root.Query<VisualElement>(className: "mobile-top-bar__light").ToList(), Is.Empty);
         Assert.That(card.Root.childCount, Is.EqualTo(3));
         Assert.That(navigation.Count, Is.EqualTo(2));
         Assert.That(first.IsSelected, Is.False);
@@ -187,4 +235,19 @@ public class MobileDesignSystemContractTests
         Assert.That(confirmation.ConfirmSlot.style.display.value, Is.EqualTo(DisplayStyle.None));
         Assert.That(confirmation.Root.Q<Button>(), Is.Null);
     }
+
+    private static Color ReadTokenColor(string source, string name)
+    {
+        MatchCollection declarations = Regex.Matches(source,
+            @"--ui-" + Regex.Escape(name) + @"\s*:\s*(#[0-9A-Fa-f]{6})\s*;");
+        Assert.That(declarations.Count, Is.EqualTo(1), "The palette must define " + name + " once.");
+        Assert.That(ColorUtility.TryParseHtmlString(declarations[0].Groups[1].Value, out Color color), Is.True);
+        return color;
+    }
+
+    private static double Luminance(Color color) =>
+        0.2126d * LinearChannel(color.r) + 0.7152d * LinearChannel(color.g) + 0.0722d * LinearChannel(color.b);
+
+    private static double LinearChannel(double value) =>
+        value <= 0.04045d ? value / 12.92d : Math.Pow((value + 0.055d) / 1.055d, 2.4d);
 }

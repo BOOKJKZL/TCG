@@ -1,72 +1,16 @@
-.main-menu { flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
+@import url("../Resources/UI/CoreNeutralTokens.uss");
 
-.trainer-device-rail {
-    height: 8px;
-    flex-shrink: 0;
-    flex-direction: row;
-    margin-left: -28px;
-    margin-right: -28px;
-    margin-top: -28px;
-    margin-bottom: 20px;
-    overflow: hidden;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
-}
-
-.trainer-device-rail__red {
-    flex-grow: 5;
-    background-color: rgb(222, 53, 63);
-}
-
-.trainer-device-rail__yellow {
-    flex-grow: 2;
-    background-color: rgb(255, 211, 65);
-}
-
-.trainer-device-rail__blue {
-    flex-grow: 3;
-    background-color: rgb(52, 137, 214);
-}
-
-.trainer-status-lights {
-    width: 104px;
-    flex-shrink: 0;
-    flex-direction: row;
+.main-menu {
+    flex-direction: column;
     align-items: center;
-    margin-right: 16px;
+    justify-content: center;
+    padding: 16px;
 }
 
-.trainer-status-light {
-    width: 10px;
-    height: 10px;
-    flex-shrink: 0;
-    margin-left: 5px;
-    border-width: 2px;
-    border-radius: 6px;
-    border-color: rgba(255, 255, 255, 0.72);
-}
-
-.trainer-status-light--lens {
-    width: 38px;
-    height: 38px;
-    margin-left: 0;
-    margin-right: 4px;
-    border-width: 4px;
-    border-radius: 21px;
-    border-color: rgb(235, 249, 255);
-    background-color: rgb(66, 204, 241);
-}
-
-.trainer-status-light--red {
-    background-color: rgb(240, 74, 81);
-}
-
-.trainer-status-light--yellow {
-    background-color: rgb(255, 211, 65);
-}
-
-.trainer-status-light--green {
-    background-color: rgb(78, 203, 128);
+/* Legacy decorative slots stay inert when a static template is previewed. */
+.trainer-device-rail,
+.trainer-status-lights {
+    display: none;
 }
 
 .content-management {
@@ -76,8 +20,8 @@
     top: 0;
     bottom: 0;
     padding: 30px;
-    color: rgb(236, 247, 255);
-    background-color: rgba(4, 12, 23, 0.96);
+    color: var(--ui-text);
+    background-color: var(--ui-canvas);
 }
 
 .content-management__shell {
@@ -86,10 +30,10 @@
     max-width: 1080px;
     align-self: center;
     padding: 26px;
-    border-width: 2px;
-    border-radius: 28px;
-    border-color: rgba(66, 196, 213, 0.7);
-    background-color: rgba(16, 34, 49, 0.98);
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .content-management__header,
@@ -110,14 +54,15 @@
 }
 
 .content-management__title {
-    color: white;
+    color: var(--ui-text);
     font-size: 34px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .content-management__subtitle,
 .content-package-row__metadata {
-    color: rgb(159, 190, 208);
+    color: var(--ui-text-secondary);
     font-size: 16px;
     white-space: normal;
 }
@@ -130,18 +75,18 @@
     margin-top: 14px;
     padding: 10px 14px;
     border-radius: 12px;
-    color: rgb(211, 237, 242);
-    background-color: rgba(35, 84, 98, 0.92);
+    color: var(--ui-primary);
+    background-color: var(--ui-primary-soft);
 }
 
 .content-management__catalog-status.is-error {
-    color: rgb(255, 225, 228);
-    background-color: rgba(133, 42, 55, 0.92);
+    color: var(--ui-error);
+    background-color: var(--ui-error-surface);
 }
 
 .content-management__catalog-status.is-warning {
-    color: rgb(255, 242, 201);
-    background-color: rgba(126, 86, 26, 0.94);
+    color: var(--ui-warning);
+    background-color: var(--ui-warning-surface);
 }
 
 .content-management__empty {
@@ -151,8 +96,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 18px;
-    color: rgb(164, 194, 211);
-    background-color: rgba(10, 25, 38, 0.88);
+    color: var(--ui-text-secondary);
+    background-color: var(--ui-raised);
     font-size: 19px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -170,8 +115,8 @@
     padding: 10px 12px;
     border-width: 1px;
     border-radius: 14px;
-    border-color: rgba(88, 161, 174, 0.55);
-    background-color: rgba(10, 25, 38, 0.72);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .content-management__search {
@@ -186,15 +131,15 @@
 }
 
 .content-management__filters .unity-base-field__label {
-    color: rgb(177, 211, 235);
+    color: var(--ui-text-secondary);
     min-width: 72px;
 }
 
 .content-management__filters .unity-base-field__input {
     min-height: 42px;
     border-radius: 10px;
-    color: rgb(21, 43, 67);
-    background-color: rgb(243, 247, 250);
+    color: var(--ui-text);
+    background-color: var(--ui-raised);
 }
 
 .content-management__selection {
@@ -202,18 +147,18 @@
     padding: 10px 12px;
     border-width: 1px;
     border-radius: 14px;
-    border-color: rgba(103, 196, 241, 0.65);
-    background-color: rgba(18, 50, 81, 0.9);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-primary-soft);
 }
 
 .content-management__selection-summary {
-    color: rgb(220, 239, 252);
+    color: var(--ui-text);
     white-space: normal;
 }
 
 .content-management__wifi-only {
     margin-top: 8px;
-    color: rgb(220, 239, 252);
+    color: var(--ui-text);
 }
 
 .content-management__wifi-only .unity-toggle__input {
@@ -228,10 +173,11 @@
 
 .content-management__selection-actions .content-button {
     min-width: 112px;
-    height: 42px;
+    height: auto;
     margin-left: 0;
     margin-right: 7px;
     margin-top: 4px;
+    min-height: 50px;
 }
 
 .content-package-row__selection {
@@ -246,13 +192,13 @@
     padding: 24px;
     border-width: 1px;
     border-radius: 18px;
-    border-color: rgba(88, 161, 174, 0.65);
-    background-color: rgba(20, 49, 65, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .zero-content-panel__text {
     margin-bottom: 14px;
-    color: rgb(222, 236, 241);
+    color: var(--ui-text-secondary);
     font-size: 20px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -269,13 +215,13 @@
     padding: 20px;
     border-width: 2px;
     border-radius: 16px;
-    border-color: rgb(223, 105, 96);
-    background-color: rgba(73, 28, 34, 0.96);
+    border-color: var(--ui-error);
+    background-color: var(--ui-error-surface);
     white-space: normal;
 }
 
 .player-error-panel__title {
-    color: rgb(255, 224, 214);
+    color: var(--ui-error);
     font-size: 23px;
     -unity-font-style: bold;
     white-space: normal;
@@ -283,7 +229,7 @@
 
 .player-error-panel__body {
     margin-top: 8px;
-    color: rgb(245, 224, 219);
+    color: var(--ui-error);
     font-size: 18px;
     white-space: normal;
 }
@@ -292,11 +238,6 @@
     margin-top: 14px;
     flex-direction: row;
     flex-wrap: wrap;
-}
-
-.player-error-panel.is-entering,
-.player-error-panel.is-leaving {
-    border-color: rgb(255, 183, 145);
 }
 
 .content-package-row__selection .unity-toggle__label {
@@ -310,14 +251,15 @@
     padding: 18px;
     border-width: 1px;
     border-radius: 18px;
-    border-color: rgba(88, 161, 174, 0.55);
-    background-color: rgba(25, 51, 67, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .content-package-row__name {
-    color: white;
+    color: var(--ui-text);
     font-size: 23px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .content-package-row__metadata {
@@ -326,16 +268,16 @@
 
 .content-package-row__status {
     margin-top: 10px;
-    color: rgb(147, 218, 192);
+    color: var(--ui-text-secondary);
     white-space: normal;
 }
 
 .content-package-row__status.is-error {
-    color: rgb(255, 151, 157);
+    color: var(--ui-error);
 }
 
 .content-package-row__status.is-success {
-    color: rgb(126, 239, 177);
+    color: var(--ui-success);
     -unity-font-style: bold;
 }
 
@@ -349,6 +291,27 @@
 .content-package-row__progress {
     height: 28px;
     margin-bottom: 12px;
+}
+
+.content-package-row__progress .unity-progress-bar__background {
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+}
+
+.content-package-row__progress .unity-progress-bar__progress {
+    background-color: var(--ui-primary);
+    border-radius: 5px;
+}
+
+/* An opaque title surface preserves contrast over both filled and unfilled progress. */
+.content-package-row__progress .unity-progress-bar__title {
+    padding-left: 4px;
+    padding-right: 4px;
+    border-radius: 4px;
+    background-color: var(--ui-surface);
+    color: var(--ui-text);
 }
 
 .content-package-row__actions {
@@ -403,58 +366,119 @@
     align-items: center;
     justify-content: center;
     min-width: 128px;
-    height: 50px;
+    height: auto;
     min-height: 50px;
     margin-left: 8px;
     padding-left: 16px;
     padding-right: 16px;
     border-width: 1px;
     border-radius: 13px;
-    border-color: rgba(106, 222, 231, 0.9);
-    color: white;
-    background-color: rgb(24, 119, 137);
+    border-color: var(--ui-outline);
+    color: var(--ui-text);
+    background-color: var(--ui-raised);
     font-size: 16px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .content-button__label {
-    color: white;
+    color: var(--ui-text);
     font-size: 16px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
+    white-space: normal;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
 }
 
 .content-button:hover .content-button__label {
-    color: rgb(211, 247, 250);
+    color: var(--ui-primary);
 }
 
 .content-button__label.is-pressed {
-    color: rgb(132, 239, 247);
+    color: var(--ui-primary);
 }
 
 .content-button__label.is-disabled {
-    color: rgba(171, 190, 204, 0.58);
+    color: var(--ui-text-secondary);
+    -unity-font-style: normal;
 }
 
 .content-button:focus .content-button__label {
-    color: rgb(255, 239, 142);
+    color: var(--ui-primary);
+    border-bottom-color: var(--ui-primary);
 }
 
 .content-button:focus .content-button__label.is-disabled {
-    color: rgba(171, 190, 204, 0.58);
+    color: var(--ui-text-secondary);
+    -unity-font-style: normal;
+    border-bottom-color: transparent;
+}
+
+.content-button:hover .content-button__label.is-disabled {
+    color: var(--ui-text-secondary);
 }
 
 .content-button--primary {
-    background-color: rgb(37, 137, 104);
+    background-color: var(--ui-primary);
+    border-color: var(--ui-primary);
+    color: var(--ui-on-primary);
 }
 
 .content-button--quiet {
-    background-color: rgba(44, 70, 87, 0.96);
+    background-color: var(--ui-raised);
 }
 
 .content-button--danger {
-    border-color: rgba(238, 121, 132, 0.9);
-    background-color: rgb(137, 52, 65);
+    border-color: var(--ui-error);
+    background-color: var(--ui-error);
+    color: var(--ui-on-primary);
+}
+
+.content-button--primary .content-button__label {
+    color: var(--ui-on-primary);
+}
+
+.content-button--primary .content-button__label.is-pressed,
+.content-button--primary:focus .content-button__label.is-pressed,
+.content-button--primary:hover .content-button__label,
+.content-button--primary .content-button__label.is-disabled,
+.content-button--primary:hover .content-button__label.is-disabled {
+    color: var(--ui-primary-soft);
+}
+
+.content-button--primary:focus .content-button__label {
+    color: var(--ui-on-primary);
+    border-bottom-color: var(--ui-on-primary);
+}
+
+.content-button--primary:focus .content-button__label.is-disabled {
+    color: var(--ui-primary-soft);
+    border-bottom-color: transparent;
+}
+
+.content-button--danger .content-button__label {
+    color: var(--ui-on-primary);
+}
+
+.content-button--danger .content-button__label.is-pressed,
+.content-button--danger:focus .content-button__label.is-pressed,
+.content-button--danger:hover .content-button__label,
+.content-button--danger .content-button__label.is-disabled,
+.content-button--danger:hover .content-button__label.is-disabled {
+    color: var(--ui-error-surface);
+}
+
+.content-button--danger:focus .content-button__label {
+    color: var(--ui-on-primary);
+    border-bottom-color: var(--ui-on-primary);
+}
+
+.content-button--danger:focus .content-button__label.is-disabled {
+    color: var(--ui-error-surface);
+    border-bottom-color: transparent;
 }
 
 .gacha-opening {
@@ -464,8 +488,8 @@
     top: 0;
     bottom: 0;
     padding: 36px;
-    color: rgb(240, 247, 255);
-    background-color: rgba(4, 9, 20, 0.94);
+    color: var(--ui-text);
+    background-color: var(--ui-canvas);
 }
 
 .gacha-opening__shell {
@@ -474,10 +498,10 @@
     max-width: 1080px;
     align-self: center;
     padding: 28px;
-    border-width: 2px;
-    border-radius: 28px;
-    border-color: rgba(203, 91, 255, 0.72);
-    background-color: rgba(23, 22, 48, 0.97);
+    border-width: 1px;
+    border-radius: 18px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .gacha-opening__header,
@@ -500,9 +524,10 @@
 
 .gacha-opening__title,
 .gacha-stage__title {
-    color: white;
+    color: var(--ui-text);
     font-size: 34px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .gacha-opening__subtitle,
@@ -512,7 +537,7 @@
 .gacha-reveal-progress,
 .gacha-reveal-card__metadata,
 .gacha-summary-row__metadata {
-    color: rgb(174, 186, 219);
+    color: var(--ui-text-secondary);
     font-size: 16px;
     white-space: normal;
 }
@@ -521,13 +546,13 @@
     margin-top: 12px;
     padding: 10px 14px;
     border-radius: 12px;
-    color: rgb(221, 234, 247);
-    background-color: rgba(48, 78, 104, 0.88);
+    color: var(--ui-primary);
+    background-color: var(--ui-primary-soft);
 }
 
 .gacha-opening__status.is-error {
-    color: rgb(255, 225, 228);
-    background-color: rgba(133, 42, 55, 0.92);
+    color: var(--ui-error);
+    background-color: var(--ui-error-surface);
 }
 
 .gacha-page {
@@ -537,30 +562,25 @@
 
 .gacha-selection {
     flex-direction: row;
+    min-height: 0;
 }
 
 .gacha-product-list {
     width: 46%;
     flex-shrink: 0;
     margin-right: 18px;
+    min-height: 240px;
 }
 
 .gacha-product-row {
-    height: 100%;
+    height: auto;
     margin: 5px 7px;
     padding: 10px 14px;
     border-width: 1px;
     border-radius: 16px;
-    border-color: rgba(125, 109, 182, 0.55);
-    background-color: rgba(42, 41, 78, 0.96);
-    transition-property: scale, background-color, border-color;
-    transition-duration: 0.12s;
-}
-
-.gacha-product-row:hover {
-    scale: 1.01 1.01;
-    border-color: rgb(215, 119, 255);
-    background-color: rgb(57, 50, 100);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
+    min-height: 118px;
 }
 
 .gacha-product-row__cover .async-card-image {
@@ -576,19 +596,20 @@
 .gacha-selected-product__name,
 .gacha-reveal-card__name,
 .gacha-summary-row__name {
-    color: white;
+    color: var(--ui-text);
     font-size: 21px;
     -unity-font-style: bold;
     white-space: normal;
 }
 
 .gacha-selected-product {
-    flex-grow: 1;
+    flex-grow: 0;
     padding: 22px;
     border-width: 1px;
-    border-radius: 22px;
-    border-color: rgba(198, 119, 238, 0.66);
-    background-color: rgba(38, 34, 69, 0.98);
+    border-radius: 18px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
+    align-items: flex-start;
 }
 
 .gacha-selected-product__art {
@@ -605,6 +626,7 @@
 .gacha-selected-product__body {
     align-self: stretch;
     margin-left: 22px;
+    min-width: 0;
 }
 
 .gacha-rule-badge,
@@ -614,30 +636,35 @@
     margin-top: 12px;
     padding: 5px 10px;
     border-radius: 9px;
-    color: rgb(255, 234, 181);
-    background-color: rgb(134, 79, 24);
+    color: var(--ui-text-secondary);
+    background-color: var(--ui-raised);
     -unity-font-style: bold;
 }
 
+.gacha-rule-badge {
+    color: var(--ui-warning);
+    background-color: var(--ui-warning-surface);
+}
+
 .gacha-rule-badge.is-verified {
-    color: rgb(196, 255, 223);
-    background-color: rgb(22, 111, 74);
+    color: var(--ui-success);
+    background-color: var(--ui-success-surface);
 }
 
 .gacha-rule-badge.is-sourced {
-    color: rgb(211, 231, 255);
-    background-color: rgb(40, 83, 151);
+    color: var(--ui-primary);
+    background-color: var(--ui-primary-soft);
 }
 
 .gacha-rule-notice {
     margin-top: 10px;
-    color: rgb(255, 208, 137);
+    color: var(--ui-warning);
     white-space: normal;
 }
 
 .gacha-rule-evidence {
     margin-top: 7px;
-    color: rgb(188, 202, 230);
+    color: var(--ui-text-secondary);
     font-size: 14px;
     white-space: normal;
 }
@@ -650,32 +677,23 @@
 
 .gacha-source-button {
     align-self: flex-start;
-    height: 36px;
+    min-height: 50px;
+    height: auto;
     margin-top: 8px;
     margin-right: 8px;
     padding-left: 12px;
     padding-right: 12px;
     border-width: 1px;
     border-radius: 10px;
-    border-color: rgba(123, 213, 168, 0.85);
-    color: rgb(205, 255, 227);
-    background-color: rgba(24, 94, 65, 0.94);
-    transition-property: scale, background-color;
-    transition-duration: 0.12s;
-}
-
-.gacha-source-button:hover {
-    background-color: rgb(34, 126, 86);
-}
-
-.gacha-source-button:active {
-    scale: 0.96 0.96;
+    border-color: var(--ui-outline);
+    color: var(--ui-text);
+    background-color: var(--ui-raised);
 }
 
 .gacha-odds-heading {
     margin-top: 18px;
     margin-bottom: 6px;
-    color: rgb(226, 217, 255);
+    color: var(--ui-text);
     -unity-font-style: bold;
 }
 
@@ -697,26 +715,26 @@
 
 .gacha-opening-statistics {
     margin-top: 12px;
-    color: rgb(196, 220, 241);
+    color: var(--ui-text-secondary);
     font-size: 13px;
     white-space: normal;
 }
 
 .gacha-opening-history {
-    max-height: 116px;
+    max-height: none;
     margin-top: 6px;
     padding: 6px 8px;
     border-width: 1px;
     border-radius: 10px;
-    border-color: rgba(103, 196, 241, 0.45);
-    background-color: rgba(7, 24, 45, 0.62);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .gacha-history-row {
     min-height: 24px;
     padding-top: 3px;
     padding-bottom: 3px;
-    color: rgb(190, 218, 239);
+    color: var(--ui-text-secondary);
     font-size: 12px;
     white-space: normal;
 }
@@ -725,50 +743,46 @@
     padding-top: 5px;
     padding-bottom: 5px;
     border-bottom-width: 1px;
-    border-bottom-color: rgba(134, 121, 174, 0.35);
+    border-bottom-color: var(--ui-outline);
 }
 
 .gacha-odds-row__name {
     flex-grow: 1;
-    color: rgb(213, 219, 238);
+    color: var(--ui-text);
 }
 
 .gacha-odds-row__value {
-    color: rgb(255, 215, 117);
+    color: var(--ui-warning);
     -unity-font-style: bold;
 }
 
 .gacha-button {
     min-width: 140px;
-    height: 52px;
+    min-height: 52px;
+    height: auto;
     padding-left: 18px;
     padding-right: 18px;
     border-width: 1px;
     border-radius: 14px;
-    border-color: rgba(220, 139, 255, 0.9);
-    color: white;
-    background-color: rgb(94, 55, 145);
+    border-color: var(--ui-outline);
+    color: var(--ui-text);
+    background-color: var(--ui-raised);
     font-size: 18px;
     -unity-font-style: bold;
-    transition-property: scale, background-color;
-    transition-duration: 0.12s;
-}
-
-.gacha-button:hover {
-    background-color: rgb(126, 72, 178);
-}
-
-.gacha-button:active {
-    scale: 0.96 0.96;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
 }
 
 .gacha-button--primary {
-    background-color: rgb(164, 58, 133);
+    background-color: var(--ui-primary);
+    border-color: var(--ui-primary);
+    color: var(--ui-on-primary);
 }
 
 .gacha-button--quiet {
     align-self: flex-start;
-    background-color: rgba(55, 61, 91, 0.96);
+    background-color: var(--ui-raised);
 }
 
 .gacha-stage {
@@ -942,7 +956,7 @@
     flex-shrink: 0;
     min-height: 30px;
     margin-bottom: 8px;
-    color: rgb(237, 226, 255);
+    color: var(--ui-on-primary);
     font-size: 15px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
@@ -983,14 +997,14 @@
     right: 0;
     top: 4px;
     margin-top: 0;
-    color: rgb(220, 226, 239);
-    background-color: rgb(65, 70, 91);
+    color: var(--ui-text-secondary);
+    background-color: var(--ui-raised);
 }
 
 .gacha-reveal-card__badge.is-new,
 .gacha-summary-row__badge.is-new {
-    color: rgb(32, 57, 45);
-    background-color: rgb(108, 239, 173);
+    color: var(--ui-success);
+    background-color: var(--ui-success-surface);
 }
 
 .gacha-reveal-card__metadata {
@@ -1027,8 +1041,8 @@
     padding: 10px 14px;
     border-width: 1px;
     border-radius: 13px;
-    border-color: rgba(137, 127, 175, 0.5);
-    background-color: rgba(45, 43, 77, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .gacha-summary-row__badge {
@@ -1039,12 +1053,6 @@
 
 .gacha-summary__actions {
     justify-content: center;
-}
-
-.gacha-theme--vintage .gacha-opening__shell,
-.gacha-theme--vintage .gacha-selected-product {
-    border-color: rgba(212, 168, 91, 0.84);
-    background-color: rgba(45, 36, 42, 0.98);
 }
 
 .gacha-theme--vintage .gacha-pack-shell {
@@ -1070,12 +1078,6 @@
     background-color: rgb(202, 133, 76);
 }
 
-.gacha-theme--forest .gacha-opening__shell,
-.gacha-theme--forest .gacha-selected-product {
-    border-color: rgba(100, 190, 126, 0.82);
-    background-color: rgba(27, 51, 43, 0.98);
-}
-
 .gacha-theme--forest .gacha-pack-shell {
     border-color: rgb(135, 213, 143);
     background-color: rgb(35, 82, 61);
@@ -1097,12 +1099,6 @@
 
 .gacha-theme--forest .theme-particle--shard {
     background-color: rgb(246, 223, 104);
-}
-
-.gacha-theme--ruby .gacha-opening__shell,
-.gacha-theme--ruby .gacha-selected-product {
-    border-color: rgba(235, 96, 115, 0.88);
-    background-color: rgba(61, 29, 44, 0.98);
 }
 
 .gacha-theme--ruby .gacha-pack-shell {
@@ -1128,12 +1124,6 @@
     background-color: rgb(255, 192, 105);
 }
 
-.gacha-theme--electric .gacha-opening__shell,
-.gacha-theme--electric .gacha-selected-product {
-    border-color: rgba(80, 184, 255, 0.86);
-    background-color: rgba(24, 39, 74, 0.98);
-}
-
 .gacha-theme--electric .gacha-pack-shell {
     border-color: rgb(83, 207, 255);
     background-color: rgb(38, 64, 142);
@@ -1155,12 +1145,6 @@
 
 .gacha-theme--electric .theme-particle--shard {
     background-color: rgb(255, 92, 184);
-}
-
-.gacha-theme--gallery .gacha-opening__shell,
-.gacha-theme--gallery .gacha-selected-product {
-    border-color: rgba(192, 119, 255, 0.90);
-    background-color: rgba(52, 27, 72, 0.98);
 }
 
 .gacha-theme--gallery .gacha-pack-shell {
@@ -1198,11 +1182,6 @@
     display: none;
 }
 
-.reduce-motion .gacha-button:active,
-.reduce-motion .gacha-product-row:hover {
-    scale: 1 1;
-}
-
 .gacha-summary__actions .gacha-button {
     margin-left: 8px;
     margin-right: 8px;
@@ -1215,8 +1194,8 @@
     top: 0;
     bottom: 0;
     padding: 36px;
-    color: rgb(239, 247, 255);
-    background-color: rgba(5, 10, 22, 0.94);
+    color: var(--ui-text);
+    background-color: var(--ui-canvas);
 }
 
 .collection-browser__shell {
@@ -1225,10 +1204,10 @@
     align-self: center;
     width: 100%;
     padding: 28px;
-    border-radius: 28px;
-    border-width: 2px;
-    border-color: rgba(76, 169, 242, 0.75);
-    background-color: rgba(16, 28, 48, 0.97);
+    border-radius: 18px;
+    border-width: 1px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .collection-browser__header,
@@ -1252,15 +1231,17 @@
 
 .browser-button--pokedex {
     margin-right: 10px;
-    border-color: rgba(117, 226, 189, 0.9);
-    background-color: rgb(33, 126, 104);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    color: var(--ui-text);
 }
 
 .collection-browser__title,
 .card-page__title {
     font-size: 34px;
     -unity-font-style: bold;
-    color: rgb(250, 253, 255);
+    color: var(--ui-text);
+    white-space: normal;
 }
 
 .collection-browser__subtitle,
@@ -1268,17 +1249,23 @@
 .card-page__count,
 .browser-row__metadata,
 .details-panel__metadata {
-    color: rgb(160, 191, 218);
+    color: var(--ui-text-secondary);
     font-size: 17px;
+    white-space: normal;
 }
 
 .collection-browser__status {
     margin-top: 12px;
     margin-bottom: 14px;
+    flex-shrink: 0;
+    margin: 0 0 10px 0;
+    color: var(--ui-text-secondary);
+    font-size: 17px;
+    white-space: normal;
 }
 
 .collection-browser__status.is-error {
-    color: rgb(255, 140, 148);
+    color: var(--ui-error);
 }
 
 .browser-page,
@@ -1287,7 +1274,8 @@
 }
 
 .card-page__header {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
 }
 
 .card-page__heading {
@@ -1296,30 +1284,22 @@
 
 .browser-button {
     min-width: 140px;
-    height: 52px;
+    min-height: 52px;
+    height: auto;
     padding-left: 18px;
     padding-right: 18px;
     border-radius: 14px;
     border-width: 1px;
-    border-color: rgba(100, 197, 255, 0.9);
-    background-color: rgb(30, 105, 160);
-    color: white;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    color: var(--ui-text);
     font-size: 18px;
     -unity-font-style: bold;
-    transition-property: scale, background-color;
-    transition-duration: 0.12s;
-}
-
-.browser-button:hover {
-    background-color: rgb(45, 137, 196);
-}
-
-.browser-button:active {
-    scale: 0.96 0.96;
+    white-space: normal;
 }
 
 .browser-button--quiet {
-    background-color: rgba(40, 66, 92, 0.9);
+    background-color: var(--ui-raised);
 }
 
 .browser-button--filter {
@@ -1332,26 +1312,28 @@
 }
 
 .browser-button--filter.is-selected {
-    border-color: rgb(255, 213, 100);
-    background-color: rgb(126, 91, 24);
-    color: rgb(255, 245, 205);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-raised);
+    color: var(--ui-primary);
 }
 
 .collection-filters {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     padding: 12px;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-end;
     border-radius: 16px;
     border-width: 1px;
-    border-color: rgba(91, 141, 181, 0.45);
-    background-color: rgba(18, 35, 56, 0.92);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    flex-shrink: 0;
 }
 
 .collection-filter {
-    color: rgb(210, 230, 246);
+    color: var(--ui-text-secondary);
     font-size: 14px;
+    white-space: normal;
 }
 
 .collection-filter--search {
@@ -1371,12 +1353,12 @@
 
 .collection-filter .unity-base-text-field__input,
 .collection-filter .unity-base-popup-field__input {
-    min-height: 36px;
+    min-height: 48px;
     border-radius: 9px;
     border-width: 1px;
-    border-color: rgba(100, 197, 255, 0.55);
-    background-color: rgb(10, 23, 39);
-    color: white;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    color: var(--ui-text);
 }
 
 .collection-filter__empty {
@@ -1385,10 +1367,11 @@
     justify-content: center;
     padding: 28px;
     border-radius: 16px;
-    background-color: rgba(14, 28, 46, 0.88);
-    color: rgb(160, 191, 218);
+    background-color: var(--ui-raised);
+    color: var(--ui-text-secondary);
     font-size: 19px;
     -unity-text-align: middle-center;
+    white-space: normal;
 }
 
 .set-row,
@@ -1398,26 +1381,17 @@
     padding: 10px 16px;
     border-radius: 18px;
     border-width: 1px;
-    border-color: rgba(91, 141, 181, 0.45);
-    background-color: rgba(29, 49, 73, 0.96);
-    transition-property: scale, background-color, border-color;
-    transition-duration: 0.12s;
-}
-
-.set-row:hover,
-.card-row:hover {
-    scale: 1.01 1.01;
-    border-color: rgb(89, 193, 255);
-    background-color: rgb(34, 64, 92);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .card-row.is-unowned {
-    opacity: 0.62;
+    background-color: var(--ui-raised);
 }
 
 .card-row.is-new {
-    border-color: rgb(255, 207, 88);
-    background-color: rgb(55, 58, 71);
+    border-color: var(--ui-success);
+    background-color: var(--ui-success-surface);
 }
 
 .browser-row__copy {
@@ -1426,7 +1400,7 @@
 
 .browser-row__title,
 .details-panel__name {
-    color: white;
+    color: var(--ui-text);
     font-size: 23px;
     -unity-font-style: bold;
     white-space: normal;
@@ -1434,8 +1408,9 @@
 
 .card-row__rarity {
     margin-top: 8px;
-    color: rgb(255, 211, 105);
+    color: var(--ui-warning);
     font-size: 17px;
+    white-space: normal;
 }
 
 .card-row__progress {
@@ -1446,13 +1421,14 @@
 
 .card-row__owned,
 .details-panel__progress {
-    color: rgb(151, 179, 202);
+    color: var(--ui-text-secondary);
     font-size: 15px;
+    white-space: normal;
 }
 
 .card-row__owned.is-owned,
 .details-panel__progress {
-    color: rgb(145, 231, 183);
+    color: var(--ui-success);
 }
 
 .card-row__new,
@@ -1460,10 +1436,11 @@
     margin-bottom: 8px;
     padding: 4px 9px;
     border-radius: 9px;
-    background-color: rgb(183, 123, 22);
-    color: rgb(255, 246, 209);
+    background-color: var(--ui-success-surface);
+    color: var(--ui-success);
     font-size: 13px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .async-card-image {
@@ -1473,7 +1450,7 @@
     flex-shrink: 0;
     overflow: hidden;
     border-radius: 10px;
-    background-color: rgb(10, 20, 34);
+    background-color: var(--ui-raised);
 }
 
 .async-card-image__art {
@@ -1490,7 +1467,7 @@
     left: 5px;
     right: 5px;
     top: 34px;
-    color: rgb(201, 218, 232);
+    color: var(--ui-text-secondary);
     font-size: 11px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -1498,14 +1475,19 @@
 
 .async-card-image__retry {
     position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: 7px;
-    height: 26px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    height: 48px;
     border-radius: 7px;
-    background-color: rgb(145, 52, 61);
-    color: white;
+    background-color: var(--ui-error-surface);
+    color: var(--ui-error);
     font-size: 11px;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    transition-property: none;
+    white-space: normal;
 }
 
 .details-panel {
@@ -1524,7 +1506,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.74);
+    background-color: var(--ui-scrim);
 }
 
 .details-panel__card {
@@ -1532,10 +1514,10 @@
     max-width: 88%;
     padding: 28px;
     align-items: center;
-    border-radius: 26px;
-    border-width: 2px;
-    border-color: rgb(93, 200, 255);
-    background-color: rgb(18, 36, 58);
+    border-radius: 18px;
+    border-width: 1px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .details-panel__art .async-card-image {
@@ -1556,8 +1538,8 @@
     justify-content: center;
     border-radius: 18px;
     border-width: 1px;
-    border-color: rgba(100, 197, 255, 0.48);
-    background-color: rgba(8, 22, 39, 0.9);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .details-panel__language {
@@ -1569,25 +1551,20 @@
     padding-right: 12px;
     border-radius: 14px;
     border-width: 1px;
-    border-color: rgba(109, 162, 204, 0.45);
-    background-color: rgba(27, 53, 78, 0.92);
-    color: rgb(195, 219, 239);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    color: var(--ui-text);
     font-size: 15px;
     -unity-font-style: bold;
     transition-property: background-color, border-color, color;
     transition-duration: 0.1s;
-}
-
-.details-panel__language:hover {
-    border-color: rgb(118, 205, 255);
-    background-color: rgb(39, 85, 121);
-    color: white;
+    white-space: normal;
 }
 
 .details-panel__language.is-selected {
-    border-color: rgb(255, 219, 92);
-    background-color: rgb(187, 48, 58);
-    color: white;
+    border-color: var(--ui-primary);
+    background-color: var(--ui-primary-soft);
+    color: var(--ui-primary);
 }
 
 .reduce-motion .details-panel__language {
@@ -1608,150 +1585,6 @@
 .details-panel__new {
     margin-top: 14px;
     margin-bottom: 0;
-}
-
-/* Original trainer-terminal visual language shared by the primary game screens. */
-.content-management,
-.gacha-opening,
-.collection-browser {
-    background-color: rgb(7, 19, 39);
-}
-
-.content-management__shell,
-.gacha-opening__shell,
-.collection-browser__shell {
-    border-color: rgb(76, 190, 235);
-    background-color: rgb(16, 43, 76);
-}
-
-.content-management__title,
-.gacha-opening__title,
-.collection-browser__title,
-.card-page__title {
-    color: rgb(248, 252, 255);
-}
-
-.content-management__subtitle,
-.gacha-opening__subtitle,
-.collection-browser__subtitle,
-.collection-browser__status,
-.card-page__count {
-    color: rgb(177, 211, 235);
-}
-
-.content-package-row,
-.gacha-product-row,
-.gacha-summary-row,
-.set-row,
-.card-row {
-    border-color: rgb(184, 202, 216);
-    background-color: rgb(243, 247, 250);
-}
-
-.content-package-row__name,
-.gacha-product-row .gacha-product-row__name,
-.gacha-summary-row .gacha-summary-row__name,
-.set-row .browser-row__title,
-.card-row .browser-row__title {
-    color: rgb(21, 43, 67);
-}
-
-.content-package-row__metadata,
-.gacha-product-row .gacha-product-row__metadata,
-.gacha-summary-row .gacha-summary-row__metadata,
-.set-row .browser-row__metadata,
-.card-row .browser-row__metadata {
-    color: rgb(74, 101, 126);
-}
-
-.content-package-row:hover,
-.gacha-product-row:hover,
-.set-row:hover,
-.card-row:hover {
-    border-color: rgb(67, 157, 221);
-    background-color: rgb(222, 239, 249);
-}
-
-.card-row.is-new {
-    border-color: rgb(225, 160, 37);
-    background-color: rgb(255, 245, 207);
-}
-
-.gacha-button,
-.browser-button {
-    border-color: rgb(103, 196, 241);
-    background-color: rgb(43, 118, 190);
-}
-
-.gacha-button:hover,
-.browser-button:hover {
-    background-color: rgb(55, 146, 216);
-}
-
-.gacha-button--primary,
-.browser-button--pokedex {
-    border-color: rgb(255, 115, 121);
-    background-color: rgb(205, 49, 61);
-}
-
-.gacha-button--primary:hover,
-.browser-button--pokedex:hover {
-    background-color: rgb(230, 63, 73);
-}
-
-.content-button {
-    border-color: rgb(103, 196, 241);
-    background-color: rgb(43, 118, 190);
-}
-
-.content-button--primary {
-    border-color: rgb(255, 115, 121);
-    background-color: rgb(205, 49, 61);
-}
-
-.content-button--danger {
-    border-color: rgb(235, 97, 104);
-    background-color: rgb(139, 42, 50);
-}
-
-.details-panel__card {
-    border-color: rgb(224, 57, 67);
-    background-color: rgb(246, 249, 251);
-}
-
-.details-panel__card .details-panel__name {
-    color: rgb(21, 43, 67);
-}
-
-.details-panel__card .details-panel__metadata {
-    color: rgb(72, 98, 122);
-}
-
-.details-panel__card .details-panel__progress {
-    color: rgb(26, 125, 85);
-}
-
-.details-panel__languages {
-    border-color: rgb(146, 177, 200);
-    background-color: rgb(225, 234, 241);
-}
-
-.details-panel__language {
-    border-color: rgb(133, 164, 188);
-    background-color: rgb(240, 245, 248);
-    color: rgb(47, 76, 101);
-}
-
-.details-panel__language:hover {
-    border-color: rgb(55, 146, 216);
-    background-color: rgb(214, 235, 249);
-    color: rgb(21, 43, 67);
-}
-
-.details-panel__language.is-selected {
-    border-color: rgb(229, 164, 35);
-    background-color: rgb(205, 49, 61);
-    color: white;
 }
 
 /* Safe Area is added as inline padding on the full-screen background roots.
@@ -1785,15 +1618,6 @@
     margin-top: 6px;
 }
 
-.content-management__selection-actions .content-button {
-    min-height: 50px;
-    height: 50px;
-}
-
-.content-package-row__name {
-    white-space: normal;
-}
-
 /* Mobile pack-opening presentation. The shared page shell owns the only Safe Area
    binding; this host remains edge-to-edge and contains no durable inline state. */
 .gacha-opening-host {
@@ -1802,7 +1626,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background-color: rgb(4, 9, 20);
+    background-color: var(--ui-canvas);
 }
 
 .gacha-opening-host > .gacha-opening {
@@ -1846,110 +1670,69 @@
     max-width: 640px;
 }
 
-.gacha-selection {
-    min-height: 0;
-}
-
-.gacha-product-list {
-    min-height: 240px;
-}
-
-.gacha-product-row {
-    height: auto;
-    min-height: 118px;
-    transition-property: none;
-}
-
-.gacha-product-row:hover {
-    scale: 1 1;
-}
-
 .gacha-selected-product-scroll {
     flex-grow: 1;
     min-width: 0;
     min-height: 0;
 }
 
-.gacha-selected-product {
-    flex-grow: 0;
-    align-items: flex-start;
-}
-
-.gacha-selected-product__body {
-    min-width: 0;
-}
-
-.gacha-source-button {
-    min-height: 48px;
-    height: auto;
-    transition-property: none;
-}
-
-.gacha-source-button:hover {
-    background-color: rgba(24, 94, 65, 0.94);
-}
-
-.gacha-source-button:active {
-    scale: 1 1;
-}
-
 .gacha-source-button__label,
 .gacha-button__label {
-    color: white;
+    color: var(--ui-text);
     font-size: 18px;
     -unity-font-style: bold;
     white-space: normal;
     -unity-text-align: middle-center;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
 }
 
 .gacha-source-button__label {
-    color: rgb(205, 255, 227);
+    color: var(--ui-text);
     font-size: 15px;
-}
-
-.gacha-button {
-    min-height: 52px;
-    height: auto;
-    align-items: center;
-    justify-content: center;
-    transition-property: none;
-}
-
-.gacha-button:hover {
-    background-color: rgb(94, 55, 145);
-}
-
-.gacha-button.gacha-button--primary:hover {
-    background-color: rgb(164, 58, 133);
-}
-
-.gacha-button.gacha-button--quiet:hover {
-    background-color: rgba(55, 61, 91, 0.96);
-}
-
-.gacha-button:active {
-    scale: 1 1;
+    white-space: normal;
 }
 
 .gacha-button__label.is-pressed,
 .gacha-source-button__label.is-pressed {
-    opacity: 0.62;
+    color: var(--ui-primary);
 }
 
 .gacha-button__label.is-disabled,
 .gacha-source-button__label.is-disabled,
 .gacha-button:focus .gacha-button__label.is-disabled,
 .gacha-source-button:focus .gacha-source-button__label.is-disabled {
-    color: rgba(194, 198, 211, 0.58);
+    color: var(--ui-text-secondary);
+    -unity-font-style: normal;
 }
 
 .gacha-button:focus .gacha-button__label,
 .gacha-source-button:focus .gacha-source-button__label {
-    color: rgb(255, 225, 126);
+    color: var(--ui-primary);
+    border-bottom-color: var(--ui-primary);
 }
 
-.gacha-opening-history {
-    max-height: none;
+.gacha-button--primary .gacha-button__label {
+    color: var(--ui-on-primary);
+}
+
+.gacha-button--primary .gacha-button__label.is-pressed,
+.gacha-button--primary:focus .gacha-button__label.is-pressed,
+.gacha-button--primary:hover .gacha-button__label,
+.gacha-button--primary .gacha-button__label.is-disabled {
+    color: var(--ui-primary-soft);
+}
+
+.gacha-button--primary:focus .gacha-button__label {
+    color: var(--ui-on-primary);
+    border-bottom-color: var(--ui-on-primary);
+}
+
+.gacha-button--primary:focus .gacha-button__label.is-disabled {
+    color: var(--ui-primary-soft);
+    border-bottom-color: transparent;
 }
 
 .gacha-opening .mobile-layout--compact .gacha-selection {
@@ -2059,12 +1842,12 @@
     padding: 16px;
     border-width: 2px;
     border-radius: 18px;
-    border-color: rgb(56, 154, 183);
-    background-color: rgb(18, 54, 75);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-primary-soft);
 }
 
 .content-management__launch-title {
-    color: rgb(126, 229, 235);
+    color: var(--ui-text);
     font-size: 18px;
     -unity-font-style: bold;
     white-space: normal;
@@ -2072,7 +1855,7 @@
 
 .content-management__launch-body {
     margin-top: 6px;
-    color: rgb(222, 236, 241);
+    color: var(--ui-text);
     font-size: 17px;
     white-space: normal;
 }
@@ -2104,7 +1887,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background-color: rgb(4, 9, 20);
+    background-color: var(--ui-canvas);
 }
 
 .collection-browser-host > .collection-browser {
@@ -2119,23 +1902,12 @@
 .browser-page,
 .browser-list {
     flex-grow: 1;
+    flex-shrink: 1;
     min-height: 0;
 }
 
 .collection-browser__body.is-pending {
-    opacity: 0.72;
-}
-
-.collection-browser__status {
-    flex-shrink: 0;
-    margin: 0 0 10px 0;
-    color: rgb(177, 211, 235);
-    font-size: 17px;
-    white-space: normal;
-}
-
-.collection-browser__status.is-error {
-    color: rgb(255, 151, 158);
+    background-color: var(--ui-raised);
 }
 
 .collection-action {
@@ -2147,19 +1919,19 @@
     justify-content: center;
     border-width: 1px;
     border-radius: 14px;
-    border-color: rgb(103, 196, 241);
-    background-color: rgb(43, 118, 190);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
     transition-property: none;
 }
 
 .collection-action--primary {
-    border-color: rgb(255, 115, 121);
-    background-color: rgb(205, 49, 61);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-primary);
 }
 
 .collection-action--quiet {
-    border-color: rgba(132, 166, 194, 0.78);
-    background-color: rgba(40, 66, 92, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .collection-action--filter {
@@ -2168,18 +1940,22 @@
 }
 
 .collection-action__label {
-    color: white;
+    color: var(--ui-text);
     font-size: 17px;
     -unity-font-style: bold;
     white-space: normal;
     -unity-text-align: middle-center;
+    width: 100%;
+    flex-shrink: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
 }
 
 .collection-action__label.is-pressed,
 .set-row .browser-row__title.is-pressed,
 .card-tile .card-tile__name.is-pressed,
 .async-card-image__retry-label.is-pressed {
-    opacity: 0.6;
+    color: var(--ui-primary);
 }
 
 .collection-action__label.is-disabled,
@@ -2189,39 +1965,51 @@
 .card-tile .card-tile__name.is-disabled,
 .card-tile:focus .card-tile__name.is-disabled,
 .async-card-image__retry-label.is-disabled {
-    color: rgba(194, 204, 216, 0.58);
+    color: var(--ui-text-secondary);
+    -unity-font-style: normal;
 }
 
 .collection-action:focus .collection-action__label,
 .set-row:focus .browser-row__title,
 .card-tile:focus .card-tile__name {
-    color: rgb(255, 225, 126);
+    color: var(--ui-primary);
+    border-bottom-color: var(--ui-primary);
 }
 
 .collection-action.is-selected {
-    border-color: rgb(255, 219, 92);
-    background-color: rgb(139, 91, 25);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-raised);
 }
 
-.card-page__header {
-    flex-shrink: 0;
-    margin-bottom: 10px;
+.collection-action.is-selected .collection-action__label {
+    color: var(--ui-primary);
+    border-bottom-color: var(--ui-primary);
 }
 
-.collection-filters {
-    flex-shrink: 0;
-    margin-bottom: 10px;
-    padding: 12px;
+.collection-action--primary .collection-action__label {
+    color: var(--ui-on-primary);
+}
+
+.collection-action--primary .collection-action__label.is-pressed,
+.collection-action--primary:focus .collection-action__label.is-pressed,
+.collection-action--primary:hover .collection-action__label,
+.collection-action--primary .collection-action__label.is-disabled {
+    color: var(--ui-primary-soft);
+}
+
+.collection-action--primary:focus .collection-action__label {
+    color: var(--ui-on-primary);
+    border-bottom-color: var(--ui-on-primary);
+}
+
+.collection-action--primary:focus .collection-action__label.is-disabled {
+    color: var(--ui-primary-soft);
+    border-bottom-color: transparent;
 }
 
 .collection-filter--sort {
     width: 190px;
     margin-left: 10px;
-}
-
-.collection-filter .unity-base-text-field__input,
-.collection-filter .unity-base-popup-field__input {
-    min-height: 48px;
 }
 
 .collection-filter-sheet-action {
@@ -2261,7 +2049,8 @@
 
 .collection-set-list,
 .collection-card-grid {
-    min-height: 220px;
+    /* The scroll viewport must fit short/landscape screens above the fixed navigation. */
+    min-height: 0;
     width: 100%;
     max-width: 100%;
 }
@@ -2277,10 +2066,6 @@
     min-height: 132px;
     margin: 6px 8px;
     transition-property: none;
-}
-
-.set-row:hover {
-    scale: 1 1;
 }
 
 .card-grid-row {
@@ -2306,18 +2091,18 @@
     align-items: stretch;
     border-width: 1px;
     border-radius: 18px;
-    border-color: rgb(184, 202, 216);
-    background-color: rgb(243, 247, 250);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
     transition-property: none;
 }
 
 .card-tile.is-unowned {
-    opacity: 0.66;
+    background-color: var(--ui-raised);
 }
 
 .card-tile.is-new {
-    border-color: rgb(225, 160, 37);
-    background-color: rgb(255, 245, 207);
+    border-color: var(--ui-success);
+    background-color: var(--ui-success-surface);
 }
 
 .card-tile__image.async-card-image {
@@ -2333,7 +2118,7 @@
 }
 
 .card-tile__name {
-    color: rgb(21, 43, 67);
+    color: var(--ui-text);
     font-size: 19px;
     -unity-font-style: bold;
     white-space: normal;
@@ -2344,14 +2129,14 @@
 .card-tile__rarity,
 .card-tile__owned {
     margin-top: 5px;
-    color: rgb(74, 101, 126);
+    color: var(--ui-text-secondary);
     font-size: 14px;
     white-space: normal;
     -unity-text-align: middle-center;
 }
 
 .card-tile__rarity {
-    color: rgb(143, 90, 14);
+    color: var(--ui-warning);
 }
 
 .card-tile__progress {
@@ -2363,17 +2148,18 @@
 }
 
 .card-tile__owned.is-owned {
-    color: rgb(26, 125, 85);
+    color: var(--ui-success);
 }
 
 .card-tile__new,
 .collection-detail__new {
     padding: 4px 9px;
     border-radius: 9px;
-    background-color: rgb(183, 123, 22);
-    color: rgb(255, 246, 209);
+    background-color: var(--ui-success-surface);
+    color: var(--ui-success);
     font-size: 13px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .collection-detail-sheet .mobile-sheet__safe-area {
@@ -2385,7 +2171,7 @@
     height: 100%;
     max-width: 760px;
     max-height: 100%;
-    border-radius: 24px;
+    border-radius: 18px;
 }
 
 .collection-detail-sheet .mobile-sheet__content {
@@ -2424,26 +2210,34 @@
     min-height: 52px;
     width: auto;
     margin: 4px;
-    border-color: rgb(133, 164, 188);
-    background-color: rgb(240, 245, 248);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .collection-detail__language .mobile-action__label {
-    color: rgb(47, 76, 101);
+    color: var(--ui-text);
 }
 
 .collection-detail__language.is-selected {
-    border-color: rgb(229, 164, 35);
-    background-color: rgb(205, 49, 61);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-raised);
 }
 
 .collection-detail__language.is-selected .mobile-action__label {
-    color: white;
+    color: var(--ui-primary);
+}
+
+.collection-detail__language .mobile-action__label.is-pressed {
+    color: var(--ui-primary);
+}
+
+.collection-detail__language .mobile-action__label.is-disabled {
+    color: var(--ui-text-secondary);
 }
 
 .collection-detail__name {
     margin-top: 14px;
-    color: white;
+    color: var(--ui-text);
     font-size: 25px;
     -unity-font-style: bold;
     white-space: normal;
@@ -2453,33 +2247,32 @@
 .collection-detail__metadata,
 .collection-detail__progress {
     margin-top: 8px;
-    color: rgb(190, 215, 229);
+    color: var(--ui-text-secondary);
     font-size: 17px;
     white-space: normal;
     -unity-text-align: middle-center;
 }
 
 .collection-detail__progress {
-    color: rgb(145, 231, 183);
-}
-
-.async-card-image__retry {
-    left: 6px;
-    right: 6px;
-    bottom: 6px;
-    min-height: 48px;
-    height: 48px;
-    align-items: center;
-    justify-content: center;
-    transition-property: none;
+    color: var(--ui-success);
 }
 
 .async-card-image__retry-label {
-    color: white;
+    color: var(--ui-error);
     font-size: 12px;
     -unity-font-style: bold;
     white-space: normal;
     -unity-text-align: middle-center;
+}
+
+.async-card-image__retry-label.is-pressed {
+    color: var(--ui-text);
+}
+
+.async-card-image__retry:focus .async-card-image__retry-label {
+    color: var(--ui-error);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--ui-error);
 }
 
 .collection-browser .mobile-layout--compact .card-page__header,

@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 public class TrainerUiVisualContractTests
 {
     [Test]
-    public void PrimaryScreens_ShareTrainerDeviceRailAndFourStatusLights()
+    public void PrimaryScreens_ShareNeutralTopBarWithAnUnadornedLeadingSlot()
     {
         VisualTreeAsset mobileTopBar = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
             "Assets/Resources/UI/Mobile/MobileTopBar.uxml");
@@ -16,10 +16,10 @@ public class TrainerUiVisualContractTests
         TemplateContainer mobileRoot = mobileTopBar.CloneTree();
         VisualElement leading = mobileRoot.Q<VisualElement>("top-bar-leading");
         Assert.That(leading, Is.Not.Null);
-        Assert.That(leading.childCount, Is.EqualTo(4));
-        Assert.That(leading.Q<VisualElement>(className: "mobile-top-bar__lens"), Is.Not.Null);
+        Assert.That(leading.childCount, Is.Zero);
+        Assert.That(leading.Q<VisualElement>(className: "mobile-top-bar__lens"), Is.Null);
         Assert.That(leading.Query<VisualElement>(className: "mobile-top-bar__light").ToList().Count,
-            Is.EqualTo(3));
+            Is.Zero);
         foreach (string controllerPath in new[]
                      {
                          "Assets/Scripts/004_Controller/GachaViewController.cs",
@@ -47,23 +47,25 @@ public class TrainerUiVisualContractTests
     }
 
     [Test]
-    public void TrainerTheme_DefinesRedBlueYellowDevicePaletteAndReadableLightCards()
+    public void CoreNeutral_DefinesSemanticPaletteWithoutChangingOpeningThemeIdentity()
     {
-        string shared = File.ReadAllText("Assets/UI/Styles.uss");
-        string pokedex = File.ReadAllText("Assets/Resources/UI/PokedexStyles.uss");
+        string tokens = File.ReadAllText("Assets/Resources/UI/CoreNeutralTokens.uss");
 
         foreach (KeyValuePair<string, string> token in new Dictionary<string, string>
                  {
-                     ["red"] = "rgb(205, 49, 61)",
-                     ["blue"] = "rgb(43, 118, 190)",
-                     ["yellow"] = "rgb(255, 211, 65)",
-                     ["light card"] = "rgb(243, 247, 250)"
+                     ["--ui-canvas"] = "#F7F8FA",
+                     ["--ui-surface"] = "#FFFFFF",
+                     ["--ui-text"] = "#14171A",
+                     ["--ui-primary"] = "#2563EB"
                  })
-            Assert.That(shared, Does.Contain(token.Value), token.Key);
+        {
+            Assert.That(tokens, Does.Contain(token.Key), token.Key);
+            Assert.That(tokens.ToUpperInvariant(), Does.Contain(token.Value), token.Key);
+        }
 
-        Assert.That(shared, Does.Contain(".trainer-status-light--lens"));
-        Assert.That(pokedex, Does.Contain("rgb(190, 49, 61)"));
-        Assert.That(pokedex, Does.Contain("rgb(35, 91, 143)"));
-        Assert.That(pokedex, Does.Contain("rgb(255, 211, 92)"));
+        // Opening themes remain content-scoped; the core palette must not replace their identity.
+        string opening = File.ReadAllText("Assets/UI/Styles.uss");
+        foreach (string theme in new[] { "vintage", "forest", "ruby", "electric", "gallery" })
+            Assert.That(opening, Does.Contain(".gacha-theme--" + theme), theme);
     }
 }

@@ -74,6 +74,7 @@ namespace Gacha.Tests.PlayMode
             var routedScenes = new List<string>();
             sceneOverride.SetValue(null, (Action<string>)(scene => routedScenes.Add(scene)));
             string originalUiLanguage = null;
+            CoreNeutralSceneCapture visualCapture = null;
             bool originalReduceMotion = UIFeedbackService.ReduceMotion;
             bool originalHaptics = UIFeedbackService.HapticsEnabled;
             bool originalSound = UIFeedbackService.SoundEnabled;
@@ -115,6 +116,8 @@ namespace Gacha.Tests.PlayMode
                 safeArea.style.paddingTop = 60f;
                 safeArea.style.paddingRight = 12f;
                 safeArea.style.paddingBottom = 84f;
+                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                    "CollectionScene_UsesSafeVirtualizedGridAndRealTouchActions; installed local catalog/art; MemoryCollectionProgressStore");
                 yield return null;
                 yield return null;
 
@@ -182,7 +185,20 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(firstTile, Is.Not.Null);
                 Assert.That(firstTile.worldBound.height, Is.GreaterThanOrEqualTo(48f));
                 Label firstTileName = firstTile.Q<Label>(className: "card-tile__name");
-                SendTap(firstTile, firstTile.worldBound.center, () =>
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("collection-grid", "Real virtualized grid; most populated installed set; first two cards owned only in memory",
+                        cardList);
+                // Capture waits for async art; virtualization may recycle the previous row meanwhile.
+                firstTile = cardList.Query<VisualElement>(className: "card-tile").ToList()
+                    .First(tile => tile.resolvedStyle.display == DisplayStyle.Flex && tile.worldBound.height > 0f &&
+                        (CardTileData(tile)?.GetType().GetField("Printing")?.GetValue(CardTileData(tile)) as PrintingDefinition)?.Id == visibleCards[0].Id);
+                firstTileName = firstTile.Q<Label>(className: "card-tile__name");
+                Assert.That(cardList.Q<ScrollView>().contentViewport.worldBound.Contains(firstTileName.worldBound.center), Is.True);
+                VisualElement pickedTile = firstTile.panel.Pick(firstTileName.worldBound.center);
+                Assert.That(pickedTile == firstTile || firstTile.Contains(pickedTile), Is.True,
+                    "The visible card name must be reachable in the rendered grid.");
+                Assert.That(pickedTile?.name, Is.Not.EqualTo("card-image-retry"));
+                SendTap(firstTile, firstTileName.worldBound.center, () =>
                     Assert.That(firstTileName.ClassListContains("is-pressed"), Is.True,
                         "The visible card name must own pressed feedback."));
                 Assert.That(firstTileName.ClassListContains("is-pressed"), Is.False);
@@ -211,6 +227,27 @@ namespace Gacha.Tests.PlayMode
                 VisualElement close = pageRoot.Q<VisualElement>("details-close-button");
                 Assert.That(close.worldBound.height, Is.GreaterThanOrEqualTo(48f));
                 AssertContained(detailPanel.worldBound, close.worldBound, "detail close action");
+                if (visualCapture != null)
+                {
+                    var detailArt = GetPrivateField(controller, "detailImage") as AsyncCardImageView;
+                    Assert.That(detailArt, Is.Not.Null);
+                    float imageDeadline = Time.realtimeSinceStartup + 5f;
+                    while (detailArt.State == AsyncCardImageState.Loading && Time.realtimeSinceStartup < imageDeadline)
+                        yield return null;
+                    if (detailArt.State == AsyncCardImageState.Failed)
+                    {
+                        Assert.That(detailArt.RetryVisible, Is.True);
+                        Assert.That(detailArt.StatusText, Is.Not.Empty);
+                        yield return visualCapture.Capture("collection-detail-missing-art",
+                            "Real detail sheet; local catalog present but selected art failed; visible retry is not ready-art acceptance",
+                            detailPanel);
+                    }
+                    else
+                    {
+                        yield return visualCapture.Capture("collection-detail", "Real detail sheet opened by tapping the first installed card; owned count=2 in memory",
+                            detailPanel, detailArt);
+                    }
+                }
                 SendTap(close);
                 yield return null;
                 Assert.That(detailSheet.IsVisible, Is.False);
@@ -260,6 +297,7 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                visualCapture?.Dispose();
                 if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
                 storeOverride.SetValue(null, null);
@@ -320,12 +358,42 @@ namespace Gacha.Tests.PlayMode
                         "card-025-en", "trainer-001-en", "trainer-002-en", "trainer-010-en"
                     }));
 
-                VisualElement retryTile = document.rootVisualElement.Query<VisualElement>("card-tile-0").ToList()
-                    .First(tile => tile.resolvedStyle.display == DisplayStyle.Flex &&
-                                   tile.Q<VisualElement>("card-image-retry").resolvedStyle.display == DisplayStyle.Flex);
+                VisualElement retryAction = null;
+                ScrollView retryScroll = document.rootVisualElement.Q<ListView>("card-list").Q<ScrollView>();
+                float retryDeadline = Time.realtimeSinceStartup + 3f;
+                while (Time.realtimeSinceStartup < retryDeadline)
+                {
+                    retryAction = document.rootVisualElement.Query<VisualElement>("card-image-retry").ToList()
+                        .FirstOrDefault(action => action.resolvedStyle.display == DisplayStyle.Flex &&
+                            action.worldBound.width > 0f && action.worldBound.height > 0f &&
+                            !float.IsNaN(action.worldBound.center.x) && !float.IsNaN(action.worldBound.center.y) &&
+                            retryScroll.contentViewport.worldBound.Contains(action.worldBound.center) &&
+                            action.panel != null &&
+                            (action.panel.Pick(action.worldBound.center) == action ||
+                             action.Contains(action.panel.Pick(action.worldBound.center))));
+                    if (retryAction != null)
+                        break;
+                    VisualElement clippedRetry = retryScroll.Query<VisualElement>("card-image-retry").ToList()
+                        .FirstOrDefault(action => action.resolvedStyle.display == DisplayStyle.Flex &&
+                            action.worldBound.width > 0f && action.worldBound.height > 0f);
+                    if (clippedRetry != null)
+                        retryScroll.ScrollTo(clippedRetry);
+                    yield return null;
+                }
+                Assert.That(retryAction, Is.Not.Null, "Retry must have a laid-out, pickable target after sorting/rebinding. " +
+                    $"viewport={retryScroll.contentViewport.worldBound} offset={retryScroll.scrollOffset} " +
+                    string.Join("; ", document.rootVisualElement.Query<VisualElement>("card-image-retry").ToList()
+                        .Take(4).Select(action => $"bounds={action.worldBound} display={action.resolvedStyle.display} " +
+                            $"picked={action.panel?.Pick(action.worldBound.center)?.name} root={document.rootVisualElement.worldBound}")));
+                VisualElement navigation = document.rootVisualElement.Q<VisualElement>("mobile-bottom-navigation");
+                Assert.That(retryScroll.contentViewport.worldBound.yMax,
+                    Is.LessThanOrEqualTo(navigation.worldBound.yMin + 1f),
+                    "The actual scroll viewport must shrink above navigation on a short Editor/landscape screen.");
                 var detailSheetBeforeRetry = GetPrivateField(controller, "detailSheet") as MobileSheetPresenter;
                 cues.Clear();
-                SendTap(retryTile.Q<VisualElement>("card-image-retry"));
+                SendTap(retryAction, retryAction.worldBound.center, () =>
+                    Assert.That(retryAction.Q<Label>().ClassListContains("is-pressed"), Is.True,
+                        "The laid-out retry target must own pointer-down feedback."));
                 yield return null;
                 Assert.That(cues, Does.Contain(FeedbackCue.Confirm),
                     "The image retry action must receive the tap.");
@@ -410,6 +478,14 @@ namespace Gacha.Tests.PlayMode
         private static object GetProperty(object target, string name) => target.GetType()
             .GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(target);
 
+        private static object CardTileData(VisualElement tile)
+        {
+            object row = tile.parent?.userData;
+            var tiles = row?.GetType().GetField("Tiles")?.GetValue(row) as Array;
+            return tiles?.Cast<object>().FirstOrDefault(data =>
+                ReferenceEquals(data.GetType().GetField("Root")?.GetValue(data), tile));
+        }
+
         private static object GetPrivateField(object target, string name) => target.GetType()
             .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target);
 
@@ -445,14 +521,21 @@ namespace Gacha.Tests.PlayMode
                        mousePosition = position
                    }))
                 control.SendEvent(down);
-            afterPointerDown?.Invoke();
-            using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
-                   {
-                       type = EventType.MouseUp,
-                       button = 0,
-                       mousePosition = position
-                   }))
-                control.SendEvent(up);
+            try
+            {
+                afterPointerDown?.Invoke();
+            }
+            finally
+            {
+                // A failed pressed-state assertion must not leak pointer capture into the next test.
+                using (PointerUpEvent up = PointerUpEvent.GetPooled(new Event
+                       {
+                           type = EventType.MouseUp,
+                           button = 0,
+                           mousePosition = position
+                       }))
+                    control.SendEvent(up);
+            }
         }
 
         private static UniversalCatalog EmptyCatalog() => new UniversalCatalog(

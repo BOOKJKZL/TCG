@@ -1,3 +1,5 @@
+@import url("CoreNeutralTokens.uss");
+
 .first-run-content {
     display: none;
     position: absolute;
@@ -16,7 +18,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(4, 12, 22, 0.88);
+    background-color: var(--ui-scrim);
 }
 
 .first-run-content__panel {
@@ -27,8 +29,8 @@
     padding: 34px;
     border-width: 2px;
     border-radius: 24px;
-    border-color: rgb(84, 210, 220);
-    background-color: rgb(18, 42, 57);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .first-run-content__panel .unity-scroll-view__content-container {
@@ -37,14 +39,14 @@
 
 .first-run-content__kicker,
 .first-run-content__label {
-    color: rgb(126, 229, 235);
+    color: var(--ui-primary);
     font-size: 18px;
     -unity-font-style: bold;
 }
 
 .first-run-content__title {
     margin-top: 8px;
-    color: white;
+    color: var(--ui-text);
     font-size: 34px;
     -unity-font-style: bold;
     white-space: normal;
@@ -53,14 +55,14 @@
 .first-run-content__body,
 .first-run-content__detail {
     margin-top: 14px;
-    color: rgb(222, 236, 241);
+    color: var(--ui-text-secondary);
     font-size: 19px;
     white-space: normal;
 }
 
 .first-run-content__detail--compact {
     margin-top: 6px;
-    color: rgb(183, 211, 220);
+    color: var(--ui-text-secondary);
     font-size: 17px;
 }
 
@@ -82,8 +84,8 @@
     margin-bottom: 10px;
     border-radius: 14px;
     border-width: 1px;
-    border-color: rgb(93, 179, 191);
-    background-color: rgb(34, 75, 91);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
     overflow: hidden;
 }
 
@@ -91,7 +93,7 @@
     flex-grow: 1;
     min-height: 50px;
     padding: 10px 14px;
-    color: white;
+    color: var(--ui-text);
     font-size: 18px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -100,28 +102,47 @@
 }
 
 .first-run-content__button-label.is-pressed {
-    color: rgb(244, 211, 94);
-    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--ui-primary);
+    background-color: var(--ui-primary-soft);
 }
 
 .first-run-content__button-label.is-disabled {
-    color: rgb(135, 154, 164);
+    color: var(--ui-text-secondary);
 }
 
 .first-run-content__button:focus .first-run-content__button-label {
-    color: rgb(244, 211, 94);
+    color: var(--ui-primary);
 }
 
 .first-run-content__button--primary {
-    background-color: rgb(37, 137, 104);
+    background-color: var(--ui-primary);
 }
 
 .first-run-content__button--quiet {
-    background-color: rgb(45, 56, 70);
+    background-color: var(--ui-raised);
 }
 
 .first-run-content__button-label.is-selected {
-    border-color: rgb(244, 211, 94);
+    border-color: var(--ui-primary);
+}
+
+.first-run-content__button--primary .first-run-content__button-label {
+    color: var(--ui-on-primary);
+}
+
+.first-run-content__button--primary .first-run-content__button-label.is-pressed,
+.first-run-content__button--primary .first-run-content__button-label.is-disabled,
+.first-run-content__button--primary:focus .first-run-content__button-label {
+    color: var(--ui-primary-soft);
+    background-color: var(--ui-primary);
+}
+
+.first-run-content__button:focus .first-run-content__button-label {
+    border-color: var(--ui-primary);
+}
+
+.first-run-content__button--primary:focus .first-run-content__button-label {
+    border-color: var(--ui-on-primary);
 }
 
 .first-run-content__recommendation {
@@ -130,13 +151,13 @@
     padding: 18px;
     border-width: 2px;
     border-radius: 18px;
-    border-color: rgba(103, 216, 236, 0.86);
-    background-color: rgb(13, 49, 75);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .first-run-content__recommendation-name {
     margin-top: 6px;
-    color: white;
+    color: var(--ui-text);
     font-size: 23px;
     -unity-font-style: bold;
     white-space: normal;

@@ -2227,7 +2227,9 @@ namespace Gacha.Presentation
             // until the native surface is resized. Never animate opacity or scale on the page
             // shell: a border glow gives entrance feedback without risking the entire interactive
             // subtree becoming visually blank while its hit-test geometry remains active.
-            Color target = new Color(66f / 255f, 196f / 255f, 213f / 255f, 0.7f);
+            // Resolve the semantic border from USS; presentation themes must not inject a cyan
+            // page-wide accent. Keep the stable-root Android rendering workaround below.
+            Color target = shell.resolvedStyle.borderTopColor;
             Color start = new Color(target.r, target.g, target.b, 0.16f);
             float startedAt = Time.realtimeSinceStartup;
             while (!destroyed && shell != null && !UIFeedbackService.ReduceMotion)

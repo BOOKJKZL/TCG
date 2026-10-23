@@ -1,3 +1,5 @@
+@import url("CoreNeutralTokens.uss");
+
 .pokedex-overlay {
     position: absolute;
     left: 0;
@@ -42,7 +44,7 @@
 }
 
 .pokedex-field {
-    color: rgb(218, 237, 250);
+    color: var(--ui-text);
     font-size: 15px;
 }
 
@@ -51,9 +53,9 @@
     min-height: 48px;
     border-width: 1px;
     border-radius: 12px;
-    border-color: rgb(88, 176, 229);
-    background-color: rgb(8, 31, 57);
-    color: white;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
+    color: var(--ui-text);
 }
 
 .pokedex-generation {
@@ -73,7 +75,7 @@
 .pokedex-card-row__status,
 .pokedex-detail__genus,
 .pokedex-detail__metadata {
-    color: rgb(148, 181, 207);
+    color: var(--ui-text-secondary);
     font-size: 15px;
     white-space: normal;
 }
@@ -84,7 +86,7 @@
 }
 
 .pokedex-status.is-error {
-    color: rgb(255, 150, 157);
+    color: var(--ui-error);
 }
 
 .pokedex-empty-state,
@@ -96,12 +98,12 @@
     padding: 20px;
     border-width: 1px;
     border-radius: 18px;
-    border-color: rgba(90, 151, 188, 0.65);
-    background-color: rgba(16, 39, 62, 0.96);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .pokedex-empty {
-    color: rgb(184, 211, 229);
+    color: var(--ui-text-secondary);
     font-size: 18px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -118,13 +120,13 @@
     padding: 10px;
     border-width: 1px;
     border-radius: 18px;
-    border-color: rgba(230, 177, 55, 0.7);
-    background-color: rgba(72, 55, 21, 0.9);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .pokedex-introduced-forms__heading {
     margin: 2px 4px 8px 4px;
-    color: rgb(255, 220, 135);
+    color: var(--ui-text);
     font-size: 18px;
     -unity-font-style: bold;
     white-space: normal;
@@ -145,8 +147,8 @@
 .pokedex-card-tile {
     border-width: 1px;
     border-radius: 16px;
-    border-color: rgb(61, 111, 151);
-    background-color: rgb(19, 48, 75);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .pokedex-species-tile {
@@ -162,7 +164,7 @@
 }
 
 .pokedex-row__number {
-    color: rgb(255, 211, 92);
+    color: var(--ui-primary);
     font-size: 17px;
     -unity-font-style: bold;
 }
@@ -170,7 +172,7 @@
 .pokedex-row__name,
 .pokedex-card-row__name {
     margin-top: 3px;
-    color: white;
+    color: var(--ui-text);
     font-size: 20px;
     -unity-font-style: bold;
     white-space: normal;
@@ -184,22 +186,24 @@
     justify-content: center;
     border-width: 1px;
     border-radius: 14px;
-    border-color: rgb(90, 177, 227);
-    background-color: rgb(35, 91, 143);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .pokedex-action--primary {
-    border-color: rgb(255, 211, 92);
-    background-color: rgb(190, 49, 61);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-primary);
 }
 
 .pokedex-action--quiet {
-    border-color: rgb(83, 124, 157);
-    background-color: rgb(31, 62, 89);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .pokedex-action__label {
-    color: white;
+    color: var(--ui-text);
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
     font-size: 16px;
     -unity-font-style: bold;
     white-space: normal;
@@ -209,24 +213,24 @@
 .pokedex-action__label.is-pressed,
 .pokedex-row__name.is-pressed,
 .pokedex-card-row__name.is-pressed {
-    color: rgb(255, 224, 112);
+    color: var(--ui-primary);
 }
 
 .pokedex-action__label.is-disabled,
 .pokedex-row__name.is-disabled,
 .pokedex-card-row__name.is-disabled {
-    color: rgba(185, 202, 216, 0.55);
+    color: var(--ui-text-secondary);
 }
 
 .pokedex-species-tile:focus .pokedex-row__name,
 .pokedex-form-row:focus .pokedex-row__name,
 .pokedex-card-tile:focus .pokedex-card-row__name,
 .pokedex-action:focus .pokedex-action__label {
-    color: rgb(255, 221, 103);
+    color: var(--ui-primary);
 }
 
 .pokedex-action:focus .pokedex-action__label.is-disabled {
-    color: rgba(185, 202, 216, 0.55);
+    color: var(--ui-text-secondary);
 }
 
 .pokedex-form-row {
@@ -272,8 +276,8 @@
     overflow: hidden;
     border-width: 1px;
     border-radius: 22px;
-    border-color: rgba(91, 181, 231, 0.8);
-    background-color: rgb(8, 27, 46);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-raised);
 }
 
 .pokedex-art-slot {
@@ -285,14 +289,14 @@
 }
 
 .pokedex-artwork__number {
-    color: rgba(91, 181, 231, 0.3);
+    color: var(--ui-text-secondary);
     font-size: 64px;
     -unity-font-style: bold;
 }
 
 .pokedex-artwork__status {
     max-width: 220px;
-    color: rgb(148, 181, 207);
+    color: var(--ui-text-secondary);
     white-space: normal;
     -unity-text-align: middle-center;
 }
@@ -324,14 +328,14 @@
 }
 
 .pokedex-detail__number {
-    color: rgb(255, 211, 92);
+    color: var(--ui-primary);
     font-size: 17px;
     -unity-font-style: bold;
 }
 
 .pokedex-detail__name {
     margin-top: 3px;
-    color: white;
+    color: var(--ui-text);
     font-size: 36px;
     -unity-font-style: bold;
     white-space: normal;
@@ -348,7 +352,7 @@
 
 .pokedex-detail__description {
     margin-top: 14px;
-    color: rgb(224, 238, 247);
+    color: var(--ui-text);
     font-size: 17px;
     white-space: normal;
 }
@@ -363,12 +367,12 @@
 .pokedex-section {
     border-width: 1px;
     border-radius: 16px;
-    border-color: rgba(78, 135, 176, 0.72);
-    background-color: rgb(16, 39, 62);
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
 }
 
 .pokedex-section__heading {
-    color: white;
+    color: var(--ui-text);
     font-size: 20px;
     -unity-font-style: bold;
     white-space: normal;
@@ -389,8 +393,8 @@
 }
 
 .pokedex-form-action.is-selected {
-    border-color: rgb(255, 211, 92);
-    background-color: rgb(190, 49, 61);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-primary);
 }
 
 .pokedex-related-header {
@@ -409,8 +413,8 @@
 }
 
 .pokedex-scope-action.is-selected {
-    border-color: rgb(255, 211, 92);
-    background-color: rgb(190, 49, 61);
+    border-color: var(--ui-primary);
+    background-color: var(--ui-primary);
 }
 
 .pokedex-manage-button {
@@ -448,7 +452,7 @@
 }
 
 .pokedex-card-tile.is-not-installed {
-    opacity: 0.68;
+    background-color: var(--ui-raised);
 }
 
 .pokedex-card-tile .async-card-image {
@@ -529,4 +533,38 @@
 .reduce-motion .pokedex-form-row,
 .reduce-motion .pokedex-card-tile {
     transition-duration: 0s;
+}
+
+/* Selection and focus stay on child text; the Android root background stays stable on press. */
+.pokedex-action--primary .pokedex-action__label,
+.pokedex-form-action.is-selected .pokedex-action__label,
+.pokedex-scope-action.is-selected .pokedex-action__label {
+    color: var(--ui-on-primary);
+}
+
+.pokedex-action--primary:focus .pokedex-action__label,
+.pokedex-action--primary:focus .pokedex-action__label.is-disabled,
+.pokedex-action--primary .pokedex-action__label.is-pressed,
+.pokedex-action--primary .pokedex-action__label.is-disabled,
+.pokedex-form-action.is-selected:focus .pokedex-action__label,
+.pokedex-form-action.is-selected .pokedex-action__label.is-pressed,
+.pokedex-form-action.is-selected .pokedex-action__label.is-disabled,
+.pokedex-scope-action.is-selected:focus .pokedex-action__label,
+.pokedex-scope-action.is-selected .pokedex-action__label.is-pressed,
+.pokedex-scope-action.is-selected .pokedex-action__label.is-disabled {
+    color: var(--ui-primary-soft);
+}
+
+.pokedex-action__label.is-disabled {
+    -unity-font-style: normal;
+}
+
+.pokedex-action:focus .pokedex-action__label {
+    border-bottom-color: var(--ui-primary);
+}
+
+.pokedex-action--primary:focus .pokedex-action__label,
+.pokedex-form-action.is-selected:focus .pokedex-action__label,
+.pokedex-scope-action.is-selected:focus .pokedex-action__label {
+    border-bottom-color: var(--ui-on-primary);
 }

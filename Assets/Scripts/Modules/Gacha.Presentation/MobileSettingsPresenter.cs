@@ -410,7 +410,8 @@ namespace Gacha.Presentation
                 experience.HapticsEnabled ? "settings.experience.on" : "settings.experience.off"));
             SpeedAction.SetLabel(SettingValue(
                 "settings.experience.animation_speed",
-                experience.AnimationSpeed.ToString("0.0") + "×"));
+                experience.AnimationSpeed.ToString("0.0") + "×",
+                localizeValue: false));
             DownloadTitle.text = CardUiText.Get("settings.download.title");
             DownloadDescription.text = CardUiText.Get("settings.download.description");
             WifiOnlyAction.SetLabel(SettingValue(
@@ -570,9 +571,10 @@ namespace Gacha.Presentation
                 () => (navigate ?? throw new ArgumentNullException(nameof(navigate)))(destination),
                 tone);
 
-        private static string SettingValue(string labelKey, string valueKeyOrText)
+        private static string SettingValue(string labelKey, string valueKeyOrText, bool localizeValue = true)
         {
-            string value = valueKeyOrText != null && valueKeyOrText.Contains(".")
+            // Decimal values contain a dot too; only explicit localization keys are looked up.
+            string value = localizeValue && valueKeyOrText != null
                 ? CardUiText.Get(valueKeyOrText)
                 : valueKeyOrText ?? string.Empty;
             return CardUiText.Format("settings.value", CardUiText.Get(labelKey), value);

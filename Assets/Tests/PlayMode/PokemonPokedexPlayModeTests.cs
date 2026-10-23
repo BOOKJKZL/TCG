@@ -18,6 +18,53 @@ namespace Gacha.Tests.PlayMode
     public sealed class PokemonPokedexPlayModeTests
     {
         [UnityTest]
+        public IEnumerator PrimaryAction_FocusedAndDisabledRetainsReadableTextAndStableRoot()
+        {
+            var host = new GameObject("Pokédex focused-disabled visual contract");
+            PanelSettings panel = UnityEngine.Object.Instantiate(
+                Resources.Load<PanelSettings>("UI/Collection Panel Settings"));
+            MobileActionControl action = null;
+            try
+            {
+                var document = host.AddComponent<UIDocument>();
+                document.panelSettings = panel;
+                VisualElement root = document.rootVisualElement;
+                root.AddToClassList("pokedex-overlay");
+                root.style.display = DisplayStyle.Flex;
+                root.styleSheets.Add(Resources.Load<StyleSheet>("UI/PokedexStyles"));
+                var button = new VisualElement { name = "focused-disabled-primary" };
+                button.AddToClassList("pokedex-action");
+                button.AddToClassList("pokedex-action--primary");
+                var label = new Label("Manage content");
+                label.AddToClassList("pokedex-action__label");
+                button.Add(label);
+                root.Add(button);
+                action = new MobileActionControl(button, () => Assert.Fail("Disabled action activated"));
+                yield return null;
+                Color stableBackground = button.resolvedStyle.backgroundColor;
+                button.Focus();
+                yield return null;
+                action.SetEnabled(false);
+                yield return null;
+                Assert.That(button.panel.focusController.focusedElement, Is.SameAs(button));
+                Assert.That(label.ClassListContains("is-disabled"), Is.True);
+                Assert.That(button.resolvedStyle.backgroundColor, Is.EqualTo(stableBackground));
+                Assert.That(ColorUtility.ToHtmlStringRGB(stableBackground), Is.EqualTo("2563EB"));
+                Assert.That(ColorUtility.ToHtmlStringRGB(label.resolvedStyle.color), Is.EqualTo("EAF0FF"));
+                double first = RelativeLuminance(label.resolvedStyle.color);
+                double second = RelativeLuminance(stableBackground);
+                Assert.That((Math.Max(first, second) + 0.05d) / (Math.Min(first, second) + 0.05d),
+                    Is.GreaterThanOrEqualTo(4.5d));
+            }
+            finally
+            {
+                action?.Dispose();
+                UnityEngine.Object.DestroyImmediate(host);
+                UnityEngine.Object.DestroyImmediate(panel);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Pokedex_720By1600InsetsKeepGridDetailsAndFiveNavigationActionsReachable()
         {
             Type collectionControllerType = AppDomain.CurrentDomain.GetAssemblies()
@@ -100,6 +147,8 @@ namespace Gacha.Tests.PlayMode
                        Time.realtimeSinceStartup < deadline)
                     yield return null;
                 Assert.That(pageRoot.Q<Label>("pokedex-title").text, Is.EqualTo(japaneseTitle));
+                AssertCoreNeutralText(pageRoot.Q<Label>("pokedex-title"),
+                    pageRoot.Q<VisualElement>("mobile-top-bar"), "#14171A", "Pokédex title");
 
                 ListView speciesList = pageRoot.Q<ListView>("pokedex-species-list");
                 deadline = Time.realtimeSinceStartup + 3f;
@@ -120,6 +169,10 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(tile.worldBound.height, Is.GreaterThanOrEqualTo(48f));
                     Assert.That(tile.worldBound.xMin, Is.GreaterThanOrEqualTo(safeContent.xMin - 1f));
                     Assert.That(tile.worldBound.xMax, Is.LessThanOrEqualTo(safeContent.xMax + 1f));
+                    AssertCoreNeutralText(tile.Q<Label>(className: "pokedex-row__name"),
+                        tile, "#14171A", "species name");
+                    AssertCoreNeutralText(tile.Q<Label>(className: "pokedex-row__number"),
+                        tile, "#2563EB", "species number");
                 }
                 Color stableBorder = tiles[0].resolvedStyle.borderLeftColor;
                 tiles[0].Focus();
@@ -508,6 +561,35 @@ namespace Gacha.Tests.PlayMode
         private static object GetPrivateField(object target, string name) =>
             target.GetType().GetField(
                 name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?.GetValue(target);
+
+        private static void AssertCoreNeutralText(Label text, VisualElement surface, string expectedHex, string description)
+        {
+            Assert.That(text, Is.Not.Null, description);
+            Assert.That(surface, Is.Not.Null, description + " surface");
+            Assert.That(string.IsNullOrWhiteSpace(text.text), Is.False, description + " visible text");
+            Assert.That(ColorUtility.TryParseHtmlString(expectedHex, out Color expected), Is.True);
+            Color foreground = text.resolvedStyle.color;
+            Color background = surface.resolvedStyle.backgroundColor;
+            Assert.That(foreground.r, Is.EqualTo(expected.r).Within(0.005f), description + " red");
+            Assert.That(foreground.g, Is.EqualTo(expected.g).Within(0.005f), description + " green");
+            Assert.That(foreground.b, Is.EqualTo(expected.b).Within(0.005f), description + " blue");
+            Assert.That(foreground.a, Is.EqualTo(1f).Within(0.005f), description + " opaque text");
+            Assert.That(background.r, Is.EqualTo(1f).Within(0.005f), description + " white surface red");
+            Assert.That(background.g, Is.EqualTo(1f).Within(0.005f), description + " white surface green");
+            Assert.That(background.b, Is.EqualTo(1f).Within(0.005f), description + " white surface blue");
+            Assert.That(background.a, Is.EqualTo(1f).Within(0.005f), description + " opaque surface");
+            float foregroundLuminance = RelativeLuminance(foreground);
+            float backgroundLuminance = RelativeLuminance(background);
+            float contrast = (Mathf.Max(foregroundLuminance, backgroundLuminance) + 0.05f) /
+                             (Mathf.Min(foregroundLuminance, backgroundLuminance) + 0.05f);
+            Assert.That(contrast, Is.GreaterThanOrEqualTo(4.5f), description + " resolved text contrast");
+        }
+
+        private static float RelativeLuminance(Color color)
+        {
+            Color linear = color.linear;
+            return 0.2126f * linear.r + 0.7152f * linear.g + 0.0722f * linear.b;
+        }
 
         private static Rect InsetRect(Rect outer, IResolvedStyle style) => new Rect(
             outer.xMin + style.paddingLeft,

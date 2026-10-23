@@ -252,6 +252,7 @@ namespace Gacha.Tests.PlayMode
 
             ExperienceSettings originalExperience = null;
             string originalLanguage = null;
+            CoreNeutralSceneCapture visualCapture = null;
             try
             {
                 Screen.SetResolution(720, 1600, false);
@@ -305,6 +306,9 @@ namespace Gacha.Tests.PlayMode
                 safeAreaRoot.style.paddingTop = 60f;
                 safeAreaRoot.style.paddingRight = 12f;
                 safeAreaRoot.style.paddingBottom = 84f;
+                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                    "Content scene with an in-memory two-package cached/offline catalog, fake transfer/install " +
+                    "services and an empty in-memory installed registry; no catalog download or user inventory.");
                 yield return null;
                 yield return null;
                 Rect safeContent = InsetRect(safeAreaRoot.worldBound, safeAreaRoot.resolvedStyle);
@@ -355,6 +359,8 @@ namespace Gacha.Tests.PlayMode
                 Label catalogStatus = document.rootVisualElement.Q<Label>("catalog-status");
                 Assert.That(catalogStatus.text, Does.StartWith("Offline"));
                 Assert.That(catalogStatus.ClassListContains("is-warning"), Is.True);
+                if (visualCapture != null)
+                    yield return visualCapture.Capture("content-ready", "ready-offline-cached-catalog", pageRoot);
                 Assert.That(document.rootVisualElement.Query<Button>().ToList(), Is.Empty,
                     "The content page must not enter UI Toolkit's unstable native Button render path on Android.");
                 AssertStableActionControl(document.rootVisualElement.Q<VisualElement>("refresh-button"));
@@ -375,11 +381,16 @@ namespace Gacha.Tests.PlayMode
                 remove.Focus();
                 yield return null;
                 Color unavailableColor = unavailableRemoveLabel.resolvedStyle.color;
-                Assert.That(unavailableColor.r, Is.EqualTo(171f / 255f).Within(0.02f));
-                Assert.That(unavailableColor.g, Is.EqualTo(190f / 255f).Within(0.02f));
-                Assert.That(unavailableColor.b, Is.EqualTo(204f / 255f).Within(0.02f));
-                Assert.That(unavailableColor.a, Is.EqualTo(0.58f).Within(0.02f),
+                // A danger action keeps its stable red root; disabled text uses error-surface,
+                // not the secondary text intended for neutral action backgrounds.
+                Assert.That(unavailableColor.r, Is.EqualTo(1f).Within(0.02f));
+                Assert.That(unavailableColor.g, Is.EqualTo(240f / 255f).Within(0.02f));
+                Assert.That(unavailableColor.b, Is.EqualTo(241f / 255f).Within(0.02f));
+                Assert.That(unavailableColor.a, Is.EqualTo(1f).Within(0.02f),
                     "Focused unavailable actions must retain disabled visual semantics.");
+                Assert.That(unavailableRemoveLabel.resolvedStyle.unityFontStyleAndWeight, Is.EqualTo(FontStyle.Normal));
+                Assert.That(unavailableRemoveLabel.resolvedStyle.borderBottomColor.a, Is.Zero);
+                Assert.That(remove.resolvedStyle.backgroundColor.r, Is.EqualTo(180f / 255f).Within(0.02f));
                 ScrollView packageScroll = document.rootVisualElement.Q<ListView>("package-list").Q<ScrollView>();
                 Assert.That(packageScroll, Is.Not.Null);
                 packageScroll.ScrollTo(pause);
@@ -644,6 +655,7 @@ namespace Gacha.Tests.PlayMode
             }
             finally
             {
+                visualCapture?.Dispose();
                 Screen.SetResolution(originalScreenWidth, originalScreenHeight, false);
                 if (originalLanguage != null && ApplicationServices.Languages != null)
                     ApplicationServices.Languages.SelectUiLanguage(originalLanguage);

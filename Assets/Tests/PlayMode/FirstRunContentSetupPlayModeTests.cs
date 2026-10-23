@@ -130,6 +130,12 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That(setup, Is.Not.Null);
                 Assert.That(setup.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                yield return null;
+                AssertColor(setup.Q<ScrollView>("setup-scroll").resolvedStyle.backgroundColor, "#FFFFFF");
+                AssertColor(setup.Q<Label>("setup-title").resolvedStyle.color, "#14171A");
+                AssertColor(setup.Q<Label>("setup-body").resolvedStyle.color, "#556170");
+                AssertColor(setup.Q<VisualElement>("setup-manage").resolvedStyle.backgroundColor, "#2563EB");
+                AssertColor(setup.Q<VisualElement>("setup-manage").Q<Label>().resolvedStyle.color, "#FFFFFF");
                 Assert.That(setup.Q<Label>("setup-title").text, Is.Not.Empty);
                 Assert.That(setup.Q<Label>("setup-body").text, Does.Contain("no ZIP"));
                 Assert.That(setup.Q<Label>("setup-storage").text, Does.Contain("app-managed"));
@@ -284,6 +290,15 @@ namespace Gacha.Tests.PlayMode
                 outer.yMin + style.paddingTop,
                 outer.width - style.paddingLeft - style.paddingRight,
                 outer.height - style.paddingTop - style.paddingBottom);
+        }
+
+        private static void AssertColor(Color actual, string hex)
+        {
+            Assert.That(ColorUtility.TryParseHtmlString(hex, out Color expected), Is.True);
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.005f), hex + " red");
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.005f), hex + " green");
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.005f), hex + " blue");
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.005f), hex + " alpha");
         }
 
         private static void AssertContained(Rect outer, Rect inner, string label)
