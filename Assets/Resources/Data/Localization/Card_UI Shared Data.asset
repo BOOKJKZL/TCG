@@ -1247,6 +1247,10 @@ MonoBehaviour:
     m_Key: settings.diagnostics.confirm.body
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445839
+    m_Key: common.action.back
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

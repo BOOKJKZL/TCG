@@ -207,6 +207,7 @@ namespace Gacha.Presentation
         public Action SafeMerge { get; set; }
         public Action ExportDiagnostics { get; set; }
         public Action ClearDiagnostics { get; set; }
+        public Action Back { get; set; }
         public Action<MobileDestination> Navigate { get; set; }
     }
 
@@ -214,6 +215,7 @@ namespace Gacha.Presentation
     {
         private readonly MobileActionControl[] settingActions;
         private readonly MobileActionControl backAction;
+        private readonly Action requestBack;
         private bool disposed;
 
         public MobileSettingsPresenter(GameObject host, MobileSettingsCallbacks callbacks)
@@ -221,6 +223,7 @@ namespace Gacha.Presentation
             if (host == null)
                 throw new ArgumentNullException(nameof(host));
             callbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
+            requestBack = callbacks.Back ?? (() => callbacks.Navigate?.Invoke(MobileDestination.Home));
 
             PanelSettings panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
             if (panelSettings == null)
@@ -235,9 +238,10 @@ namespace Gacha.Presentation
             Shell = new MobilePageShell("mobile-settings-page");
             Document.rootVisualElement.Add(Shell.Root);
             TopBar = new MobileTopBar(string.Empty);
-            backAction = Action("settings-back-action", callbacks.Navigate, MobileDestination.Home, MobileActionTone.Quiet);
+            backAction = new MobileActionControl("settings-back-action", string.Empty, requestBack, MobileActionTone.Quiet);
             TopBar.AddAction(backAction);
             Shell.HeaderSlot.Add(TopBar.Root);
+            Document.rootVisualElement.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
 
             Scroll = MobileGameDesignSystem.CloneTemplateRoot("UI/SettingsView", "settings-scroll") as ScrollView;
             if (Scroll == null)
@@ -331,6 +335,7 @@ namespace Gacha.Presentation
         public ScrollView Scroll { get; }
         public MobilePrimaryNavigation PrimaryNavigation { get; }
         public MobileConfirmationPresenter Confirmation { get; }
+        public MobileActionControl BackAction => backAction;
         public MobileActionControl UiLanguageAction { get; }
         public MobileActionControl CardLanguageAction { get; }
         public MobileActionControl SoundAction { get; }
@@ -390,7 +395,7 @@ namespace Gacha.Presentation
                 return;
             experience = experience ?? new ExperienceSettings();
             TopBar.SetText(CardUiText.Get("settings.title"), CardUiText.Get("settings.subtitle"));
-            backAction.SetLabel(CardUiText.Get("common.action.main_menu"));
+            backAction.SetLabel(CardUiText.Get("common.action.back"));
             LanguageTitle.text = CardUiText.Get("settings.language.title");
             LanguageDescription.text = CardUiText.Get("settings.language.description");
             UiLanguageLabel.text = CardUiText.Get("settings.language.ui");
@@ -473,7 +478,7 @@ namespace Gacha.Presentation
             if (disposed || destination == MobileDestination.Settings)
                 return;
             PrimaryNavigation.SetPending(destination);
-            backAction.SetLoading(destination == MobileDestination.Home);
+            backAction.SetLoading(true);
             backAction.SetEnabled(false);
             foreach (MobileActionControl action in settingActions)
                 action.SetEnabled(false);
@@ -525,6 +530,7 @@ namespace Gacha.Presentation
                 return;
             disposed = true;
             VisualElement documentRoot = Document != null ? Document.rootVisualElement : null;
+            documentRoot?.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
             VisualElement focusedElement = documentRoot?.panel?.focusController?.focusedElement as VisualElement;
             if (focusedElement != null && documentRoot.Contains(focusedElement))
                 focusedElement.Blur();
@@ -560,16 +566,13 @@ namespace Gacha.Presentation
             Scroll.Q<VisualElement>(name) ?? throw new InvalidOperationException(
                 "The mobile settings view is missing element '" + name + "'.");
 
-        private static MobileActionControl Action(
-            string name,
-            Action<MobileDestination> navigate,
-            MobileDestination destination,
-            MobileActionTone tone) =>
-            new MobileActionControl(
-                name,
-                string.Empty,
-                () => (navigate ?? throw new ArgumentNullException(nameof(navigate)))(destination),
-                tone);
+        private void OnNavigationCancel(NavigationCancelEvent evt)
+        {
+            if (disposed)
+                return;
+            evt.StopPropagation();
+            requestBack();
+        }
 
         private static string SettingValue(string labelKey, string valueKeyOrText, bool localizeValue = true)
         {

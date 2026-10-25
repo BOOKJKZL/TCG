@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Gacha.Application;
@@ -36,7 +37,7 @@ namespace Gacha.Tests.PlayMode
                 VisualElement root = document.rootVisualElement;
 
                 Assert.That((int)GetProperty(controller, "InstalledSetCount"), Is.Zero);
-                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(5));
+                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(4));
                 Assert.That(root.Q<VisualElement>("nav-collection")
                     .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.True);
                 VisualElement manage = root.Q<VisualElement>("collection-manage-content-button");
@@ -70,6 +71,8 @@ namespace Gacha.Tests.PlayMode
             var progressStore = new MemoryCollectionProgressStore();
             PropertyInfo storeOverride = StaticProperty(controllerType, "CollectionProgressStoreOverride");
             PropertyInfo sceneOverride = StaticProperty(controllerType, "SceneLoaderOverride");
+            object originalStoreOverride = storeOverride.GetValue(null);
+            object originalSceneOverride = sceneOverride.GetValue(null);
             storeOverride.SetValue(null, progressStore);
             var routedScenes = new List<string>();
             sceneOverride.SetValue(null, (Action<string>)(scene => routedScenes.Add(scene)));
@@ -91,7 +94,7 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That(documentRoot.Q<VisualElement>("safe-area")
                     .ClassListContains("safe-area-bound"), Is.True);
-                Assert.That(documentRoot.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(5));
+                Assert.That(documentRoot.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(4));
                 ListView setList = documentRoot.Q<ListView>("set-list");
                 ListView cardList = documentRoot.Q<ListView>("card-list");
                 Assert.That(setList.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
@@ -126,12 +129,19 @@ namespace Gacha.Tests.PlayMode
                 AssertContained(safeContent,
                     pageRoot.Q<VisualElement>("mobile-bottom-navigation").worldBound,
                     "bottom navigation");
-                foreach (string destination in new[] { "home", "gacha", "collection", "content", "settings" })
+                foreach (string destination in new[] { "home", "gacha", "collection", "content" })
                 {
                     VisualElement nav = pageRoot.Q<VisualElement>("nav-" + destination);
                     Assert.That(nav.worldBound.height, Is.GreaterThanOrEqualTo(48f), destination);
                     AssertContained(safeContent, nav.worldBound, destination);
                 }
+                VisualElement settings = pageRoot.Q<VisualElement>("nav-settings");
+                VisualElement topBar = pageRoot.Q<VisualElement>("mobile-top-bar");
+                Assert.That(topBar.Contains(settings), Is.True, "Settings belongs to the persistent top bar.");
+                Assert.That(pageRoot.Q<VisualElement>("mobile-bottom-navigation").Contains(settings), Is.False);
+                Assert.That(settings.worldBound.width, Is.GreaterThanOrEqualTo(48f));
+                Assert.That(settings.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                AssertContained(topBar.worldBound, settings.worldBound, "top-bar settings");
 
                 ApplicationServices.Languages.SelectUiLanguage("ja");
                 float deadline = Time.realtimeSinceStartup + 3f;
@@ -252,6 +262,58 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(detailSheet.IsVisible, Is.False);
 
+                if (visualCapture != null)
+                {
+                    // Use the catalog's own installed file and integrity hash. No generated card
+                    // art, alternate image source, network download, or inventory write is allowed.
+                    string localRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath,
+                        "../LocalContent/Imports"));
+                    PrintingDefinition localPrinting = ApplicationServices.Catalog.Catalog.Printings.Values
+                        .Where(printing => printing.Identity.LanguageId == "en" &&
+                            !string.IsNullOrWhiteSpace(printing.ImageRelativePath) &&
+                            printing.ImageRelativePath.Replace('\\', '/').StartsWith("en/base1/", StringComparison.Ordinal))
+                        .OrderBy(printing => printing.Id, StringComparer.Ordinal)
+                        .FirstOrDefault(printing => File.Exists(Path.Combine(localRoot, printing.ImageRelativePath)));
+                    Assert.That(localPrinting, Is.Not.Null,
+                        "Ready-art capture requires an existing catalog-referenced en/base1 image under LocalContent/Imports.");
+                    var productionCache = GetPrivateField(controller, "textureCache") as ICardTextureCache;
+                    Assert.That(productionCache, Is.Not.Null);
+                    var probe = productionCache.LoadAsync(localPrinting);
+                    float probeDeadline = Time.realtimeSinceStartup + 5f;
+                    while (!probe.IsCompleted && Time.realtimeSinceStartup < probeDeadline)
+                        yield return null;
+                    Assert.That(probe.IsCompleted, Is.True, "Production image-cache probe timed out: " + localPrinting.Id);
+                    using (CardTextureLoadResult result = probe.GetAwaiter().GetResult())
+                    {
+                        Assert.That(result.Succeeded, Is.True,
+                            "Production image-cache failure; printing=" + localPrinting.Id +
+                            "; path=" + localPrinting.ImageRelativePath + "; hash=" + localPrinting.ImageSha256 +
+                            "; source=" + ApplicationServices.Images.GetType().FullName +
+                            "; status=" + result.Status + "; error=" + result.ErrorMessage);
+                    }
+                    Assert.That((bool)controllerType.GetMethod("ShowPrintingDetails")
+                        .Invoke(controller, new object[] { localPrinting.Id }), Is.True);
+                    yield return null;
+                    var readyArt = GetPrivateField(controller, "detailImage") as AsyncCardImageView;
+                    Assert.That(readyArt, Is.Not.Null);
+                    yield return visualCapture.Capture("collection-detail-ready-art",
+                        "Real detail sheet; printing=" + localPrinting.Id + "; catalog image=" +
+                        localPrinting.ImageRelativePath + "; SHA-256=" + localPrinting.ImageSha256 +
+                        "; existing local content; progress store is memory-only", detailPanel, readyArt);
+                    Assert.That(GetProperty(controller, "DetailPrintingId"), Is.EqualTo(localPrinting.Id));
+                    Assert.That(readyArt.RetryVisible, Is.False);
+                    var detailScroll = pageRoot.Q<ScrollView>("detail-content");
+                    Assert.That(detailScroll, Is.Not.Null);
+                    Assert.That(readyArt.Element.worldBound.center.x,
+                        Is.EqualTo(detailScroll.contentViewport.worldBound.center.x).Within(2f),
+                        "The loaded card must be horizontally centered in the detail viewport.");
+                    SendTap(close);
+                    yield return null;
+                    Assert.That(detailSheet.IsVisible, Is.False);
+                    Assert.That(readyArt.State, Is.EqualTo(AsyncCardImageState.Empty),
+                        "Closing the detail must release the image lease and clear its binding.");
+                }
+
                 SendTap(pageRoot.Q<VisualElement>("open-filters-button"));
                 yield return null;
                 var filterSheet = GetPrivateField(controller, "filterSheet") as MobileSheetPresenter;
@@ -300,8 +362,8 @@ namespace Gacha.Tests.PlayMode
                 visualCapture?.Dispose();
                 if (!string.IsNullOrWhiteSpace(originalUiLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
-                storeOverride.SetValue(null, null);
-                sceneOverride.SetValue(null, null);
+                storeOverride.SetValue(null, originalStoreOverride);
+                sceneOverride.SetValue(null, originalSceneOverride);
                 UIFeedbackService.Configure(
                     originalReduceMotion,
                     originalHaptics,

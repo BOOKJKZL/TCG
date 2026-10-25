@@ -1282,6 +1282,10 @@ MonoBehaviour:
     m_Localized: "この端末の管理対象診断ログを完全に削除します。カード、セーブ、設定、ダウンロード済みコンテンツは変更されません。"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445839
+    m_Localized: "戻る"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

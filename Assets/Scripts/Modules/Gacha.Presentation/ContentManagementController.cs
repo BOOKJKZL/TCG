@@ -320,6 +320,7 @@ namespace Gacha.Presentation
         private bool catalogQueryAllowed;
         private bool initialCatalogLoadPending;
         private bool navigationRequested;
+        private Action<string> sceneLoaderOverrideForTests;
         private string launchedRecommendationId;
 
         public static IContentPackageCatalogProvider CatalogProviderOverride { private get; set; }
@@ -761,8 +762,8 @@ namespace Gacha.Presentation
                 MobileDestination.Content,
                 NavigatePrimary);
             mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
-            mobileTopBar.AddAction(refreshAction);
             mobileTopBar.AddAction(backAction);
+            primaryNavigation.AttachSettingsAction(mobileTopBar);
             confirmationPresenter = new MobileConfirmationPresenter();
             mobilePageShell.ModalLayer.Add(confirmationPresenter.Root);
             packageList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
@@ -1924,7 +1925,10 @@ namespace Gacha.Presentation
                 packageList?.ScrollToItem(0);
                 return;
             }
-            NavigateAfterSuspend(MobilePrimaryNavigation.SceneName(destination), destination, true);
+            NavigateAfterSuspend(
+                MobilePrimaryNavigation.SceneName(destination),
+                destination,
+                destination != MobileDestination.Settings);
         }
 
         private async Task ReloadAfterSuspendAsync()
@@ -1966,9 +1970,14 @@ namespace Gacha.Presentation
                 await SuspendAllOperationsAsync();
                 if (destroyed)
                     return;
+                if (destination == MobileDestination.Settings)
+                    SettingsReturnNavigation.Remember(MobileDestination.Content);
+                if (sceneLoaderOverrideForTests != null)
+                    sceneLoaderOverrideForTests(sceneName);
+                else
+                    SceneManager.LoadScene(sceneName);
                 if (clearReturn)
                     ContentReturnNavigation.Clear();
-                SceneManager.LoadScene(sceneName);
             }
             catch (Exception exception)
             {
@@ -2138,7 +2147,7 @@ namespace Gacha.Presentation
                 return;
             title.text = L("content.title");
             subtitle.text = L("content.subtitle");
-            backAction.SetLabel(L("content.action.back"));
+            backAction.SetLabel(CardUiText.Get("common.action.back"));
             refreshAction.SetLabel(L("content.action.refresh"));
             searchFilter.label = L("content.filter.search");
             languageFilter.label = L("content.filter.language");

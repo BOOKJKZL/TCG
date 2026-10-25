@@ -422,8 +422,8 @@ namespace Gacha.Presentation
         public MobileBottomNavigation(params MobileActionControl[] items)
         {
             this.items = items ?? Array.Empty<MobileActionControl>();
-            if (this.items.Length > 5)
-                throw new ArgumentOutOfRangeException(nameof(items), "Mobile navigation supports at most five destinations.");
+            if (this.items.Length > 4)
+                throw new ArgumentOutOfRangeException(nameof(items), "Mobile navigation supports at most four destinations.");
             Root = MobileGameDesignSystem.CloneTemplateRoot(
                 "UI/Mobile/MobileBottomNavigation",
                 "mobile-bottom-navigation");
@@ -952,6 +952,14 @@ namespace Gacha.Presentation
         }
 
         public void Hide() => Sheet.Hide();
+
+        public bool TryCancel()
+        {
+            if (!IsVisible)
+                return false;
+            CancelClicked();
+            return true;
+        }
 
         public void Dispose()
         {

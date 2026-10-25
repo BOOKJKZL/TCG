@@ -81,8 +81,11 @@ namespace Gacha.Tests.PlayMode
             Assert.That(page.Document.rootVisualElement.name, Is.EqualTo("mobile-settings-document"));
             Assert.That(page.Shell.SafeArea.ClassListContains("safe-area-bound"), Is.True);
             Assert.That(page.Document.rootVisualElement.Query<UnityEngine.UIElements.Button>().ToList(), Is.Empty);
-            Assert.That(page.PrimaryNavigation.Count, Is.EqualTo(5));
-            Assert.That(page.PrimaryNavigation.GetAction(MobileDestination.Settings).IsSelected, Is.True);
+            Assert.That(page.PrimaryNavigation.Count, Is.EqualTo(4));
+            foreach (MobileDestination destination in new[] { MobileDestination.Home, MobileDestination.Gacha,
+                         MobileDestination.Collection, MobileDestination.Content })
+                Assert.That(page.PrimaryNavigation.GetAction(destination).IsSelected, Is.False);
+            Assert.That(page.PrimaryNavigation.BottomNavigation.Root.Q<VisualElement>("nav-settings"), Is.Null);
             Assert.That(UnityEngine.Object.FindFirstObjectByType<LanguageSettingsPanel>(FindObjectsInactive.Include), Is.Null);
             Assert.That(UnityEngine.Object.FindFirstObjectByType<ExperienceSettingsPanel>(FindObjectsInactive.Include), Is.Null);
             Assert.That(UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
@@ -451,6 +454,8 @@ namespace Gacha.Tests.PlayMode
                 {
                     SelectLocale(language);
                     page.RefreshText(language, "zh-cn", new ExperienceSettings(), true);
+                    Assert.That(page.TopBar.Root.Q<VisualElement>("settings-back-action").Q<Label>().text,
+                        Is.EqualTo(language == "zh" ? "返回" : language == "ja" ? "戻る" : "Back"));
                     Assert.That(page.SpeedAction.Label.text, Does.Contain(1f.ToString("0.0") + "×"));
                     Assert.That(page.SpeedAction.Label.text, Does.Not.Contain("No translation found"),
                         "Animation speed is a literal numeric value, not a localization key: " + language);
@@ -484,7 +489,8 @@ namespace Gacha.Tests.PlayMode
                 Rect safe = InsetRect(page.Shell.SafeArea.worldBound, page.Shell.SafeArea.resolvedStyle);
                 AssertContained(safe, page.TopBar.Root.worldBound, "top bar");
                 AssertContained(safe, page.PrimaryNavigation.BottomNavigation.Root.worldBound, "bottom navigation");
-                foreach (MobileDestination destination in Enum.GetValues(typeof(MobileDestination)))
+                foreach (MobileDestination destination in new[] { MobileDestination.Home, MobileDestination.Gacha,
+                             MobileDestination.Collection, MobileDestination.Content })
                 {
                     MobileActionControl action = page.PrimaryNavigation.GetAction(destination);
                     Assert.That(action.Root.resolvedStyle.height,
@@ -535,6 +541,71 @@ namespace Gacha.Tests.PlayMode
                     LocalizationSettings.SelectedLocale = originalLocale;
                 page?.Dispose();
                 UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SettingsBack_PreservesSourceOnFailureAndClosesConfirmationBeforeLeaving()
+        {
+            try
+            {
+                foreach (MobileDestination source in new[] { MobileDestination.Home, MobileDestination.Gacha,
+                             MobileDestination.Collection, MobileDestination.Content })
+                {
+                    SettingsReturnNavigation.Remember(source);
+                    ContentReturnNavigation.RememberCurrentScene("003_GachaScene");
+                    yield return SceneManager.LoadSceneAsync("005_SettingScene", LoadSceneMode.Single);
+                    yield return null;
+                    yield return null;
+                    MonoBehaviour controller = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                            FindObjectsInactive.Include, FindObjectsSortMode.None)
+                        .Single(component => component.GetType().Name == "MainMenuBackController");
+                    sceneToUnload = controller.gameObject.scene;
+                    var page = (MobileSettingsPresenter)controller.GetType().GetProperty("SettingsPresenter")
+                        .GetValue(controller);
+                    MethodInfo back = controller.GetType().GetMethod("TryHandleBack");
+                    Assert.That(back, Is.Not.Null);
+                    var routes = new List<string>();
+                    SetPrivateField(controller, "sceneLoaderOverrideForTests", new Action<string>(routes.Add));
+
+                    int cancelled = 0;
+                    page.Confirmation.Show("Return test", "No data changes", "Confirm", "Cancel",
+                        () => Assert.Fail("Back must not confirm a destructive action"), () => cancelled++);
+                    yield return null;
+                    using (NavigationCancelEvent cancel = NavigationCancelEvent.GetPooled())
+                        page.Document.rootVisualElement.SendEvent(cancel);
+                    Assert.That(cancelled, Is.EqualTo(1));
+                    Assert.That(page.Confirmation.IsVisible, Is.False);
+                    Assert.That(routes, Is.Empty);
+
+                    SetPrivateField(controller, "busy", true);
+                    Assert.That((bool)back.Invoke(controller, null), Is.False);
+                    Assert.That(routes, Is.Empty);
+                    SetPrivateField(controller, "busy", false);
+                    SetPrivateField(controller, "sceneLoaderOverrideForTests", new Action<string>(
+                        _ => throw new InvalidOperationException("Fixture scene unavailable")));
+                    TargetInvocationException failure = Assert.Throws<TargetInvocationException>(
+                        () => back.Invoke(controller, null));
+                    Assert.That(failure.InnerException, Is.TypeOf<InvalidOperationException>());
+                    Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(source));
+                    Assert.That(page.PrimaryNavigation.GetAction(MobileDestination.Home).IsEnabled, Is.True);
+
+                    SetPrivateField(controller, "sceneLoaderOverrideForTests", new Action<string>(routes.Add));
+                    // Exercise the actual top-bar callback, then ensure a second request cannot leave twice.
+                    SendKeyboardActivate(page.TopBar.Root.Q<VisualElement>("settings-back-action"));
+                    Assert.That(routes, Is.EqualTo(new[] { MobilePrimaryNavigation.SceneName(source) }));
+                    Assert.That((bool)back.Invoke(controller, null), Is.False);
+                    Assert.That(routes.Count, Is.EqualTo(1));
+                    Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(MobileDestination.Home));
+                    if (source == MobileDestination.Content)
+                        Assert.That(ContentReturnNavigation.PeekOrDefault("002_MainMenuScene"),
+                            Is.EqualTo("003_GachaScene"), "Returning to Content must preserve its earlier caller.");
+                }
+            }
+            finally
+            {
+                SettingsReturnNavigation.Clear();
+                ContentReturnNavigation.Clear();
             }
         }
 

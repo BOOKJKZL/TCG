@@ -1266,6 +1266,10 @@ MonoBehaviour:
     m_Localized: "这会永久删除本机受控诊断日志；卡片、存档、设置与已下载内容不会改变。"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445839
+    m_Localized: "返回"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

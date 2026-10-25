@@ -66,7 +66,7 @@ namespace Gacha.Tests.PlayMode
 
                 Assert.That(presenter.Title.text, Is.EqualTo(CardUiText.Get("home.title")));
                 Assert.That(presenter.Title.text, Is.Not.Empty);
-                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(5));
+                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(4));
                 Assert.That(presenter.Title.resolvedStyle.whiteSpace, Is.EqualTo(WhiteSpace.Normal));
                 AssertColor(presenter.Shell.Root.resolvedStyle.backgroundColor, "#F7F8FA", "canvas");
                 AssertColor(presenter.TopBar.Root.resolvedStyle.backgroundColor, "#FFFFFF", "top bar");
@@ -95,7 +95,8 @@ namespace Gacha.Tests.PlayMode
                     AssertActionLabelContained(action.Root, action.Root.name);
 
                 AssertContained(safeContent, presenter.PrimaryNavigation.BottomNavigation.Root.worldBound, "navigation");
-                foreach (MobileDestination destination in Enum.GetValues(typeof(MobileDestination)))
+                foreach (MobileDestination destination in new[] { MobileDestination.Home, MobileDestination.Gacha,
+                             MobileDestination.Collection, MobileDestination.Content })
                 {
                     MobileActionControl action = presenter.PrimaryNavigation.GetAction(destination);
                     AssertContained(safeContent, action.Root.worldBound, destination.ToString());

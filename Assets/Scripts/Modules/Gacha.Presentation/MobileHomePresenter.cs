@@ -150,6 +150,7 @@ namespace Gacha.Presentation
         public MobileActionControl CollectionFeatureAction => collectionFeature.Action;
         public MobileActionControl ContentFeatureAction => contentFeature.Action;
         public MobileActionControl SettingsFeatureAction => settingsFeature.Action;
+        public MobileActionControl SettingsUtilityAction => settingsAction;
 
         public void SetNavigationPending(MobileDestination destination)
         {

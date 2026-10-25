@@ -677,6 +677,65 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator Content_SettingsReturnKeepsOriginalCallerAndFourPrimaryDestinations()
+        {
+            var lifecycle = new Lifecycle();
+            ContentManagementController.CatalogProviderOverride = new CatalogProvider(CreateCatalog());
+            ContentManagementController.OperationFactoryOverride = new OperationFactory(lifecycle);
+            ContentManagementController.LifecycleOverride = lifecycle;
+            ContentManagementController.DownloadPolicyOverride = Policy(new Network());
+            ContentManagementController.QueueStateStoreOverride = new QueueStateStore();
+            try
+            {
+                ContentReturnNavigation.RememberCurrentScene("003_GachaScene");
+                yield return SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                yield return null;
+                ContentManagementController content = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                float deadline = Time.realtimeSinceStartup + 5f;
+                while (!content.IsReady && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(content.IsReady, Is.True, content.InitializationError);
+                VisualElement root = content.GetComponent<UIDocument>().rootVisualElement;
+                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(4));
+                VisualElement settings = root.Q<VisualElement>("mobile-top-bar").Q<VisualElement>("nav-settings");
+                Assert.That(settings, Is.Not.Null);
+                SendPointerDown(settings);
+                SendPointerUp(settings);
+                deadline = Time.realtimeSinceStartup + 5f;
+                while (SceneManager.GetActiveScene().name != "005_SettingScene" && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("005_SettingScene"));
+                yield return null;
+                yield return null;
+                Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(MobileDestination.Content));
+                MonoBehaviour controller = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                        FindObjectsInactive.Include, FindObjectsSortMode.None)
+                    .Single(component => component.GetType().Name == "MainMenuBackController");
+                var page = (MobileSettingsPresenter)controller.GetType().GetProperty("SettingsPresenter")
+                    .GetValue(controller);
+                SendPointerDown(page.BackAction.Root);
+                SendPointerUp(page.BackAction.Root);
+                deadline = Time.realtimeSinceStartup + 8f;
+                while (SceneManager.GetActiveScene().name != "006_ContentScene" && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("006_ContentScene"));
+                yield return null;
+                Assert.That(ContentReturnNavigation.PeekOrDefault("002_MainMenuScene"), Is.EqualTo("003_GachaScene"));
+                Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(MobileDestination.Home));
+            }
+            finally
+            {
+                ContentManagementController.CatalogProviderOverride = null;
+                ContentManagementController.OperationFactoryOverride = null;
+                ContentManagementController.LifecycleOverride = null;
+                ContentManagementController.DownloadPolicyOverride = null;
+                ContentManagementController.QueueStateStoreOverride = null;
+                SettingsReturnNavigation.Clear();
+                ContentReturnNavigation.Clear();
+            }
+        }
+
         private static T GetPrivateField<T>(object owner, string fieldName) where T : class
         {
             FieldInfo field = owner.GetType().GetField(fieldName,

@@ -321,9 +321,9 @@ public sealed class CollectionViewController : MonoBehaviour
         ApplyActionAvailability();
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
         if (destination == MobileDestination.Content)
-            ContentReturnNavigation.RememberCurrentScene();
-        else
-            ContentReturnNavigation.Clear();
+            ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(MobileDestination.Collection));
+        if (destination == MobileDestination.Settings)
+            SettingsReturnNavigation.Remember(MobileDestination.Collection);
 
         try
         {
@@ -333,6 +333,8 @@ public sealed class CollectionViewController : MonoBehaviour
                 GameManager.Instance.loadManager.LoadScene(sceneName);
             else
                 SceneManager.LoadScene(sceneName);
+            if (destination != MobileDestination.Content)
+                ContentReturnNavigation.Clear();
         }
         catch
         {
@@ -416,11 +418,12 @@ public sealed class CollectionViewController : MonoBehaviour
             string.Empty,
             () => pokedexController?.Open(),
             MobileActionTone.Standard);
-        mobileTopBar.AddAction(pokedexAction);
+        Required<VisualElement>("collection-tools").Add(pokedexAction.Root);
         mobileTopBar.AddAction(menuAction);
         primaryNavigation = new MobilePrimaryNavigation(
             MobileDestination.Collection,
             NavigatePrimary);
+        primaryNavigation.AttachSettingsAction(mobileTopBar);
         mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
         errorPresenter = new PlayerUiErrorPresenter(
             Required<VisualElement>("collection-error-panel"),

@@ -337,6 +337,7 @@ public sealed class GachaViewController : MonoBehaviour
         primaryNavigation = new MobilePrimaryNavigation(
             MobileDestination.Gacha,
             NavigatePrimary);
+        primaryNavigation.AttachSettingsAction(mobileTopBar);
         mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
         confirmationPresenter = new MobileConfirmationPresenter();
         mobilePageShell.ModalLayer.Add(confirmationPresenter.Root);
@@ -709,9 +710,9 @@ public sealed class GachaViewController : MonoBehaviour
         ApplyActionAvailability();
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
         if (destination == MobileDestination.Content)
-            ContentReturnNavigation.RememberCurrentScene();
-        else
-            ContentReturnNavigation.Clear();
+            ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(MobileDestination.Gacha));
+        if (destination == MobileDestination.Settings)
+            SettingsReturnNavigation.Remember(MobileDestination.Gacha);
 
         try
         {
@@ -721,6 +722,8 @@ public sealed class GachaViewController : MonoBehaviour
                 GameManager.Instance.loadManager.LoadScene(sceneName);
             else
                 SceneManager.LoadScene(sceneName);
+            if (destination != MobileDestination.Content)
+                ContentReturnNavigation.Clear();
         }
         catch
         {

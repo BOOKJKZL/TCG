@@ -77,6 +77,10 @@ public class MainMenuController : MonoBehaviour
         navigationRequested = true;
         homePresenter?.SetNavigationPending(destination);
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
+        if (destination == MobileDestination.Settings)
+            SettingsReturnNavigation.Remember(MobileDestination.Home);
+        if (destination == MobileDestination.Content)
+            ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(MobileDestination.Home));
         try
         {
             if (sceneLoaderOverrideForTests != null)
@@ -85,6 +89,8 @@ public class MainMenuController : MonoBehaviour
                 GameManager.Instance.loadManager.LoadScene(sceneName);
             else
                 SceneManager.LoadScene(sceneName);
+            if (destination != MobileDestination.Content)
+                ContentReturnNavigation.Clear();
         }
         catch
         {

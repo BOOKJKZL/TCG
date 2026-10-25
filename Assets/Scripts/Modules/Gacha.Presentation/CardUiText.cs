@@ -17,6 +17,7 @@ namespace Gacha.Presentation
                 ["common.action.retry"] = "Retry",
                 ["common.status.loading"] = "Loading…",
                 ["common.action.main_menu"] = "Main menu",
+                ["common.action.back"] = "Back",
                 ["common.action.manage_content"] = "Manage content",
                 ["common.action.close"] = "Close",
                 ["common.action.cancel"] = "Cancel",

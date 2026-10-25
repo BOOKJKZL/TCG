@@ -43,6 +43,7 @@ public static class LanguageLocalizationSeeder
         Apply(english, new Dictionary<string, string>
         {
             [AppDisplayNameKey] = "Universal Gacha Simulator",
+            ["common.action.back"] = "Back",
             ["settings.language.title"] = "Language",
             ["settings.language.ui"] = "Interface language",
             ["settings.language.content"] = "Card content language",
@@ -256,6 +257,7 @@ public static class LanguageLocalizationSeeder
         Apply(chinese, new Dictionary<string, string>
         {
             [AppDisplayNameKey] = "万能抽卡模拟器",
+            ["common.action.back"] = "返回",
             ["settings.language.title"] = "语言设置",
             ["settings.language.ui"] = "界面语言",
             ["settings.language.content"] = "卡牌内容语言",

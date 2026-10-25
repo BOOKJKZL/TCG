@@ -1910,6 +1910,14 @@
     background-color: var(--ui-raised);
 }
 
+.collection-browser__tools {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+}
+
 .collection-action {
     min-width: 132px;
     min-height: 52px;
@@ -2183,7 +2191,7 @@
     min-height: 0;
 }
 
-.collection-detail > .unity-scroll-view__content-container {
+.collection-detail .unity-scroll-view__content-container {
     align-items: center;
     padding-bottom: 12px;
 }

@@ -136,6 +136,159 @@ namespace Gacha.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ActionFeedbackLayers_UseIndependentVisibilityWithoutChangingRootLayout()
+        {
+            GameObject host = new GameObject("Mobile Action Feedback Layers Host");
+            var tones = new[]
+            {
+                MobileActionTone.Standard, MobileActionTone.Primary, MobileActionTone.Quiet,
+                MobileActionTone.Danger, MobileActionTone.Navigation
+            };
+            var actions = new MobileActionControl[tones.Length];
+            int clicks = 0;
+            try
+            {
+                UIFeedbackService.Configure(false, false, 1f, false);
+                var document = host.AddComponent<UIDocument>();
+                document.panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
+                Assert.That(document.panelSettings, Is.Not.Null);
+                yield return null;
+
+                var viewport = new VisualElement { name = "feedback-layers-viewport" };
+                viewport.style.width = 720f;
+                viewport.style.height = 1600f;
+                document.rootVisualElement.Add(viewport);
+                var focusSink = new VisualElement { name = "feedback-focus-sink", focusable = true };
+                focusSink.style.width = 20f;
+                focusSink.style.height = 20f;
+                viewport.Add(focusSink);
+                for (int index = 0; index < tones.Length; index++)
+                {
+                    actions[index] = new MobileActionControl(
+                        "feedback-" + tones[index],
+                        "Apply language\n言語を変更して続ける",
+                        () => clicks++,
+                        tones[index]);
+                    actions[index].Root.style.width = 260f;
+                    viewport.Add(actions[index].Root);
+                }
+                yield return null;
+                yield return null;
+
+                Assert.That(document.rootVisualElement.panel, Is.Not.Null);
+                foreach (MobileActionControl action in actions)
+                {
+                    Assert.That(action.Root.panel, Is.SameAs(document.rootVisualElement.panel));
+                    Assert.That(action.Root.worldBound.width, Is.GreaterThan(0f));
+                    Assert.That(action.Root.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+                    Rect rootGeometry = action.Root.worldBound;
+                    Rect labelGeometry = action.Label.layout;
+                    float labelWorldY = action.Label.worldBound.y;
+                    Color background = action.Root.resolvedStyle.backgroundColor;
+                    int childCount = action.Root.childCount;
+
+                    void AssertState(bool focused, bool selected, bool loading, string phase)
+                    {
+                        string context = action.Root.name + " " + phase;
+                        Assert.That(action.FocusRing.resolvedStyle.display,
+                            Is.EqualTo(focused ? DisplayStyle.Flex : DisplayStyle.None), context + " focus");
+                        Assert.That(action.SelectionIndicator.resolvedStyle.display,
+                            Is.EqualTo(selected ? DisplayStyle.Flex : DisplayStyle.None), context + " selection");
+                        Assert.That(action.LoadingIndicator.resolvedStyle.display,
+                            Is.EqualTo(loading ? DisplayStyle.Flex : DisplayStyle.None), context + " loading");
+                        Assert.That(action.Label.resolvedStyle.visibility,
+                            Is.EqualTo(loading ? Visibility.Hidden : Visibility.Visible), context + " label visibility");
+                        Assert.That(action.Label.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex),
+                            context + " loading text must retain its layout space");
+                        Assert.That(action.Label.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), context);
+                        foreach (VisualElement layer in new[]
+                                 { action.FocusRing, action.SelectionIndicator, action.LoadingIndicator })
+                        {
+                            if (layer.resolvedStyle.display != DisplayStyle.Flex)
+                                continue;
+                            Assert.That(layer.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible), context);
+                            Assert.That(layer.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), context);
+                            Assert.That(layer.worldBound.width, Is.GreaterThan(0f), context);
+                            Assert.That(layer.worldBound.height, Is.GreaterThan(0f), context);
+                        }
+                        AssertRectApproximately(action.Root.worldBound, rootGeometry, context + " root");
+                        AssertRectApproximately(action.Label.layout, labelGeometry, context + " label layout");
+                        Assert.That(action.Root.resolvedStyle.backgroundColor, Is.EqualTo(background), context);
+                        Assert.That(action.Root.resolvedStyle.opacity, Is.EqualTo(1f).Within(0.01f), context);
+                        Assert.That(action.Root.resolvedStyle.visibility, Is.EqualTo(Visibility.Visible), context);
+                        Assert.That(action.Root.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), context);
+                        Assert.That(action.Root.childCount, Is.EqualTo(childCount), context);
+                    }
+
+                    AssertState(false, false, false, "initial");
+                    action.SetSelected(true);
+                    yield return null;
+                    AssertState(false, true, false, "selected only");
+                    action.SetSelected(false);
+                    action.SetLoading(true);
+                    yield return null;
+                    AssertState(false, false, true, "loading only");
+                    SendPointerDown(action.Root);
+                    SendPointerUp(action.Root, action.Root.worldBound.center);
+                    Assert.That(clicks, Is.Zero, "Loading actions cannot activate.");
+                    focusSink.Focus();
+                    action.SetLoading(false);
+                    yield return null;
+                    AssertState(false, false, false, "loading cleared");
+
+                    action.SetEnabled(false);
+                    action.SetLoading(true);
+                    yield return null;
+                    AssertState(false, false, true, "disabled loading");
+                    action.SetLoading(false);
+                    yield return null;
+                    AssertState(false, false, false, "loading cleared while disabled");
+                    Assert.That(action.Label.ClassListContains("is-disabled"), Is.True);
+                    action.SetEnabled(true);
+                    action.Root.Focus();
+                    yield return null;
+                    Assert.That(document.rootVisualElement.panel.focusController.focusedElement,
+                        Is.SameAs(action.Root));
+                    AssertState(true, false, false, "focus only");
+
+                    SendPointerDown(action.Root);
+                    yield return null;
+                    Assert.That(action.Label.ClassListContains("is-pressed"), Is.True);
+                    Assert.That(action.Label.worldBound.y, Is.EqualTo(labelWorldY + 1f).Within(0.1f),
+                        "Pressed feedback moves only the label by one panel unit.");
+                    AssertState(true, false, false, "pressed");
+                    action.SetEnabled(false);
+                    SendPointerUp(action.Root, action.Root.worldBound.center);
+                    yield return null;
+                    Assert.That(clicks, Is.Zero, "Disabling a pressed action must cancel its activation.");
+                    Assert.That(action.Label.ClassListContains("is-pressed"), Is.False);
+                    AssertState(true, false, false, "disabled with retained focus");
+                    focusSink.Focus();
+                    yield return null;
+                    AssertState(false, false, false, "blurred while disabled");
+
+                    action.SetSelected(true);
+                    yield return null;
+                    AssertState(false, true, false, "disabled selected destination");
+                    action.SetSelected(false);
+                    action.SetEnabled(true);
+                    yield return null;
+                    AssertState(false, false, false, "restored");
+                }
+            }
+            finally
+            {
+                foreach (MobileActionControl action in actions)
+                {
+                    action?.Root.Blur();
+                    action?.Dispose();
+                }
+                UIFeedbackService.Configure(false, true, 1f, true);
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator StateAndOverlayPresenters_RespectReducedMotionAndDisposeSchedules()
         {
             GameObject host = new GameObject("Mobile Overlay Contract Host");

@@ -65,15 +65,20 @@ namespace Gacha.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Pokedex_720By1600InsetsKeepGridDetailsAndFiveNavigationActionsReachable()
+        public IEnumerator Pokedex_720By1600InsetsKeepGridDetailsAndFourNavigationActionsReachable()
         {
             Type collectionControllerType = AppDomain.CurrentDomain.GetAssemblies()
                 .Select(assembly => assembly.GetType("CollectionViewController"))
                 .First(type => type != null);
             PropertyInfo progressOverride = collectionControllerType.GetProperty(
                 "CollectionProgressStoreOverride", BindingFlags.Static | BindingFlags.Public);
+            object originalProgressOverride = progressOverride.GetValue(null);
             progressOverride.SetValue(null, new EmptyCollectionProgressStore());
             string originalLanguage = null;
+            bool originalReduceMotion = UIFeedbackService.ReduceMotion;
+            bool originalHaptics = UIFeedbackService.HapticsEnabled;
+            bool originalSound = UIFeedbackService.SoundEnabled;
+            float originalAnimationSpeed = UIFeedbackService.AnimationSpeed;
             UIFeedbackService.Configure(true, false, 1f, false);
             try
             {
@@ -133,12 +138,13 @@ namespace Gacha.Tests.PlayMode
                 AssertContained(safeContent,
                     pageRoot.Q<VisualElement>("mobile-bottom-navigation").worldBound,
                     "bottom navigation");
-                foreach (string destination in new[] { "home", "gacha", "collection", "content", "settings" })
+                foreach (string destination in new[] { "home", "gacha", "collection", "content" })
                 {
                     VisualElement nav = pageRoot.Q<VisualElement>("nav-" + destination);
                     Assert.That(nav.worldBound.height, Is.GreaterThanOrEqualTo(48f), destination);
                     AssertContained(safeContent, nav.worldBound, destination);
                 }
+                AssertTopBarSettings(pageRoot);
 
                 ApplicationServices.Languages.SelectUiLanguage("ja");
                 float deadline = Time.realtimeSinceStartup + 3f;
@@ -238,8 +244,8 @@ namespace Gacha.Tests.PlayMode
             {
                 if (!string.IsNullOrWhiteSpace(originalLanguage) && ApplicationServices.IsConfigured)
                     ApplicationServices.Languages.SelectUiLanguage(originalLanguage);
-                UIFeedbackService.Configure(false, true, 1f, true);
-                progressOverride.SetValue(null, null);
+                UIFeedbackService.Configure(originalReduceMotion, originalHaptics, originalAnimationSpeed, originalSound);
+                progressOverride.SetValue(null, originalProgressOverride);
             }
         }
 
@@ -258,6 +264,12 @@ namespace Gacha.Tests.PlayMode
             PropertyInfo sceneOverride = collectionControllerType.GetProperty(
                 "SceneLoaderOverride",
                 BindingFlags.Static | BindingFlags.Public);
+            object originalProgressOverride = progressOverride.GetValue(null);
+            object originalSceneOverride = sceneOverride.GetValue(null);
+            bool originalReduceMotion = UIFeedbackService.ReduceMotion;
+            bool originalHaptics = UIFeedbackService.HapticsEnabled;
+            bool originalSound = UIFeedbackService.SoundEnabled;
+            float originalAnimationSpeed = UIFeedbackService.AnimationSpeed;
             progressOverride.SetValue(null, new EmptyCollectionProgressStore());
             var routes = new List<string>();
             sceneOverride.SetValue(null, new Action<string>(routes.Add));
@@ -293,10 +305,11 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(controller.CurrentGenerationId, Is.EqualTo("generation-1"));
                 Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(151));
                 Assert.That(controller.SpeciesGridLineCount, Is.EqualTo(76));
-                Assert.That(controller.PrimaryNavigationCount, Is.EqualTo(5));
+                Assert.That(controller.PrimaryNavigationCount, Is.EqualTo(4));
                 Assert.That(list.virtualizationMethod, Is.EqualTo(CollectionVirtualizationMethod.DynamicHeight));
                 Assert.That(root.Query<VisualElement>(className: "mobile-bottom-navigation__item").ToList(),
-                    Has.Count.EqualTo(5));
+                    Has.Count.EqualTo(4));
+                AssertTopBarSettings(root);
 
                 string uiLanguageBeforeCardSwitch = ApplicationServices.Languages.UiLanguageId;
                 ApplicationServices.Languages.SelectContentLanguage(
@@ -504,10 +517,164 @@ namespace Gacha.Tests.PlayMode
                     ApplicationServices.Languages.SelectContentLanguage(
                         originalCardLanguage, ApplicationServices.Catalog.Catalog);
                 UIFeedbackService.FeedbackPlayed -= cues.Add;
-                UIFeedbackService.Configure(false, true, 1f, true);
-                progressOverride.SetValue(null, null);
-                sceneOverride.SetValue(null, null);
+                UIFeedbackService.Configure(originalReduceMotion, originalHaptics, originalAnimationSpeed, originalSound);
+                progressOverride.SetValue(null, originalProgressOverride);
+                sceneOverride.SetValue(null, originalSceneOverride);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator Pokedex_RuntimeFixtureCapturesLocalizedGridAndReadyArtworkAfterResize()
+        {
+            Type collectionType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("CollectionViewController"))
+                .First(type => type != null);
+            PropertyInfo progressOverride = collectionType.GetProperty(
+                "CollectionProgressStoreOverride", BindingFlags.Static | BindingFlags.Public);
+            object originalProgressOverride = progressOverride.GetValue(null);
+            progressOverride.SetValue(null, new EmptyCollectionProgressStore());
+            string originalUiLanguage = null;
+            string originalCardLanguage = null;
+            bool originalReduceMotion = UIFeedbackService.ReduceMotion;
+            bool originalHaptics = UIFeedbackService.HapticsEnabled;
+            bool originalSound = UIFeedbackService.SoundEnabled;
+            float originalAnimationSpeed = UIFeedbackService.AnimationSpeed;
+            CoreNeutralSceneCapture capture = null;
+            PokemonPokedexController controller = null;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("004_CollectionScene", LoadSceneMode.Single);
+                yield return null;
+                controller = UnityEngine.Object.FindFirstObjectByType<PokemonPokedexController>();
+                Assert.That(controller, Is.Not.Null);
+                originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+                originalCardLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
+                UIFeedbackService.Configure(true, false, 1f, false);
+                ApplicationServices.Languages.SelectContentLanguage("en", ApplicationServices.Catalog.EnsureLoaded().Catalog);
+                UIDocument document = controller.GetComponent<UIDocument>();
+                VisualElement overlay = document.rootVisualElement.Q<VisualElement>("pokedex-overlay");
+                Assert.That(overlay, Is.Not.Null);
+                var viewport = new VisualElement { name = "pokedex-capture-contract-viewport" };
+                viewport.style.position = Position.Relative;
+                viewport.style.width = 720f;
+                viewport.style.height = 1600f;
+                document.rootVisualElement.Clear();
+                document.rootVisualElement.Add(viewport);
+                viewport.Add(overlay);
+                VisualElement pageRoot = overlay.Q<VisualElement>("pokedex-page-shell");
+                object pageShell = GetPrivateField(controller, "mobilePageShell");
+                var safeBinding = GetPrivateField(pageShell, "safeAreaBinding") as UiToolkitSafeAreaBinding;
+                Assert.That(safeBinding, Is.Not.Null);
+                safeBinding.Suspend();
+                VisualElement safeArea = pageRoot.Q<VisualElement>("safe-area");
+                safeArea.AddToClassList("mobile-layout--compact");
+                safeArea.style.paddingLeft = 48f;
+                safeArea.style.paddingTop = 60f;
+                safeArea.style.paddingRight = 12f;
+                safeArea.style.paddingBottom = 84f;
+                capture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                    "Pokedex_RuntimeFixtureCapturesLocalizedGridAndReadyArtworkAfterResize; actual CollectionScene Pokédex controller; " +
+                    "installed English taxonomy/artwork; empty memory-only collection progress; simulated logical viewport resizing");
+                Assert.That(controller.Open(), Is.True, controller.InitializationError);
+                yield return null;
+
+                // This is a logical resize regression, not device rotation or Screen.safeArea evidence.
+                foreach (Vector2 size in new[] { new Vector2(720f, 1600f), new Vector2(1600f, 720f), new Vector2(720f, 1600f) })
+                {
+                    viewport.style.width = size.x;
+                    viewport.style.height = size.y;
+                    for (int frame = 0; frame < 4; frame++)
+                        yield return null;
+                    Rect safeContent = InsetRect(safeArea.worldBound, safeArea.resolvedStyle);
+                    AssertContained(safeContent, pageRoot.Q<VisualElement>("mobile-top-bar").worldBound, "resized top bar " + size);
+                    AssertContained(safeContent, pageRoot.Q<VisualElement>("mobile-bottom-navigation").worldBound, "resized navigation " + size);
+                    AssertTopBarSettings(pageRoot);
+                }
+
+                foreach (string locale in new[] { "en", "zh", "ja" })
+                {
+                    ApplicationServices.Languages.SelectUiLanguage(locale);
+                    yield return null;
+                    Assert.That(controller.SelectGeneration("generation-1"), Is.True);
+                    controller.SetSearch(string.Empty);
+                    ListView list = pageRoot.Q<ListView>("pokedex-species-list");
+                    list.ScrollToItem(0);
+                    for (int frame = 0; frame < 4; frame++)
+                        yield return null;
+                    Assert.That(controller.VisibleSpeciesCount, Is.EqualTo(151));
+                    Assert.That(pageRoot.Q<Label>("pokedex-title").text, Is.EqualTo(PokemonPokedexText.Get("title", locale)));
+                    Assert.That(list.Q<VisualElement>(className: "pokedex-species-tile"), Is.Not.Null);
+                    if (capture != null)
+                        yield return capture.Capture("pokedex-grid", "Generation 1 grid; installed taxonomy; locale=" + locale, list);
+
+                    Assert.That(controller.OpenSpecies("pokemon-species:25"), Is.True);
+                    yield return null;
+                    VisualElement detail = pageRoot.Q<VisualElement>("pokedex-detail-page");
+                    Assert.That(detail.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                    var artwork = GetPrivateField(controller, "artworkView") as AsyncCardImageView;
+                    Assert.That(artwork, Is.Not.Null);
+                    float deadline = Time.realtimeSinceStartup + 5f;
+                    while (artwork.State == AsyncCardImageState.Loading && Time.realtimeSinceStartup < deadline)
+                        yield return null;
+                    Assert.That(artwork.State, Is.EqualTo(AsyncCardImageState.Ready));
+                    Assert.That(controller.ShowingAllSpeciesCards, Is.False, "Detail opens on the default-form card filter.");
+                    VisualElement selectedForm = detail.Query<VisualElement>(className: "pokedex-form-action")
+                        .ToList().Single(element => element.ClassListContains("is-selected"));
+                    var formAction = selectedForm.userData as MobileActionControl;
+                    Assert.That(formAction, Is.Not.Null);
+                    AssertCoreNeutralText(formAction.Label, selectedForm, "#FFFFFF", "selected form", "#2563EB");
+                    Color selectedBackground = selectedForm.resolvedStyle.backgroundColor;
+                    selectedForm.Focus();
+                    formAction.SetEnabled(false);
+                    yield return null;
+                    Assert.That(selectedForm.resolvedStyle.backgroundColor, Is.EqualTo(selectedBackground));
+                    AssertCoreNeutralText(formAction.Label, selectedForm, "#EAF0FF", "focused disabled form", "#2563EB");
+                    formAction.SetEnabled(true);
+                    selectedForm.Blur();
+                    yield return null;
+                    Assert.That(detail.Query<Label>().ToList().Any(label => label.text == "List is empty"), Is.False,
+                        "The explicit localized empty state must replace the built-in English empty label.");
+                    Assert.That(detail.Q<Label>("pokedex-card-empty").text, Is.Not.Empty);
+                    Assert.That(detail.Q<VisualElement>("pokedex-card-empty-state").resolvedStyle.display,
+                        Is.EqualTo(DisplayStyle.Flex));
+                    if (capture != null)
+                        yield return capture.Capture("pokedex-detail", "Pikachu detail; existing installed artwork Ready; default-form card filter; no owned cards in memory; locale=" + locale,
+                            detail, artwork);
+                    Assert.That(controller.NavigateBack(), Is.False,
+                        "With no form-history entry, NavigateBack restores the list and returns false.");
+                    yield return null;
+                    Assert.That(detail.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                    Assert.That(list.worldBound.height, Is.GreaterThan(0f));
+                    Assert.That(pageRoot.Q<VisualElement>("pokedex-list-page").resolvedStyle.display,
+                        Is.EqualTo(DisplayStyle.Flex));
+                }
+            }
+            finally
+            {
+                controller?.Close();
+                capture?.Dispose();
+                if (ApplicationServices.IsConfigured)
+                {
+                    if (!string.IsNullOrWhiteSpace(originalUiLanguage))
+                        ApplicationServices.Languages.SelectUiLanguage(originalUiLanguage);
+                    if (!string.IsNullOrWhiteSpace(originalCardLanguage) && ApplicationServices.Catalog.IsReady)
+                        ApplicationServices.Languages.SelectContentLanguage(originalCardLanguage, ApplicationServices.Catalog.Catalog);
+                }
+                progressOverride.SetValue(null, originalProgressOverride);
+                UIFeedbackService.Configure(originalReduceMotion, originalHaptics, originalAnimationSpeed, originalSound);
+            }
+        }
+
+        private static void AssertTopBarSettings(VisualElement root)
+        {
+            VisualElement settings = root.Q<VisualElement>("nav-settings");
+            VisualElement topBar = root.Q<VisualElement>("mobile-top-bar");
+            Assert.That(settings, Is.Not.Null);
+            Assert.That(topBar.Contains(settings), Is.True, "Settings must be reachable in the persistent top bar.");
+            Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").Contains(settings), Is.False);
+            Assert.That(settings.worldBound.width, Is.GreaterThanOrEqualTo(48f));
+            Assert.That(settings.worldBound.height, Is.GreaterThanOrEqualTo(48f));
+            AssertContained(topBar.worldBound, settings.worldBound, "top-bar settings");
         }
 
         private static void SendTap(VisualElement control, Action afterPointerDown = null)
@@ -562,21 +729,23 @@ namespace Gacha.Tests.PlayMode
             target.GetType().GetField(
                 name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?.GetValue(target);
 
-        private static void AssertCoreNeutralText(Label text, VisualElement surface, string expectedHex, string description)
+        private static void AssertCoreNeutralText(Label text, VisualElement surface, string expectedHex, string description,
+            string expectedSurfaceHex = "#FFFFFF")
         {
             Assert.That(text, Is.Not.Null, description);
             Assert.That(surface, Is.Not.Null, description + " surface");
             Assert.That(string.IsNullOrWhiteSpace(text.text), Is.False, description + " visible text");
             Assert.That(ColorUtility.TryParseHtmlString(expectedHex, out Color expected), Is.True);
+            Assert.That(ColorUtility.TryParseHtmlString(expectedSurfaceHex, out Color expectedSurface), Is.True);
             Color foreground = text.resolvedStyle.color;
             Color background = surface.resolvedStyle.backgroundColor;
             Assert.That(foreground.r, Is.EqualTo(expected.r).Within(0.005f), description + " red");
             Assert.That(foreground.g, Is.EqualTo(expected.g).Within(0.005f), description + " green");
             Assert.That(foreground.b, Is.EqualTo(expected.b).Within(0.005f), description + " blue");
             Assert.That(foreground.a, Is.EqualTo(1f).Within(0.005f), description + " opaque text");
-            Assert.That(background.r, Is.EqualTo(1f).Within(0.005f), description + " white surface red");
-            Assert.That(background.g, Is.EqualTo(1f).Within(0.005f), description + " white surface green");
-            Assert.That(background.b, Is.EqualTo(1f).Within(0.005f), description + " white surface blue");
+            Assert.That(background.r, Is.EqualTo(expectedSurface.r).Within(0.005f), description + " surface red");
+            Assert.That(background.g, Is.EqualTo(expectedSurface.g).Within(0.005f), description + " surface green");
+            Assert.That(background.b, Is.EqualTo(expectedSurface.b).Within(0.005f), description + " surface blue");
             Assert.That(background.a, Is.EqualTo(1f).Within(0.005f), description + " opaque surface");
             float foregroundLuminance = RelativeLuminance(foreground);
             float backgroundLuminance = RelativeLuminance(background);

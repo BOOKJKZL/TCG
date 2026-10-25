@@ -48,7 +48,8 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((int)GetProperty(controller, "ProductCount"), Is.Zero);
                 UIDocument document = controller.GetComponent<UIDocument>();
                 VisualElement root = document.rootVisualElement;
-                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(5));
+                Assert.That(root.Q<VisualElement>("mobile-bottom-navigation").childCount, Is.EqualTo(4));
+                Assert.That(root.Q<VisualElement>("mobile-top-bar").Q<VisualElement>("nav-settings"), Is.Not.Null);
                 VisualElement manage = root.Q<VisualElement>("gacha-manage-content-button");
                 Assert.That(manage.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 Assert.That(manage.worldBound.height, Is.GreaterThanOrEqualTo(48f));
@@ -113,7 +114,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("safe-area")
                     .ClassListContains("safe-area-bound"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("mobile-bottom-navigation")
-                    .childCount, Is.EqualTo(5));
+                    .childCount, Is.EqualTo(4));
                 Assert.That(document.rootVisualElement.Q<VisualElement>("nav-gacha")
                     .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.True);
                 ListView productList = document.rootVisualElement.Q<ListView>("product-list");

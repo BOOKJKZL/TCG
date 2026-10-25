@@ -29,13 +29,20 @@ namespace Gacha.Presentation
                 Action(MobileDestination.Content, navigate),
                 Action(MobileDestination.Settings, navigate)
             };
-            BottomNavigation = new MobileBottomNavigation(actions);
+            BottomNavigation = new MobileBottomNavigation(actions[0], actions[1], actions[2], actions[3]);
             BottomNavigation.Select((int)selected);
             RefreshText();
         }
 
         public MobileBottomNavigation BottomNavigation { get; }
-        public int Count => actions.Length;
+        public int Count => BottomNavigation.Count;
+
+        public void AttachSettingsAction(MobileTopBar topBar)
+        {
+            if (topBar == null)
+                throw new ArgumentNullException(nameof(topBar));
+            topBar.AddAction(GetAction(MobileDestination.Settings));
+        }
 
         public MobileActionControl GetAction(MobileDestination destination) => actions[(int)destination];
 
@@ -96,7 +103,7 @@ namespace Gacha.Presentation
                 "nav-" + destination.ToString().ToLowerInvariant(),
                 string.Empty,
                 () => navigate(destination),
-                MobileActionTone.Navigation);
+                destination == MobileDestination.Settings ? MobileActionTone.Quiet : MobileActionTone.Navigation);
         }
     }
 }

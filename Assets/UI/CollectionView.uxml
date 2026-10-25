@@ -2,6 +2,7 @@
     <Style src="Styles.uss" />
     <ui:VisualElement name="collection-browser" class="collection-browser-host">
         <ui:VisualElement name="collection-body" class="collection-browser__body">
+            <ui:VisualElement name="collection-tools" class="collection-browser__tools" />
             <ui:Label name="browser-status" class="collection-browser__status is-hidden" />
 
             <ui:VisualElement name="collection-error-panel" class="player-error-panel is-hidden">

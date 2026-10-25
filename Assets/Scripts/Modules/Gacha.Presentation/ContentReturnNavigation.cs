@@ -14,11 +14,12 @@ namespace Gacha.Presentation
             returnScene = null;
         }
 
-        public static void RememberCurrentScene()
+        public static void RememberCurrentScene(string sourceScene = null)
         {
-            string sceneName = SceneManager.GetActiveScene().name;
+            string sceneName = sourceScene ?? SceneManager.GetActiveScene().name;
             if (!string.IsNullOrWhiteSpace(sceneName) &&
-                !string.Equals(sceneName, "006_ContentScene", StringComparison.Ordinal))
+                !string.Equals(sceneName, "006_ContentScene", StringComparison.Ordinal) &&
+                !string.Equals(sceneName, "005_SettingScene", StringComparison.Ordinal))
                 returnScene = sceneName;
         }
 

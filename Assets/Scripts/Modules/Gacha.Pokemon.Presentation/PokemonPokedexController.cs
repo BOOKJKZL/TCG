@@ -241,6 +241,7 @@ namespace Gacha.Pokemon.Presentation
             primaryNavigation = new MobilePrimaryNavigation(
                 MobileDestination.Collection,
                 NavigatePrimary);
+            primaryNavigation.AttachSettingsAction(mobileTopBar);
             mobilePageShell.BottomNavigationSlot.Add(primaryNavigation.BottomNavigation.Root);
             errorPresenter = new PlayerUiErrorPresenter(
                 Required<VisualElement>("pokedex-error-panel"),
@@ -571,6 +572,7 @@ namespace Gacha.Pokemon.Presentation
             speciesList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
             speciesList.fixedItemHeight = 112f;
             speciesList.selectionType = SelectionType.None;
+            speciesList.makeNoneElement = MakeLocalizedEmptyPlaceholder;
             speciesList.makeItem = MakeSpeciesGridRow;
             speciesList.bindItem = BindSpeciesGridRow;
             speciesList.unbindItem = UnbindSpeciesGridRow;
@@ -586,6 +588,7 @@ namespace Gacha.Pokemon.Presentation
             cardList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
             cardList.fixedItemHeight = 148f;
             cardList.selectionType = SelectionType.None;
+            cardList.makeNoneElement = MakeLocalizedEmptyPlaceholder;
             cardList.makeItem = MakeRelatedCardGridRow;
             cardList.bindItem = BindRelatedCardGridRow;
             cardList.unbindItem = UnbindRelatedCardGridRow;
@@ -616,6 +619,14 @@ namespace Gacha.Pokemon.Presentation
                 cardSortMode = Mathf.Max(0, cardSortField.index);
                 RefreshCardGallery(true);
             });
+        }
+
+        private static VisualElement MakeLocalizedEmptyPlaceholder()
+        {
+            // These lists already have localized empty-state panels outside the virtualized rows.
+            var placeholder = new VisualElement { pickingMode = PickingMode.Ignore };
+            placeholder.AddToClassList("pokedex-list-empty-placeholder");
+            return placeholder;
         }
 
         private void ConfigureActions()
@@ -1272,16 +1283,17 @@ namespace Gacha.Pokemon.Presentation
             formStrip.Clear();
             foreach (PokemonFormDefinition form in browser.SelectableForms)
             {
+                bool selected = form.Id == browser.SelectedForm.Id;
                 var action = new MobileActionControl(
                     "pokedex-form-" + form.Id.Replace(':', '-'),
                     PokemonPokedexBrowser.Localized(form.Names, UiLanguage),
                     () => OpenForm(form.Id),
-                    MobileActionTone.Quiet);
+                    selected ? MobileActionTone.Primary : MobileActionTone.Quiet);
                 action.Root.tooltip = PokemonPokedexBrowser.Localized(form.Names, UiLanguage);
                 action.Root.userData = action;
                 action.Root.AddToClassList("pokedex-form-action");
-                action.Root.EnableInClassList("is-selected", form.Id == browser.SelectedForm.Id);
-                action.SetSelected(form.Id == browser.SelectedForm.Id);
+                action.Root.EnableInClassList("is-selected", selected);
+                action.SetSelected(selected);
                 action.SetEnabled(!navigationRequested);
                 formActions.Add(action);
                 formStrip.Add(action.Root);

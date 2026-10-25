@@ -102,7 +102,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(root.Q<VisualElement>("mobile-home-page"), Is.SameAs(presenter.Shell.Root));
                 Assert.That(presenter.Shell.SafeArea.ClassListContains("safe-area-bound"), Is.True);
                 Assert.That(root.Query<Button>().ToList(), Is.Empty);
-                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(5));
+                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(4));
+                Assert.That(presenter.PrimaryNavigation.BottomNavigation.Root.Q<VisualElement>("nav-settings"), Is.Null);
+                Assert.That(presenter.TopBar.Actions.Contains(presenter.SettingsUtilityAction.Root), Is.True);
                 Assert.That(presenter.HomeNavigation.IsSelected, Is.True);
                 Assert.That(presenter.GachaNavigation.IsSelected, Is.False);
                 Assert.That(presenter.SettingsNavigation.IsSelected, Is.False);
@@ -129,7 +131,7 @@ namespace Gacha.Tests.PlayMode
 
                 InvokeAction(presenter.CollectionNavigation);
                 InvokeAction(presenter.ContentNavigation);
-                InvokeAction(presenter.SettingsNavigation);
+                InvokeAction(presenter.SettingsUtilityAction);
                 yield return null;
                 Assert.That(collectionClicks, Is.EqualTo(2));
                 Assert.That(contentClicks, Is.EqualTo(2));
@@ -157,7 +159,7 @@ namespace Gacha.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Home_720By1600InsetsKeepFiveActionsAndCompactCardsReachable()
+        public IEnumerator Home_720By1600InsetsKeepFourDestinationsAndSettingsReachable()
         {
             yield return LocalizationSettings.InitializationOperation;
             Locale originalLocale = LocalizationSettings.SelectedLocale;
@@ -197,7 +199,8 @@ namespace Gacha.Tests.PlayMode
                 AssertContained(safeContent, presenter.TopBar.Root.worldBound, "home top bar");
                 AssertContained(safeContent, presenter.PrimaryNavigation.BottomNavigation.Root.worldBound,
                     "home bottom navigation");
-                foreach (MobileDestination destination in System.Enum.GetValues(typeof(MobileDestination)))
+                foreach (MobileDestination destination in new[] { MobileDestination.Home, MobileDestination.Gacha,
+                             MobileDestination.Collection, MobileDestination.Content })
                 {
                     MobileActionControl action = presenter.PrimaryNavigation.GetAction(destination);
                     Assert.That(action.Root.resolvedStyle.height,

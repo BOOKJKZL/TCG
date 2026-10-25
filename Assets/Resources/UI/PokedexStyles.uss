@@ -524,7 +524,8 @@
     -unity-text-align: middle-center;
 }
 
-.is-hidden {
+.is-hidden,
+.pokedex-list-empty-placeholder {
     display: none;
 }
 
@@ -537,7 +538,6 @@
 
 /* Selection and focus stay on child text; the Android root background stays stable on press. */
 .pokedex-action--primary .pokedex-action__label,
-.pokedex-form-action.is-selected .pokedex-action__label,
 .pokedex-scope-action.is-selected .pokedex-action__label {
     color: var(--ui-on-primary);
 }
@@ -546,9 +546,6 @@
 .pokedex-action--primary:focus .pokedex-action__label.is-disabled,
 .pokedex-action--primary .pokedex-action__label.is-pressed,
 .pokedex-action--primary .pokedex-action__label.is-disabled,
-.pokedex-form-action.is-selected:focus .pokedex-action__label,
-.pokedex-form-action.is-selected .pokedex-action__label.is-pressed,
-.pokedex-form-action.is-selected .pokedex-action__label.is-disabled,
 .pokedex-scope-action.is-selected:focus .pokedex-action__label,
 .pokedex-scope-action.is-selected .pokedex-action__label.is-pressed,
 .pokedex-scope-action.is-selected .pokedex-action__label.is-disabled {
@@ -564,7 +561,6 @@
 }
 
 .pokedex-action--primary:focus .pokedex-action__label,
-.pokedex-form-action.is-selected:focus .pokedex-action__label,
 .pokedex-scope-action.is-selected:focus .pokedex-action__label {
     border-bottom-color: var(--ui-on-primary);
 }

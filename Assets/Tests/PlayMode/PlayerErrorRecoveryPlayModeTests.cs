@@ -285,6 +285,15 @@ namespace Gacha.Tests.PlayMode
             Assert.That(playerCopy, Does.Not.Contain(Sentinel));
             Assert.That(playerCopy, Does.Not.Contain("/storage/"));
             Assert.That(playerCopy, Does.Not.Contain("credential.example"));
+            VisualElement navigation = root.Q<VisualElement>("mobile-bottom-navigation");
+            Assert.That(navigation, Is.Not.Null);
+            Assert.That(navigation.childCount, Is.EqualTo(4));
+            Assert.That(navigation.Q<VisualElement>("nav-settings"), Is.Null);
+            foreach (string destination in new[] { "home", "gacha", "collection", "content" })
+                Assert.That(navigation.Q<VisualElement>("nav-" + destination).enabledInHierarchy, Is.True);
+            VisualElement settings = root.Q<VisualElement>("mobile-top-bar").Q<VisualElement>("nav-settings");
+            Assert.That(settings, Is.Not.Null, "Catalog failure must not hide settings/recovery.");
+            Assert.That(settings.enabledInHierarchy, Is.True);
             foreach (string actionName in actionNames)
             {
                 VisualElement action = root.Q<VisualElement>(actionName);

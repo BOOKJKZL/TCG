@@ -84,6 +84,7 @@ public sealed class MainMenuBackController : MonoBehaviour
             KeepLocal = () => RequestCloudChoice(InventoryConflictChoice.KeepLocal),
             UseCloud = () => RequestCloudChoice(InventoryConflictChoice.UseCloud),
             SafeMerge = () => RequestCloudChoice(InventoryConflictChoice.SafeMerge),
+            Back = MenuBtnClick,
             Navigate = Navigate
         });
 
@@ -138,7 +139,19 @@ public sealed class MainMenuBackController : MonoBehaviour
 
     public void MenuBtnClick()
     {
-        Navigate(MobileDestination.Home);
+        TryHandleBack();
+    }
+
+    public bool TryHandleBack()
+    {
+        if (destroyed)
+            return false;
+        if (presenter?.Confirmation.TryCancel() == true)
+            return true;
+        if (navigationRequested || busy)
+            return false;
+        Navigate(SettingsReturnNavigation.PeekOrDefault());
+        return true;
     }
 
     private void CycleUiLanguage()
@@ -741,6 +754,13 @@ public sealed class MainMenuBackController : MonoBehaviour
         operationGeneration++;
         presenter?.SetNavigationPending(destination);
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
+        if (destination == MobileDestination.Content)
+        {
+            // Content -> Settings -> Content must retain Content's original return source.
+            MobileDestination source = SettingsReturnNavigation.PeekOrDefault();
+            if (source != MobileDestination.Content)
+                ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(source));
+        }
         try
         {
             if (sceneLoaderOverrideForTests != null)
@@ -749,6 +769,9 @@ public sealed class MainMenuBackController : MonoBehaviour
                 GameManager.Instance.loadManager.LoadScene(sceneName);
             else
                 SceneManager.LoadScene(sceneName);
+            SettingsReturnNavigation.Clear();
+            if (destination != MobileDestination.Content)
+                ContentReturnNavigation.Clear();
         }
         catch
         {

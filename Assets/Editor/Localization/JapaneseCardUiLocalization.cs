@@ -6,6 +6,7 @@ internal static class JapaneseCardUiLocalization
     public static readonly IReadOnlyDictionary<string, string> Values =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["common.action.back"] = "戻る",
             ["settings.language.title"] = "言語設定",
             ["settings.language.ui"] = "インターフェース言語",
             ["settings.language.content"] = "カードコンテンツ言語",

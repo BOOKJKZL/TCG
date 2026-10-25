@@ -76,7 +76,16 @@ namespace Gacha.Presentation
             public LinkedListNode<string> Node;
             public long DecodedBytes;
             public int LeaseCount;
+            public int PendingLoadCount;
             public bool RemoveWhenReleased;
+        }
+
+        private sealed class PendingLoad
+        {
+            public Task<CardTextureLoadResult> Task;
+            public int Generation;
+            public int WaiterCount;
+            public CacheEntry Entry;
         }
 
         private readonly object gate = new object();
@@ -86,7 +95,7 @@ namespace Gacha.Presentation
         private readonly Func<byte[], Texture2D> decode;
         private readonly Func<Texture2D, long> estimateDecodedBytes;
         private readonly Dictionary<string, CacheEntry> entries = new Dictionary<string, CacheEntry>(StringComparer.Ordinal);
-        private readonly Dictionary<string, Task<CardTextureLoadResult>> inFlight = new Dictionary<string, Task<CardTextureLoadResult>>(StringComparer.Ordinal);
+        private readonly Dictionary<string, PendingLoad> inFlight = new Dictionary<string, PendingLoad>(StringComparer.Ordinal);
         private readonly LinkedList<string> lru = new LinkedList<string>();
         private long decodedBytes;
         private int trimGeneration;
@@ -157,7 +166,7 @@ namespace Gacha.Presentation
 
             cancellationToken.ThrowIfCancellationRequested();
             string key = CacheKey(printing);
-            Task<CardTextureLoadResult> sharedTask;
+            PendingLoad load;
             lock (gate)
             {
                 ThrowIfDisposed();
@@ -167,14 +176,18 @@ namespace Gacha.Presentation
                     return Task.FromResult(AcquireLease(key, cached, true));
                 }
 
-                if (!inFlight.TryGetValue(key, out sharedTask))
+                if (!inFlight.TryGetValue(key, out load))
                 {
-                    sharedTask = LoadAndCacheAsync(key, printing, trimGeneration);
-                    inFlight.Add(key, sharedTask);
+                    load = new PendingLoad { Generation = trimGeneration };
+                    inFlight.Add(key, load);
                 }
+
+                load.WaiterCount++;
+                if (load.Task == null)
+                    load.Task = LoadAndCacheAsync(key, printing, load);
             }
 
-            return AwaitWithCancellationAndAcquire(key, sharedTask, cancellationToken);
+            return AwaitWithCancellationAndAcquire(key, load, cancellationToken);
         }
 
         public void Clear()
@@ -197,6 +210,7 @@ namespace Gacha.Presentation
 
                 disposed = true;
                 trimGeneration++;
+                inFlight.Clear();
                 textures = RemoveAllEntries();
             }
 
@@ -207,33 +221,52 @@ namespace Gacha.Presentation
         private async Task<CardTextureLoadResult> LoadAndCacheAsync(
             string key,
             PrintingDefinition printing,
-            int loadGeneration)
+            PendingLoad load)
         {
             // Ensure the shared task is registered before a synchronously-completing source can finish it.
             await Task.Yield();
             try
             {
+                lock (gate)
+                {
+                    string rejection = LoadRejection(load);
+                    if (rejection != null)
+                        return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, rejection);
+                }
+
                 ContentImageLoadResult image = await source.LoadAsync(
                     printing.ImageRelativePath,
                     printing.ImageSha256,
                     CancellationToken.None);
-                return DecodeAndCache(key, printing, loadGeneration, image);
+                return DecodeAndCache(key, printing, load, image);
+            }
+            catch (Exception exception)
+            {
+                // A shared load may outlive every caller; do not leave an unobserved source fault.
+                return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, exception.Message);
             }
             finally
             {
                 lock (gate)
-                    inFlight.Remove(key);
+                    RemoveInFlight(key, load);
             }
         }
 
         private CardTextureLoadResult DecodeAndCache(
             string key,
             PrintingDefinition printing,
-            int loadGeneration,
+            PendingLoad load,
             ContentImageLoadResult image)
         {
             if (!image.Succeeded)
                 return CardTextureLoadResult.Failure(image.Status, image.ErrorMessage);
+
+            lock (gate)
+            {
+                string rejection = LoadRejection(load);
+                if (rejection != null)
+                    return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, rejection);
+            }
 
             Texture2D texture = null;
             long textureDecodedBytes;
@@ -266,43 +299,37 @@ namespace Gacha.Presentation
             bool fromCache = false;
             lock (gate)
             {
-                if (disposed)
-                {
-                    rejectedReason = "The texture cache was disposed during loading.";
-                }
-                else if (loadGeneration != trimGeneration)
-                {
-                    rejectedReason = "The texture load was discarded after a memory-pressure trim.";
-                }
-                else if (textureDecodedBytes > maximumDecodedBytes)
+                rejectedReason = LoadRejection(load);
+                if (rejectedReason == null && textureDecodedBytes > maximumDecodedBytes)
                 {
                     rejectedReason =
                         $"The decoded texture requires {textureDecodedBytes} bytes, exceeding the {maximumDecodedBytes}-byte cache budget.";
                 }
-                else if (entries.TryGetValue(key, out CacheEntry existing))
+                if (rejectedReason == null && entries.TryGetValue(key, out CacheEntry existing))
                 {
                     redundant = texture;
                     resultTexture = existing.Texture;
                     fromCache = true;
                     Touch(existing);
+                    load.Entry = existing;
+                    existing.PendingLoadCount++;
                 }
-                else
+                else if (rejectedReason == null)
                 {
                     var node = lru.AddFirst(key);
-                    entries.Add(key, new CacheEntry
+                    var entry = new CacheEntry
                     {
                         Texture = texture,
                         Node = node,
-                        DecodedBytes = textureDecodedBytes
-                    });
+                        DecodedBytes = textureDecodedBytes,
+                        PendingLoadCount = 1
+                    };
+                    entries.Add(key, entry);
+                    // The load owns this pin until ALL registered waiters acquire a lease or cancel.
+                    // Register it before trimming: a newly decoded texture is not yet unused.
+                    load.Entry = entry;
                     decodedBytes += textureDecodedBytes;
-                    while (entries.Count > capacity || decodedBytes > maximumDecodedBytes)
-                    {
-                        Texture2D removed = RemoveLeastRecentlyUsed();
-                        if (removed == null)
-                            break;
-                        evicted.Add(removed);
-                    }
+                    TrimToBudget(evicted);
                 }
             }
 
@@ -323,7 +350,8 @@ namespace Gacha.Presentation
             while (candidate != null)
             {
                 LinkedListNode<string> previous = candidate.Previous;
-                if (entries.TryGetValue(candidate.Value, out CacheEntry entry) && entry.LeaseCount == 0)
+                if (entries.TryGetValue(candidate.Value, out CacheEntry entry) &&
+                    entry.LeaseCount == 0 && entry.PendingLoadCount == 0)
                 {
                     RemoveEntry(candidate.Value, entry);
                     return entry.Texture;
@@ -340,6 +368,8 @@ namespace Gacha.Presentation
             lock (gate)
             {
                 trimGeneration++;
+                // Old completions must neither accept new callers nor unregister a newer load.
+                inFlight.Clear();
                 var textures = new List<Texture2D>(entries.Count);
                 var removableKeys = new List<string>();
                 foreach (KeyValuePair<string, CacheEntry> pair in entries)
@@ -394,15 +424,20 @@ namespace Gacha.Presentation
 
         private CardTextureLoadResult TryAcquireLoadedTexture(
             string key,
+            PendingLoad load,
             CardTextureLoadResult loaded)
         {
-            if (!loaded.Succeeded)
+            if (loaded.Status != ContentImageLoadStatus.Succeeded)
                 return loaded;
 
             lock (gate)
             {
-                if (!disposed &&
-                    entries.TryGetValue(key, out CacheEntry entry) &&
+                string rejection = LoadRejection(load);
+                if (rejection != null)
+                    return CardTextureLoadResult.Failure(ContentImageLoadStatus.Failed, rejection);
+
+                if (entries.TryGetValue(key, out CacheEntry entry) &&
+                    ReferenceEquals(entry, load.Entry) &&
                     entry.Texture == loaded.Texture)
                 {
                     return AcquireLease(key, entry, loaded.FromCache);
@@ -423,24 +458,72 @@ namespace Gacha.Presentation
                     return;
 
                 entry.LeaseCount = Math.Max(0, entry.LeaseCount - 1);
-                if (entry.LeaseCount == 0 && entry.RemoveWhenReleased)
+                CollectReleasedTextures(key, entry, evicted);
+            }
+
+            DestroyTextures(evicted);
+        }
+
+        private void ReleaseWaiter(string key, PendingLoad load)
+        {
+            var evicted = new List<Texture2D>();
+            lock (gate)
+            {
+                load.WaiterCount--;
+                if (load.WaiterCount != 0)
+                    return;
+
+                RemoveInFlight(key, load);
+                CacheEntry entry = load.Entry;
+                load.Entry = null;
+                if (entry != null && entries.TryGetValue(key, out CacheEntry current) &&
+                    ReferenceEquals(current, entry))
                 {
-                    RemoveEntry(key, entry);
-                    evicted.Add(texture);
-                }
-                else
-                {
-                    while (entries.Count > capacity || decodedBytes > maximumDecodedBytes)
-                    {
-                        Texture2D removed = RemoveLeastRecentlyUsed();
-                        if (removed == null)
-                            break;
-                        evicted.Add(removed);
-                    }
+                    entry.PendingLoadCount--;
+                    CollectReleasedTextures(key, entry, evicted);
                 }
             }
 
             DestroyTextures(evicted);
+        }
+
+        private void CollectReleasedTextures(string key, CacheEntry entry, List<Texture2D> evicted)
+        {
+            if (entry.LeaseCount == 0 && entry.PendingLoadCount == 0 && entry.RemoveWhenReleased)
+            {
+                RemoveEntry(key, entry);
+                evicted.Add(entry.Texture);
+            }
+
+            TrimToBudget(evicted);
+        }
+
+        private void TrimToBudget(List<Texture2D> evicted)
+        {
+            while (entries.Count > capacity || decodedBytes > maximumDecodedBytes)
+            {
+                Texture2D removed = RemoveLeastRecentlyUsed();
+                if (removed == null)
+                    break;
+                evicted.Add(removed);
+            }
+        }
+
+        private void RemoveInFlight(string key, PendingLoad load)
+        {
+            if (inFlight.TryGetValue(key, out PendingLoad current) && ReferenceEquals(current, load))
+                inFlight.Remove(key);
+        }
+
+        private string LoadRejection(PendingLoad load)
+        {
+            if (disposed)
+                return "The texture cache was disposed during loading.";
+            if (load.Generation != trimGeneration)
+                return "The texture load was discarded after a memory-pressure trim.";
+            if (load.WaiterCount == 0)
+                return "The texture load no longer has any waiting callers.";
+            return null;
         }
 
         private void RemoveEntry(string key, CacheEntry entry)
@@ -521,20 +604,31 @@ namespace Gacha.Presentation
 
         private async Task<CardTextureLoadResult> AwaitWithCancellationAndAcquire(
             string key,
-            Task<CardTextureLoadResult> task,
+            PendingLoad load,
             CancellationToken cancellationToken)
         {
-            if (!cancellationToken.CanBeCanceled)
-                return TryAcquireLoadedTexture(key, await task);
-
-            var cancelled = new TaskCompletionSource<bool>();
-            using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
+            try
             {
-                if (task != await Task.WhenAny(task, cancelled.Task))
-                    throw new OperationCanceledException(cancellationToken);
-            }
+                // Keep Unity texture work on the caller's context; cancellation callbacks only signal.
+                Task<CardTextureLoadResult> task = load.Task;
+                if (cancellationToken.CanBeCanceled)
+                {
+                    var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
+                    {
+                        if (task != await Task.WhenAny(task, cancelled.Task))
+                            throw new OperationCanceledException(cancellationToken);
+                    }
+                }
 
-            return TryAcquireLoadedTexture(key, await task);
+                CardTextureLoadResult loaded = await task;
+                cancellationToken.ThrowIfCancellationRequested();
+                return TryAcquireLoadedTexture(key, load, loaded);
+            }
+            finally
+            {
+                ReleaseWaiter(key, load);
+            }
         }
 
         private void ThrowIfDisposed()
