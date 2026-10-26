@@ -9,6 +9,7 @@ using Gacha.Pokemon.Presentation;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
@@ -594,7 +595,7 @@ namespace Gacha.Tests.PlayMode
                 foreach (string locale in new[] { "en", "zh", "ja" })
                 {
                     ApplicationServices.Languages.SelectUiLanguage(locale);
-                    yield return null;
+                    yield return WaitForLocalizedNavigation(pageRoot, locale);
                     Assert.That(controller.SelectGeneration("generation-1"), Is.True);
                     controller.SetSearch(string.Empty);
                     ListView list = pageRoot.Q<ListView>("pokedex-species-list");
@@ -663,6 +664,39 @@ namespace Gacha.Tests.PlayMode
                 progressOverride.SetValue(null, originalProgressOverride);
                 UIFeedbackService.Configure(originalReduceMotion, originalHaptics, originalAnimationSpeed, originalSound);
             }
+        }
+
+        private static IEnumerator WaitForLocalizedNavigation(VisualElement root, string locale)
+        {
+            var selected = LocalizationSettings.AvailableLocales.GetLocale(locale);
+            Assert.That(selected, Is.Not.Null);
+            var table = LocalizationSettings.StringDatabase.GetTableAsync(CardUiText.TableName, selected);
+            yield return table;
+            Assert.That(table.Result, Is.Not.Null);
+            Assert.That(table.Result.LocaleIdentifier.Code, Is.EqualTo(locale));
+            var keys = new Dictionary<string, string>
+            {
+                ["nav-home"] = "home.nav.home",
+                ["nav-gacha"] = "main_menu.action.gacha",
+                ["nav-collection"] = "main_menu.action.collection",
+                ["nav-content"] = "main_menu.action.content",
+                ["nav-settings"] = "main_menu.action.settings"
+            };
+            var expected = new Dictionary<Label, string>();
+            foreach (var pair in keys)
+            {
+                Label label = root.Q<VisualElement>(pair.Key)?.Q<Label>("action-label");
+                Assert.That(label, Is.Not.Null, pair.Key);
+                var entry = table.Result.GetEntry(pair.Value);
+                Assert.That(entry, Is.Not.Null, pair.Value);
+                expected.Add(label, entry.GetLocalizedString(selected, null, null));
+            }
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (expected.Any(pair => pair.Key.text != pair.Value) && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            foreach (var pair in expected)
+                Assert.That(pair.Key.text, Is.EqualTo(pair.Value),
+                    "The shared navigation must match the declared screenshot locale.");
         }
 
         private static void AssertTopBarSettings(VisualElement root)

@@ -59,12 +59,14 @@ namespace Gacha.Tests.PlayMode
         {
             using (var sample = new RenderSample(locale, viewport))
             {
+                yield return WaitForSampleLocale(locale);
                 var presenter = new MobileHomePresenter(sample.Host, () => { }, () => { }, () => { }, () => { });
                 sample.Own(presenter);
                 sample.Attach(presenter.Document, presenter.Shell);
                 yield return sample.SettleLayout();
 
-                Assert.That(presenter.Title.text, Is.EqualTo(CardUiText.Get("home.title")));
+                Assert.That(presenter.Title.text, Is.EqualTo(ExpectedSampleText(locale, "home.title")),
+                    "A locale-labelled sample must show the actual locale table, not its loading fallback.");
                 Assert.That(presenter.Title.text, Is.Not.Empty);
                 Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(4));
                 Assert.That(presenter.Title.resolvedStyle.whiteSpace, Is.EqualTo(WhiteSpace.Normal));
@@ -113,6 +115,7 @@ namespace Gacha.Tests.PlayMode
         {
             using (var sample = new RenderSample(locale, Narrow))
             {
+                yield return WaitForSampleLocale(locale);
                 var document = sample.Host.AddComponent<UIDocument>();
                 document.panelSettings = Resources.Load<PanelSettings>("UI/Collection Panel Settings");
                 var shell = new MobilePageShell("core-neutral-shared-state-sample");
@@ -146,6 +149,9 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(error.Presenter.IsVisible, Is.True);
                 Assert.That(error.Presenter.IsAnimating, Is.False);
                 Assert.That(error.Title.text, Is.EqualTo(PlayerUiErrorText.Title(error.Presenter.Current)));
+                Assert.That(error.Title.text, Is.EqualTo(ExpectedSampleText(locale, "player_error.offline.title")));
+                Assert.That(empty.Title.text, Is.EqualTo(ExpectedSampleText(locale, "player_error.not_installed.title")));
+                Assert.That(topBar.Title.text, Is.EqualTo(ExpectedSampleText(locale, "common.action.manage_content")));
                 Assert.That(error.Retry.Label.text, Is.EqualTo(CardUiText.Get("common.action.retry")));
                 Assert.That(error.RetrySlot.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 AssertColor(shell.Root.resolvedStyle.backgroundColor, "#F7F8FA", "shared canvas");
@@ -163,6 +169,33 @@ namespace Gacha.Tests.PlayMode
                 sample.Capture("shared-states", "Shared component gallery: Offline error; NotInstalled empty; progress=42; no network request",
                     error.Title.text, shell.Root, error.Title, error.Root);
             }
+        }
+
+        private static IEnumerator WaitForSampleLocale(string locale)
+        {
+            // These files document settled visuals. Asynchronous loading/fallback behavior
+            // is covered independently by CardUiTextPlayModeTests without preloading.
+            Locale selected = LocalizationSettings.AvailableLocales.GetLocale(locale);
+            Assert.That(selected, Is.Not.Null);
+            var table = LocalizationSettings.StringDatabase.GetTableAsync(CardUiText.TableName, selected);
+            yield return table;
+            Assert.That(table.IsDone, Is.True);
+            Assert.That(table.Result, Is.Not.Null);
+            Assert.That(table.Result.LocaleIdentifier.Code, Is.EqualTo(locale));
+        }
+
+        private static string ExpectedSampleText(string locale, string key)
+        {
+            Locale selected = LocalizationSettings.AvailableLocales.GetLocale(locale);
+            var table = LocalizationSettings.StringDatabase.GetTableAsync(CardUiText.TableName, selected);
+            Assert.That(table.IsDone, Is.True);
+            Assert.That(table.Result, Is.Not.Null);
+            Assert.That(table.Result.LocaleIdentifier.Code, Is.EqualTo(locale));
+            var entry = table.Result.GetEntry(key);
+            Assert.That(entry, Is.Not.Null, "Missing sample text " + key);
+            string text = entry.GetLocalizedString(selected, null, null);
+            Assert.That(text, Is.Not.Empty);
+            return text;
         }
 
         private sealed class RenderSample : IDisposable
