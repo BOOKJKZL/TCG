@@ -1251,6 +1251,50 @@ MonoBehaviour:
     m_Key: common.action.back
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445840
+    m_Key: start.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445841
+    m_Key: start.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445842
+    m_Key: start.action.start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445843
+    m_Key: start.action.loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445844
+    m_Key: common.navigation.loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445845
+    m_Key: common.navigation.failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445846
+    m_Key: common.language.loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445847
+    m_Key: home.exit.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445848
+    m_Key: home.exit.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445849
+    m_Key: home.exit.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445850
+    m_Key: card.variant.unknown
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

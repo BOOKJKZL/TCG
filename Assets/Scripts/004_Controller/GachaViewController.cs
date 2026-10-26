@@ -28,6 +28,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     private sealed class ProductRow
     {
+        public ProductDefinition Product;
         public AsyncCardImageView Image;
         public Label Name;
         public Label Metadata;
@@ -70,6 +71,8 @@ public sealed class GachaViewController : MonoBehaviour
     private GachaPageState pageState = GachaPageState.Loading;
     private bool pendingContentLanguageRefresh;
     private bool navigationRequested;
+    private bool navigationFailed;
+    private SystemBackNavigation systemBack;
     private bool destroyed;
     private int pendingConfirmationCount;
 
@@ -112,6 +115,7 @@ public sealed class GachaViewController : MonoBehaviour
     private Label summaryMetadata;
     private Label openingStatistics;
     private MobilePageShell mobilePageShell;
+    private MobileTypographyBinding typography;
     private MobileTopBar mobileTopBar;
     private MobilePrimaryNavigation primaryNavigation;
     private MobileConfirmationPresenter confirmationPresenter;
@@ -214,11 +218,13 @@ public sealed class GachaViewController : MonoBehaviour
         while (LocalizationSettings.SelectedLocale == null)
             yield return null;
         RefreshLocalizedChrome();
+        yield return null;
         LoadCatalog(false);
     }
 
     private void OnDestroy()
     {
+        systemBack?.DisposeBinding();
         destroyed = true;
         if (productList != null)
             productList.selectionChanged -= OnProductSelectionChanged;
@@ -247,6 +253,7 @@ public sealed class GachaViewController : MonoBehaviour
         DisposeAction(ref errorManageAction);
         DisposeAction(ref errorHomeAction);
         mobilePageShell?.Dispose();
+        typography?.Dispose();
         mobilePageShell = null;
         errorPresenter?.Dispose();
         errorPresenter = null;
@@ -256,6 +263,7 @@ public sealed class GachaViewController : MonoBehaviour
             ApplicationServices.Languages.ContentLanguageChanged -= OnContentLanguageChanged;
         }
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+        CardUiText.TextChanged -= OnCardUiTextChanged;
 
         packAnimation?.Pause();
         revealAnimation?.Pause();
@@ -326,12 +334,15 @@ public sealed class GachaViewController : MonoBehaviour
         mobilePageShell.ContentSlot.Add(body);
         root.Clear();
         root.Add(mobilePageShell.Root);
+        systemBack = gameObject.AddComponent<SystemBackNavigation>();
+        systemBack.Bind(uiDocument.rootVisualElement, TryHandleBack);
         QueryVisualElements();
+        typography = MobileTypography.Bind(body, MobileTypographyProfiles.Gacha);
         ConfigureActions();
         menuAction = new MobileActionControl(
             "gacha-menu-button",
             string.Empty,
-            () => NavigatePrimary(MobileDestination.Home),
+            () => TryHandleBack(),
             MobileActionTone.Quiet);
         mobileTopBar.AddAction(menuAction);
         primaryNavigation = new MobilePrimaryNavigation(
@@ -351,6 +362,7 @@ public sealed class GachaViewController : MonoBehaviour
         ConfigureProductList();
         ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        CardUiText.TextChanged += OnCardUiTextChanged;
         shellInitialized = true;
         RefreshLocalizedChrome();
         pageState = GachaPageState.Loading;
@@ -360,6 +372,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     private bool LoadCatalog(bool forceReload)
     {
+        navigationFailed = false;
         IsReady = false;
         InitializationError = null;
         pageState = GachaPageState.Loading;
@@ -696,17 +709,42 @@ public sealed class GachaViewController : MonoBehaviour
 
     public void MenuBtnClick()
     {
+        TryHandleBack();
+    }
+
+    public bool TryHandleBack()
+    {
+        if (destroyed)
+            return false;
+        if (confirmationPresenter?.TryCancel() == true)
+            return true;
+        if (navigationRequested || pageState == GachaPageState.Opening)
+            return true;
         UIFeedbackService.Play(FeedbackCue.Back);
-        NavigatePrimary(MobileDestination.Home);
+        if (pageState == GachaPageState.Revealing)
+        {
+            // Inventory was committed before presentation. Back skips to its receipt, never redraws.
+            CompleteActiveAnimationsForPause();
+            RevealAllCards();
+        }
+        else if (pageState == GachaPageState.Prepared || pageState == GachaPageState.Summary ||
+                 pageState == GachaPageState.CommittedFailure)
+            ShowSelectionPage();
+        else
+            NavigatePrimary(MobileDestination.Home);
+        return true;
     }
 
     private void NavigatePrimary(MobileDestination destination)
     {
-        if (destination == MobileDestination.Gacha || navigationRequested || destroyed)
+        if (destination == MobileDestination.Gacha || navigationRequested || destroyed ||
+            pageState == GachaPageState.Opening)
             return;
 
         navigationRequested = true;
         primaryNavigation?.SetPending(destination);
+        navigationFailed = false;
+        SetStatus(CardUiText.Get("common.navigation.loading"), false);
         ApplyActionAvailability();
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
         if (destination == MobileDestination.Content)
@@ -714,23 +752,40 @@ public sealed class GachaViewController : MonoBehaviour
         if (destination == MobileDestination.Settings)
             SettingsReturnNavigation.Remember(MobileDestination.Gacha);
 
-        try
+        void Completed()
         {
-            if (SceneLoaderOverride != null)
-                SceneLoaderOverride(sceneName);
-            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-                GameManager.Instance.loadManager.LoadScene(sceneName);
-            else
-                SceneManager.LoadScene(sceneName);
             if (destination != MobileDestination.Content)
                 ContentReturnNavigation.Clear();
         }
-        catch
+        void Failed(Exception exception)
         {
+            if (destroyed)
+                return;
             navigationRequested = false;
             primaryNavigation?.ClearPending(MobileDestination.Gacha);
             ApplyActionAvailability();
-            throw;
+            navigationFailed = true;
+            SetStatus(CardUiText.Get("common.navigation.failed"), true);
+            Debug.LogWarning("Page navigation failed: " + exception);
+        }
+        try
+        {
+            if (SceneLoaderOverride != null)
+            {
+                SceneLoaderOverride(sceneName);
+                Completed();
+            }
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName, Completed, Failed);
+            else
+            {
+                SceneManager.LoadScene(sceneName);
+                Completed();
+            }
+        }
+        catch (Exception exception)
+        {
+            Failed(exception);
         }
     }
 
@@ -916,6 +971,7 @@ public sealed class GachaViewController : MonoBehaviour
         row.Add(image.Element);
         row.Add(copy);
         row.userData = new ProductRow { Image = image, Name = name, Metadata = metadata };
+        MobileTypography.Bind(row, MobileTypographyProfiles.Gacha);
         return row;
     }
 
@@ -926,6 +982,7 @@ public sealed class GachaViewController : MonoBehaviour
         ProductDefinition product = products[index];
         SetDefinition set = catalog.Sets[product.SetId];
         var row = (ProductRow)element.userData;
+        row.Product = product;
         row.Name.text = DisplayName(product);
         row.Metadata.text = ProductMetadata(product, set);
         PrintingDefinition cover = CoverFor(product);
@@ -939,11 +996,15 @@ public sealed class GachaViewController : MonoBehaviour
     private static void UnbindProductRow(VisualElement element, int index)
     {
         if (element.userData is ProductRow row)
+        {
+            row.Product = null;
             row.Image.Unbind();
+        }
     }
 
     private void DestroyProductRow(VisualElement element)
     {
+        MobileTypography.Unbind(element, MobileTypographyProfiles.Gacha);
         if (!(element.userData is ProductRow row))
             return;
         row.Image.Dispose();
@@ -1035,6 +1096,7 @@ public sealed class GachaViewController : MonoBehaviour
             row.Add(nameLabel);
             row.Add(valueLabel);
             oddsList.Add(row);
+            MobileTypography.Bind(row, MobileTypographyProfiles.Gacha);
         }
     }
 
@@ -1063,6 +1125,7 @@ public sealed class GachaViewController : MonoBehaviour
             var empty = new Label(CardUiText.Get("gacha.history.empty"));
             empty.AddToClassList("gacha-history-row");
             openingHistory.Add(empty);
+            MobileTypography.Bind(empty, MobileTypographyProfiles.Gacha);
             return;
         }
 
@@ -1081,6 +1144,7 @@ public sealed class GachaViewController : MonoBehaviour
                 entry.LanguageId));
             row.AddToClassList("gacha-history-row");
             openingHistory.Add(row);
+            MobileTypography.Bind(row, MobileTypographyProfiles.Gacha);
         }
     }
 
@@ -1192,6 +1256,7 @@ public sealed class GachaViewController : MonoBehaviour
             row.Add(copy);
             row.Add(badge);
             summaryList.Add(row);
+            MobileTypography.Bind(row, MobileTypographyProfiles.Gacha);
         }
     }
 
@@ -1345,12 +1410,23 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void RefreshLocalizedChrome()
     {
+        RefreshLocalizedChrome(false);
+    }
+
+    private void OnCardUiTextChanged()
+    {
+        if (!destroyed && shellInitialized)
+            RefreshLocalizedChrome(true);
+    }
+
+    private void RefreshLocalizedChrome(bool textOnly)
+    {
         if (root == null)
             return;
         root.EnableInClassList("reduce-motion", UIFeedbackService.ReduceMotion);
         title.text = CardUiText.Get("gacha.title");
         subtitle.text = CardUiText.Get("gacha.subtitle");
-        menuAction?.SetLabel(CardUiText.Get("common.action.main_menu"));
+        menuAction?.SetLabel(CardUiText.Get("common.action.back"));
         manageContentAction?.SetLabel(CardUiText.Get("common.action.manage_content"));
         errorPresenter?.RefreshLanguage();
         prepareAction?.SetLabel(CardUiText.Get("gacha.action.open_one"));
@@ -1367,7 +1443,24 @@ public sealed class GachaViewController : MonoBehaviour
         primaryNavigation?.RefreshText();
         oddsHeading.text = CardUiText.Get("gacha.odds.heading");
         if (selectedProduct != null)
-            SelectProduct(selectedProduct);
+        {
+            if (!textOnly) SelectProduct(selectedProduct);
+            else
+            {
+                selectedName.text = DisplayName(selectedProduct);
+                selectedMetadata.text = ProductMetadata(selectedProduct, catalog.Sets[selectedProduct.SetId]);
+                ruleBadge.text = RuleTrustLabel(selectedProfile.Trust);
+                ruleNotice.text = selectedProfile.Trust == ProductRuleTrust.Simulated
+                    ? CardUiText.Get("gacha.rule.simulation_notice")
+                    : selectedProfile.GetDescription(ApplicationServices.Languages.UiLanguageId);
+                ruleEvidenceSummary.text = selectedProfile.LastCheckedOn.HasValue
+                    ? CardUiText.Format("gacha.rule.evidence.checked", selectedProfile.GetRegionName(ApplicationServices.Languages.UiLanguageId),
+                        ConfidenceLabel(selectedProfile.Confidence), selectedProfile.LastCheckedOn.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+                    : CardUiText.Get("gacha.rule.evidence.unverified");
+                for (int index = 0; index < Math.Min(ruleSourceActions.Count, selectedProfile.Evidence.Count); index++)
+                    ruleSourceActions[index].SetLabel(CardUiText.Format("gacha.action.rule_source_number", index + 1, selectedProfile.Evidence[index].Title));
+            }
+        }
         else if (IsReady && products.Count == 0)
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
         if (currentBatchOutcome != null)
@@ -1375,15 +1468,48 @@ public sealed class GachaViewController : MonoBehaviour
         if (IsSummaryVisible)
         {
             ApplySummaryText();
-            BuildSummaryList();
+            if (!textOnly) BuildSummaryList();
+            else
+            {
+                for (int index = 0; index < Math.Min(summaryList.childCount, revealEntries.Count); index++)
+                {
+                    RevealEntry entry = revealEntries[index];
+                    VisualElement row = summaryList[index];
+                    row.Q<Label>(className: "gacha-summary-row__metadata").text = RevealMetadata(entry.Printing, entry.Award.CurrentCount);
+                    row.Q<Label>(className: "gacha-summary-row__badge").text = entry.Award.IsNew
+                        ? CardUiText.Get("common.badge.new") : $"×{entry.Award.CurrentCount}";
+                }
+            }
         }
         if (packStage.resolvedStyle.display == DisplayStyle.Flex)
             packHint.text = PackInteractionHint(preparedProductCount);
         if (openingService != null)
             RefreshOpeningJournal();
-        productList?.RefreshItems();
+        if (!textOnly) productList?.RefreshItems();
+        else productList?.Query<VisualElement>(className: "gacha-product-row").ForEach(element =>
+        {
+            if (element.userData is ProductRow row && row.Product != null)
+                row.Metadata.text = ProductMetadata(row.Product, catalog.Sets[row.Product.SetId]);
+        });
         if (confirmationPresenter?.IsVisible == true && pendingConfirmationCount > 0)
-            RequestOpenConfirmation(pendingConfirmationCount);
+        {
+            if (!textOnly) RequestOpenConfirmation(pendingConfirmationCount);
+            else
+            {
+                string languageId = ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId;
+                confirmationPresenter.Sheet.Title.text = CardUiText.Get("gacha.confirm.title");
+                confirmationPresenter.Sheet.Body.text = CardUiText.Format("gacha.confirm.body", pendingConfirmationCount,
+                    selectedProduct.GetDisplayName(languageId), languageId, RuleTrustLabel(selectedProfile.Trust));
+                confirmationPresenter.Confirm.SetLabel(CardUiText.Get("gacha.action.confirm_open"));
+                confirmationPresenter.Cancel.SetLabel(CardUiText.Get("common.action.cancel"));
+            }
+        }
+        if (navigationRequested)
+            SetStatus(CardUiText.Get("common.navigation.loading"), false);
+        else if (navigationFailed)
+            SetStatus(CardUiText.Get("common.navigation.failed"), true);
+        else if (pageState == GachaPageState.Loading)
+            SetStatus(CardUiText.Get("common.status.loading"), false);
         ApplyActionAvailability();
     }
 
@@ -1486,6 +1612,7 @@ public sealed class GachaViewController : MonoBehaviour
                 fallbackLabelClass: "gacha-source-button__label");
             ruleSourceActions.Add(action);
             ruleSourceList.Add(action.Root);
+            MobileTypography.Bind(action.Root, MobileTypographyProfiles.Gacha);
         }
         ruleSourceList.style.display = ruleSourceList.childCount > 0
             ? DisplayStyle.Flex
@@ -1541,7 +1668,7 @@ public sealed class GachaViewController : MonoBehaviour
             "gacha.reveal.metadata",
             printing.Identity.CardNumber,
             rarity,
-            printing.Identity.VariantId,
+            CardVariantDisplayName.Resolve(catalog, printing.Identity.VariantId, printing.Identity.LanguageId),
             ownedCount);
     }
 
@@ -1570,7 +1697,9 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void ApplyActionAvailability()
     {
-        bool available = !destroyed && !navigationRequested;
+        bool available = !destroyed && !navigationRequested && pageState != GachaPageState.Opening;
+        if (!navigationRequested)
+            primaryNavigation?.SetEnabled(available);
         menuAction?.SetEnabled(available);
         manageContentAction?.SetEnabled(available);
         errorRetryAction?.SetEnabled(available && pageState == GachaPageState.Error);

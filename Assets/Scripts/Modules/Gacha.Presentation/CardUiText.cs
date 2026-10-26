@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Pseudo;
 using UnityEngine.Localization.Settings;
+using UnityEngine.Localization.Tables;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Gacha.Presentation
 {
@@ -15,6 +19,17 @@ namespace Gacha.Presentation
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["common.action.retry"] = "Retry",
+                ["start.title"] = "Universal Gacha Simulator",
+                ["start.body"] = "Open simulated packs and build your card collection at your own pace.",
+                ["start.action.start"] = "Start",
+                ["start.action.loading"] = "Opening home…",
+                ["common.navigation.loading"] = "Opening page…",
+                ["common.navigation.failed"] = "This page could not open. Please try again.",
+                ["common.language.loading"] = "Changing language…",
+                ["home.exit.title"] = "Leave the game?",
+                ["home.exit.body"] = "Your saved collection will be here when you return.",
+                ["home.exit.confirm"] = "Exit",
+                ["card.variant.unknown"] = "Other variant",
                 ["common.status.loading"] = "Loading…",
                 ["common.action.main_menu"] = "Main menu",
                 ["common.action.back"] = "Back",
@@ -237,6 +252,24 @@ namespace Gacha.Presentation
 
         private static readonly Dictionary<string, string> LocalizedCache =
             new Dictionary<string, string>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, TableLoad> Tables = new Dictionary<string, TableLoad>(StringComparer.Ordinal);
+        private static LocalizationSettings settings;
+        private static LocalizedStringDatabase database;
+        private static SynchronizationContext uiContext;
+        private static AsyncOperationHandle<Locale> pendingLocale;
+        private static Action<AsyncOperationHandle<Locale>> localeCompleted;
+        private static string currentLocaleId;
+        private static int generation;
+        private static bool notificationQueued;
+
+        private sealed class TableLoad
+        {
+            public AsyncOperationHandle<StringTable> Handle;
+            public Action<AsyncOperationHandle<StringTable>> Completed;
+        }
+
+        /// <summary>The current locale's text is ready or was refreshed. Read labels again without changing page state.</summary>
+        public static event Action TextChanged;
 
         public static string Get(string key)
         {
@@ -249,16 +282,36 @@ namespace Gacha.Presentation
 
             try
             {
-                Locale locale = LocalizationSettings.SelectedLocale;
-                string localeId = locale?.Identifier.Code ?? string.Empty;
+                EnsureSource();
+                var localeOperation = settings.GetSelectedLocaleAsync();
+                if (!localeOperation.IsValid())
+                    return fallback;
+                if (!localeOperation.IsDone)
+                {
+                    ObserveLocale(localeOperation);
+                    return fallback;
+                }
+                if (localeOperation.Status != AsyncOperationStatus.Succeeded || localeOperation.Result == null)
+                    return fallback;
+                Locale locale = localeOperation.Result;
+                string localeId = locale.Identifier.Code;
+                if (currentLocaleId != localeId)
+                {
+                    ClearLoads();
+                    currentLocaleId = localeId;
+                }
+                TableLoad table = GetTable(locale);
+                if (!table.Handle.IsValid() || !table.Handle.IsDone ||
+                    table.Handle.Status != AsyncOperationStatus.Succeeded || table.Handle.Result == null)
+                    return fallback;
                 string cacheKey = localeId + "\n" + key;
                 if (LocalizedCache.TryGetValue(cacheKey, out string localized))
                     return localized;
 
-                localized = LocalizationSettings.StringDatabase.GetLocalizedString(
-                    TableName,
-                    key,
-                    locale);
+                // This overload formats an already-loaded entry. Unlike the database's synchronous
+                // GetLocalizedString, it never calls WaitForCompletion or loads another table.
+                StringTableEntry entry = table.Handle.Result.GetEntry(key);
+                localized = entry?.GetLocalizedString(locale, null, locale as PseudoLocale);
                 if (string.IsNullOrWhiteSpace(localized))
                     return fallback;
 
@@ -279,7 +332,122 @@ namespace Gacha.Presentation
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetRuntimeState()
         {
+            if (settings != null)
+                settings.OnSelectedLocaleChanged -= OnLocaleChanged;
+            ClearLoads();
+            settings = null;
+            database = null;
+            uiContext = null;
+            TextChanged = null;
+        }
+
+        private static void EnsureSource()
+        {
+            var nextSettings = LocalizationSettings.Instance;
+            var nextDatabase = nextSettings.GetStringDatabase();
+            uiContext = SynchronizationContext.Current ?? uiContext;
+            if (ReferenceEquals(settings, nextSettings) && ReferenceEquals(database, nextDatabase))
+                return;
+            if (settings != null)
+                settings.OnSelectedLocaleChanged -= OnLocaleChanged;
+            ClearLoads();
+            settings = nextSettings;
+            database = nextDatabase;
+            settings.OnSelectedLocaleChanged += OnLocaleChanged;
+        }
+
+        private static void ObserveLocale(AsyncOperationHandle<Locale> operation)
+        {
+            if (pendingLocale.IsValid() && pendingLocale.Equals(operation))
+                return;
+            if (pendingLocale.IsValid() && localeCompleted != null)
+                pendingLocale.Completed -= localeCompleted;
+            int observedGeneration = generation;
+            pendingLocale = operation;
+            localeCompleted = completed =>
+            {
+                if (observedGeneration != generation || completed.Status != AsyncOperationStatus.Succeeded || completed.Result == null)
+                    return;
+                currentLocaleId = completed.Result.Identifier.Code;
+                TableLoad table = GetTable(completed.Result);
+                if (table.Handle.IsValid() && table.Handle.IsDone && table.Handle.Status == AsyncOperationStatus.Succeeded)
+                    QueueTextChanged(observedGeneration, currentLocaleId);
+            };
+            operation.Completed += localeCompleted;
+        }
+
+        private static TableLoad GetTable(Locale locale)
+        {
+            string localeId = locale.Identifier.Code;
+            if (Tables.TryGetValue(localeId, out TableLoad existing) && existing.Handle.IsValid())
+                return existing;
+            if (existing != null)
+                LocalizedCache.Clear();
+            // Locale and table handles belong to LocalizationSettings/StringDatabase. We borrow
+            // them and remove only our callbacks; releasing them here would break other consumers.
+            var load = new TableLoad { Handle = database.GetTableAsync(TableName, locale) };
+            Tables[localeId] = load;
+            if (load.Handle.IsValid() && !load.Handle.IsDone)
+            {
+                int observedGeneration = generation;
+                load.Completed = completed =>
+                {
+                    if (observedGeneration == generation && completed.Status == AsyncOperationStatus.Succeeded && completed.Result != null)
+                        QueueTextChanged(observedGeneration, localeId);
+                };
+                load.Handle.Completed += load.Completed;
+            }
+            return load;
+        }
+
+        private static void OnLocaleChanged(Locale locale)
+        {
+            ClearLoads();
+            if (locale == null || database == null)
+                return;
+            currentLocaleId = locale.Identifier.Code;
+            TableLoad table = GetTable(locale);
+            if (table.Handle.IsValid() && table.Handle.IsDone && table.Handle.Status == AsyncOperationStatus.Succeeded)
+                QueueTextChanged(generation, currentLocaleId);
+        }
+
+        private static void QueueTextChanged(int observedGeneration, string localeId)
+        {
+            if (notificationQueued || observedGeneration != generation)
+                return;
+            notificationQueued = true;
+            void Notify(object _)
+            {
+                if (observedGeneration != generation)
+                    return;
+                notificationQueued = false;
+                if (settings == null || !ReferenceEquals(LocalizationSettings.Instance, settings))
+                    return;
+                var selected = settings.GetSelectedLocaleAsync();
+                if (selected.IsValid() && selected.IsDone && selected.Status == AsyncOperationStatus.Succeeded &&
+                    selected.Result != null && selected.Result.Identifier.Code == localeId)
+                    TextChanged?.Invoke();
+            }
+            if (uiContext != null)
+                uiContext.Post(Notify, null);
+            else
+                Notify(null);
+        }
+
+        private static void ClearLoads()
+        {
+            generation++;
+            notificationQueued = false;
+            if (pendingLocale.IsValid() && localeCompleted != null)
+                pendingLocale.Completed -= localeCompleted;
+            pendingLocale = default;
+            localeCompleted = null;
+            foreach (TableLoad table in Tables.Values)
+                if (table.Handle.IsValid() && table.Completed != null)
+                    table.Handle.Completed -= table.Completed;
+            Tables.Clear();
             LocalizedCache.Clear();
+            currentLocaleId = null;
         }
     }
 }

@@ -63,6 +63,8 @@ namespace Gacha.Presentation
                     "The shared mobile UI template " + resourcePath +
                     " does not contain the required root '" + rootName + "'.");
             root.RemoveFromHierarchy();
+            if (resourcePath.StartsWith("UI/Mobile/", StringComparison.Ordinal))
+                MobileTypography.Bind(root, MobileTypographyProfiles.Shared);
             return root;
         }
 
@@ -211,6 +213,16 @@ namespace Gacha.Presentation
             SelectionIndicator?.EnableInClassList("is-selected", value);
         }
 
+        public bool IsAvailable => CanActivate;
+
+        /// <summary>Invoke the same action and feedback from an explicit semantic action.</summary>
+        public bool TryActivate()
+        {
+            if (!CanActivate) return false;
+            Activate();
+            return true;
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -224,6 +236,7 @@ namespace Gacha.Presentation
             Root.UnregisterCallback<KeyDownEvent>(OnKeyDown);
             Root.UnregisterCallback<KeyUpEvent>(OnKeyUp);
             Root.UnregisterCallback<BlurEvent>(OnBlur);
+            MobileTypography.Unbind(Root, MobileTypographyProfiles.Shared);
         }
 
         private bool CanActivate => !disposed && enabled && !loading;
@@ -366,6 +379,7 @@ namespace Gacha.Presentation
         {
             safeAreaBinding.PaddingChanged -= ApplyOverlayInsets;
             safeAreaBinding.Dispose();
+            MobileTypography.Unbind(Root, MobileTypographyProfiles.Shared);
         }
 
         private void ApplyOverlayInsets(SafeAreaInsets padding)
@@ -703,6 +717,7 @@ namespace Gacha.Presentation
         {
             HideImmediately();
             disposed = true;
+            MobileTypography.Unbind(Root, MobileTypographyProfiles.Shared);
         }
 
         private void SetTone(MobileStatusTone tone)
@@ -731,6 +746,7 @@ namespace Gacha.Presentation
             Scrim = Root.Q<VisualElement>("sheet-scrim");
             SafeArea = Root.Q<VisualElement>("sheet-safe-area");
             Panel = Root.Q<VisualElement>("sheet-panel");
+            Scroll = Root.Q<ScrollView>("sheet-scroll");
             Grabber = Root.Q<VisualElement>("sheet-grabber");
             Title = Root.Q<Label>("sheet-title");
             Body = Root.Q<Label>("sheet-body");
@@ -746,6 +762,7 @@ namespace Gacha.Presentation
         public VisualElement Scrim { get; }
         public VisualElement SafeArea { get; }
         public VisualElement Panel { get; }
+        public ScrollView Scroll { get; }
         public VisualElement Grabber { get; }
         public Label Title { get; }
         public Label Body { get; }
@@ -764,7 +781,10 @@ namespace Gacha.Presentation
             Body.text = body ?? string.Empty;
             Body.EnableInClassList("is-empty", string.IsNullOrWhiteSpace(body));
             if (!IsVisible)
+            {
                 previousFocus = Root.panel?.focusController?.focusedElement as VisualElement;
+                Scroll.scrollOffset = Vector2.zero;
+            }
             IsVisible = true;
             Root.style.display = DisplayStyle.Flex;
             Root.style.opacity = 1f;
@@ -837,6 +857,7 @@ namespace Gacha.Presentation
             Scrim.UnregisterCallback<PointerUpEvent>(OnScrimPointerUp);
             Root.UnregisterCallback<FocusOutEvent>(OnFocusOut);
             safeAreaBinding.Dispose();
+            MobileTypography.Unbind(Root, MobileTypographyProfiles.Shared);
         }
 
         private int BeginAnimation()

@@ -1270,6 +1270,50 @@ MonoBehaviour:
     m_Localized: "返回"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445840
+    m_Localized: "万用抽卡模拟器"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445841
+    m_Localized: "打开模拟卡包，按自己的节奏建立卡牌收藏。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445842
+    m_Localized: "开始"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445843
+    m_Localized: "正在进入首页…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445844
+    m_Localized: "正在打开页面…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445845
+    m_Localized: "无法打开页面，请重试。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445846
+    m_Localized: "正在切换语言…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445847
+    m_Localized: "退出游戏？"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445848
+    m_Localized: "已保存的收藏会保留，下次可继续。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445849
+    m_Localized: "退出"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445850
+    m_Localized: "其他版本"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

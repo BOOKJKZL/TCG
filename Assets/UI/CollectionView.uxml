@@ -32,7 +32,7 @@
                 <ui:ListView name="set-list" class="browser-list collection-set-list" virtualization-method="DynamicHeight" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="card-page" class="browser-page is-hidden">
+            <ui:ScrollView name="card-page" class="browser-page collection-card-page is-hidden" mode="Vertical">
                 <ui:VisualElement class="card-page__header">
                     <ui:VisualElement name="back-to-sets-button" class="collection-action collection-action--quiet">
                         <ui:Label class="collection-action__label" />
@@ -63,7 +63,7 @@
                 </ui:VisualElement>
                 <ui:Label name="filter-empty" class="collection-filter__empty is-hidden" />
                 <ui:ListView name="card-list" class="browser-list collection-card-grid" virtualization-method="DynamicHeight" />
-            </ui:VisualElement>
+            </ui:ScrollView>
 
             <ui:ScrollView name="detail-content" class="collection-detail" mode="Vertical">
                 <ui:VisualElement name="detail-art-slot" class="collection-detail__art" />

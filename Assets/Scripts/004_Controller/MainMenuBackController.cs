@@ -23,6 +23,7 @@ public sealed class MainMenuBackController : MonoBehaviour
     private InventoryRecoveryPreview pendingPreview;
     private MobileSettingsRecoveryPreviewData pendingPreviewOverride;
     private string pendingImportPath;
+    private string confirmationTitleKey, confirmationBodyKey, confirmationActionKey;
     private string languageStatusKey = "settings.language.status.ready";
     private string recoveryStatusKey = "settings.recovery.status.ready";
     private string experienceStatusKey = "settings.experience.auto_save";
@@ -100,6 +101,7 @@ public sealed class MainMenuBackController : MonoBehaviour
         if (picker != null)
             picker.BusyChanged += OnPickerBusyChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        CardUiText.TextChanged += RefreshAll;
         GameIdentityService.Changed += OnIdentityChanged;
         GameCloudConflictSession.Current.Changed += OnConflictChanged;
         if (Inventory.Instance != null)
@@ -123,6 +125,7 @@ public sealed class MainMenuBackController : MonoBehaviour
         if (picker != null)
             picker.BusyChanged -= OnPickerBusyChanged;
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+        CardUiText.TextChanged -= RefreshAll;
         GameIdentityService.Changed -= OnIdentityChanged;
         GameCloudConflictSession.Current.Changed -= OnConflictChanged;
         if (pickerRequestActive)
@@ -149,7 +152,7 @@ public sealed class MainMenuBackController : MonoBehaviour
         if (presenter?.Confirmation.TryCancel() == true)
             return true;
         if (navigationRequested || busy)
-            return false;
+            return true;
         Navigate(SettingsReturnNavigation.PeekOrDefault());
         return true;
     }
@@ -428,6 +431,9 @@ public sealed class MainMenuBackController : MonoBehaviour
     {
         if (busy || !HasPendingImport || string.IsNullOrWhiteSpace(pendingImportPath))
             return;
+        confirmationTitleKey = "settings.recovery.confirm.title";
+        confirmationBodyKey = "settings.recovery.confirm.body";
+        confirmationActionKey = "settings.recovery.action.confirm";
         presenter.Confirmation.Show(
             CardUiText.Get("settings.recovery.confirm.title"),
             CardUiText.Get("settings.recovery.confirm.body"),
@@ -555,6 +561,9 @@ public sealed class MainMenuBackController : MonoBehaviour
     {
         if (busy || !DiagnosticsAvailable())
             return;
+        confirmationTitleKey = "settings.diagnostics.confirm.title";
+        confirmationBodyKey = "settings.diagnostics.confirm.body";
+        confirmationActionKey = "settings.diagnostics.action.clear";
         presenter.Confirmation.Show(
             CardUiText.Get("settings.diagnostics.confirm.title"),
             CardUiText.Get("settings.diagnostics.confirm.body"),
@@ -659,6 +668,9 @@ public sealed class MainMenuBackController : MonoBehaviour
     {
         if (busy || !GetCloudState().HasPending)
             return;
+        confirmationTitleKey = "settings.cloud.confirm.title";
+        confirmationBodyKey = "settings.cloud.confirm.body";
+        confirmationActionKey = CloudActionKey(choice);
         presenter.Confirmation.Show(
             CardUiText.Get("settings.cloud.confirm.title"),
             CardUiText.Get("settings.cloud.confirm.body"),
@@ -761,24 +773,41 @@ public sealed class MainMenuBackController : MonoBehaviour
             if (source != MobileDestination.Content)
                 ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(source));
         }
-        try
+        void Completed()
         {
-            if (sceneLoaderOverrideForTests != null)
-                sceneLoaderOverrideForTests(sceneName);
-            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-                GameManager.Instance.loadManager.LoadScene(sceneName);
-            else
-                SceneManager.LoadScene(sceneName);
             SettingsReturnNavigation.Clear();
             if (destination != MobileDestination.Content)
                 ContentReturnNavigation.Clear();
         }
-        catch
+        void Failed(Exception exception)
         {
+            if (destroyed)
+                return;
             navigationRequested = false;
             presenter?.ClearNavigationPending();
-            RefreshAvailability();
-            throw;
+            languageStatusKey = "common.navigation.failed";
+            languageStatusError = true;
+            RefreshAll();
+            Debug.LogWarning("Settings navigation failed: " + exception);
+        }
+        try
+        {
+            if (sceneLoaderOverrideForTests != null)
+            {
+                sceneLoaderOverrideForTests(sceneName);
+                Completed();
+            }
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName, Completed, Failed);
+            else
+            {
+                SceneManager.LoadScene(sceneName);
+                Completed();
+            }
+        }
+        catch (Exception exception)
+        {
+            Failed(exception);
         }
     }
 
@@ -792,7 +821,7 @@ public sealed class MainMenuBackController : MonoBehaviour
             languages?.RequestedContentLanguageId ?? "en",
             currentExperience,
             downloadPolicy?.Current.WifiOnlyForLargeDownloads ?? true);
-        presenter.SetStatus(presenter.LanguageStatus, CardUiText.Get(languageStatusKey), languageStatusError);
+        presenter.SetStatus(presenter.LanguageStatus, CardUiText.Get(navigationRequested ? "common.navigation.loading" : languageStatusKey), languageStatusError);
         presenter.SetStatus(presenter.ExperienceStatus, CardUiText.Get(experienceStatusKey), experienceStatusError);
         presenter.SetStatus(presenter.DownloadStatus, CardUiText.Get(downloadStatusKey), downloadStatusError);
         presenter.SetRecoveryPreview(pendingPreviewOverride != null
@@ -813,6 +842,14 @@ public sealed class MainMenuBackController : MonoBehaviour
         RefreshIdentity();
         RefreshConflict();
         RefreshAvailability();
+        if (presenter.Confirmation.IsVisible && confirmationTitleKey != null)
+        {
+            presenter.Confirmation.Sheet.Title.text = CardUiText.Get(confirmationTitleKey);
+            presenter.Confirmation.Sheet.Body.text = CardUiText.Get(confirmationBodyKey);
+            presenter.Confirmation.Confirm.SetLabel(CardUiText.Get(confirmationActionKey));
+            presenter.Confirmation.DangerConfirm.SetLabel(CardUiText.Get(confirmationActionKey));
+            presenter.Confirmation.Cancel.SetLabel(CardUiText.Get("common.action.cancel"));
+        }
     }
 
     private void RefreshIdentity()

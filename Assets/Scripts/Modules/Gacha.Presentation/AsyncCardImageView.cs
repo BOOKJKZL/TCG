@@ -23,11 +23,13 @@ namespace Gacha.Presentation
         private readonly Label status;
         private readonly VisualElement retry;
         private readonly MobileActionControl retryAction;
+        private readonly MobileTypographyBinding typography;
         private CancellationTokenSource cancellation;
         private CardTextureLoadResult textureLease;
         private IVisualElementScheduledItem pulse;
         private int requestVersion;
         private bool disposed;
+        private ContentImageLoadStatus lastFailureStatus;
 
         public AsyncCardImageView(ICardTextureCache cache)
         {
@@ -53,7 +55,9 @@ namespace Gacha.Presentation
             Element.Add(art);
             Element.Add(status);
             Element.Add(retry);
+            typography = MobileTypography.Bind(Element, MobileTypographyProfiles.CardImage);
             SetState(AsyncCardImageState.Empty);
+            CardUiText.TextChanged += RefreshLocalizedText;
         }
 
         public VisualElement Element { get; }
@@ -99,8 +103,10 @@ namespace Gacha.Presentation
             if (disposed)
                 return;
             disposed = true;
+            CardUiText.TextChanged -= RefreshLocalizedText;
             UnbindInternal();
             retryAction.Dispose();
+            typography.Dispose();
         }
 
         private void StartLoad(bool userInitiated)
@@ -146,11 +152,22 @@ namespace Gacha.Presentation
                 return;
             }
 
+            lastFailureStatus = result.Status;
             result.Dispose();
-            status.text = FailureMessage(result.Status);
+            status.text = FailureMessage(lastFailureStatus);
             SetState(AsyncCardImageState.Failed, preserveStatus: true);
             if (userInitiated)
                 UIFeedbackService.Play(FeedbackCue.Error);
+        }
+
+        private void RefreshLocalizedText()
+        {
+            if (disposed) return;
+            retryAction.SetLabel(CardUiText.Get("common.action.retry"));
+            if (State == AsyncCardImageState.Failed)
+                status.text = FailureMessage(lastFailureStatus);
+            else if (State == AsyncCardImageState.Loading)
+                status.text = CardUiText.Get("common.status.loading");
         }
 
         private void SetState(AsyncCardImageState state, bool preserveStatus = false)

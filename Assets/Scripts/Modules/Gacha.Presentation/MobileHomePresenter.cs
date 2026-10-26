@@ -59,6 +59,9 @@ namespace Gacha.Presentation
         private readonly Feature settingsFeature;
         private readonly MobileActionControl settingsAction;
         private bool disposed;
+        private string bodyKey = "home.body";
+        private readonly MobileTypographyBinding typography;
+        private readonly MobileAccessibilityPageBindings accessibility;
 
         public MobileHomePresenter(
             GameObject host,
@@ -111,6 +114,7 @@ namespace Gacha.Presentation
             RequiredSlot("home-collection-slot").Add(collectionFeature.Card.Root);
             RequiredSlot("home-content-slot").Add(contentFeature.Card.Root);
             RequiredSlot("home-settings-slot").Add(settingsFeature.Card.Root);
+            typography = MobileTypography.Bind(Content, MobileTypographyProfiles.Home);
 
             PrimaryNavigation = new MobilePrimaryNavigation(
                 MobileDestination.Home,
@@ -121,6 +125,8 @@ namespace Gacha.Presentation
                     openContent,
                     openSettings));
             Shell.BottomNavigationSlot.Add(PrimaryNavigation.BottomNavigation.Root);
+            ExitConfirmation = new MobileConfirmationPresenter();
+            Shell.ModalLayer.Add(ExitConfirmation.Root);
 
             if (ApplicationServices.IsConfigured)
             {
@@ -128,13 +134,16 @@ namespace Gacha.Presentation
                 languages.UiLanguageChanged += OnUiLanguageChanged;
             }
             LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+            CardUiText.TextChanged += RefreshText;
             RefreshText();
+            accessibility = MobileAccessibilityPageBindings.ForHome(this);
         }
 
         public UIDocument Document { get; }
         public MobilePageShell Shell { get; }
         public MobileTopBar TopBar { get; }
         public MobilePrimaryNavigation PrimaryNavigation { get; }
+        public MobileConfirmationPresenter ExitConfirmation { get; }
         public VisualElement Content { get; }
         public VisualElement Hero { get; }
         public Label Kicker { get; }
@@ -157,6 +166,8 @@ namespace Gacha.Presentation
             if (disposed || destination == MobileDestination.Home)
                 return;
             PrimaryNavigation.SetPending(destination);
+            bodyKey = "common.navigation.loading";
+            Body.text = CardUiText.Get(bodyKey);
             SetFeaturePending(gachaFeature.Action, destination == MobileDestination.Gacha);
             SetFeaturePending(collectionFeature.Action, destination == MobileDestination.Collection);
             SetFeaturePending(contentFeature.Action, destination == MobileDestination.Content);
@@ -170,12 +181,21 @@ namespace Gacha.Presentation
             if (disposed)
                 return;
             PrimaryNavigation.ClearPending(MobileDestination.Home);
+            bodyKey = "home.body";
+            Body.text = CardUiText.Get(bodyKey);
             SetFeatureReady(gachaFeature.Action);
             SetFeatureReady(collectionFeature.Action);
             SetFeatureReady(contentFeature.Action);
             SetFeatureReady(settingsFeature.Action);
             settingsAction.SetLoading(false);
             settingsAction.SetEnabled(true);
+        }
+
+        public void ShowNavigationFailure()
+        {
+            ClearNavigationPending();
+            bodyKey = "common.navigation.failed";
+            Body.text = CardUiText.Get(bodyKey);
         }
 
         public void RefreshText()
@@ -186,7 +206,7 @@ namespace Gacha.Presentation
             settingsAction.SetLabel(CardUiText.Get("main_menu.action.settings"));
             Kicker.text = CardUiText.Get("home.kicker");
             Title.text = CardUiText.Get("home.title");
-            Body.text = CardUiText.Get("home.body");
+            Body.text = CardUiText.Get(bodyKey);
             SectionTitle.text = CardUiText.Get("home.section.destinations");
             gachaFeature.SetText(
                 CardUiText.Get("main_menu.action.gacha"),
@@ -201,6 +221,13 @@ namespace Gacha.Presentation
                 CardUiText.Get("main_menu.action.settings"),
                 CardUiText.Get("home.feature.settings"));
             PrimaryNavigation.RefreshText();
+            if (ExitConfirmation.IsVisible)
+            {
+                ExitConfirmation.Sheet.Title.text = CardUiText.Get("home.exit.title");
+                ExitConfirmation.Sheet.Body.text = CardUiText.Get("home.exit.body");
+                ExitConfirmation.Confirm.SetLabel(CardUiText.Get("home.exit.confirm"));
+                ExitConfirmation.Cancel.SetLabel(CardUiText.Get("common.action.cancel"));
+            }
         }
 
         public void Dispose()
@@ -208,7 +235,10 @@ namespace Gacha.Presentation
             if (disposed)
                 return;
             disposed = true;
+            accessibility?.Dispose();
+            typography?.Dispose();
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+            CardUiText.TextChanged -= RefreshText;
             if (languages != null)
                 languages.UiLanguageChanged -= OnUiLanguageChanged;
             gachaFeature.Dispose();
@@ -217,6 +247,7 @@ namespace Gacha.Presentation
             settingsFeature.Dispose();
             settingsAction.Dispose();
             PrimaryNavigation.Dispose();
+            ExitConfirmation.Dispose();
             Shell.Dispose();
             if (Document != null && Document.rootVisualElement != null)
                 Document.rootVisualElement.Clear();

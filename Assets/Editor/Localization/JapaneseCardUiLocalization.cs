@@ -7,6 +7,17 @@ internal static class JapaneseCardUiLocalization
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["common.action.back"] = "戻る",
+            ["start.title"] = "ユニバーサルガチャシミュレーター",
+            ["start.body"] = "シミュレーションのパックを開けて、自分のペースでカードを集めましょう。",
+            ["start.action.start"] = "はじめる",
+            ["start.action.loading"] = "ホームを開いています…",
+            ["common.navigation.loading"] = "ページを開いています…",
+            ["common.navigation.failed"] = "ページを開けませんでした。もう一度お試しください。",
+            ["common.language.loading"] = "言語を切り替えています…",
+            ["home.exit.title"] = "ゲームを終了しますか？",
+            ["home.exit.body"] = "保存済みのコレクションは次回も利用できます。",
+            ["home.exit.confirm"] = "終了",
+            ["card.variant.unknown"] = "その他のバリエーション",
             ["settings.language.title"] = "言語設定",
             ["settings.language.ui"] = "インターフェース言語",
             ["settings.language.content"] = "カードコンテンツ言語",

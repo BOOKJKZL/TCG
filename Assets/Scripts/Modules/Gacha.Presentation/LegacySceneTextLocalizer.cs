@@ -52,6 +52,7 @@ namespace Gacha.Presentation
         private void OnEnable()
         {
             LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+            CardUiText.TextChanged += RefreshText;
             AttachLanguageService();
         }
 
@@ -64,6 +65,7 @@ namespace Gacha.Presentation
         private void OnDisable()
         {
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+            CardUiText.TextChanged -= RefreshText;
             if (languages != null)
                 languages.UiLanguageChanged -= OnUiLanguageChanged;
             languages = null;

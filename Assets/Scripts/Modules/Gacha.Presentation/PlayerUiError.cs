@@ -225,6 +225,7 @@ namespace Gacha.Presentation
             this.manageContent = manageContent;
             this.home = home;
             this.close = close;
+            CardUiText.TextChanged += OnTextChanged;
         }
 
         public PlayerUiError Current { get; private set; }
@@ -293,9 +294,12 @@ namespace Gacha.Presentation
 
         public void Dispose()
         {
+            CardUiText.TextChanged -= OnTextChanged;
             animation?.Pause();
             animation = null;
         }
+
+        private void OnTextChanged() => RefreshLanguage();
 
         private void AnimateIn()
         {

@@ -92,6 +92,7 @@ namespace Gacha.Pokemon.Presentation
         private string taxonomySourceSha256;
         private PlayerUiError initializationPlayerError;
         private MobilePageShell mobilePageShell;
+        private MobileTypographyBinding typography;
         private MobileTopBar mobileTopBar;
         private MobilePrimaryNavigation primaryNavigation;
         private VisualElement root;
@@ -230,6 +231,7 @@ namespace Gacha.Pokemon.Presentation
             root.Clear();
             root.Add(mobilePageShell.Root);
             QueryElements();
+            typography = MobileTypography.Bind(body, MobileTypographyProfiles.Pokedex);
             ConfigureControls();
             ConfigureActions();
             closeAction = new MobileActionControl(
@@ -303,6 +305,26 @@ namespace Gacha.Pokemon.Presentation
             errorPresenter?.HideImmediately();
             root.style.display = DisplayStyle.None;
             UIFeedbackService.Play(FeedbackCue.Back);
+        }
+
+        public bool TryHandleBack()
+        {
+            if (!IsOpen)
+                return false;
+            if (navigationRequested)
+                return true;
+            if (browser != null && detailPage.resolvedStyle.display != DisplayStyle.None)
+                NavigateBack();
+            else
+                Close();
+            return true;
+        }
+
+        public void ClearNavigationPending()
+        {
+            navigationRequested = false;
+            primaryNavigation?.ClearPending(MobileDestination.Collection);
+            ApplyActionAvailability();
         }
 
         private void NavigatePrimary(MobileDestination destination)
@@ -525,6 +547,7 @@ namespace Gacha.Pokemon.Presentation
             primaryNavigation?.Dispose();
             primaryNavigation = null;
             mobilePageShell?.Dispose();
+            typography?.Dispose();
             mobilePageShell = null;
             root?.RemoveFromHierarchy();
             root = null;
@@ -715,6 +738,7 @@ namespace Gacha.Pokemon.Presentation
             root.Add(first.Root);
             root.Add(second.Root);
             root.userData = new SpeciesGridRow { Tiles = new[] { first, second } };
+            MobileTypography.Bind(root, MobileTypographyProfiles.Pokedex);
             return root;
         }
 
@@ -784,6 +808,7 @@ namespace Gacha.Pokemon.Presentation
 
         private static void DestroySpeciesGridRow(VisualElement element)
         {
+            MobileTypography.Unbind(element, MobileTypographyProfiles.Pokedex);
             if (!(element.userData is SpeciesGridRow row))
                 return;
             foreach (SpeciesTile tile in row.Tiles)
@@ -812,6 +837,7 @@ namespace Gacha.Pokemon.Presentation
                 () => ActivateIntroducedForm(view),
                 feedbackLabel: name);
             row.userData = view;
+            MobileTypography.Bind(row, MobileTypographyProfiles.Pokedex);
             return row;
         }
 
@@ -849,6 +875,7 @@ namespace Gacha.Pokemon.Presentation
 
         private static void DestroyIntroducedFormRow(VisualElement element)
         {
+            MobileTypography.Unbind(element, MobileTypographyProfiles.Pokedex);
             if (element.userData is IntroducedFormRow row)
                 row.Action.Dispose();
         }
@@ -862,6 +889,7 @@ namespace Gacha.Pokemon.Presentation
             row.Add(first.Root);
             row.Add(second.Root);
             row.userData = new RelatedCardGridRow { Tiles = new[] { first, second } };
+            MobileTypography.Bind(row, MobileTypographyProfiles.Pokedex);
             return row;
         }
 
@@ -956,6 +984,7 @@ namespace Gacha.Pokemon.Presentation
 
         private void DestroyRelatedCardGridRow(VisualElement element)
         {
+            MobileTypography.Unbind(element, MobileTypographyProfiles.Pokedex);
             if (!(element.userData is RelatedCardGridRow row))
                 return;
             foreach (RelatedCardTile tile in row.Tiles)

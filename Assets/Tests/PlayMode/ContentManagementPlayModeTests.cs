@@ -306,7 +306,7 @@ namespace Gacha.Tests.PlayMode
                 safeAreaRoot.style.paddingTop = 60f;
                 safeAreaRoot.style.paddingRight = 12f;
                 safeAreaRoot.style.paddingBottom = 84f;
-                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                visualCapture = CoreNeutralSceneCapture.BeginForFixedViewport(document, viewport,
                     "Content scene with an in-memory two-package cached/offline catalog, fake transfer/install " +
                     "services and an empty in-memory installed registry; no catalog download or user inventory.");
                 yield return null;

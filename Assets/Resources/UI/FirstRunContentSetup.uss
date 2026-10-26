@@ -42,6 +42,7 @@
     color: var(--ui-primary);
     font-size: 18px;
     -unity-font-style: bold;
+    white-space: normal;
 }
 
 .first-run-content__title {

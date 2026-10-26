@@ -18,7 +18,7 @@ public class LoadManager : MonoBehaviour
     {
         if(fade == null)
         {
-            fade = loadingScreen.GetComponent<Fade>();
+            fade = loadingScreen != null ? loadingScreen.GetComponent<Fade>() : null;
         }
 
         if (fadeblackScreen == null)
@@ -153,14 +153,43 @@ public class LoadManager : MonoBehaviour
     // Load scene asynchronously with transition
     public void LoadScene(string sceneName)
     {
+        LoadScene(sceneName, null, exception => Debug.LogWarning("Scene navigation failed: " + exception));
+    }
+
+    public void LoadScene(string sceneName, System.Action completed, System.Action<System.Exception> failed)
+    {
+        bool settled = false;
         StartLoad();
-        fadeblackScreen.ChangeScene(sceneName);
+        void Finish(System.Exception error)
+        {
+            if (settled)
+                return;
+            settled = true;
+            EndLoad();
+            if (error == null)
+                completed?.Invoke();
+            else
+                failed?.Invoke(error);
+        }
+        try
+        {
+            if (fadeblackScreen != null)
+                fadeblackScreen.ChangeScene(sceneName, () => Finish(null), Finish);
+            else
+            {
+                SceneManager.LoadScene(sceneName);
+                Finish(null);
+            }
+        }
+        catch (System.Exception exception)
+        {
+            Finish(exception);
+        }
     }
 
     public void LoadScene(int sceneID)
     {
-        StartLoad();
-        fadeblackScreen.ChangeScene(sceneID);
+        LoadScene(SceneUtility.GetScenePathByBuildIndex(sceneID));
     }
 
     public void StartLoad()
@@ -168,22 +197,28 @@ public class LoadManager : MonoBehaviour
         loadCounter++;
         if (loadCounter == 1)
         {
-            loadingScreen.SetActive(true);
+            if (loadingScreen != null)
+                loadingScreen.SetActive(true);
             load = true;
-            fade.StartFadeIn();
+            fade?.StartFadeIn();
         }
     }
 
     public void EndLoad()
     {
-        loadCounter--;
+        loadCounter = Mathf.Max(0, loadCounter - 1);
         if (loadCounter == 0)
         {
-            fade.StartFadeOut(() =>
+            load = false;
+            void HideLoading()
             {
-                load = false;
-                loadingScreen.SetActive(false);
-            });
+                if (loadCounter == 0 && loadingScreen != null)
+                    loadingScreen.SetActive(false);
+            }
+            if (fade != null && fade.isActiveAndEnabled)
+                fade.StartFadeOut(HideLoading);
+            else
+                HideLoading();
         }
     }
 }

@@ -67,7 +67,14 @@ def build(source_font: Path, output_font: Path, repo_root: Path) -> None:
 
     options = subset.Options()
     options.hinting = False
-    options.layout_features = ["*"]
+    # All shipped UI is horizontal. Vertical substitutions retain many alternate
+    # outlines that UI Toolkit never selects; omit only those two features while
+    # preserving localization, kerning and the other shaping features.
+    options.layout_features = sorted({
+        record.FeatureTag
+        for tag in ("GSUB", "GPOS") if tag in font
+        for record in font[tag].table.FeatureList.FeatureRecord
+    } - {"vert", "vrt2"})
     options.name_IDs = ["*"]
     options.name_legacy = True
     options.notdef_glyph = True

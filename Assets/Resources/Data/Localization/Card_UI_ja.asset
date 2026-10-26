@@ -1286,6 +1286,50 @@ MonoBehaviour:
     m_Localized: "戻る"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445840
+    m_Localized: "ユニバーサルガチャシミュレーター"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445841
+    m_Localized: "シミュレーションのパックを開けて、自分のペースでカードを集めましょう。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445842
+    m_Localized: "はじめる"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445843
+    m_Localized: "ホームを開いています…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445844
+    m_Localized: "ページを開いています…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445845
+    m_Localized: "ページを開けませんでした。もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445846
+    m_Localized: "言語を切り替えています…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445847
+    m_Localized: "ゲームを終了しますか？"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445848
+    m_Localized: "保存済みのコレクションは次回も利用できます。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445849
+    m_Localized: "終了"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445850
+    m_Localized: "その他のバリエーション"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

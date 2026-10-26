@@ -22,7 +22,10 @@ public class UniversalUiFontTests
         StringTableCollection collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
         StringTable chinese = collection.GetTable("zh") as StringTable;
         Assert.That(chinese, Is.Not.Null);
-        var required = new HashSet<char>(chinese.Values
+        Assert.That(collection.GetTable("ja") as StringTable, Is.Not.Null);
+        Assert.That(collection.GetTable("en") as StringTable, Is.Not.Null);
+        var required = new HashSet<char>(collection.StringTables
+            .SelectMany(table => table.Values)
             .SelectMany(entry => entry.Value ?? string.Empty)
             .Where(character => character >= 0x2E80)
             .Distinct());

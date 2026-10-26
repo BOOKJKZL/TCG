@@ -144,6 +144,8 @@ namespace Gacha.Presentation
                 controls.AddToClassList("content-package-row__controls");
                 Progress = new ProgressBar { lowValue = 0f, highValue = 100f };
                 Progress.AddToClassList("content-package-row__progress");
+                ProgressLabel = new Label();
+                ProgressLabel.AddToClassList("content-package-row__progress-value");
                 var actions = new VisualElement();
                 actions.AddToClassList("content-package-row__actions");
                 Actions = actions;
@@ -164,6 +166,7 @@ namespace Gacha.Presentation
                 actions.Add(Pause.Root);
                 actions.Add(Download.Root);
                 controls.Add(Progress);
+                controls.Add(ProgressLabel);
                 controls.Add(actions);
                 Root.Add(Selection);
                 Root.Add(copy);
@@ -177,6 +180,7 @@ namespace Gacha.Presentation
             public Label Metadata { get; }
             public Label Status { get; }
             public ProgressBar Progress { get; }
+            public Label ProgressLabel { get; }
             public VisualElement Actions { get; }
             public MobileActionControl Download { get; }
             public MobileActionControl Pause { get; }
@@ -207,6 +211,7 @@ namespace Gacha.Presentation
                 Root.EnableInClassList("is-selected", selected);
                 Metadata.text = string.Empty;
                 Status.text = string.Empty;
+                ProgressLabel.text = string.Empty;
                 Installed = null;
                 LifecycleError = null;
                 Removing = false;
@@ -259,6 +264,7 @@ namespace Gacha.Presentation
         private VisualElement pageRoot;
         private VisualElement shell;
         private MobilePageShell mobilePageShell;
+        private MobileTypographyBinding typography;
         private MobileTopBar mobileTopBar;
         private MobileConfirmationPresenter confirmationPresenter;
         private ListView packageList;
@@ -320,6 +326,8 @@ namespace Gacha.Presentation
         private bool catalogQueryAllowed;
         private bool initialCatalogLoadPending;
         private bool navigationRequested;
+        private SystemBackNavigation systemBack;
+        private Func<Task> suspendOperationsOverrideForTests;
         private Action<string> sceneLoaderOverrideForTests;
         private string launchedRecommendationId;
 
@@ -564,6 +572,8 @@ namespace Gacha.Presentation
             try
             {
                 BuildView();
+                systemBack = gameObject.AddComponent<SystemBackNavigation>();
+                systemBack.Bind(uiDocument.rootVisualElement, TryHandleBack);
                 catalogProvider = CatalogProviderOverride ?? ApplicationServices.ContentPackageCatalogs;
                 operationFactory = OperationFactoryOverride ?? ApplicationServices.ContentPackageOperations;
                 lifecycleService = LifecycleOverride ?? ApplicationServices.ContentPackageLifecycle;
@@ -579,6 +589,7 @@ namespace Gacha.Presentation
                 if (experienceSettings != null)
                     experienceSettings.Changed += OnExperienceSettingsChanged;
                 LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+                CardUiText.TextChanged += OnCardUiTextChanged;
                 initialCatalogLoadPending = true;
                 RefreshLocalization();
                 ApplyMotionPreference();
@@ -592,15 +603,17 @@ namespace Gacha.Presentation
 
         private void OnDestroy()
         {
+            destroyed = true;
+            systemBack?.DisposeBinding();
             confirmationPresenter?.Dispose();
             confirmationPresenter = null;
             mobilePageShell?.Dispose();
+            typography?.Dispose();
             mobilePageShell = null;
             errorPresenter?.Dispose();
             errorPresenter = null;
             DisposeGlobalActions();
-            _ = SuspendAllOperationsAsync();
-            destroyed = true;
+            _ = SuspendForShutdownAsync();
             loadGeneration++;
             loadCancellation?.Cancel();
             loadCancellation?.Dispose();
@@ -610,6 +623,7 @@ namespace Gacha.Presentation
             localizationRoutine = null;
             StopEntranceAnimation();
             LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+            CardUiText.TextChanged -= OnCardUiTextChanged;
             if (experienceSettings != null)
                 experienceSettings.Changed -= OnExperienceSettingsChanged;
             experienceSettings = null;
@@ -767,10 +781,16 @@ namespace Gacha.Presentation
             confirmationPresenter = new MobileConfirmationPresenter();
             mobilePageShell.ModalLayer.Add(confirmationPresenter.Root);
             packageList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            // DynamicHeight uses this only until actual rows are measured. Match
+            // the USS minimum instead of creating a screenful of 22px placeholders
+            // (and install coordinators) before our larger cards finish layout.
+            packageList.fixedItemHeight = 148f;
+            typography = MobileTypography.Bind(shell, MobileTypographyProfiles.Content);
             packageList.selectionType = SelectionType.None;
             packageList.makeItem = MakePackageRow;
             packageList.bindItem = BindPackageRow;
             packageList.unbindItem = UnbindPackageRow;
+            packageList.destroyItem = row => MobileTypography.Unbind(row, MobileTypographyProfiles.Content);
             searchFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
             languageFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
             generationFilter.RegisterValueChangedCallback(_ => ApplyLibraryQuery());
@@ -961,8 +981,11 @@ namespace Gacha.Presentation
                 displayedItems.Clear();
                 displayedItems.AddRange(library.Items);
                 rows.Clear();
-                packageList.itemsSource = displayedItems;
-                if (rebuild)
+                // Assigning a new source already refreshes and binds the ListView. Rebuilding
+                // again here would immediately discard those idle coordinators and create them twice.
+                if (!ReferenceEquals(packageList.itemsSource, displayedItems))
+                    packageList.itemsSource = displayedItems;
+                else if (rebuild)
                     packageList.Rebuild();
                 else
                     packageList.RefreshItems();
@@ -994,6 +1017,7 @@ namespace Gacha.Presentation
                 RemoveClicked,
                 SelectionChanged);
             row.Root.userData = row;
+            MobileTypography.Bind(row.Root, MobileTypographyProfiles.Content);
             return row.Root;
         }
 
@@ -1002,13 +1026,16 @@ namespace Gacha.Presentation
             if (destroyed || index < 0 || index >= displayedItems.Count)
                 return;
             var row = (PackageRow)element.userData;
-            RemoveVisibleBinding(row);
             ContentPackageLibraryItem item = displayedItems[index];
+            string packageId = item.Package.PackageId;
+            // Layout/text refresh can bind the same row again without an intervening unbind.
+            // Its coordinator remains owned by this binding and must not be released/recreated.
+            if (!string.Equals(row.Entry?.Package.PackageId, packageId, StringComparison.Ordinal))
+                RemoveVisibleBinding(row);
             row.Bind(
                 item.Entry,
                 item.DisplayName,
                 selectedPackageIds.Contains(item.Package.PackageId));
-            string packageId = item.Package.PackageId;
             rows[packageId] = row;
             ContentPackageInstallCoordinator operation = EnsureOperation(packageId);
             RefreshInstalledState(row);
@@ -1674,6 +1701,8 @@ namespace Gacha.Presentation
                 FormatBytes(downloaded),
                 FormatBytes(item.DownloadBytes));
             row.Progress.style.display = item.UiState.ShowProgress ? DisplayStyle.Flex : DisplayStyle.None;
+            row.ProgressLabel.text = row.Progress.title;
+            row.ProgressLabel.style.display = row.Progress.style.display;
 
             bool hasPrimary = item.UiState.PrimaryAction != ContentPackagePrimaryAction.None;
             if (snapshot.State == ContentPackageOperationState.Idle && installedCurrent)
@@ -1902,11 +1931,21 @@ namespace Gacha.Presentation
 
         private void BackToMenu()
         {
+            TryHandleBack();
+        }
+
+        public bool TryHandleBack()
+        {
+            if (destroyed)
+                return false;
+            if (confirmationPresenter?.TryCancel() == true || navigationRequested || rows.Values.Any(row => row.Removing))
+                return true;
             string sceneName = ContentReturnNavigation.PeekOrDefault("002_MainMenuScene");
             NavigateAfterSuspend(
                 sceneName,
                 DestinationForScene(sceneName),
                 true);
+            return true;
         }
 
         private void ClearRecommendedLaunch()
@@ -1958,10 +1997,11 @@ namespace Gacha.Presentation
             MobileDestination destination,
             bool clearReturn)
         {
-            if (destroyed || navigationRequested || string.IsNullOrWhiteSpace(sceneName))
+            if (destroyed || navigationRequested || rows.Values.Any(row => row.Removing) || string.IsNullOrWhiteSpace(sceneName))
                 return;
             navigationRequested = true;
             primaryNavigation?.SetPending(destination);
+            SetCatalogStatus(CardUiText.Get("common.navigation.loading"), false, cardUiKey: "common.navigation.loading");
             UIFeedbackService.Play(destination == MobileDestination.Home
                 ? FeedbackCue.Back
                 : FeedbackCue.ButtonClick);
@@ -1981,9 +2021,12 @@ namespace Gacha.Presentation
             }
             catch (Exception exception)
             {
+                if (destroyed)
+                    return;
                 Debug.LogWarning("Content navigation could not suspend the active queue: " + exception.Message);
                 navigationRequested = false;
                 primaryNavigation?.ClearPending(MobileDestination.Content);
+                SetCatalogStatus(CardUiText.Get("common.navigation.failed"), true, cardUiKey: "common.navigation.failed");
                 UIFeedbackService.Play(FeedbackCue.Error);
             }
         }
@@ -2001,6 +2044,11 @@ namespace Gacha.Presentation
 
         private async Task SuspendAllOperationsAsync()
         {
+            if (suspendOperationsOverrideForTests != null)
+            {
+                await suspendOperationsOverrideForTests();
+                return;
+            }
             ContentPackageInstallQueue queue = installQueue;
             Task queueSuspension = queue == null
                 ? Task.CompletedTask
@@ -2016,6 +2064,19 @@ namespace Gacha.Presentation
                 .Select(value => (Task)value.SuspendAsync())
                 .ToArray();
             await Task.WhenAll(new[] { queueSuspension, Task.WhenAll(independentSuspensions) });
+        }
+
+        private async Task SuspendForShutdownAsync()
+        {
+            try
+            {
+                await SuspendAllOperationsAsync();
+            }
+            catch (Exception exception)
+            {
+                // The view is gone. Observe cleanup faults without touching disposed controls or feedback.
+                Debug.LogWarning("Content shutdown could not suspend the active queue: " + exception.Message);
+            }
         }
 
         private void ScrollToLaunchedRecommendation()
@@ -2053,6 +2114,18 @@ namespace Gacha.Presentation
                 entry.Metadata.GetDisplayName(CurrentUiLanguageId(), entry.Package.PackageId));
         }
 
+        private string cardUiCatalogStatusKey;
+
+        private void OnCardUiTextChanged()
+        {
+            if (destroyed || pageRoot == null) return;
+            // Content_UI has its own localization pass; Card_UI readiness must not re-run
+            // selection projection or dirty the virtualized list's surrounding layout.
+            backAction?.SetLabel(CardUiText.Get("common.action.back"));
+            if (cardUiCatalogStatusKey != null && catalogStatus != null)
+                catalogStatus.text = CardUiText.Get(cardUiCatalogStatusKey);
+        }
+
         private void OnSelectedLocaleChanged(Locale locale)
         {
             RefreshLocalization();
@@ -2086,22 +2159,27 @@ namespace Gacha.Presentation
 
         private void RefreshLocalization()
         {
-            ApplyLocalizedChrome();
             if (localizationRoutine != null)
                 StopCoroutine(localizationRoutine);
+            localized.Clear();
+            ApplyLocalizedChrome();
+            string loadingKey = initialCatalogLoadPending ? "common.status.loading" : "common.language.loading";
+            SetCatalogStatus(CardUiText.Get(loadingKey), false, cardUiKey: loadingKey);
             localizationRoutine = StartCoroutine(LoadLocalizedText());
         }
 
         private IEnumerator LoadLocalizedText()
         {
             yield return LocalizationSettings.InitializationOperation;
+            var tableOperation = LocalizationSettings.StringDatabase.GetTableAsync(StringTable);
+            yield return tableOperation;
+            var table = tableOperation.Result;
             foreach (KeyValuePair<string, string> pair in EnglishFallbacks)
             {
-                var operation = LocalizationSettings.StringDatabase.GetLocalizedStringAsync(StringTable, pair.Key);
-                yield return operation;
-                localized[pair.Key] = string.IsNullOrWhiteSpace(operation.Result)
+                string translated = table?.GetEntry(pair.Key)?.LocalizedValue;
+                localized[pair.Key] = string.IsNullOrWhiteSpace(translated)
                     ? pair.Value
-                    : operation.Result;
+                    : translated;
             }
             ApplyLocalizedChrome();
             if (IsReady)
@@ -2132,8 +2210,12 @@ namespace Gacha.Presentation
             {
                 foreach (KeyValuePair<string, ContentPackageInstallCoordinator> pair in operations)
                     ApplyOperation(pair.Key, pair.Value.Current);
+                SetCatalogStatus(string.IsNullOrWhiteSpace(InitializationError)
+                    ? L("content.catalog.loading") : string.Empty, false);
             }
             localizationRoutine = null;
+            if (navigationRequested)
+                SetCatalogStatus(CardUiText.Get("common.navigation.loading"), false, cardUiKey: "common.navigation.loading");
             if (initialCatalogLoadPending && !destroyed)
             {
                 initialCatalogLoadPending = false;
@@ -2207,8 +2289,9 @@ namespace Gacha.Presentation
                 : string.Format(L("content.catalog.loaded"), PackageCount), false);
         }
 
-        private void SetCatalogStatus(string value, bool error, bool warning = false)
+        private void SetCatalogStatus(string value, bool error, bool warning = false, string cardUiKey = null)
         {
+            cardUiCatalogStatusKey = cardUiKey;
             if (catalogStatus == null)
                 return;
             catalogStatus.text = value;

@@ -187,6 +187,8 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 yield return null;
                 Assert.That(confirmation.IsVisible, Is.True);
+                yield return WaitForLocalizedUi(() => pageRoot.Q<Label>("sheet-title").text == "パック開封の確認",
+                    "The visible confirmation must finish switching to Japanese.");
                 Assert.That(pageRoot.Q<Label>("sheet-title").text, Is.Not.EqualTo("Confirm pack opening"));
                 Rect sheetSafeContent = InsetRect(sheetSafeArea.worldBound, sheetSafeArea.resolvedStyle);
                 VisualElement sheetPanel = pageRoot.Q<VisualElement>("sheet-panel");
@@ -202,7 +204,7 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 Assert.That(confirmation.IsVisible, Is.False);
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("gacha-title").text == "Open a Pack", "English gacha title");
                 int initialBaseIndex = productList.itemsSource.Cast<ProductDefinition>()
                     .Select((product, index) => new { product, index })
                     .Single(pair => pair.product.SetId.EndsWith(":base1", StringComparison.Ordinal))
@@ -228,7 +230,7 @@ namespace Gacha.Tests.PlayMode
                 originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
                 originalContentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("gacha-title").text == "开启卡包", "Chinese gacha title");
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
                 Assert.That(ActionText(document.rootVisualElement, "prepare-pack-button"), Is.EqualTo("开 1 包"));
                 Assert.That(ActionText(document.rootVisualElement, "prepare-ten-button"), Is.EqualTo("十连开包"));
@@ -239,7 +241,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(document.rootVisualElement.Q<VisualElement>("rule-source-list")
                     .Children().First().Q<Label>().text, Does.StartWith("来源 1："));
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("gacha-title").text == "Open a Pack", "English gacha title");
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("Open a Pack"));
                 Assert.That(ActionText(document.rootVisualElement, "prepare-pack-button"), Is.EqualTo("Open 1 pack"));
                 Assert.That(ActionText(document.rootVisualElement, "prepare-ten-button"), Is.EqualTo("Open 10 packs"));
@@ -399,7 +401,8 @@ namespace Gacha.Tests.PlayMode
                     interactivePack.worldBound,
                     "interactive pack");
                 ApplicationServices.Languages.SelectUiLanguage("ja");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("pack-hint").text.Contains("パック") &&
+                    !document.rootVisualElement.Q<Label>("pack-hint").text.Contains("Drag to rotate"), "Japanese pack instruction");
                 Assert.That(document.rootVisualElement.Q<Label>("pack-hint").text,
                     Does.Contain("パック").And.Not.Contain("Drag to rotate"));
                 VisualElement accessibleTear = document.rootVisualElement.Q<VisualElement>("tear-pack-button");
@@ -498,11 +501,11 @@ namespace Gacha.Tests.PlayMode
                 int openedCardCount = (int)GetProperty(controller, "LastOpenedCardCount");
                 Assert.That(openedCardCount, Is.EqualTo(11));
                 ApplicationServices.Languages.SelectUiLanguage("zh");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("reveal-progress").text == "第 0 / 11 张", "Chinese reveal progress");
                 Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("第 0 / 11 张"));
                 Assert.That(ActionText(document.rootVisualElement, "reveal-next-button"), Is.EqualTo("翻开第一张"));
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("reveal-progress").text == "0 of 11 cards", "English reveal progress");
                 Assert.That(document.rootVisualElement.Q<Label>("reveal-progress").text, Is.EqualTo("0 of 11 cards"));
                 Assert.That(ActionText(document.rootVisualElement, "reveal-next-button"), Is.EqualTo("Reveal first card"));
                 Assert.That(store.ProductsOpened, Is.EqualTo(1));
@@ -545,11 +548,11 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((bool)GetProperty(controller, "AreRevealParticlesRunning"), Is.False);
                 Assert.That(cues, Does.Contain(FeedbackCue.CollectionNew));
                 ApplicationServices.Languages.SelectUiLanguage("zh");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("summary-title").text == "开包完成", "Chinese summary title");
                 Assert.That(document.rootVisualElement.Q<Label>("summary-title").text, Is.EqualTo("开包完成"));
                 Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text, Does.Contain("张卡牌"));
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("summary-title").text == "Pack complete", "English summary title");
                 Assert.That(document.rootVisualElement.Q<Label>("summary-title").text, Is.EqualTo("Pack complete"));
                 Assert.That(document.rootVisualElement.Q<Label>("summary-metadata").text, Does.Contain("cards"));
 
@@ -897,6 +900,15 @@ namespace Gacha.Tests.PlayMode
             Assert.That(inner.yMin, Is.GreaterThanOrEqualTo(outer.yMin - 1f), bounds);
             Assert.That(inner.xMax, Is.LessThanOrEqualTo(outer.xMax + 1f), bounds);
             Assert.That(inner.yMax, Is.LessThanOrEqualTo(outer.yMax + 1f), bounds);
+        }
+
+        private static IEnumerator WaitForLocalizedUi(Func<bool> ready, string description)
+        {
+            // Observe the existing event-driven consumer; no table preload or manual refresh is allowed here.
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (!ready() && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.That(ready(), Is.True, description);
         }
 
         private static void SendTap(VisualElement control)

@@ -1277,6 +1277,50 @@ MonoBehaviour:
     m_Localized: "Back"
     m_Metadata:
       m_Items: []
+  - m_Id: 174172389306445840
+    m_Localized: "Universal Gacha Simulator"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445841
+    m_Localized: "Open simulated packs and build your card collection at your own pace."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445842
+    m_Localized: "Start"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445843
+    m_Localized: "Opening home…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445844
+    m_Localized: "Opening page…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445845
+    m_Localized: "This page could not open. Please try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445846
+    m_Localized: "Changing language…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445847
+    m_Localized: "Leave the game?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445848
+    m_Localized: "Your saved collection will be here when you return."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445849
+    m_Localized: "Exit"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445850
+    m_Localized: "Other variant"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

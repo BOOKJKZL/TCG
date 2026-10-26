@@ -31,6 +31,7 @@ namespace Gacha.Tests.PlayMode
         private PanelSettings panel;
         private RenderTexture target;
         private bool disposed;
+        private bool capturePixels;
 
         private CoreNeutralSceneCapture(UIDocument document, VisualElement viewport, string fixture)
         {
@@ -43,15 +44,27 @@ namespace Gacha.Tests.PlayMode
         public static CoreNeutralSceneCapture BeginIfRequested(
             UIDocument document, VisualElement viewport, string fixture)
         {
-            if (!Environment.GetCommandLineArgs().Any(argument =>
-                    string.Equals(argument, "-coreNeutralSceneCapture", StringComparison.OrdinalIgnoreCase)))
-                return null;
+            return CaptureRequested() ? Begin(document, viewport, fixture, true) : null;
+        }
+
+        // A fixed 720x1600 hit-test fixture needs a matching real panel even when
+        // PNG export is disabled. A child viewport larger than its panel is clipped.
+        public static CoreNeutralSceneCapture BeginForFixedViewport(
+            UIDocument document, VisualElement viewport, string fixture) =>
+            Begin(document, viewport, fixture, CaptureRequested());
+
+        private static bool CaptureRequested() => Environment.GetCommandLineArgs().Any(argument =>
+            string.Equals(argument, "-coreNeutralSceneCapture", StringComparison.OrdinalIgnoreCase));
+
+        private static CoreNeutralSceneCapture Begin(
+            UIDocument document, VisualElement viewport, string fixture, bool capturePixels)
+        {
             Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(GraphicsDeviceType.Null),
-                "Requested scene captures require a graphics device; omit -nographics.");
+                "Rendered fixed-viewport UI tests require a graphics device; omit -nographics.");
             Assert.That(document, Is.Not.Null);
             Assert.That(document.panelSettings, Is.Not.Null);
             Assert.That(viewport, Is.Not.Null);
-            var capture = new CoreNeutralSceneCapture(document, viewport, fixture);
+            var capture = new CoreNeutralSceneCapture(document, viewport, fixture) { capturePixels = capturePixels };
             try
             {
                 capture.panel = Object.Instantiate(capture.originalPanel);
@@ -85,6 +98,7 @@ namespace Gacha.Tests.PlayMode
             AsyncCardImageView requiredImage = null)
         {
             Assert.That(disposed, Is.False);
+            if (!capturePixels) yield break;
             Assert.That(focus, Is.Not.Null, screen + " requires a real scene element.");
             Assert.That(screen.All(character => character >= 'a' && character <= 'z' ||
                                                 character >= '0' && character <= '9' || character == '-'), Is.True);

@@ -506,6 +506,7 @@ namespace Gacha.Presentation
             positionLabel = new Label { name = "interactive-pack-carousel-position" };
             positionLabel.AddToClassList("interactive-pack-carousel__position");
             Root.Add(positionLabel);
+            MobileTypography.Bind(Root, MobileTypographyProfiles.Pack);
             RefreshSlots();
         }
 
@@ -602,6 +603,7 @@ namespace Gacha.Presentation
             slots.Clear();
             TearAccepted = null;
             SelectionChanged = null;
+            MobileTypography.Unbind(Root, MobileTypographyProfiles.Pack);
         }
 
         private void SelectOffset(int offset)

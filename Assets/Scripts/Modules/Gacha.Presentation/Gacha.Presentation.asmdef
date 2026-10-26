@@ -4,6 +4,7 @@
     "references": [
         "Gacha.Application",
         "Gacha.Domain",
+        "Unity.InputSystem",
         "Unity.Localization",
         "Unity.ResourceManager",
         "Unity.TextMeshPro",

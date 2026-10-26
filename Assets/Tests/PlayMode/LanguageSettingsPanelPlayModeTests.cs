@@ -454,8 +454,12 @@ namespace Gacha.Tests.PlayMode
                 {
                     SelectLocale(language);
                     page.RefreshText(language, "zh-cn", new ExperienceSettings(), true);
+                    string expectedBack = language == "zh" ? "返回" : language == "ja" ? "戻る" : "Back";
+                    // A table may complete after the locale event. Observe the actual
+                    // presenter update instead of forcing a synchronous resource wait.
+                    yield return WaitFor(() => page.BackAction.Label.text == expectedBack);
                     Assert.That(page.TopBar.Root.Q<VisualElement>("settings-back-action").Q<Label>().text,
-                        Is.EqualTo(language == "zh" ? "返回" : language == "ja" ? "戻る" : "Back"));
+                        Is.EqualTo(expectedBack));
                     Assert.That(page.SpeedAction.Label.text, Does.Contain(1f.ToString("0.0") + "×"));
                     Assert.That(page.SpeedAction.Label.text, Does.Not.Contain("No translation found"),
                         "Animation speed is a literal numeric value, not a localization key: " + language);
@@ -480,6 +484,15 @@ namespace Gacha.Tests.PlayMode
                 page.Shell.SafeArea.style.paddingTop = 60f;
                 page.Shell.SafeArea.style.paddingRight = 12f;
                 page.Shell.SafeArea.style.paddingBottom = 84f;
+                // The sheet owns a separate safe-area binding. Apply the same
+                // simulated insets to it so capture metadata matches both layers.
+                GetSafeAreaBinding(page.Confirmation.Sheet).Suspend();
+                VisualElement sheetSafeArea = page.Confirmation.Sheet.SafeArea;
+                sheetSafeArea.AddToClassList("mobile-layout--compact");
+                sheetSafeArea.style.paddingLeft = 48f;
+                sheetSafeArea.style.paddingTop = 60f;
+                sheetSafeArea.style.paddingRight = 12f;
+                sheetSafeArea.style.paddingBottom = 84f;
                 visualCapture = CoreNeutralSceneCapture.BeginIfRequested(page.Document, viewport,
                     "Existing MobileSettingsPresenter contract fixture, Japanese UI, fixed fake cloud summaries, " +
                     "default ExperienceSettings and no-op callbacks; no account, cloud or save operation.");
@@ -527,7 +540,10 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 yield return null;
                 yield return new WaitForSecondsRealtime(0.25f);
-                AssertContained(page.Shell.Root.worldBound, page.Confirmation.Sheet.Panel.worldBound, "confirmation sheet");
+                AssertContained(InsetRect(sheetSafeArea.worldBound, sheetSafeArea.resolvedStyle),
+                    page.Confirmation.Sheet.Panel.worldBound, "confirmation sheet safe area");
+                AssertContained(page.Confirmation.Sheet.Scroll.contentViewport.worldBound,
+                    page.Confirmation.DangerConfirm.Root.worldBound, "confirmation action viewport");
                 Assert.That(page.Confirmation.DangerConfirm.Root.resolvedStyle.height,
                     Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
                 if (visualCapture != null)
@@ -579,22 +595,24 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(routes, Is.Empty);
 
                     SetPrivateField(controller, "busy", true);
-                    Assert.That((bool)back.Invoke(controller, null), Is.False);
+                    Assert.That((bool)back.Invoke(controller, null), Is.True,
+                        "A busy page must consume Back so a lower page cannot navigate away.");
                     Assert.That(routes, Is.Empty);
                     SetPrivateField(controller, "busy", false);
                     SetPrivateField(controller, "sceneLoaderOverrideForTests", new Action<string>(
                         _ => throw new InvalidOperationException("Fixture scene unavailable")));
-                    TargetInvocationException failure = Assert.Throws<TargetInvocationException>(
-                        () => back.Invoke(controller, null));
-                    Assert.That(failure.InnerException, Is.TypeOf<InvalidOperationException>());
+                    Assert.DoesNotThrow(() => back.Invoke(controller, null));
                     Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(source));
                     Assert.That(page.PrimaryNavigation.GetAction(MobileDestination.Home).IsEnabled, Is.True);
+                    Assert.That(page.LanguageStatus.text, Is.EqualTo(CardUiText.Get("common.navigation.failed")));
+                    Assert.That(page.LanguageStatus.text, Does.Not.Contain("Fixture scene unavailable"));
 
                     SetPrivateField(controller, "sceneLoaderOverrideForTests", new Action<string>(routes.Add));
                     // Exercise the actual top-bar callback, then ensure a second request cannot leave twice.
                     SendKeyboardActivate(page.TopBar.Root.Q<VisualElement>("settings-back-action"));
                     Assert.That(routes, Is.EqualTo(new[] { MobilePrimaryNavigation.SceneName(source) }));
-                    Assert.That((bool)back.Invoke(controller, null), Is.False);
+                    Assert.That((bool)back.Invoke(controller, null), Is.True,
+                        "A pending navigation consumes repeated Back without starting a second load.");
                     Assert.That(routes.Count, Is.EqualTo(1));
                     Assert.That(SettingsReturnNavigation.PeekOrDefault(), Is.EqualTo(MobileDestination.Home));
                     if (source == MobileDestination.Content)
@@ -724,9 +742,9 @@ namespace Gacha.Tests.PlayMode
             LocalizationSettings.SelectedLocale = locale;
         }
 
-        private static UiToolkitSafeAreaBinding GetSafeAreaBinding(MobilePageShell shell)
+        private static UiToolkitSafeAreaBinding GetSafeAreaBinding(object shell)
         {
-            FieldInfo field = typeof(MobilePageShell).GetField(
+            FieldInfo field = shell.GetType().GetField(
                 "safeAreaBinding",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);

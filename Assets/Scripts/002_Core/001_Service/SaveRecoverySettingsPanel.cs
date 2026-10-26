@@ -27,6 +27,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     private string pendingImportPath;
     private InventoryRecoveryPreview pendingPreview;
     private Coroutine transitionRoutine;
+    private string statusKey;
 
     public bool HasPendingImport => pendingPreview != null;
     public string LastBackupPath { get; private set; }
@@ -78,8 +79,9 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         LastBackupPath = null;
         confirmImportButton.interactable = false;
         UnityEngine.Localization.Settings.LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        CardUiText.TextChanged += RefreshText;
         RefreshText();
-        SetStatus(CardUiText.Get("settings.recovery.status.ready"), false);
+        SetStatusKey("settings.recovery.status.ready", false);
         SetInteractable(CanUseRecovery());
         PlayEntrance();
     }
@@ -87,6 +89,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     private void OnDisable()
     {
         UnityEngine.Localization.Settings.LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+        CardUiText.TextChanged -= RefreshText;
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = null;
     }
@@ -94,14 +97,13 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     private void OnSelectedLocaleChanged(Locale locale)
     {
         RefreshText();
-        SetStatus(CardUiText.Get("settings.recovery.status.ready"), false);
     }
 
     public void ExportSave()
     {
         if (!TryCreateTarget(out UnityPlayerRecoveryTarget target, out string error))
         {
-            SetStatus(error, true);
+            SetStatusKey("settings.recovery.status.unavailable", true);
             return;
         }
         try
@@ -118,18 +120,18 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
                 if (result.Succeeded)
                 {
                     Debug.Log("Recovery export completed through the document picker.");
-                    SetStatus(CardUiText.Get("settings.recovery.status.exported_safe"), false);
+                    SetStatusKey("settings.recovery.status.exported_safe", false);
                     UIFeedbackService.Play(FeedbackCue.Confirm);
                 }
                 else if (result.Cancelled)
                 {
-                    SetStatus(CardUiText.Get("settings.recovery.status.cancelled"), false);
+                    SetStatusKey("settings.recovery.status.cancelled", false);
                     UIFeedbackService.Play(FeedbackCue.Back);
                 }
                 else
                 {
                     Debug.LogWarning("Recovery export picker failed: " + result.Error);
-                    SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+                    SetStatusKey("settings.recovery.status.error_safe", true);
                     UIFeedbackService.Play(FeedbackCue.Error);
                 }
             });
@@ -138,7 +140,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         {
             Debug.LogWarning("Recovery export failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+            SetStatusKey("settings.recovery.status.error_safe", true);
             UIFeedbackService.Play(FeedbackCue.Error);
         }
     }
@@ -158,13 +160,13 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
                     PreviewImport(result.Path);
                 else if (result.Cancelled)
                 {
-                    SetStatus(CardUiText.Get("settings.recovery.status.cancelled"), false);
+                    SetStatusKey("settings.recovery.status.cancelled", false);
                     UIFeedbackService.Play(FeedbackCue.Back);
                 }
                 else
                 {
                     Debug.LogWarning("Recovery import picker failed: " + result.Error);
-                    SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+                    SetStatusKey("settings.recovery.status.error_safe", true);
                     UIFeedbackService.Play(FeedbackCue.Error);
                 }
             });
@@ -173,7 +175,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         {
             Debug.LogWarning("Recovery import picker failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+            SetStatusKey("settings.recovery.status.error_safe", true);
             UIFeedbackService.Play(FeedbackCue.Error);
         }
     }
@@ -186,7 +188,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             pendingImportPath = path;
             confirmImportButton.interactable = true;
             previewText.text = FormatPreview(pendingPreview);
-            SetStatus(CardUiText.Get("settings.recovery.status.preview_ready"), false);
+            SetStatusKey("settings.recovery.status.preview_ready", false);
             UIFeedbackService.Play(FeedbackCue.Confirm);
             return true;
         }
@@ -197,7 +199,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             pendingImportPath = null;
             confirmImportButton.interactable = false;
             previewText.text = string.Empty;
-            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+            SetStatusKey("settings.recovery.status.error_safe", true);
             UIFeedbackService.Play(FeedbackCue.Error);
             return false;
         }
@@ -209,7 +211,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             return false;
         if (!TryCreateTarget(out UnityPlayerRecoveryTarget target, out string error))
         {
-            SetStatus(error, true);
+            SetStatusKey("settings.recovery.status.unavailable", true);
             return false;
         }
         try
@@ -232,7 +234,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
             previewText.text = string.Empty;
             SetBusy(false);
             Debug.Log("Recovery import completed with a verified safety backup.");
-            SetStatus(CardUiText.Get("settings.recovery.status.imported_safe"), false);
+            SetStatusKey("settings.recovery.status.imported_safe", false);
             UIFeedbackService.Play(FeedbackCue.CollectionNew, true);
             if (CloudSaveServiceWrapper.IsReady)
                 _ = CloudSaveServiceWrapper.SaveInventoryAsync(Inventory.Instance.Data);
@@ -242,7 +244,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         {
             Debug.LogWarning("Recovery import failed: " + exception);
             SetBusy(false);
-            SetStatus(CardUiText.Get("settings.recovery.status.error_safe"), true);
+            SetStatusKey("settings.recovery.status.error_safe", true);
             UIFeedbackService.Play(FeedbackCue.Error);
             return false;
         }
@@ -269,6 +271,8 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
 
     private void RefreshText()
     {
+        if (titleText == null) return;
+        if (statusKey != null) statusText.text = CardUiText.Get(statusKey);
         titleText.text = CardUiText.Get("settings.recovery.title");
         descriptionText.text = CardUiText.Get("settings.recovery.description");
         exportButton.GetComponentInChildren<TMP_Text>().text = CardUiText.Get("settings.recovery.action.export");
@@ -310,9 +314,10 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
     private static bool CanUseRecovery() =>
         Inventory.Instance != null && ApplicationServices.IsConfigured;
 
-    private void SetStatus(string message, bool error)
+    private void SetStatusKey(string key, bool error)
     {
-        statusText.text = message ?? string.Empty;
+        statusKey = key;
+        statusText.text = CardUiText.Get(key);
         statusText.color = error
             ? new Color(1f, 0.62f, 0.64f, 1f)
             : new Color(0.72f, 0.87f, 0.82f, 1f);

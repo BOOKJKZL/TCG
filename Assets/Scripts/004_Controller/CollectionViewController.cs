@@ -84,6 +84,9 @@ public sealed class CollectionViewController : MonoBehaviour
     private VisualElement body;
     private VisualElement setPage;
     private VisualElement cardPage;
+    private ScrollView cardPageScroll;
+    private IVisualElementScheduledItem cardViewportRefresh;
+    private bool revealCardViewport;
     private VisualElement filterPanel;
     private ScrollView detailContent;
     private VisualElement detailLanguageSwitcher;
@@ -118,9 +121,12 @@ public sealed class CollectionViewController : MonoBehaviour
     private bool shellInitialized;
     private bool contentLanguageSubscribed;
     private bool navigationRequested;
+    private bool navigationFailed;
+    private SystemBackNavigation systemBack;
     private bool destroyed;
     private PlayerUiErrorPresenter errorPresenter;
     private MobilePageShell mobilePageShell;
+    private MobileTypographyBinding typography;
     private MobileTopBar mobileTopBar;
     private MobilePrimaryNavigation primaryNavigation;
     private MobileSheetPresenter detailSheet;
@@ -196,12 +202,18 @@ public sealed class CollectionViewController : MonoBehaviour
         while (LocalizationSettings.SelectedLocale == null)
             yield return null;
         RefreshLocalizedChrome();
+        yield return null;
         LoadCatalog(false);
     }
 
     private void OnDestroy()
     {
+        systemBack?.DisposeBinding();
         destroyed = true;
+        cardViewportRefresh?.Pause();
+        cardViewportRefresh = null;
+        cardPageScroll?.contentViewport.UnregisterCallback<GeometryChangedEvent>(OnCardViewportGeometryChanged);
+        cardList?.UnregisterCallback<GeometryChangedEvent>(OnCardViewportGeometryChanged);
         errorPresenter?.Dispose();
         errorPresenter = null;
         if (ApplicationServices.IsConfigured)
@@ -210,6 +222,7 @@ public sealed class CollectionViewController : MonoBehaviour
             ApplicationServices.Languages.ContentLanguageChanged -= OnContentLanguageChanged;
         }
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+        CardUiText.TextChanged -= OnCardUiTextChanged;
         languageSwapAnimation?.Pause();
         languageSwapAnimation = null;
         filterAnimation?.Pause();
@@ -241,6 +254,7 @@ public sealed class CollectionViewController : MonoBehaviour
         DisposeAction(ref errorManageAction);
         DisposeAction(ref errorHomeAction);
         mobilePageShell?.Dispose();
+        typography?.Dispose();
         mobilePageShell = null;
     }
 
@@ -262,6 +276,9 @@ public sealed class CollectionViewController : MonoBehaviour
         cardPageTitle.text = DisplayName(set);
         SetVisible(setPage, false);
         SetVisible(cardPage, true);
+        if (cardPageScroll != null) cardPageScroll.scrollOffset = Vector2.zero;
+        ScrollView cardScroll = cardList?.Q<ScrollView>();
+        if (cardScroll != null) cardScroll.scrollOffset = Vector2.zero;
         ResetFilters(false);
         RebuildRarityFilter();
         ApplyFilters(false);
@@ -305,8 +322,27 @@ public sealed class CollectionViewController : MonoBehaviour
 
     public void MenuBtnClick()
     {
+        TryHandleBack();
+    }
+
+    public bool TryHandleBack()
+    {
+        if (destroyed)
+            return false;
+        if (navigationRequested)
+            return true;
+        if (detailSheet?.IsVisible == true)
+            HideDetails(true);
+        else if (filterSheet?.IsVisible == true)
+            filterSheet.Hide();
+        else if (pokedexController?.TryHandleBack() == true)
+            return true;
+        else if (currentSet != null)
+            ShowSets();
+        else
+            NavigatePrimary(MobileDestination.Home);
         UIFeedbackService.Play(FeedbackCue.Back);
-        NavigatePrimary(MobileDestination.Home);
+        return true;
     }
 
     private void NavigatePrimary(MobileDestination destination)
@@ -318,6 +354,8 @@ public sealed class CollectionViewController : MonoBehaviour
         filterSheet?.HideImmediately();
         detailSheet?.HideImmediately();
         primaryNavigation?.SetPending(destination);
+        navigationFailed = false;
+        SetBrowserStatus(CardUiText.Get("common.navigation.loading"), false);
         ApplyActionAvailability();
         string sceneName = MobilePrimaryNavigation.SceneName(destination);
         if (destination == MobileDestination.Content)
@@ -325,23 +363,41 @@ public sealed class CollectionViewController : MonoBehaviour
         if (destination == MobileDestination.Settings)
             SettingsReturnNavigation.Remember(MobileDestination.Collection);
 
-        try
+        void Completed()
         {
-            if (SceneLoaderOverride != null)
-                SceneLoaderOverride(sceneName);
-            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-                GameManager.Instance.loadManager.LoadScene(sceneName);
-            else
-                SceneManager.LoadScene(sceneName);
             if (destination != MobileDestination.Content)
                 ContentReturnNavigation.Clear();
         }
-        catch
+        void Failed(Exception exception)
         {
+            if (destroyed)
+                return;
             navigationRequested = false;
             primaryNavigation?.ClearPending(MobileDestination.Collection);
+            pokedexController?.ClearNavigationPending();
             ApplyActionAvailability();
-            throw;
+            navigationFailed = true;
+            SetBrowserStatus(CardUiText.Get("common.navigation.failed"), true);
+            Debug.LogWarning("Page navigation failed: " + exception);
+        }
+        try
+        {
+            if (SceneLoaderOverride != null)
+            {
+                SceneLoaderOverride(sceneName);
+                Completed();
+            }
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName, Completed, Failed);
+            else
+            {
+                SceneManager.LoadScene(sceneName);
+                Completed();
+            }
+        }
+        catch (Exception exception)
+        {
+            Failed(exception);
         }
     }
 
@@ -390,11 +446,17 @@ public sealed class CollectionViewController : MonoBehaviour
         mobileTopBar = new MobileTopBar(string.Empty, string.Empty);
         mobileTopBar.Title.name = "collection-title";
         mobileTopBar.Subtitle.name = "collection-subtitle";
-        mobilePageShell.HeaderSlot.Add(mobileTopBar.Root);
+        var headerScroll = new ScrollView(ScrollViewMode.Vertical) { name = "collection-header-scroll" };
+        headerScroll.AddToClassList("collection-header-scroll");
+        headerScroll.Add(mobileTopBar.Root);
+        mobilePageShell.HeaderSlot.Add(headerScroll);
         mobilePageShell.ContentSlot.Add(body);
         browserRoot.Clear();
         browserRoot.Add(mobilePageShell.Root);
+        systemBack = gameObject.AddComponent<SystemBackNavigation>();
+        systemBack.Bind(uiDocument.rootVisualElement, TryHandleBack);
         QueryVisualElements();
+        typography = MobileTypography.Bind(body, MobileTypographyProfiles.Collection);
         filterPanel.RemoveFromHierarchy();
         filterSheet = new MobileSheetPresenter("collection-filter-sheet");
         filterSheet.Root.AddToClassList("collection-filter-sheet");
@@ -411,14 +473,17 @@ public sealed class CollectionViewController : MonoBehaviour
         menuAction = new MobileActionControl(
             "collection-menu-button",
             string.Empty,
-            () => NavigatePrimary(MobileDestination.Home),
+            () => TryHandleBack(),
             MobileActionTone.Quiet);
         pokedexAction = new MobileActionControl(
             "collection-pokedex-button",
             string.Empty,
             () => pokedexController?.Open(),
             MobileActionTone.Standard);
-        Required<VisualElement>("collection-tools").Add(pokedexAction.Root);
+        VisualElement collectionTools = Required<VisualElement>("collection-tools");
+        collectionTools.Add(pokedexAction.Root);
+        collectionTools.RemoveFromHierarchy();
+        headerScroll.Add(collectionTools);
         mobileTopBar.AddAction(menuAction);
         primaryNavigation = new MobilePrimaryNavigation(
             MobileDestination.Collection,
@@ -443,6 +508,7 @@ public sealed class CollectionViewController : MonoBehaviour
             NavigatePrimary);
         ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        CardUiText.TextChanged += OnCardUiTextChanged;
         shellInitialized = true;
         RefreshLocalizedChrome();
         ApplyActionAvailability();
@@ -451,6 +517,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private bool LoadCatalog(bool forceReload)
     {
+        navigationFailed = false;
         IsReady = false;
         InitializationError = null;
         errorPresenter.Hide();
@@ -578,11 +645,64 @@ public sealed class CollectionViewController : MonoBehaviour
         setList.destroyItem = DestroyRow;
 
         cardList.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+        // DynamicHeight uses this as its initial minimum estimate, then measures
+        // the actual localized/scaled row. Match the compact row's USS minimum.
+        cardList.fixedItemHeight = 322f;
         cardList.selectionType = SelectionType.None;
         cardList.makeItem = MakeCardGridRow;
         cardList.bindItem = BindCardGridRow;
         cardList.unbindItem = UnbindCardGridRow;
         cardList.destroyItem = DestroyRow;
+        cardPageScroll = cardPage as ScrollView;
+        if (cardPageScroll != null)
+        {
+            cardPageScroll.contentContainer.AddToClassList("collection-card-page__content");
+            cardPageScroll.contentViewport.RegisterCallback<GeometryChangedEvent>(OnCardViewportGeometryChanged);
+            cardList.RegisterCallback<GeometryChangedEvent>(OnCardViewportGeometryChanged);
+        }
+    }
+
+    private void OnCardViewportGeometryChanged(GeometryChangedEvent _) => QueueCardViewportRefresh(true);
+
+    private void QueueCardViewportRefresh(bool revealCards)
+    {
+        revealCardViewport |= revealCards;
+        if (destroyed || cardPageScroll == null || cardViewportRefresh != null) return;
+        cardViewportRefresh = cardPageScroll.schedule.Execute(RefreshCardViewport).StartingIn(1);
+    }
+
+    private void RefreshCardViewport()
+    {
+        cardViewportRefresh = null;
+        if (destroyed || currentSet == null || cardPageScroll?.panel == null || cardList == null) return;
+        float viewportHeight = cardPageScroll.contentViewport.layout.height;
+        if (float.IsNaN(viewportHeight) || viewportHeight <= 0f) return;
+
+        // Keep the nested virtualized viewport inside the space above navigation.
+        // A tall localized heading can scroll away; it must not force the card list
+        // to retain a fixed 420px viewport behind the bottom navigation.
+        float afterHeading = viewportHeight - cardList.layout.y - 8f;
+        // A 48px action can fit while the card name below its artwork remains
+        // clipped. Reserve at least one estimated card row before keeping the
+        // heading visible; otherwise scroll the heading away and give cards the
+        // full available viewport. DynamicHeight still measures taller rows.
+        float minimumCardViewport = Mathf.Max(MobileUiTokens.MinimumTouchTarget, cardList.fixedItemHeight);
+        bool headingNeedsScroll = afterHeading < minimumCardViewport;
+        float height = headingNeedsScroll ? viewportHeight - 8f : afterHeading;
+        height = Mathf.Max(0f, height);
+        if (cardList.style.height.keyword != StyleKeyword.Undefined ||
+            !Mathf.Approximately(cardList.style.height.value.value, height))
+        {
+            cardList.style.height = height;
+            QueueCardViewportRefresh(revealCardViewport);
+            return;
+        }
+        if (revealCardViewport)
+        {
+            revealCardViewport = false;
+            if (headingNeedsScroll) cardPageScroll.ScrollTo(cardList);
+            else cardPageScroll.scrollOffset = Vector2.zero;
+        }
     }
 
     private void ConfigureActions()
@@ -731,6 +851,7 @@ public sealed class CollectionViewController : MonoBehaviour
             playFeedback: false,
             feedbackLabel: name);
         root.userData = row;
+        MobileTypography.Bind(root, MobileTypographyProfiles.Collection);
         return root;
     }
 
@@ -782,6 +903,7 @@ public sealed class CollectionViewController : MonoBehaviour
         root.Add(second.Root);
         var row = new CardGridRow { Tiles = new[] { first, second } };
         root.userData = row;
+        MobileTypography.Bind(root, MobileTypographyProfiles.Collection);
         return root;
     }
 
@@ -860,19 +982,25 @@ public sealed class CollectionViewController : MonoBehaviour
             return;
         }
         row.Name.text = DisplayName(printing);
-        row.Number.text = $"#{printing.Identity.CardNumber}  ·  {printing.Identity.VariantId}";
+        row.Number.text = $"#{printing.Identity.CardNumber}  ·  {CardVariantDisplayName.Resolve(catalog, printing.Identity.VariantId, printing.Identity.LanguageId)}";
         row.Rarity.text = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarity)
             ? DisplayName(rarity)
             : printing.RarityId;
-        CollectionItemProgress progress = Progress(printing);
+        RefreshCardTileProgress(row);
+        row.Image.Bind(printing);
+        row.Root.tooltip = row.Name.text;
+    }
+
+    private void RefreshCardTileProgress(CardTile row)
+    {
+        if (row.Printing == null) return;
+        CollectionItemProgress progress = Progress(row.Printing);
         row.Owned.text = FormatOwnedCount(progress.OwnedCount);
         row.Owned.EnableInClassList("is-owned", progress.IsOwned);
         row.NewBadge.text = CardUiText.Get("common.badge.new");
         SetVisible(row.NewBadge, progress.IsNew);
         row.Root.EnableInClassList("is-unowned", !progress.IsOwned);
         row.Root.EnableInClassList("is-new", progress.IsNew);
-        row.Image.Bind(printing);
-        row.Root.tooltip = row.Name.text;
     }
 
     private void UnbindCardGridRow(VisualElement element, int index)
@@ -889,6 +1017,7 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void DestroyRow(VisualElement element)
     {
+        MobileTypography.Unbind(element, MobileTypographyProfiles.Collection);
         AsyncCardImageView image = null;
         if (element.userData is SetRow setRow)
         {
@@ -919,7 +1048,22 @@ public sealed class CollectionViewController : MonoBehaviour
     {
         setList?.RefreshItems();
         if (currentSet != null)
-            ApplyFilters(false);
+        {
+            if (ownedOnly || newOnly)
+                ApplyFilters(false);
+            else
+            {
+                // Progress-only updates do not change Number/Name/Rarity ordering.
+                // Keep measured rows, images and touch targets alive; rebuilding
+                // here makes a previously visible card unpickable during re-layout.
+                cardList.Query<VisualElement>(className: "card-grid-row").ForEach(element =>
+                {
+                    if (element.userData is CardGridRow row)
+                        foreach (CardTile tile in row.Tiles) RefreshCardTileProgress(tile);
+                });
+                cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
+            }
+        }
         else
             SetBrowserStatus(FormatCollectionSummary(), false);
     }
@@ -988,6 +1132,7 @@ public sealed class CollectionViewController : MonoBehaviour
         SetVisible(filterEmpty, cards.Count == 0);
         cardList.itemsSource = cardGridLines;
         cardList.Rebuild();
+        QueueCardViewportRefresh(true);
         if (hideDetails)
             HideDetails(false);
         if (animate)
@@ -1097,9 +1242,7 @@ public sealed class CollectionViewController : MonoBehaviour
         string rarity = catalog.Rarities.TryGetValue(printing.RarityId, out RarityDefinition rarityDefinition)
             ? CardDisplayName(rarityDefinition, cardLanguageId)
             : printing.RarityId;
-        string variant = catalog.Variants.TryGetValue(printing.Identity.VariantId, out VariantDefinition variantDefinition)
-            ? CardDisplayName(variantDefinition, cardLanguageId)
-            : printing.Identity.VariantId;
+        string variant = CardVariantDisplayName.Resolve(catalog, printing.Identity.VariantId, cardLanguageId);
         detailMetadata.text = $"{setName}  ·  #{printing.Identity.CardNumber}\n" +
                               $"{rarity}  ·  {variant}  ·  {LanguageBadge(cardLanguageId)}";
         CollectionItemProgress progress = Progress(printing);
@@ -1292,10 +1435,21 @@ public sealed class CollectionViewController : MonoBehaviour
 
     private void RefreshLocalizedChrome()
     {
+        RefreshLocalizedChrome(false);
+    }
+
+    private void OnCardUiTextChanged()
+    {
+        if (!destroyed && shellInitialized)
+            RefreshLocalizedChrome(true);
+    }
+
+    private void RefreshLocalizedChrome(bool textOnly)
+    {
         mobileTopBar.SetText(
             CardUiText.Get("collection.title"),
             CardUiText.Get("collection.subtitle"));
-        menuAction.SetLabel(CardUiText.Get("common.action.main_menu"));
+        menuAction.SetLabel(CardUiText.Get("common.action.back"));
         manageContentAction.SetLabel(CardUiText.Get("common.action.manage_content"));
         errorPresenter?.RefreshLanguage();
         zeroContentText.text = CardUiText.Get("collection.status.no_content");
@@ -1322,11 +1476,43 @@ public sealed class CollectionViewController : MonoBehaviour
         {
             cardPageTitle.text = DisplayName(currentSet);
             RebuildRarityFilter();
-            ApplyFilters(false);
+            if (!textOnly) ApplyFilters(false);
         }
 
-        setList?.RefreshItems();
-        cardList?.RefreshItems();
+        if (!textOnly)
+        {
+            setList?.RefreshItems();
+            cardList?.RefreshItems();
+        }
+        else
+        {
+            setList?.Query<VisualElement>(className: "set-row").ForEach(element =>
+            {
+                if (!(element.userData is SetRow row) || row.Set == null) return;
+                cardsBySet.TryGetValue(row.Set.Id, out List<PrintingDefinition> setCards);
+                row.Metadata.text = CardUiText.Format("collection.set.metadata", row.Set.ReleaseDate?.Year.ToString() ?? "—",
+                    setCards?.Count(printing => Progress(printing).IsOwned) ?? 0, setCards?.Count ?? 0,
+                    setCards?.Count(printing => Progress(printing).IsNew) ?? 0,
+                    ApplicationServices.Languages.ContentLanguage.ResolvedLanguageId);
+            });
+            cardList?.Query<VisualElement>(className: "card-grid-row").ForEach(element =>
+            {
+                if (!(element.userData is CardGridRow row)) return;
+                foreach (CardTile tile in row.Tiles)
+                {
+                    RefreshCardTileProgress(tile);
+                    if (tile.Printing != null)
+                        tile.Number.text = $"#{tile.Printing.Identity.CardNumber}  ·  {CardVariantDisplayName.Resolve(catalog, tile.Printing.Identity.VariantId, tile.Printing.Identity.LanguageId)}";
+                }
+            });
+            if (currentSet != null)
+                cardCount.text = FormatFilteredCardCount(cards.Count, CurrentSetTotalCount, OwnedCardCount, NewCardCount);
+            filterEmpty.text = CardUiText.Get("collection.filter.empty");
+        }
+        if (navigationRequested)
+            SetBrowserStatus(CardUiText.Get("common.navigation.loading"), false);
+        else if (navigationFailed)
+            SetBrowserStatus(CardUiText.Get("common.navigation.failed"), true);
         ApplyActionAvailability();
     }
 

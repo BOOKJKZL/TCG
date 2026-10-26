@@ -22,7 +22,7 @@
                 <ui:Label class="gacha-button__label" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="gacha-selection-page" class="gacha-page gacha-selection">
+            <ui:ScrollView name="gacha-selection-page" class="gacha-page gacha-selection" mode="Vertical">
                 <ui:ListView name="product-list" class="gacha-product-list" virtualization-method="DynamicHeight" />
                 <ui:ScrollView name="selected-product-scroll" class="gacha-selected-product-scroll" mode="Vertical">
                     <ui:VisualElement class="gacha-selected-product">
@@ -49,7 +49,7 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:ScrollView>
-            </ui:VisualElement>
+            </ui:ScrollView>
 
             <ui:VisualElement name="gacha-opening-page" class="gacha-page is-hidden">
                 <ui:VisualElement name="back-to-products-button" class="gacha-button gacha-button--quiet">
@@ -68,7 +68,7 @@
                     </ui:VisualElement>
                 </ui:ScrollView>
 
-                <ui:VisualElement name="reveal-stage" class="gacha-stage is-hidden">
+                <ui:ScrollView name="reveal-stage" class="gacha-stage gacha-reveal-stage is-hidden" mode="Vertical">
                     <ui:VisualElement name="reveal-particle-layer" class="gacha-theme-particles gacha-theme-particles--reveal" />
                     <ui:Label name="reveal-progress" class="gacha-reveal-progress" />
                     <ui:VisualElement name="reveal-card" class="gacha-reveal-card">
@@ -86,7 +86,7 @@
                             <ui:Label class="gacha-button__label" />
                         </ui:VisualElement>
                     </ui:VisualElement>
-                </ui:VisualElement>
+                </ui:ScrollView>
 
                 <ui:VisualElement name="summary-stage" class="gacha-stage gacha-summary is-hidden">
                     <ui:Label name="summary-title" class="gacha-stage__title" />

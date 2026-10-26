@@ -106,14 +106,15 @@ namespace Gacha.Tests.PlayMode
                 VisualElement root = document.rootVisualElement;
                 VisualElement error = root.Q<VisualElement>("gacha-error-panel");
 
+                yield return WaitForInitialCatalogFailure(provider, error);
                 Assert.That(GetProperty<bool>(controller, "IsReady"), Is.False);
                 Assert.That(error.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 AssertFailureShell(root, "gacha-error-retry", "gacha-error-manage", "gacha-error-home");
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("gacha-error-title"), "Couldn't continue");
                 string englishTitle = root.Q<Label>("gacha-error-title").text;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("gacha-error-title"), "暂时无法继续");
                 Assert.That(root.Q<Label>("gacha-error-title").text, Is.Not.EqualTo(englishTitle));
 
                 Assert.That(InvokeBool(controller, "RetryInitialization"), Is.True,
@@ -157,6 +158,7 @@ namespace Gacha.Tests.PlayMode
                 VisualElement root = document.rootVisualElement;
                 VisualElement error = root.Q<VisualElement>("collection-error-panel");
 
+                yield return WaitForInitialCatalogFailure(provider, error);
                 Assert.That(GetProperty<bool>(controller, "IsReady"), Is.False);
                 Assert.That(error.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 AssertFailureShell(
@@ -165,10 +167,10 @@ namespace Gacha.Tests.PlayMode
                     "collection-error-manage",
                     "collection-error-home");
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("collection-error-title"), "Couldn't continue");
                 string englishTitle = root.Q<Label>("collection-error-title").text;
                 ApplicationServices.Languages.SelectUiLanguage("ja");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("collection-error-title"), "続行できませんでした");
                 Assert.That(root.Q<Label>("collection-error-title").text, Is.Not.EqualTo(englishTitle));
 
                 SendTap(root.Q<VisualElement>("collection-error-retry"));
@@ -214,10 +216,10 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(error.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
                 AssertFailureShell(root, "content-error-retry", "content-error-home");
                 ApplicationServices.Languages.SelectUiLanguage("en");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("content-error-title"), "Couldn't continue");
                 string englishTitle = root.Q<Label>("content-error-title").text;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
-                yield return null;
+                yield return WaitForLocalizedErrorTitle(root.Q<Label>("content-error-title"), "暂时无法继续");
                 Assert.That(root.Q<Label>("content-error-title").text, Is.Not.EqualTo(englishTitle));
 
                 Assert.That(controller.RetryCatalog(), Is.True);
@@ -302,6 +304,28 @@ namespace Gacha.Tests.PlayMode
                 string label = action is Button button ? button.text : action.Q<Label>()?.text;
                 Assert.That(label, Is.Not.Empty, actionName);
             }
+        }
+
+        private static IEnumerator WaitForLocalizedErrorTitle(Label title, string expected)
+        {
+            Assert.That(title, Is.Not.Null);
+            // Observe the consumer's TextChanged update. Do not preload the table or refresh the presenter here.
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (title.text != expected && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.That(title.text, Is.EqualTo(expected), "The visible error must finish localizing after the language switch.");
+        }
+
+        private static IEnumerator WaitForInitialCatalogFailure(FailOnceCatalogProvider provider, VisualElement error)
+        {
+            Assert.That(error, Is.Not.Null);
+            // Start now presents its loading shell for a frame before loading the catalog.
+            // Observe the real failed request and applied layout before exercising recovery.
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while ((provider.Calls == 0 || error.resolvedStyle.display != DisplayStyle.Flex) &&
+                   Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.That(provider.Calls, Is.EqualTo(1), "The initial request must fail exactly once before retry.");
         }
 
         private static void SendTap(VisualElement control)

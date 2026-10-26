@@ -20,6 +20,7 @@ namespace Gacha.Presentation
 
         private static bool dismissedForSession;
         private UIDocument document;
+        private SystemBackNavigation systemBack;
         private VisualElement root;
         private Label kicker;
         private Label title;
@@ -39,10 +40,16 @@ namespace Gacha.Presentation
         private MobileActionControl retry;
         private MobileActionControl later;
         private UiToolkitSafeAreaBinding safeArea;
+        private MobileTypographyBinding typography;
+        private MobileAccessibilityPageBindings accessibility;
         private CancellationTokenSource refreshCancellation;
         private int refreshGeneration;
         private bool destroyed;
         private bool shutdown;
+        private bool navigationRequested;
+        private bool navigationFailed;
+        private int navigationGeneration;
+        private Action<string, Action<Exception>> sceneTransitionOverrideForTests;
         private CatalogStatusMode catalogStatusMode = CatalogStatusMode.Loading;
         private int catalogPackageCount;
         private bool catalogUsedCached;
@@ -78,6 +85,9 @@ namespace Gacha.Presentation
             document.sortingOrder = 100;
             document.visualTreeAsset = view;
             root = document.rootVisualElement.Q<VisualElement>("first-run-content");
+            typography = MobileTypography.Bind(root, MobileTypographyProfiles.FirstRun);
+            systemBack = gameObject.AddComponent<SystemBackNavigation>();
+            systemBack.Bind(root, TryHandleBack, 100);
             kicker = Required<Label>("setup-kicker");
             title = Required<Label>("setup-title");
             body = Required<Label>("setup-body");
@@ -102,9 +112,24 @@ namespace Gacha.Presentation
             later = BindAction("setup-later", DismissForSession);
             safeArea = UiToolkitSafeArea.Attach(root);
             ApplicationServices.Languages.UiLanguageChanged += OnUiLanguageChanged;
+            CardUiText.TextChanged += RefreshText;
             ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
             root.style.display = DisplayStyle.Flex;
             RefreshText();
+            accessibility = new MobileAccessibilityPageBindings(root, "first-run", 100);
+            accessibility.Text("kicker", kicker);
+            accessibility.Text("title", title, true);
+            accessibility.Text("body", body);
+            accessibility.Text("ui-language", languageLabel);
+            accessibility.Text("content-language", contentLanguageLabel);
+            accessibility.Text("content-language-detail", contentLanguageDetail);
+            accessibility.Text("storage", storage);
+            accessibility.Text("catalog-status", catalogStatus);
+            accessibility.Text("recommendation-label", recommendationLabel);
+            accessibility.Text("recommendation-name", recommendationName);
+            accessibility.Text("recommendation-detail", recommendationDetail);
+            foreach (MobileActionControl action in actions)
+                accessibility.Action(action.Root.name, action);
             RefreshRemoteCatalog();
         }
 
@@ -119,6 +144,10 @@ namespace Gacha.Presentation
                 return;
             shutdown = true;
             destroyed = true;
+            CardUiText.TextChanged -= RefreshText;
+            accessibility?.Dispose();
+            accessibility = null;
+            systemBack?.DisposeBinding();
             refreshGeneration++;
             if (ApplicationServices.IsConfigured)
             {
@@ -129,6 +158,8 @@ namespace Gacha.Presentation
             refreshCancellation?.Dispose();
             refreshCancellation = null;
             safeArea?.Dispose();
+            typography?.Dispose();
+            typography = null;
             safeArea = null;
             foreach (MobileActionControl action in actions)
                 action.Dispose();
@@ -149,6 +180,7 @@ namespace Gacha.Presentation
 
         private void RefreshText()
         {
+            if (destroyed || root == null) return;
             string language = ApplicationServices.Languages.UiLanguageId;
             bool zh = language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
             bool ja = language.StartsWith("ja", StringComparison.OrdinalIgnoreCase);
@@ -171,16 +203,12 @@ namespace Gacha.Presentation
             recommendationLabel.text = zh ? "首次卡包" : ja ? "最初のカードパック" : "FIRST PACK";
             recommended.SetLabel(zh ? "查看这个卡包" : ja ? "このパックを確認" : "Review this pack");
             foreach (string id in new[] { "en", "zh", "ja" })
-                Required<VisualElement>("setup-language-" + id).Q<Label>().EnableInClassList(
-                    "is-selected",
-                    string.Equals(language, id, StringComparison.OrdinalIgnoreCase));
+                SetLanguageSelected("setup-language-" + id,
+                    id == "zh" ? zh : string.Equals(language, id, StringComparison.OrdinalIgnoreCase));
             string contentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
-            Required<VisualElement>("setup-content-language-en").Q<Label>().EnableInClassList(
-                "is-selected", string.Equals(contentLanguage, "en", StringComparison.OrdinalIgnoreCase));
-            Required<VisualElement>("setup-content-language-zh").Q<Label>().EnableInClassList(
-                "is-selected", string.Equals(contentLanguage, "zh-cn", StringComparison.OrdinalIgnoreCase));
-            Required<VisualElement>("setup-content-language-ja").Q<Label>().EnableInClassList(
-                "is-selected", string.Equals(contentLanguage, "ja", StringComparison.OrdinalIgnoreCase));
+            SetLanguageSelected("setup-content-language-en", string.Equals(contentLanguage, "en", StringComparison.OrdinalIgnoreCase));
+            SetLanguageSelected("setup-content-language-zh", string.Equals(contentLanguage, "zh-cn", StringComparison.OrdinalIgnoreCase));
+            SetLanguageSelected("setup-content-language-ja", string.Equals(contentLanguage, "ja", StringComparison.OrdinalIgnoreCase));
             RefreshRecommendationText();
             RefreshCatalogStatusText();
         }
@@ -206,6 +234,9 @@ namespace Gacha.Presentation
 
         private async void RefreshRemoteCatalog()
         {
+            if (destroyed || navigationRequested)
+                return;
+            navigationFailed = false;
             int generation = ++refreshGeneration;
             refreshCancellation?.Cancel();
             refreshCancellation?.Dispose();
@@ -259,16 +290,48 @@ namespace Gacha.Presentation
 
         private void OpenContentManagement()
         {
+            if (destroyed || navigationRequested)
+                return;
+            navigationRequested = true;
+            navigationFailed = false;
+            int generation = ++navigationGeneration;
+            foreach (MobileActionControl action in actions)
+                action.SetLoading(true);
+            RefreshCatalogStatusText();
             ContentReturnNavigation.RememberCurrentScene();
-            if (SceneLoaderOverride != null)
-                SceneLoaderOverride("006_ContentScene");
-            else
-                SceneManager.LoadScene("006_ContentScene");
+            Action<Exception> failed = exception => HandleNavigationFailure(generation, exception);
+            try
+            {
+                if (sceneTransitionOverrideForTests != null)
+                    sceneTransitionOverrideForTests("006_ContentScene", failed);
+                else if (SceneLoaderOverride != null)
+                    SceneLoaderOverride("006_ContentScene");
+                else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                    GameManager.Instance.loadManager.LoadScene("006_ContentScene", null, failed);
+                else
+                    SceneManager.LoadScene("006_ContentScene");
+            }
+            catch (Exception exception)
+            {
+                failed(exception);
+            }
+        }
+
+        private void HandleNavigationFailure(int generation, Exception exception)
+        {
+            if (destroyed || generation != navigationGeneration || !navigationRequested)
+                return;
+            navigationRequested = false;
+            navigationFailed = true;
+            foreach (MobileActionControl action in actions)
+                action.SetLoading(false);
+            RefreshCatalogStatusText();
+            Debug.LogWarning("First-run navigation failed: " + exception);
         }
 
         private void OpenRecommendedContent()
         {
-            if (recommendation == null)
+            if (destroyed || navigationRequested || recommendation == null)
                 return;
             ContentLaunchRequest.Recommend(recommendation.Entry.Package.PackageId);
             OpenContentManagement();
@@ -276,10 +339,21 @@ namespace Gacha.Presentation
 
         private void DismissForSession()
         {
+            if (destroyed || navigationRequested)
+                return;
             dismissedForSession = true;
             root.style.display = DisplayStyle.None;
             Shutdown();
             Destroy(gameObject);
+        }
+
+        public bool TryHandleBack()
+        {
+            if (destroyed || root == null)
+                return false;
+            if (!navigationRequested)
+                DismissForSession();
+            return true;
         }
 
         private void SetCatalogStatus(CatalogStatusMode mode)
@@ -292,6 +366,13 @@ namespace Gacha.Presentation
         {
             if (catalogStatus == null)
                 return;
+
+            if (navigationRequested || navigationFailed)
+            {
+                catalogStatus.text = CardUiText.Get(navigationRequested
+                    ? "common.navigation.loading" : "common.navigation.failed");
+                return;
+            }
 
             switch (catalogStatusMode)
             {
@@ -403,6 +484,13 @@ namespace Gacha.Presentation
                 fallbackLabelClass: "first-run-content__button-label");
             actions.Add(action);
             return action;
+        }
+
+        private void SetLanguageSelected(string name, bool selected)
+        {
+            MobileActionControl action = actions.Find(candidate => candidate.Root.name == name);
+            action.SetSelected(selected);
+            action.Label.EnableInClassList("is-selected", selected);
         }
 
         private static string FormatBytes(long bytes)

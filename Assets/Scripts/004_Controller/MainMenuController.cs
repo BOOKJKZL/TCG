@@ -9,6 +9,8 @@ public class MainMenuController : MonoBehaviour
     private MobileHomePresenter homePresenter;
     private bool navigationRequested;
     private Action<string> sceneLoaderOverrideForTests;
+    private Action quitOverrideForTests;
+    private SystemBackNavigation systemBack;
 
     public MobileHomePresenter HomePresenter => homePresenter;
 
@@ -23,6 +25,8 @@ public class MainMenuController : MonoBehaviour
             CollectionBtnClick,
             ContentBtnClick,
             SettingBtnClick);
+        systemBack = gameObject.AddComponent<SystemBackNavigation>();
+        systemBack.Bind(homePresenter.Document.rootVisualElement, TryHandleBack);
 
         if (GetComponentInChildren<Gacha.Presentation.FirstRunContentSetupController>() == null)
         {
@@ -34,8 +38,30 @@ public class MainMenuController : MonoBehaviour
 
     private void OnDestroy()
     {
+        systemBack?.DisposeBinding();
         homePresenter?.Dispose();
         homePresenter = null;
+    }
+
+    public bool TryHandleBack()
+    {
+        if (homePresenter == null)
+            return false;
+        if (homePresenter.ExitConfirmation.TryCancel() || navigationRequested)
+            return true;
+        homePresenter.ExitConfirmation.Show(
+            CardUiText.Get("home.exit.title"),
+            CardUiText.Get("home.exit.body"),
+            CardUiText.Get("home.exit.confirm"),
+            CardUiText.Get("common.action.cancel"),
+            () =>
+            {
+                if (quitOverrideForTests != null)
+                    quitOverrideForTests();
+                else
+                    Application.Quit();
+            }, destructive: false);
+        return true;
     }
 
     public void GachaBtnClick()
@@ -81,22 +107,37 @@ public class MainMenuController : MonoBehaviour
             SettingsReturnNavigation.Remember(MobileDestination.Home);
         if (destination == MobileDestination.Content)
             ContentReturnNavigation.RememberCurrentScene(MobilePrimaryNavigation.SceneName(MobileDestination.Home));
-        try
+        void Completed()
         {
-            if (sceneLoaderOverrideForTests != null)
-                sceneLoaderOverrideForTests(sceneName);
-            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
-                GameManager.Instance.loadManager.LoadScene(sceneName);
-            else
-                SceneManager.LoadScene(sceneName);
             if (destination != MobileDestination.Content)
                 ContentReturnNavigation.Clear();
         }
-        catch
+        void Failed(Exception exception)
         {
+            if (this == null)
+                return;
             navigationRequested = false;
-            homePresenter?.ClearNavigationPending();
-            throw;
+            homePresenter?.ShowNavigationFailure();
+            Debug.LogWarning("Home navigation failed: " + exception);
+        }
+        try
+        {
+            if (sceneLoaderOverrideForTests != null)
+            {
+                sceneLoaderOverrideForTests(sceneName);
+                Completed();
+            }
+            else if (GameManager.Instance != null && GameManager.Instance.loadManager != null)
+                GameManager.Instance.loadManager.LoadScene(sceneName, Completed, Failed);
+            else
+            {
+                SceneManager.LoadScene(sceneName);
+                Completed();
+            }
+        }
+        catch (Exception exception)
+        {
+            Failed(exception);
         }
     }
 }

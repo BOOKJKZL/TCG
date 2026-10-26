@@ -1,0 +1,69 @@
+@import url("CoreNeutralTokens.uss");
+
+.start-scroll {
+    flex-grow: 1;
+    min-height: 0;
+}
+
+.start-scroll__content {
+    flex-grow: 1;
+    flex-shrink: 0;
+    justify-content: center;
+    padding-top: 24px;
+    padding-bottom: 24px;
+}
+
+.start-card {
+    width: 100%;
+    max-width: 760px;
+    flex-shrink: 0;
+    align-self: center;
+    padding: 32px;
+    border-width: 1px;
+    border-radius: 24px;
+    border-color: var(--ui-outline);
+    background-color: var(--ui-surface);
+}
+
+.start-title {
+    color: var(--ui-text);
+    font-size: 38px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.start-body {
+    margin-top: 18px;
+    color: var(--ui-text-secondary);
+    font-size: 20px;
+    white-space: normal;
+}
+
+.start-action-slot {
+    margin-top: 32px;
+}
+
+.start-action-slot .mobile-action {
+    width: 100%;
+    min-height: 56px;
+}
+
+.start-status {
+    margin-top: 16px;
+    color: var(--ui-text-secondary);
+    font-size: 17px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.start-status.is-hidden {
+    display: none;
+}
+
+.mobile-layout--compact .start-card {
+    padding: 24px;
+}
+
+.mobile-layout--compact .start-title {
+    font-size: 30px;
+}

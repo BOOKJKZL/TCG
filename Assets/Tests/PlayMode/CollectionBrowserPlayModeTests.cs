@@ -119,7 +119,7 @@ namespace Gacha.Tests.PlayMode
                 safeArea.style.paddingTop = 60f;
                 safeArea.style.paddingRight = 12f;
                 safeArea.style.paddingBottom = 84f;
-                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                visualCapture = CoreNeutralSceneCapture.BeginForFixedViewport(document, viewport,
                     "CollectionScene_UsesSafeVirtualizedGridAndRealTouchActions; installed local catalog/art; MemoryCollectionProgressStore");
                 yield return null;
                 yield return null;
@@ -203,7 +203,12 @@ namespace Gacha.Tests.PlayMode
                     .First(tile => tile.resolvedStyle.display == DisplayStyle.Flex && tile.worldBound.height > 0f &&
                         (CardTileData(tile)?.GetType().GetField("Printing")?.GetValue(CardTileData(tile)) as PrintingDefinition)?.Id == visibleCards[0].Id);
                 firstTileName = firstTile.Q<Label>(className: "card-tile__name");
-                Assert.That(cardList.Q<ScrollView>().contentViewport.worldBound.Contains(firstTileName.worldBound.center), Is.True);
+                Assert.That(cardList.Q<ScrollView>().contentViewport.worldBound.Contains(firstTileName.worldBound.center), Is.True,
+                    $"viewport={cardList.Q<ScrollView>().contentViewport.worldBound}; name={firstTileName.worldBound}; " +
+                    $"list={cardList.worldBound}; styleHeight={cardList.style.height}; layoutY={cardList.layout.y}; " +
+                    $"innerOffset={cardList.Q<ScrollView>().scrollOffset}; " +
+                    $"outerOffset={document.rootVisualElement.Q<ScrollView>("card-page")?.scrollOffset}; " +
+                    $"root={document.rootVisualElement.worldBound}");
                 VisualElement pickedTile = firstTile.panel.Pick(firstTileName.worldBound.center);
                 Assert.That(pickedTile == firstTile || firstTile.Contains(pickedTile), Is.True,
                     "The visible card name must be reachable in the rendered grid.");

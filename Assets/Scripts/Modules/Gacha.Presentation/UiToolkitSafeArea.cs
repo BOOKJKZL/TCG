@@ -160,6 +160,7 @@ namespace Gacha.Presentation
             {
                 boundRoot.EnableInClassList(UiToolkitSafeArea.CompactClass, nextCompact);
                 appliedCompact = nextCompact;
+                UiToolkitSafeArea.NotifyLayoutChanged(boundRoot);
             }
             hasApplied = true;
         }
@@ -172,6 +173,8 @@ namespace Gacha.Presentation
 
     public static class UiToolkitSafeArea
     {
+        internal static event Action<VisualElement> LayoutChanged;
+        internal static void NotifyLayoutChanged(VisualElement root) => LayoutChanged?.Invoke(root);
         internal const string BoundClass = "safe-area-bound";
         internal const string CompactClass = "mobile-layout--compact";
         private const float CompactPanelWidth = 980f;

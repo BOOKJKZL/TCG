@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="Styles.uss" />
     <ui:VisualElement name="content-management" class="content-management-host">
-        <ui:VisualElement name="content-shell" class="content-management__shell">
+        <ui:ScrollView name="content-shell" class="content-management__shell" mode="Vertical">
             <ui:VisualElement name="trainer-device-rail" class="trainer-device-rail">
                 <ui:VisualElement class="trainer-device-rail__red" />
                 <ui:VisualElement class="trainer-device-rail__yellow" />
@@ -62,6 +62,6 @@
             </ui:VisualElement>
             <ui:Label name="content-empty" class="content-management__empty" />
             <ui:ListView name="package-list" class="content-management__list" virtualization-method="DynamicHeight" selection-type="None" />
-        </ui:VisualElement>
+        </ui:ScrollView>
     </ui:VisualElement>
 </ui:UXML>

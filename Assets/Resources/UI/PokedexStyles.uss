@@ -24,6 +24,17 @@
     width: 100%;
 }
 
+.pokedex-page > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    padding-bottom: 12px;
+}
+
+.pokedex-page .pokedex-list,
+.pokedex-page .pokedex-card-list {
+    height: 420px;
+    min-height: 240px;
+    flex-shrink: 0;
+}
+
 .pokedex-filters,
 .pokedex-detail__hero,
 .pokedex-form-strip,
@@ -46,6 +57,10 @@
 .pokedex-field {
     color: var(--ui-text);
     font-size: 15px;
+}
+
+.pokedex-field .unity-base-field__label {
+    white-space: normal;
 }
 
 .pokedex-field .unity-base-text-field__input,
@@ -295,6 +310,7 @@
 }
 
 .pokedex-artwork__status {
+    font-size: 15px;
     max-width: 220px;
     color: var(--ui-text-secondary);
     white-space: normal;

@@ -32,6 +32,7 @@ namespace Gacha.Presentation
             BottomNavigation = new MobileBottomNavigation(actions[0], actions[1], actions[2], actions[3]);
             BottomNavigation.Select((int)selected);
             RefreshText();
+            CardUiText.TextChanged += RefreshText;
         }
 
         public MobileBottomNavigation BottomNavigation { get; }
@@ -89,8 +90,15 @@ namespace Gacha.Presentation
             GetAction(MobileDestination.Settings).SetLabel(CardUiText.Get("main_menu.action.settings"));
         }
 
+        public void SetEnabled(bool enabled)
+        {
+            foreach (MobileActionControl action in actions)
+                action.SetEnabled(enabled);
+        }
+
         public void Dispose()
         {
+            CardUiText.TextChanged -= RefreshText;
             foreach (MobileActionControl action in actions)
                 action.Dispose();
         }

@@ -1,5 +1,26 @@
 @import url("../Resources/UI/CoreNeutralTokens.uss");
 
+/* Explicit nominal typography for previously inherited runtime labels/fields.
+   MobileTypographyProfiles verifies these bases and applies system font scale. */
+.gacha-opening__status,
+.gacha-rule-notice,
+.gacha-rule-badge,
+.gacha-odds-heading,
+.gacha-odds-row__name,
+.gacha-odds-row__value,
+.gacha-reveal-card__badge,
+.gacha-summary-row__badge,
+.content-management__catalog-status,
+.content-management__selection-summary,
+.content-management__wifi-only,
+.content-management__search,
+.content-management__filter,
+.content-package-row__status,
+.content-package-row__progress-value {
+    font-size: 16px;
+    white-space: normal;
+}
+
 .main-menu {
     flex-direction: column;
     align-items: center;
@@ -26,6 +47,7 @@
 
 .content-management__shell {
     flex-grow: 1;
+    min-height: 0;
     width: 100%;
     max-width: 1080px;
     align-self: center;
@@ -77,6 +99,7 @@
     border-radius: 12px;
     color: var(--ui-primary);
     background-color: var(--ui-primary-soft);
+    white-space: normal;
 }
 
 .content-management__catalog-status.is-error {
@@ -104,12 +127,27 @@
 }
 
 .content-management__list {
-    flex-grow: 1;
+    /* The outer page scrolls its filters and queue actions; keep the virtualized
+       package list bounded instead of nesting an unbounded list viewport. */
+    flex-grow: 0;
+    flex-shrink: 0;
+    height: 420px;
+    min-height: 240px;
     margin-top: 14px;
+}
+
+.content-management__shell > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    padding-bottom: 12px;
+}
+
+.content-management__shell > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > VisualElement,
+.content-management__shell > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > Label {
+    flex-shrink: 0;
 }
 
 .content-management__filters {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: flex-end;
     margin-top: 12px;
     padding: 10px 12px;
@@ -128,11 +166,13 @@
 .content-management__filter {
     width: 190px;
     margin-left: 8px;
+    margin-top: 6px;
 }
 
 .content-management__filters .unity-base-field__label {
     color: var(--ui-text-secondary);
     min-width: 72px;
+    white-space: normal;
 }
 
 .content-management__filters .unity-base-field__input {
@@ -307,11 +347,17 @@
 
 /* An opaque title surface preserves contrast over both filled and unfilled progress. */
 .content-package-row__progress .unity-progress-bar__title {
+    display: none;
     padding-left: 4px;
     padding-right: 4px;
     border-radius: 4px;
     background-color: var(--ui-surface);
     color: var(--ui-text);
+}
+
+.content-package-row__progress-value {
+    margin-bottom: 10px;
+    color: var(--ui-text-secondary);
 }
 
 .content-package-row__actions {
@@ -561,8 +607,14 @@
 }
 
 .gacha-selection {
-    flex-direction: row;
+    flex-direction: column;
     min-height: 0;
+}
+
+.gacha-selection > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    flex-direction: row;
+    align-items: flex-start;
+    padding-bottom: 12px;
 }
 
 .gacha-product-list {
@@ -570,6 +622,7 @@
     flex-shrink: 0;
     margin-right: 18px;
     min-height: 240px;
+    height: 420px;
 }
 
 .gacha-product-row {
@@ -861,6 +914,21 @@
 .gacha-pack-stage > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
     align-items: center;
     justify-content: flex-start;
+}
+
+.gacha-reveal-stage > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    align-items: center;
+    padding-bottom: 12px;
+}
+
+.gacha-reveal-stage {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.gacha-reveal-stage > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > VisualElement,
+.gacha-reveal-stage > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > Label {
+    flex-shrink: 0;
 }
 
 .gacha-pack-stage > .unity-scroll-view__vertical-scroller {
@@ -1336,6 +1404,10 @@
     white-space: normal;
 }
 
+.collection-filter .unity-base-field__label {
+    white-space: normal;
+}
+
 .collection-filter--search {
     width: 250px;
     margin-right: 10px;
@@ -1672,6 +1744,7 @@
 
 .gacha-selected-product-scroll {
     flex-grow: 1;
+    flex-shrink: 1;
     min-width: 0;
     min-height: 0;
 }
@@ -1737,6 +1810,16 @@
 
 .gacha-opening .mobile-layout--compact .gacha-selection {
     flex-direction: column;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selection > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.gacha-opening .mobile-layout--compact .gacha-selected-product-scroll {
+    flex-grow: 0;
+    flex-shrink: 0;
 }
 
 .gacha-opening .mobile-layout--compact .gacha-product-list {
@@ -1896,6 +1979,23 @@
 
 .collection-browser-host .is-hidden {
     display: none;
+}
+
+/* At large system text sizes the title, settings and Pokédex tools share a
+   bounded header scroller, preserving a usable content viewport on short screens. */
+.collection-browser .mobile-page__header-slot {
+    max-height: 40%;
+    flex-shrink: 1;
+}
+
+.collection-header-scroll {
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.collection-header-scroll .mobile-top-bar,
+.collection-header-scroll .collection-browser__tools {
+    flex-shrink: 0;
 }
 
 .collection-browser__body,
@@ -2063,6 +2163,20 @@
     max-width: 100%;
 }
 
+/* Long set headings and the filter entry share the page scroll. The virtual
+   card grid keeps its own bounded viewport inside that reading order. */
+.collection-card-page__content {
+    flex-shrink: 0;
+    padding-bottom: 8px;
+}
+
+.collection-card-page .collection-card-grid {
+    /* CollectionViewController sets the height from the actual page viewport. */
+    min-height: 0;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
 .collection-card-grid > .unity-scroll-view__content-viewport,
 .collection-card-grid > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
     width: 100%;
@@ -2187,7 +2301,9 @@
 }
 
 .collection-detail {
-    flex-grow: 1;
+    /* The sheet owns scrolling so its Close action shares one reading order. */
+    flex-grow: 0;
+    flex-shrink: 0;
     min-height: 0;
 }
 

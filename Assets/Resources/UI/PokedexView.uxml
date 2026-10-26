@@ -2,7 +2,7 @@
     <ui:VisualElement name="pokedex-overlay" class="pokedex-overlay">
         <ui:Style src="PokedexStyles.uss" />
         <ui:VisualElement name="pokedex-body" class="pokedex-body">
-            <ui:VisualElement name="pokedex-list-page" class="pokedex-page pokedex-list-page">
+            <ui:ScrollView name="pokedex-list-page" class="pokedex-page pokedex-list-page" mode="Vertical">
                 <ui:VisualElement class="pokedex-filters mobile-card">
                     <ui:DropdownField name="pokedex-generation" class="pokedex-field pokedex-generation" />
                     <ui:TextField name="pokedex-search" class="pokedex-field pokedex-search" />
@@ -37,9 +37,9 @@
                     <ui:ListView name="pokedex-introduced-forms-list" class="pokedex-introduced-forms__list" virtualization-method="DynamicHeight" />
                 </ui:VisualElement>
                 <ui:ListView name="pokedex-species-list" class="pokedex-list" virtualization-method="DynamicHeight" />
-            </ui:VisualElement>
+            </ui:ScrollView>
 
-            <ui:VisualElement name="pokedex-detail-page" class="pokedex-page pokedex-detail is-hidden">
+            <ui:ScrollView name="pokedex-detail-page" class="pokedex-page pokedex-detail is-hidden" mode="Vertical">
                 <ui:VisualElement name="pokedex-detail-back" class="pokedex-action pokedex-action--quiet pokedex-detail__back">
                     <ui:Label class="pokedex-action__label" />
                 </ui:VisualElement>
@@ -94,7 +94,7 @@
                     <ui:Label name="pokedex-card-empty" class="pokedex-empty pokedex-card-empty" />
                 </ui:VisualElement>
                 <ui:ListView name="pokedex-card-list" class="pokedex-card-list" virtualization-method="DynamicHeight" />
-            </ui:VisualElement>
+            </ui:ScrollView>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

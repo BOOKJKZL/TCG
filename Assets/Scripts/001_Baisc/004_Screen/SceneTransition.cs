@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -5,119 +6,123 @@ using UnityEngine.UI;
 
 public class SceneTransition : MonoBehaviour
 {
-    public Image fadeOverlay; // Reference to the UI Image for fade effect
-    public float fadeDuration = 0.5f; // Duration for fade in/out
-    public float delayBeforeFadeIn = 1f; // Delay before fade-out starts
+    public Image fadeOverlay;
+    public float fadeDuration = 0.5f;
+    public float delayBeforeFadeIn = 1f;
+    private Coroutine transition;
+    private Coroutine initialFade;
+    private Action<Exception> pendingFailure;
+    private Func<string, AsyncOperation> sceneLoaderOverrideForTests;
 
     private void Start()
     {
-        // Start with fade in effect
-        StartCoroutine(FadeIn());
+        if (transition == null)
+            initialFade = StartCoroutine(FadeTo(0f));
     }
 
-    // String version
-    public void ChangeScene(string sceneName)
+    public void ChangeScene(string sceneName) => ChangeScene(sceneName, null,
+        exception => Debug.LogWarning("Scene navigation failed: " + exception));
+
+    public void ChangeScene(int sceneID) => ChangeScene(
+        SceneUtility.GetScenePathByBuildIndex(sceneID));
+
+    public void ChangeScene(string sceneName, Action completed, Action<Exception> failed)
     {
-        StartCoroutine(LoadSceneWithTransition(sceneName));
-    }
-
-    private IEnumerator LoadSceneWithTransition(string sceneName)
-    {
-        // Start fade-out animation
-        yield return StartCoroutine(FadeOut());
-
-        // Begin loading the scene asynchronously
-        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
-        asyncLoad.allowSceneActivation = false;
-
-        // Wait until the scene is almost loaded
-        while (asyncLoad.progress < 0.9f)
+        if (!isActiveAndEnabled)
         {
-            yield return null;
+            failed?.Invoke(new InvalidOperationException("The scene transition owner is inactive."));
+            return;
         }
-
-        // Activate the scene
-        asyncLoad.allowSceneActivation = true;
-
-        // Wait for delay before fade-out
-        yield return new WaitForSeconds(delayBeforeFadeIn);
-
-        GameManager.Instance.loadManager.EndLoad();
-
-        // Scene is ready; fade in after activation
-        yield return StartCoroutine(FadeIn());
-    }
-
-    // Integer version
-    public void ChangeScene(int sceneID)
-    {
-        StartCoroutine(LoadSceneWithTransition(sceneID));
-    }
-
-    private IEnumerator LoadSceneWithTransition(int sceneID)
-    {
-        // Start fade-out animation
-        yield return StartCoroutine(FadeOut());
-
-        // Begin loading the scene asynchronously
-        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneID);
-        asyncLoad.allowSceneActivation = false;
-
-        // Wait until the scene is almost loaded
-        while (asyncLoad.progress < 0.9f)
+        if (transition != null)
         {
-            yield return null;
+            failed?.Invoke(new InvalidOperationException("A scene transition is already pending."));
+            return;
         }
-
-        // Activate the scene
-        asyncLoad.allowSceneActivation = true;
-
-        // Wait for delay before fade-out
-        yield return new WaitForSeconds(delayBeforeFadeIn);
-
-
-        GameManager.Instance.loadManager.EndLoad();
-
-        // Scene is ready; fade in after activation
-        yield return StartCoroutine(FadeIn());
+        if (initialFade != null)
+        {
+            StopCoroutine(initialFade);
+            initialFade = null;
+        }
+        pendingFailure = failed;
+        transition = StartCoroutine(LoadSceneWithTransition(sceneName, completed, failed));
     }
 
-    private IEnumerator FadeIn()
+    private IEnumerator LoadSceneWithTransition(string sceneName, Action completed, Action<Exception> failed)
     {
+        // Ensure even a missing overlay has an asynchronous boundary owned by this coroutine.
+        yield return null;
+        yield return FadeTo(1f);
+        AsyncOperation operation = null;
+        Exception failure = null;
+        try
+        {
+            operation = sceneLoaderOverrideForTests != null
+                ? sceneLoaderOverrideForTests(sceneName)
+                : SceneManager.LoadSceneAsync(sceneName);
+            if (operation == null)
+                throw new InvalidOperationException("The requested scene did not start loading.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        if (failure != null)
+        {
+            yield return FadeTo(0f);
+            transition = null;
+            pendingFailure = null;
+            failed?.Invoke(failure);
+            yield break;
+        }
+        while (!operation.isDone)
+            yield return null;
+        // Commit return-source state as soon as the destination is active, before further input.
+        pendingFailure = null;
+        completed?.Invoke();
+        if (delayBeforeFadeIn > 0f)
+            yield return new WaitForSecondsRealtime(delayBeforeFadeIn);
+        yield return FadeTo(0f);
+        transition = null;
+    }
+
+    private IEnumerator FadeTo(float target)
+    {
+        if (fadeOverlay == null)
+            yield break;
         fadeOverlay.gameObject.SetActive(true);
-        float timer = 0f;
-        Color overlayColor = fadeOverlay.color;
-        overlayColor.a = 1f;
-
-        while (timer < fadeDuration)
+        Color color = fadeOverlay.color;
+        float start = color.a;
+        float elapsed = 0f;
+        while (elapsed < fadeDuration)
         {
-            overlayColor.a = Mathf.Lerp(1f, 0f, timer / fadeDuration);
-            fadeOverlay.color = overlayColor;
-            timer += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
+            color.a = Mathf.Lerp(start, target, Mathf.Clamp01(elapsed / fadeDuration));
+            fadeOverlay.color = color;
             yield return null;
         }
-
-        overlayColor.a = 0f;
-        fadeOverlay.color = overlayColor;
-        fadeOverlay.gameObject.SetActive(false); // Hide overlay after fade-in
+        color.a = target;
+        fadeOverlay.color = color;
+        if (target == 0f)
+            fadeOverlay.gameObject.SetActive(false);
     }
 
-    private IEnumerator FadeOut()
+    private void OnDisable()
     {
-        fadeOverlay.gameObject.SetActive(true);
-        float timer = 0f;
-        Color overlayColor = fadeOverlay.color;
-        overlayColor.a = 0f;
-
-        while (timer < fadeDuration)
+        if (transition != null)
+            StopCoroutine(transition);
+        if (initialFade != null)
+            StopCoroutine(initialFade);
+        transition = null;
+        initialFade = null;
+        if (fadeOverlay != null)
         {
-            overlayColor.a = Mathf.Lerp(0f, 1f, timer / fadeDuration);
-            fadeOverlay.color = overlayColor;
-            timer += Time.deltaTime;
-            yield return null;
+            Color color = fadeOverlay.color;
+            color.a = 0f;
+            fadeOverlay.color = color;
+            fadeOverlay.gameObject.SetActive(false);
         }
-
-        overlayColor.a = 1f;
-        fadeOverlay.color = overlayColor;
+        Action<Exception> failed = pendingFailure;
+        pendingFailure = null;
+        failed?.Invoke(new OperationCanceledException("The scene transition owner was disabled."));
     }
 }

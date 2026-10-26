@@ -16,6 +16,7 @@
 
 .mobile-page__safe-area {
     flex-grow: 1;
+    min-height: 0;
     width: 100%;
     padding: 24px;
 }
@@ -460,12 +461,31 @@
     width: 100%;
     max-width: 760px;
     max-height: 82%;
+    min-height: 0;
+    flex-shrink: 1;
     align-self: center;
     padding: 20px;
     border-width: 1px;
     border-radius: 18px;
     border-color: var(--ui-outline);
     background-color: var(--ui-surface);
+}
+
+/* Keep the complete reading order scrollable, including the final actions. */
+.mobile-sheet__scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.mobile-sheet__scroll > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container {
+    padding-right: 4px;
+    padding-bottom: 4px;
+}
+
+.mobile-sheet__scroll > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > VisualElement,
+.mobile-sheet__scroll > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container > Label {
+    flex-shrink: 0;
 }
 
 .mobile-sheet__grabber {
@@ -492,12 +512,14 @@
 }
 
 .mobile-sheet__content {
-    flex-grow: 1;
+    flex-grow: 0;
+    flex-shrink: 0;
     min-height: 0;
     margin-top: 12px;
 }
 
 .mobile-sheet__actions {
+    flex-shrink: 0;
     justify-content: flex-end;
     margin-top: 16px;
 }

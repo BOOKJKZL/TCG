@@ -102,6 +102,7 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         GameCloudConflictSession.Current.Changed += OnConflictChanged;
         GameIdentityService.Changed += OnIdentityChanged;
         LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
+        CardUiText.TextChanged += RefreshAvailableText;
     }
 
     private void OnDisable()
@@ -109,6 +110,7 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         GameCloudConflictSession.Current.Changed -= OnConflictChanged;
         GameIdentityService.Changed -= OnIdentityChanged;
         LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
+        CardUiText.TextChanged -= RefreshAvailableText;
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
         transitionRoutine = null;
     }
@@ -268,6 +270,13 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
     private void OnIdentityChanged()
     {
         if (IsOpen) RefreshIdentity();
+    }
+
+    private void RefreshAvailableText()
+    {
+        if (!IsOpen) return;
+        RefreshLocalizedText();
+        RefreshConflict();
     }
 
     private void OnSelectedLocaleChanged(Locale locale)

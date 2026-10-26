@@ -216,7 +216,14 @@ namespace Gacha.Presentation
         private readonly MobileActionControl[] settingActions;
         private readonly MobileActionControl backAction;
         private readonly Action requestBack;
+        private readonly SystemBackNavigation systemBack;
         private bool disposed;
+        private bool hasTextState;
+        private string textUiLanguage, textCardLanguage;
+        private ExperienceSettings textExperience;
+        private bool textWifiOnly;
+        private readonly MobileTypographyBinding typography;
+        private readonly MobileAccessibilityPageBindings accessibility;
 
         public MobileSettingsPresenter(GameObject host, MobileSettingsCallbacks callbacks)
         {
@@ -241,12 +248,14 @@ namespace Gacha.Presentation
             backAction = new MobileActionControl("settings-back-action", string.Empty, requestBack, MobileActionTone.Quiet);
             TopBar.AddAction(backAction);
             Shell.HeaderSlot.Add(TopBar.Root);
-            Document.rootVisualElement.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+            systemBack = host.AddComponent<SystemBackNavigation>();
+            systemBack.Bind(Document.rootVisualElement, () => { requestBack(); return true; });
 
             Scroll = MobileGameDesignSystem.CloneTemplateRoot("UI/SettingsView", "settings-scroll") as ScrollView;
             if (Scroll == null)
                 throw new InvalidOperationException("The mobile settings view root must be a ScrollView.");
             Shell.ContentSlot.Add(Scroll);
+            typography = MobileTypography.Bind(Scroll, MobileTypographyProfiles.Settings);
 
             UiLanguageAction = Add("settings-ui-language-slot", "settings-ui-language-action", callbacks.CycleUiLanguage);
             CardLanguageAction = Add("settings-card-language-slot", "settings-card-language-action", callbacks.CycleCardLanguage);
@@ -327,6 +336,10 @@ namespace Gacha.Presentation
             CloudRemoteSummary = RequiredLabel("settings-cloud-remote");
             CloudNotice = RequiredLabel("settings-cloud-notice");
             CloudStatus = RequiredLabel("settings-cloud-status");
+            // The controller supplies current settings text immediately after construction.
+            // Semantic callbacks read those labels when the attached frame is published.
+            accessibility = MobileAccessibilityPageBindings.ForSettings(this);
+            CardUiText.TextChanged += RefreshCurrentText;
         }
 
         public UIDocument Document { get; }
@@ -394,6 +407,11 @@ namespace Gacha.Presentation
             if (disposed)
                 return;
             experience = experience ?? new ExperienceSettings();
+            hasTextState = true;
+            textUiLanguage = uiLanguageId;
+            textCardLanguage = cardLanguageId;
+            textExperience = experience;
+            textWifiOnly = wifiOnly;
             TopBar.SetText(CardUiText.Get("settings.title"), CardUiText.Get("settings.subtitle"));
             backAction.SetLabel(CardUiText.Get("common.action.back"));
             LanguageTitle.text = CardUiText.Get("settings.language.title");
@@ -445,6 +463,12 @@ namespace Gacha.Presentation
             PrimaryNavigation.RefreshText();
         }
 
+        private void RefreshCurrentText()
+        {
+            if (hasTextState && !disposed)
+                RefreshText(textUiLanguage, textCardLanguage, textExperience, textWifiOnly);
+        }
+
         public void SetStatus(Label target, string text, bool error = false)
         {
             if (disposed || target == null)
@@ -480,6 +504,7 @@ namespace Gacha.Presentation
             PrimaryNavigation.SetPending(destination);
             backAction.SetLoading(true);
             backAction.SetEnabled(false);
+            SetStatus(LanguageStatus, CardUiText.Get("common.navigation.loading"));
             foreach (MobileActionControl action in settingActions)
                 action.SetEnabled(false);
         }
@@ -529,8 +554,11 @@ namespace Gacha.Presentation
             if (disposed)
                 return;
             disposed = true;
+            CardUiText.TextChanged -= RefreshCurrentText;
+            accessibility?.Dispose();
+            typography?.Dispose();
             VisualElement documentRoot = Document != null ? Document.rootVisualElement : null;
-            documentRoot?.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+            systemBack.DisposeBinding();
             VisualElement focusedElement = documentRoot?.panel?.focusController?.focusedElement as VisualElement;
             if (focusedElement != null && documentRoot.Contains(focusedElement))
                 focusedElement.Blur();
@@ -565,14 +593,6 @@ namespace Gacha.Presentation
         private VisualElement RequiredElement(string name) =>
             Scroll.Q<VisualElement>(name) ?? throw new InvalidOperationException(
                 "The mobile settings view is missing element '" + name + "'.");
-
-        private void OnNavigationCancel(NavigationCancelEvent evt)
-        {
-            if (disposed)
-                return;
-            evt.StopPropagation();
-            requestBack();
-        }
 
         private static string SettingValue(string labelKey, string valueKeyOrText, bool localizeValue = true)
         {

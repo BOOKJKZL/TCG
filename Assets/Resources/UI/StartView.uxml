@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:ScrollView name="start-scroll" class="start-scroll" mode="Vertical">
+        <ui:Style src="StartView.uss" />
+        <ui:VisualElement name="start-card" class="start-card">
+            <ui:Label name="start-title" class="start-title" />
+            <ui:Label name="start-body" class="start-body" />
+            <ui:VisualElement name="start-action-slot" class="start-action-slot" />
+            <ui:Label name="start-status" class="start-status is-hidden" />
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

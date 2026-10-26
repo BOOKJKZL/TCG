@@ -66,9 +66,23 @@ namespace Gacha.Tests.PlayMode
             Assert.That(routes, Is.EqualTo(new[] { "003_GachaScene" }));
             Assert.That(homeRoot.Q<VisualElement>("nav-gacha")
                 .Q<VisualElement>("action-selection-indicator").ClassListContains("is-selected"), Is.True);
-            Assert.That(homeRoot.Query<VisualElement>(className: "mobile-action")
-                .ToList().All(action => action.Q<Label>("action-label") == null ||
-                                        action.Q<Label>("action-label").ClassListContains("is-disabled")), Is.True);
+            var presenter = (MobileHomePresenter)controllers[0].GetType()
+                .GetProperty("HomePresenter").GetValue(controllers[0]);
+            // The hidden exit confirmation owns separate actions; verify every current page entry.
+            MobileActionControl[] pageEntries =
+            {
+                presenter.HomeNavigation, presenter.GachaNavigation, presenter.CollectionNavigation,
+                presenter.ContentNavigation, presenter.GachaFeatureAction, presenter.CollectionFeatureAction,
+                presenter.ContentFeatureAction, presenter.SettingsFeatureAction, presenter.SettingsUtilityAction
+            };
+            foreach (MobileActionControl action in pageEntries)
+            {
+                Assert.That(action.Label.ClassListContains("is-disabled"), Is.True, action.Root.name);
+                Assert.That(action.IsAvailable, Is.False, action.Root.name);
+                Assert.That(action.TryActivate(), Is.False, action.Root.name);
+            }
+            Assert.That(routes, Is.EqualTo(new[] { "003_GachaScene" }));
+            Assert.That(presenter.ExitConfirmation.IsVisible, Is.False);
 
             Scene cleanup = SceneManager.CreateScene("Home PlayMode Cleanup");
             Assert.That(SceneManager.SetActiveScene(cleanup), Is.True);
