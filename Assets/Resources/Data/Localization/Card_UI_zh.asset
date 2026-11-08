@@ -18,6 +18,90 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData:
+  - m_Id: 174172389306445851
+    m_Localized: "卡牌收藏"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445852
+    m_Localized: "选择卡包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445853
+    m_Localized: "已安装卡包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445854
+    m_Localized: "卡片语言 · {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445855
+    m_Localized: "卡包库"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445856
+    m_Localized: "打开卡包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445857
+    m_Localized: "查看卡包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445858
+    m_Localized: "上一包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445859
+    m_Localized: "下一包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445860
+    m_Localized: "查看全部"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445861
+    m_Localized: "选择卡包资料"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445862
+    m_Localized: "我的收藏"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445863
+    m_Localized: "收藏暂时无法载入，请重试。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445864
+    m_Localized: "先选择一个卡包，开始收藏。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445865
+    m_Localized: "获得的卡牌会展示在这里。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445866
+    m_Localized: "卡面预览 · 模拟卡包"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445867
+    m_Localized: "首页"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445868
+    m_Localized: "收藏"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445869
+    m_Localized: "图鉴"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445870
+    m_Localized: "这个卡包已无法用于当前卡片语言，请重新选择。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445871
+    m_Localized: "这张卡片暂不可用，请检查已安装资料。"
+    m_Metadata:
+      m_Items: []
   - m_Id: 166392714702270464
     m_Localized: "\u8BED\u8A00\u8BBE\u7F6E"
     m_Metadata:

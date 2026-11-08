@@ -18,6 +18,90 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData:
+  - m_Id: 174172389306445851
+    m_Localized: "カードコレクション"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445852
+    m_Localized: "パックを選ぶ"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445853
+    m_Localized: "インストール済みパック"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445854
+    m_Localized: "カードの言語 · {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445855
+    m_Localized: "パック管理"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445856
+    m_Localized: "パックを開ける"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445857
+    m_Localized: "パックを見る"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445858
+    m_Localized: "前のパック"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445859
+    m_Localized: "次のパック"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445860
+    m_Localized: "すべて見る"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445861
+    m_Localized: "パックを追加"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445862
+    m_Localized: "マイコレクション"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445863
+    m_Localized: "コレクションを読み込めません。もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445864
+    m_Localized: "最初のパックを選んで集めよう。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445865
+    m_Localized: "集めたカードがここに並びます。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445866
+    m_Localized: "カードプレビュー · シミュレーション"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445867
+    m_Localized: "ホーム"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445868
+    m_Localized: "コレクション"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445869
+    m_Localized: "図鑑"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445870
+    m_Localized: "現在のカード言語ではこのパックを利用できません。選び直してください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445871
+    m_Localized: "このカードは利用できません。インストール済みデータを確認してください。"
+    m_Metadata:
+      m_Items: []
   - m_Id: 166392714702270464
     m_Localized: "\u8A00\u8A9E\u8A2D\u5B9A"
     m_Metadata:

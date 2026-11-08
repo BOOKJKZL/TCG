@@ -15,6 +15,7 @@ public class MobileDesignSystemContractTests
     private const string StylesPath = "Assets/Resources/UI/MobileGameDesignSystem.uss";
     private const string HomeStylesPath = "Assets/Resources/UI/HomeView.uss";
     private const string TokensPath = "Assets/Resources/UI/CoreNeutralTokens.uss";
+    private const string HomeTokensPath = "Assets/Resources/UI/HomeShowcaseTokens.uss";
 
     private static readonly (string File, string Root)[] Templates =
     {
@@ -98,6 +99,34 @@ public class MobileDesignSystemContractTests
             string source = File.ReadAllText(path);
             Assert.That(source, Does.Not.Match(@"#[0-9A-Fa-f]{3,8}\b|\brgba?\s*\("),
                 path + " must consume semantic tokens rather than duplicate palette values.");
+        }
+    }
+
+    [Test]
+    public void HomeShowcase_PaletteIsScopedAndImportedOnlyByHome()
+    {
+        Assert.That(AssetDatabase.LoadAssetAtPath<StyleSheet>(HomeTokensPath), Is.Not.Null);
+        Assert.That(AssetDatabase.GetDependencies(HomeStylesPath), Does.Contain(HomeTokensPath));
+        string tokens = Regex.Replace(File.ReadAllText(HomeTokensPath), @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        MatchCollection rules = Regex.Matches(tokens, @"([^{}]+)\{([^{}]*)\}");
+        Assert.That(rules.Count, Is.GreaterThan(0));
+        foreach (Match rule in rules)
+        {
+            Assert.That(rule.Groups[1].Value.Trim(), Is.EqualTo(".home-showcase"),
+                "Home palette variables must never apply to root or unrelated pages.");
+            Assert.That(rule.Groups[2].Value, Does.Contain("--home-"));
+            Assert.That(rule.Groups[2].Value, Does.Not.Contain("--ui-"),
+                "The Home theme must not override the shared palette.");
+        }
+        foreach (string directory in new[] { "Assets/Resources/UI", "Assets/UI" })
+        foreach (string path in Directory.EnumerateFiles(directory, "*.uss", SearchOption.AllDirectories))
+        {
+            if (Path.GetFullPath(path) == Path.GetFullPath(HomeStylesPath) ||
+                Path.GetFullPath(path) == Path.GetFullPath(HomeTokensPath))
+                continue;
+            string source = File.ReadAllText(path);
+            Assert.That(source, Does.Not.Contain("HomeShowcaseTokens.uss"), path);
+            Assert.That(source, Does.Not.Contain("var(--home-"), path);
         }
     }
 

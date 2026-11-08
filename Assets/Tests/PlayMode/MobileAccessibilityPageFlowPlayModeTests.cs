@@ -85,7 +85,7 @@ namespace Gacha.Tests.PlayMode
                 yield return null;
                 yield return null;
                 MobileAccessibility.Refresh();
-                Assert.That(Session.TryActivate("home/feature/settings"), Is.True);
+                Assert.That(Session.TryActivate("home/settings-utility"), Is.True);
                 Assert.That(settingsRequests, Is.EqualTo(1));
                 settings = new MobileSettingsPresenter(settingsHost, Callbacks(() => languageRequests++));
                 settings.RefreshText("en", "ja", new ExperienceSettings(), true);

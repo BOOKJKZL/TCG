@@ -1,17 +1,36 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:ScrollView name="home-scroll" class="home-scroll" mode="Vertical">
+    <ui:ScrollView name="home-scroll" class="home-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden">
         <ui:Style src="HomeView.uss" />
-        <ui:VisualElement name="home-hero" class="home-hero mobile-card">
+        <ui:VisualElement name="home-library-row" class="home-library-row">
             <ui:Label name="home-kicker" class="home-hero__kicker" />
-            <ui:Label name="home-title" class="home-hero__title" />
-            <ui:Label name="home-body" class="home-hero__body" />
+            <ui:VisualElement name="home-content-slot" />
         </ui:VisualElement>
-        <ui:Label name="home-section-title" class="home-section__title" />
-        <ui:VisualElement name="home-feature-grid" class="home-feature-grid">
-            <ui:VisualElement name="home-gacha-slot" class="home-feature-slot" />
-            <ui:VisualElement name="home-collection-slot" class="home-feature-slot" />
-            <ui:VisualElement name="home-content-slot" class="home-feature-slot" />
-            <ui:VisualElement name="home-settings-slot" class="home-feature-slot" />
+        <ui:VisualElement name="home-hero" class="home-hero">
+            <ui:VisualElement class="home-aura home-aura--outer" picking-mode="Ignore" />
+            <ui:VisualElement class="home-aura home-aura--inner" picking-mode="Ignore" />
+            <ui:VisualElement name="home-pack-left" class="home-pack-slot home-pack-slot--left" />
+            <ui:VisualElement name="home-pack-right" class="home-pack-slot home-pack-slot--right" />
+            <ui:VisualElement name="home-pack-center" class="home-pack-slot home-pack-slot--center" />
+            <ui:VisualElement name="home-empty-art" class="home-empty-art" picking-mode="Ignore">
+                <ui:VisualElement class="home-empty-card home-empty-card--back" />
+                <ui:VisualElement class="home-empty-card home-empty-card--front" />
+            </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="home-pack-controls" class="home-pack-controls">
+            <ui:VisualElement name="home-previous-slot" />
+            <ui:Label name="home-pack-position" class="home-hero__kicker home-pack-position" />
+            <ui:VisualElement name="home-next-slot" />
+        </ui:VisualElement>
+        <ui:Label name="home-title" class="home-hero__title" />
+        <ui:VisualElement name="home-inspect-slot" class="home-inspect-slot" />
+        <ui:Label name="home-body" class="home-hero__body" />
+        <ui:VisualElement name="home-retry-slot" class="home-retry-slot" />
+        <ui:VisualElement name="home-gacha-slot" class="home-open-slot" />
+        <ui:VisualElement class="home-collection-heading">
+            <ui:Label name="home-section-title" class="home-section__title" />
+            <ui:VisualElement name="home-collection-slot" />
+        </ui:VisualElement>
+        <ui:VisualElement name="home-owned-cards" class="home-owned-cards" />
+        <ui:Label name="home-owned-empty" class="home-hero__body home-owned-empty" />
     </ui:ScrollView>
 </ui:UXML>

@@ -4,6 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Gacha.Application;
+using Gacha.Domain;
+using Gacha.Infrastructure.Content;
+using Gacha.Infrastructure.Rules;
 using Gacha.Presentation;
 using NUnit.Framework;
 using UnityEngine;
@@ -55,59 +59,121 @@ namespace Gacha.Tests.PlayMode
                 yield return CaptureSharedStates(locale);
         }
 
-        private static IEnumerator CaptureHome(string locale, SampleViewport viewport)
+        [UnityTest]
+        public IEnumerator Home_RealPresenter_RendersDoubleFontInThreeLocales()
+        {
+            yield return LocalizationSettings.InitializationOperation;
+            var fontScale = new TestFontScaleSource();
+            fontScale.Set(2f);
+            using (MobileTypography.OverrideSourceForTests(fontScale))
+                foreach (string locale in new[] { "en", "zh", "ja" })
+                    yield return CaptureHome(locale, Narrow, 2f);
+        }
+
+        private static UniversalCatalog installedCatalog;
+
+        private static HomeShowcaseData InstalledHomeData(out string contentRoot)
+        {
+            contentRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../LocalContent/Imports"));
+            string artworkRoot = contentRoot;
+            Assert.That(Directory.Exists(contentRoot), Is.True, "Real Home samples require the existing read-only LocalContent/Imports catalog.");
+            if (installedCatalog == null)
+            {
+                CatalogLoadResult result = new PrivateContentCatalogProvider(contentRoot,
+                    variantPolicy: new PokemonImportedCardVariantPolicy()).Load();
+                Assert.That(result.Succeeded, Is.True, result.ErrorMessage);
+                installedCatalog = result.Catalog;
+            }
+            HomeShowcaseData all = HomeShowcaseData.FromCatalog(installedCatalog, new Dictionary<string, int>(), "en");
+            // Keep real catalog definitions and artwork. Ownership is explicitly a memory-only sample,
+            // never imported from or written to the player's saved inventory.
+            HomePackPreview[] packs = all.Packs.Where(pack => pack.Cover != null &&
+                !string.IsNullOrWhiteSpace(pack.Cover.ImageRelativePath) &&
+                File.Exists(Path.Combine(artworkRoot, pack.Cover.ImageRelativePath))).Take(3).ToArray();
+            Assert.That(packs.Length, Is.GreaterThanOrEqualTo(2), "The real carousel sample needs two installed packs with artwork.");
+            PrintingDefinition[] owned = installedCatalog.Printings.Values.Where(printing =>
+                printing.Identity.LanguageId == "en" && !string.IsNullOrWhiteSpace(printing.ImageRelativePath) &&
+                File.Exists(Path.Combine(artworkRoot, printing.ImageRelativePath)))
+                .OrderBy(printing => printing.Id, StringComparer.Ordinal).Take(3).ToArray();
+            Assert.That(owned.Length, Is.EqualTo(3), "The ownership fixture needs three real installed card definitions.");
+            var counts = owned.ToDictionary(printing => printing.Id, _ => 1);
+            HomeShowcaseData projection = HomeShowcaseData.FromCatalog(installedCatalog, counts, "en");
+            return new HomeShowcaseData(packs, projection.OwnedCards, projection.ContentLanguageId);
+        }
+
+        private static IEnumerator CaptureHome(string locale, SampleViewport viewport, float fontScale = 1f)
         {
             using (var sample = new RenderSample(locale, viewport))
             {
                 yield return WaitForSampleLocale(locale);
+                HomeShowcaseData data = InstalledHomeData(out string contentRoot);
+                var cache = new CardTextureCache(new PrivateContentImageSource(contentRoot));
+                sample.Own(cache);
                 var presenter = new MobileHomePresenter(sample.Host, () => { }, () => { }, () => { }, () => { });
                 sample.Own(presenter);
+                presenter.BindContent(data, cache);
                 sample.Attach(presenter.Document, presenter.Shell);
                 yield return sample.SettleLayout();
+                float deadline = Time.realtimeSinceStartup + 20f;
+                while ((cache.InFlightCount > 0 || presenter.Content.Query<VisualElement>(className: "is-loading").ToList().Count > 0) &&
+                       Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                yield return sample.SettleLayout();
 
-                Assert.That(presenter.Title.text, Is.EqualTo(ExpectedSampleText(locale, "home.title")),
-                    "A locale-labelled sample must show the actual locale table, not its loading fallback.");
-                Assert.That(presenter.Title.text, Is.Not.Empty);
-                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(4));
+                Assert.That(presenter.ContentState, Is.EqualTo(HomeContentState.Ready));
+                Assert.That(presenter.SelectedProductId, Is.EqualTo(data.Packs[0].Product.Id));
+                Assert.That(data.ContentLanguageId, Is.EqualTo("en"), "Application locale must not change the card-printing language.");
+                Assert.That(presenter.Title.text, Is.EqualTo(data.Packs[0].Product.GetDisplayName(data.ContentLanguageId)));
+                Assert.That(presenter.SectionTitle.text, Is.EqualTo(ExpectedSampleText(locale, "home.collection.title")),
+                    "A locale-labelled sample must show actual locale-table text, not the loading fallback.");
+                Assert.That(presenter.HomeNavigation.Label.text, Is.EqualTo(ExpectedSampleText(locale, "home.nav.showcase")));
+                Assert.That(presenter.CollectionNavigation.Label.text, Is.EqualTo(ExpectedSampleText(locale, "home.nav.collection")));
+                Assert.That(presenter.PokedexNavigation.Label.text, Is.EqualTo(ExpectedSampleText(locale, "home.nav.pokedex")));
+                Assert.That(presenter.GachaFeatureAction.Label.text, Is.EqualTo(ExpectedSampleText(locale, "home.action.open")));
+                Assert.That(presenter.PrimaryNavigation.Count, Is.EqualTo(3));
                 Assert.That(presenter.Title.resolvedStyle.whiteSpace, Is.EqualTo(WhiteSpace.Normal));
-                AssertColor(presenter.Shell.Root.resolvedStyle.backgroundColor, "#F7F8FA", "canvas");
-                AssertColor(presenter.TopBar.Root.resolvedStyle.backgroundColor, "#FFFFFF", "top bar");
-                AssertColor(presenter.Title.resolvedStyle.color, "#14171A", "home title");
-                AssertColor(presenter.Body.resolvedStyle.color, "#556170", "home body");
-                AssertColor(presenter.GachaFeatureAction.Root.resolvedStyle.backgroundColor, "#2563EB", "primary action");
+                AssertColor(presenter.Shell.Root.resolvedStyle.backgroundColor, "#F2F7F8", "Home canvas");
+                Assert.That(presenter.TopBar.Root.resolvedStyle.backgroundColor.a, Is.Zero.Within(0.005f), "Home top bar");
+                AssertColor(presenter.Title.resolvedStyle.color, "#34465C", "Home title");
+                AssertColor(presenter.Body.resolvedStyle.color, "#536C7C", "Home body");
+                Assert.That(presenter.Content.Query<VisualElement>(className: "is-failed").ToList(), Is.Empty,
+                    "Successful-content visual evidence must not silently capture missing artwork.");
+                var artwork = presenter.Content.Query<VisualElement>("async-card-image").ToList();
+                Assert.That(artwork.Count, Is.EqualTo(data.Packs.Count + data.OwnedCards.Count));
+                Assert.That(artwork.All(view => view.ClassListContains("is-ready")), Is.True,
+                    "All three pack covers and three owned cards must show loaded real artwork.");
                 AssertColor(presenter.GachaFeatureAction.Label.resolvedStyle.color, "#FFFFFF", "primary action label");
+                AssertColor(presenter.GachaFeatureAction.Root.resolvedStyle.backgroundColor, "#087F87", "Home primary action");
 
                 Rect safeContent = SafeContentRect(presenter.Shell.SafeArea);
+                var homeScroll = presenter.Content as ScrollView;
+                Assert.That(homeScroll, Is.Not.Null);
+                Assert.That(homeScroll.horizontalScrollerVisibility, Is.EqualTo(ScrollerVisibility.Hidden));
+                Assert.That(homeScroll.horizontalScroller.resolvedStyle.display, Is.EqualTo(DisplayStyle.None),
+                    "Rotated side packs must not expose a horizontal scrollbar on the portrait Home page.");
                 AssertContained(safeContent, presenter.TopBar.Root.worldBound, "top bar");
                 VisualElement settingsUtility = presenter.TopBar.Root.Q<VisualElement>("home-settings-utility-action");
-                Assert.That(settingsUtility, Is.Not.Null, "The top bar settings action must remain reachable.");
+                Assert.That(settingsUtility, Is.Not.Null);
                 AssertContained(presenter.TopBar.Root.worldBound, settingsUtility.worldBound, "top bar settings action");
                 AssertActionLabelContained(settingsUtility, "top bar settings action");
-                Assert.That(presenter.Hero.worldBound.yMin,
-                    Is.GreaterThanOrEqualTo(presenter.TopBar.Root.worldBound.yMax - 1f),
-                    "The home hero must start below the entire top bar, including its settings action.");
-
-                foreach (MobileActionControl action in new[]
-                         {
-                             presenter.GachaFeatureAction,
-                             presenter.CollectionFeatureAction,
-                             presenter.ContentFeatureAction,
-                             presenter.SettingsFeatureAction
-                         })
+                Assert.That(presenter.Hero.worldBound.yMin, Is.GreaterThanOrEqualTo(presenter.TopBar.Root.worldBound.yMax - 1f));
+                AssertContained(safeContent, presenter.PrimaryNavigation.BottomNavigation.Root.worldBound, "navigation");
+                foreach (MobileActionControl action in new[] { presenter.HomeNavigation,
+                             presenter.CollectionNavigation, presenter.PokedexNavigation })
+                {
+                    AssertContained(safeContent, action.Root.worldBound, action.Root.name);
+                    AssertActionLabelContained(action.Root, action.Root.name);
+                    Assert.That(action.Root.resolvedStyle.height, Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
+                }
+                foreach (MobileActionControl action in new[] { presenter.GachaFeatureAction,
+                             presenter.CollectionFeatureAction, presenter.ContentFeatureAction })
                     AssertActionLabelContained(action.Root, action.Root.name);
 
-                AssertContained(safeContent, presenter.PrimaryNavigation.BottomNavigation.Root.worldBound, "navigation");
-                foreach (MobileDestination destination in new[] { MobileDestination.Home, MobileDestination.Gacha,
-                             MobileDestination.Collection, MobileDestination.Content })
-                {
-                    MobileActionControl action = presenter.PrimaryNavigation.GetAction(destination);
-                    AssertContained(safeContent, action.Root.worldBound, destination.ToString());
-                    Assert.That(action.Root.resolvedStyle.height,
-                        Is.GreaterThanOrEqualTo(MobileUiTokens.MinimumTouchTarget - 0.5f));
-                }
-
-                sample.Capture("home", "MobileHomePresenter; no catalog, inventory, network, or saved-game fixture",
-                    presenter.Title.text, presenter.Shell.Root, presenter.Title, presenter.GachaFeatureAction.Root);
+                sample.Capture(fontScale > 1f ? "home-showcase-font-2" : "home-showcase",
+                    "MobileHomePresenter; read-only LocalContent/Imports catalog and artwork; three real owned-printing definitions " +
+                    "with synthetic memory-only counts=1; no saved inventory reads/writes or network; pack list limited to first three installed covers",
+                    presenter.Title.text, presenter.Shell.Root, presenter.Title, presenter.GachaFeatureAction.Root,
+                    presenter.SelectedProductId, data.OwnedCards.Select(printing => printing.Id).ToArray(), data.ContentLanguageId, fontScale);
             }
         }
 
@@ -298,7 +364,8 @@ namespace Gacha.Tests.PlayMode
             }
 
             public void Capture(string screen, string fixture, string displayedTitle,
-                VisualElement canvas, Label text, VisualElement emphasis)
+                VisualElement canvas, Label text, VisualElement emphasis, string productId = null,
+                string[] ownedPrintingIds = null, string contentLanguageId = null, float fontScale = 1f)
             {
                 RenderTexture previous = RenderTexture.active;
                 Texture2D image = null;
@@ -314,6 +381,8 @@ namespace Gacha.Tests.PlayMode
                     int opaque = 0;
                     int dark = 0;
                     int blue = 0;
+                    int homeAccent = 0;
+                    Color32 emphasisColor = emphasis.resolvedStyle.backgroundColor;
                     var distinct = new HashSet<int>();
                     for (int index = 0; index < pixels.Length; index += 4)
                     {
@@ -325,12 +394,16 @@ namespace Gacha.Tests.PlayMode
                             dark++;
                         if (pixel.b > 150 && pixel.b > pixel.r + 40 && pixel.b > pixel.g + 20)
                             blue++;
+                        if (Math.Abs(pixel.r - emphasisColor.r) < 12 && Math.Abs(pixel.g - emphasisColor.g) < 12 &&
+                            Math.Abs(pixel.b - emphasisColor.b) < 12)
+                            homeAccent++;
                         distinct.Add((pixel.r << 16) | (pixel.g << 8) | pixel.b);
                     }
                     Assert.That(opaque, Is.GreaterThan(pixels.Length / 4 * 0.95f), "Blank or transparent panel capture.");
                     Assert.That(distinct.Count, Is.GreaterThan(32), "Uniform clear color is not a rendered screen.");
                     Assert.That(dark, Is.GreaterThan(100), "Expected actual text/foreground pixels.");
-                    Assert.That(blue, Is.GreaterThan(100), "Expected a visible primary action, not only a page background.");
+                    Assert.That(productId == null ? blue : homeAccent, Is.GreaterThan(100),
+                        "Expected visible pixels in the actual primary-action color, not only a page background.");
 
                     string directory = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../TestResults/UIRefresh"));
                     Directory.CreateDirectory(directory);
@@ -353,6 +426,10 @@ namespace Gacha.Tests.PlayMode
                         fixture = fixture,
                         reduceMotion = true,
                         displayedTitle = displayedTitle,
+                        productId = productId,
+                        ownedPrintingIds = ownedPrintingIds,
+                        contentLanguageId = contentLanguageId,
+                        fontScale = fontScale,
                         canvasColor = ColorUtility.ToHtmlStringRGBA(canvas.resolvedStyle.backgroundColor),
                         textColor = ColorUtility.ToHtmlStringRGBA(text.resolvedStyle.color),
                         emphasisColor = ColorUtility.ToHtmlStringRGBA(emphasis.resolvedStyle.backgroundColor),
@@ -429,6 +506,10 @@ namespace Gacha.Tests.PlayMode
             public string fixture;
             public bool reduceMotion;
             public string displayedTitle;
+            public string productId;
+            public string[] ownedPrintingIds;
+            public string contentLanguageId;
+            public float fontScale;
             public string canvasColor;
             public string textColor;
             public string emphasisColor;

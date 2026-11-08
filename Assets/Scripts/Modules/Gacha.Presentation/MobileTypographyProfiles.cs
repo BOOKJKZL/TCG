@@ -61,13 +61,14 @@ namespace Gacha.Presentation
             R("start-status", 17, "Assets/Resources/UI/StartView.uss"));
 
         public static readonly MobileTypographyProfile Home = new MobileTypographyProfile("Home",
+            R("home-brand-title", 36, "Assets/Resources/UI/HomeView.uss"),
+            R("home-open-label", 28, "Assets/Resources/UI/HomeView.uss"),
             R("home-hero__kicker", 15, "Assets/Resources/UI/HomeView.uss"),
             R("home-hero__title", 34, "Assets/Resources/UI/HomeView.uss", 28),
             R("home-hero__body", 18, "Assets/Resources/UI/HomeView.uss"),
             R("home-section__title", 23, "Assets/Resources/UI/HomeView.uss"),
-            R("home-feature-card__number", 17, "Assets/Resources/UI/HomeView.uss"),
-            R("home-feature-card__title", 22, "Assets/Resources/UI/HomeView.uss"),
-            R("home-feature-card__body", 16, "Assets/Resources/UI/HomeView.uss"));
+            R("home-pack-label", 16, "Assets/Resources/UI/HomeView.uss"),
+            R("home-owned-name", 16, "Assets/Resources/UI/HomeView.uss"));
 
         public static readonly MobileTypographyProfile Settings = new MobileTypographyProfile("Settings",
             R("settings-card__title", 23, "Assets/Resources/UI/SettingsView.uss"),

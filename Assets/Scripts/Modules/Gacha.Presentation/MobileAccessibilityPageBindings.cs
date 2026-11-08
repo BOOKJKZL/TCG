@@ -76,8 +76,13 @@ namespace Gacha.Presentation
             binding.Action("feature/gacha", page.GachaFeatureAction);
             binding.Action("feature/collection", page.CollectionFeatureAction);
             binding.Action("feature/content", page.ContentFeatureAction);
-            binding.Action("feature/settings", page.SettingsFeatureAction);
-            binding.Navigation(page.PrimaryNavigation);
+            binding.Action("pack/previous", page.PrevPackAction);
+            binding.Action("pack/next", page.NextPackAction);
+            binding.Action("pack/inspect", page.InspectPackAction);
+            binding.Action("content/retry", page.RetryContentAction);
+            binding.Action("navigation/home", page.HomeNavigation);
+            binding.Action("navigation/collection", page.CollectionNavigation);
+            binding.Action("navigation/pokedex", page.PokedexNavigation);
             binding.Confirmation("exit", page.ExitConfirmation);
             return binding;
         }

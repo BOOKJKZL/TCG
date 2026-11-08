@@ -22,7 +22,7 @@ namespace Gacha.Tests.PlayMode
             try
             {
                 page = new MobileHomePresenter(host, () => { }, () => { }, () => { }, () => { });
-                page.SetNavigationPending(MobileDestination.Content);
+                page.SetNavigationPending(MobileDestination.Pokedex);
                 settingsPage = new MobileSettingsPresenter(settingsHost, new MobileSettingsCallbacks
                 {
                     CycleUiLanguage = () => { }, CycleCardLanguage = () => { }, ToggleSound = () => { },
@@ -39,20 +39,20 @@ namespace Gacha.Tests.PlayMode
                     var locale = LocalizationSettings.AvailableLocales.GetLocale(code);
                     Assert.That(locale, Is.Not.Null);
                     LocalizationSettings.SelectedLocale = locale;
-                    string immediate = CardUiText.Get("home.title");
+                    string immediate = CardUiText.Get("home.pack.choose");
                     Assert.That(immediate, Is.Not.Empty, "A page always has usable text while the table loads.");
                     var table = LocalizationSettings.StringDatabase.GetTableAsync(CardUiText.TableName, locale);
                     yield return table;
-                    string expectedTitle = table.Result.GetEntry("home.title").GetLocalizedString(locale, null, null);
+                    string expectedTitle = table.Result.GetEntry("home.pack.choose").GetLocalizedString(locale, null, null);
                     string expectedSettingsTitle = table.Result.GetEntry("settings.title").GetLocalizedString(locale, null, null);
                     float deadline = Time.realtimeSinceStartup + 3f;
                     while ((page.Title.text != expectedTitle || settingsPage.TopBar.Title.text != expectedSettingsTitle) &&
                            Time.realtimeSinceStartup < deadline)
                         yield return null;
-                    Assert.That(CardUiText.Get("home.title"), Is.EqualTo(expectedTitle));
+                    Assert.That(CardUiText.Get("home.pack.choose"), Is.EqualTo(expectedTitle));
                     Assert.That(page.Title.text, Is.EqualTo(expectedTitle));
                     Assert.That(page.Body.text, Is.EqualTo(CardUiText.Get("common.navigation.loading")));
-                    Assert.That(page.ContentNavigation.IsLoading, Is.True);
+                    Assert.That(page.PokedexNavigation.IsLoading, Is.True);
                     Assert.That(page.GachaFeatureAction.TryActivate(), Is.False);
                     Assert.That(settingsPage.TopBar.Title.text, Is.EqualTo(expectedSettingsTitle));
                     Assert.That(settingsPage.RecoveryStatus.text, Is.EqualTo("Retained recovery result"));

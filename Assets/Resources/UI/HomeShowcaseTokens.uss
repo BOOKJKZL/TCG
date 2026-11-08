@@ -1,0 +1,22 @@
+.home-showcase {
+    --home-canvas: #F2F7F8;
+    --home-text: #34465C;
+    --home-secondary: #536C7C;
+    --home-accent: #087F87;
+    --home-selected: #DAF0EF;
+    --home-aura-outer: #E4F0F5;
+    --home-aura-inner: #EAF5F6;
+    --home-foil-border: #B8CAD6;
+    --home-foil: #D3E0EC;
+    --home-seal-border: #EFF5FA;
+    --home-card-back: #E5EEF2;
+    --home-card-border: #CAD9E3;
+    --home-empty-border: #AECED6;
+    --home-empty-back: #D8ECEF;
+    --home-empty-front: #EAF6F6;
+    --home-transparent: rgba(0, 0, 0, 0);
+    --home-navigation: rgba(255, 255, 255, 0.86);
+    --home-aura-edge: rgba(255,255,255,0.9);
+    --home-seal: rgba(185,202,219,0.7);
+    --home-art-backing: rgba(255,255,255,0.25);
+}

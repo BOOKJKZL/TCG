@@ -75,6 +75,9 @@ public sealed class GachaViewController : MonoBehaviour
     private SystemBackNavigation systemBack;
     private bool destroyed;
     private int pendingConfirmationCount;
+    private string requestedHomeProductId;
+    private bool prepareHomeProduct;
+    private bool homeProductUnavailable;
 
     private VisualElement root;
     private VisualElement body;
@@ -368,6 +371,7 @@ public sealed class GachaViewController : MonoBehaviour
         pageState = GachaPageState.Loading;
         ApplyActionAvailability();
         SetStatus(CardUiText.Get("common.status.loading"), false);
+        HomeSceneRequest.TryConsumeProduct(out requestedHomeProductId, out prepareHomeProduct);
     }
 
     private bool LoadCatalog(bool forceReload)
@@ -415,6 +419,7 @@ public sealed class GachaViewController : MonoBehaviour
             RebuildProducts();
             RefreshLocalizedChrome();
             ShowSelectionPage();
+            ApplyHomeProductRequest();
             if (!contentLanguageSubscribed)
             {
                 ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
@@ -446,6 +451,24 @@ public sealed class GachaViewController : MonoBehaviour
         ApplyActionAvailability();
         Debug.LogWarning("Gacha content could not be initialized: " + InitializationError);
         InitializationFailed?.Invoke(InitializationError);
+    }
+
+    private void ApplyHomeProductRequest()
+    {
+        if (requestedHomeProductId == null)
+            return;
+        bool prepare = prepareHomeProduct;
+        requestedHomeProductId = null;
+        prepareHomeProduct = false;
+        if (selectedProduct == null)
+        {
+            homeProductUnavailable = true;
+            SetStatus(CardUiText.Get("home.request.product_unavailable"), true);
+            manageContentAction.Root.style.display = DisplayStyle.Flex;
+            return;
+        }
+        if (prepare)
+            RequestOpenConfirmation(1);
     }
 
     public void OnOpenPack()
@@ -932,11 +955,15 @@ public sealed class GachaViewController : MonoBehaviour
         productList.itemsSource = products;
         productList.Rebuild();
 
-        ProductDefinition next = products.FirstOrDefault(product => product.Id == productId) ?? products.FirstOrDefault();
+        ProductDefinition next = requestedHomeProductId != null
+            ? products.FirstOrDefault(product => product.Id == requestedHomeProductId)
+            : products.FirstOrDefault(product => product.Id == productId) ?? products.FirstOrDefault();
         if (next == null)
         {
             selectedProduct = null;
             selectedProfile = null;
+            selectedImage?.Unbind();
+            productList.SetSelectionWithoutNotify(Array.Empty<int>());
             prepareAction.SetEnabled(false);
             prepareTenAction.SetEnabled(false);
             SetStatus(CardUiText.Get("gacha.status.no_products"), true);
@@ -1022,6 +1049,7 @@ public sealed class GachaViewController : MonoBehaviour
 
     private void SelectProduct(ProductDefinition product)
     {
+        homeProductUnavailable = false;
         selectedProduct = product;
         productId = product.Id;
         ApplyTheme(ProductOpeningThemeService.Resolve(product));
@@ -1510,6 +1538,8 @@ public sealed class GachaViewController : MonoBehaviour
             SetStatus(CardUiText.Get("common.navigation.failed"), true);
         else if (pageState == GachaPageState.Loading)
             SetStatus(CardUiText.Get("common.status.loading"), false);
+        else if (homeProductUnavailable)
+            SetStatus(CardUiText.Get("home.request.product_unavailable"), true);
         ApplyActionAvailability();
     }
 

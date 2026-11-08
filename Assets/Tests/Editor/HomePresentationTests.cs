@@ -10,21 +10,29 @@ public sealed class HomePresentationTests
 {
     private static readonly string[] HomeKeys =
     {
-        "home.top.title",
-        "home.top.subtitle",
-        "home.kicker",
-        "home.title",
-        "home.body",
-        "home.section.destinations",
-        "home.feature.gacha",
-        "home.feature.collection",
-        "home.feature.content",
-        "home.feature.settings",
-        "home.nav.home"
+        "home.brand",
+        "home.pack.choose",
+        "home.collection.title",
+        "home.collection.unavailable",
+        "home.action.library",
+        "home.action.view_all",
+        "home.action.inspect",
+        "home.action.previous",
+        "home.action.next",
+        "home.action.download",
+        "home.action.open",
+        "home.library.installed",
+        "home.library.language",
+        "home.empty.packs",
+        "home.empty.collection",
+        "home.preview.note",
+        "home.nav.showcase",
+        "home.nav.collection",
+        "home.nav.pokedex"
     };
 
     [Test]
-    public void HomeView_ImportsWithScrollableFeatureSlotsAndNoNativeButtons()
+    public void HomeView_ImportsScrollablePackCarouselAndOwnedCollectionWithoutNativeButtons()
     {
         const string path = "Assets/Resources/UI/HomeView.uxml";
         VisualTreeAsset asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(path);
@@ -32,10 +40,12 @@ public sealed class HomePresentationTests
         VisualElement tree = asset.CloneTree();
         Assert.That(tree.Q<ScrollView>("home-scroll"), Is.Not.Null);
         Assert.That(tree.Q<VisualElement>("home-hero"), Is.Not.Null);
-        Assert.That(tree.Q<VisualElement>("home-feature-grid"), Is.Not.Null);
+        Assert.That(tree.Q<VisualElement>("home-owned-cards"), Is.Not.Null);
         foreach (string name in new[]
                  {
-                     "home-gacha-slot", "home-collection-slot", "home-content-slot", "home-settings-slot"
+                     "home-gacha-slot", "home-collection-slot", "home-content-slot", "home-retry-slot",
+                     "home-previous-slot", "home-next-slot", "home-inspect-slot",
+                     "home-pack-left", "home-pack-center", "home-pack-right"
                  })
             Assert.That(tree.Q<VisualElement>(name), Is.Not.Null, name);
 
@@ -57,14 +67,16 @@ public sealed class HomePresentationTests
     }
 
     [Test]
-    public void HomeController_BuildsShellBeforeFirstRunAndDoesNotLoadCatalog()
+    public void HomeController_BuildsShellBeforeContentLoadAndKeepsLoadingOutsidePresenter()
     {
         string controller = File.ReadAllText("Assets/Scripts/004_Controller/MainMenuController.cs");
         string presenter = File.ReadAllText(
             "Assets/Scripts/Modules/Gacha.Presentation/MobileHomePresenter.cs");
 
-        Assert.That(controller.IndexOf("new MobileHomePresenter", System.StringComparison.Ordinal),
-            Is.LessThan(controller.IndexOf("First Run Content Setup", System.StringComparison.Ordinal)));
+        int buildShell = controller.IndexOf("new MobileHomePresenter", System.StringComparison.Ordinal);
+        int loadContent = controller.IndexOf("BeginContentLoad(false)", System.StringComparison.Ordinal);
+        Assert.That(buildShell, Is.GreaterThanOrEqualTo(0));
+        Assert.That(loadContent, Is.GreaterThan(buildShell));
         Assert.That(controller, Does.Contain("HideLegacyCanvas"));
         Assert.That(presenter, Does.Contain("MobilePageShell"));
         Assert.That(presenter, Does.Contain("MobilePrimaryNavigation"));

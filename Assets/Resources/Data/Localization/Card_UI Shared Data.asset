@@ -15,6 +15,90 @@ MonoBehaviour:
   m_TableCollectionName: Card_UI
   m_TableCollectionNameGuidString: e6fdc82fbde69d148bcf98415b9582a5
   m_Entries:
+  - m_Id: 174172389306445851
+    m_Key: home.brand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445852
+    m_Key: home.pack.choose
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445853
+    m_Key: home.library.installed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445854
+    m_Key: home.library.language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445855
+    m_Key: home.action.library
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445856
+    m_Key: home.action.open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445857
+    m_Key: home.action.inspect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445858
+    m_Key: home.action.previous
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445859
+    m_Key: home.action.next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445860
+    m_Key: home.action.view_all
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445861
+    m_Key: home.action.download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445862
+    m_Key: home.collection.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445863
+    m_Key: home.collection.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445864
+    m_Key: home.empty.packs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445865
+    m_Key: home.empty.collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445866
+    m_Key: home.preview.note
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445867
+    m_Key: home.nav.showcase
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445868
+    m_Key: home.nav.collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445869
+    m_Key: home.nav.pokedex
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445870
+    m_Key: home.request.product_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445871
+    m_Key: home.request.printing_unavailable
+    m_Metadata:
+      m_Items: []
   - m_Id: 166392714702270464
     m_Key: settings.language.title
     m_Metadata:

@@ -18,6 +18,90 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData:
+  - m_Id: 174172389306445851
+    m_Localized: "Card Collection"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445852
+    m_Localized: "Choose a pack"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445853
+    m_Localized: "Your packs"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445854
+    m_Localized: "Card language · {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445855
+    m_Localized: "Pack library"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445856
+    m_Localized: "Open a pack"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445857
+    m_Localized: "View pack"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445858
+    m_Localized: "Previous"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445859
+    m_Localized: "Next"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445860
+    m_Localized: "View all"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445861
+    m_Localized: "Choose content"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445862
+    m_Localized: "My collection"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445863
+    m_Localized: "Your collection could not load. Please retry."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445864
+    m_Localized: "Choose your first pack to start collecting."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445865
+    m_Localized: "Your collected cards will appear here."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445866
+    m_Localized: "Card preview · Simulated pack"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445867
+    m_Localized: "Home"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445868
+    m_Localized: "Collection"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445869
+    m_Localized: "Pokédex"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445870
+    m_Localized: "This pack is no longer available in the selected card language. Choose another pack."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 174172389306445871
+    m_Localized: "This card is no longer available. Manage your downloaded content."
+    m_Metadata:
+      m_Items: []
   - m_Id: 166392714702270464
     m_Localized: Language
     m_Metadata:

@@ -124,6 +124,9 @@ public sealed class CollectionViewController : MonoBehaviour
     private bool navigationFailed;
     private SystemBackNavigation systemBack;
     private bool destroyed;
+    private bool requestedHomePokedex;
+    private string requestedHomePrintingId;
+    private bool homePrintingUnavailable;
     private PlayerUiErrorPresenter errorPresenter;
     private MobilePageShell mobilePageShell;
     private MobileTypographyBinding typography;
@@ -272,6 +275,7 @@ public sealed class CollectionViewController : MonoBehaviour
         if (set == null)
             return false;
 
+        homePrintingUnavailable = false;
         currentSet = set;
         cardPageTitle.text = DisplayName(set);
         SetVisible(setPage, false);
@@ -295,6 +299,7 @@ public sealed class CollectionViewController : MonoBehaviour
         if (printing == null)
             return false;
 
+        homePrintingUnavailable = false;
         currentDetailPrinting = printing;
         filterSheet?.HideImmediately();
         RefreshPrintingDetails(printing, true);
@@ -513,6 +518,7 @@ public sealed class CollectionViewController : MonoBehaviour
         RefreshLocalizedChrome();
         ApplyActionAvailability();
         SetBrowserStatus(CardUiText.Get("common.status.loading"), false);
+        HomeSceneRequest.TryConsumeCollection(out requestedHomePokedex, out requestedHomePrintingId);
     }
 
     private bool LoadCatalog(bool forceReload)
@@ -565,6 +571,7 @@ public sealed class CollectionViewController : MonoBehaviour
                 ApplicationServices.Languages.ContentLanguageChanged += OnContentLanguageChanged;
                 contentLanguageSubscribed = true;
             }
+            ApplyHomeCollectionRequest();
             return true;
         }
         catch (Exception exception)
@@ -586,6 +593,29 @@ public sealed class CollectionViewController : MonoBehaviour
         errorPresenter?.Show(error);
         ApplyActionAvailability();
         Debug.LogWarning("Collection browser could not be initialized: " + InitializationError);
+        OpenRequestedPokedex();
+    }
+
+    private void ApplyHomeCollectionRequest()
+    {
+        OpenRequestedPokedex();
+        if (requestedHomePrintingId == null)
+            return;
+        string printingId = requestedHomePrintingId;
+        requestedHomePrintingId = null;
+        if (!ShowPrintingDetails(printingId))
+        {
+            homePrintingUnavailable = true;
+            SetBrowserStatus(CardUiText.Get("home.request.printing_unavailable"), true);
+        }
+    }
+
+    private void OpenRequestedPokedex()
+    {
+        if (!requestedHomePokedex || pokedexController == null)
+            return;
+        requestedHomePokedex = false;
+        pokedexController.Open();
     }
 
     private void QueryVisualElements()
@@ -1513,6 +1543,8 @@ public sealed class CollectionViewController : MonoBehaviour
             SetBrowserStatus(CardUiText.Get("common.navigation.loading"), false);
         else if (navigationFailed)
             SetBrowserStatus(CardUiText.Get("common.navigation.failed"), true);
+        else if (homePrintingUnavailable)
+            SetBrowserStatus(CardUiText.Get("home.request.printing_unavailable"), true);
         ApplyActionAvailability();
     }
 

@@ -93,7 +93,7 @@ public sealed class CoreNeutralVisualContractTests
     {
         string source = WithoutComments(File.ReadAllText(path));
         Assert.That(source, Does.Contain("CoreNeutralTokens.uss"), path);
-        Assert.That(source, Does.Contain("var(--ui-"), path);
+        Assert.That(source, Does.Contain(path == "Assets/Resources/UI/HomeView.uss" ? "var(--home-" : "var(--ui-"), path);
         Assert.That(AssetDatabase.GetDependencies(path), Does.Contain(TokenPath),
             "A source import string alone does not prove Unity resolves the token asset.");
     }

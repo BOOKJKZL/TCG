@@ -8,16 +8,19 @@ namespace Gacha.Presentation
         Gacha,
         Collection,
         Content,
-        Settings
+        Settings,
+        Pokedex
     }
 
     public sealed class MobilePrimaryNavigation : IDisposable
     {
         private readonly MobileActionControl[] actions;
+        private readonly MobileDestination[] visibleDestinations;
 
         public MobilePrimaryNavigation(
             MobileDestination selected,
-            Action<MobileDestination> navigate)
+            Action<MobileDestination> navigate,
+            params MobileDestination[] destinations)
         {
             if (navigate == null)
                 throw new ArgumentNullException(nameof(navigate));
@@ -27,10 +30,17 @@ namespace Gacha.Presentation
                 Action(MobileDestination.Gacha, navigate),
                 Action(MobileDestination.Collection, navigate),
                 Action(MobileDestination.Content, navigate),
-                Action(MobileDestination.Settings, navigate)
+                Action(MobileDestination.Settings, navigate),
+                Action(MobileDestination.Pokedex, navigate)
             };
-            BottomNavigation = new MobileBottomNavigation(actions[0], actions[1], actions[2], actions[3]);
-            BottomNavigation.Select((int)selected);
+            visibleDestinations = destinations == null || destinations.Length == 0
+                ? new[] { MobileDestination.Home, MobileDestination.Gacha, MobileDestination.Collection, MobileDestination.Content }
+                : (MobileDestination[])destinations.Clone();
+            var visibleActions = new MobileActionControl[visibleDestinations.Length];
+            for (int index = 0; index < visibleDestinations.Length; index++)
+                visibleActions[index] = GetAction(visibleDestinations[index]);
+            BottomNavigation = new MobileBottomNavigation(visibleActions);
+            SelectDestination(selected);
             RefreshText();
             CardUiText.TextChanged += RefreshText;
         }
@@ -56,13 +66,14 @@ namespace Gacha.Presentation
                 case MobileDestination.Collection: return "004_CollectionScene";
                 case MobileDestination.Content: return "006_ContentScene";
                 case MobileDestination.Settings: return "005_SettingScene";
+                case MobileDestination.Pokedex: return "004_CollectionScene";
                 default: throw new ArgumentOutOfRangeException(nameof(destination), destination, null);
             }
         }
 
         public void SetPending(MobileDestination destination)
         {
-            BottomNavigation.Select((int)destination);
+            SelectDestination(destination);
             MobileActionControl pendingAction = GetAction(destination);
             foreach (MobileActionControl action in actions)
             {
@@ -73,7 +84,7 @@ namespace Gacha.Presentation
 
         public void ClearPending(MobileDestination selected)
         {
-            BottomNavigation.Select((int)selected);
+            SelectDestination(selected);
             foreach (MobileActionControl action in actions)
             {
                 action.SetLoading(false);
@@ -88,7 +99,11 @@ namespace Gacha.Presentation
             GetAction(MobileDestination.Collection).SetLabel(CardUiText.Get("main_menu.action.collection"));
             GetAction(MobileDestination.Content).SetLabel(CardUiText.Get("main_menu.action.content"));
             GetAction(MobileDestination.Settings).SetLabel(CardUiText.Get("main_menu.action.settings"));
+            GetAction(MobileDestination.Pokedex).SetLabel(CardUiText.Get("home.nav.pokedex"));
         }
+
+        private void SelectDestination(MobileDestination destination) =>
+            BottomNavigation.Select(Array.IndexOf(visibleDestinations, destination));
 
         public void SetEnabled(bool enabled)
         {
