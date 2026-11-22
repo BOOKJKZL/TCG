@@ -82,7 +82,8 @@ public static class ContentManagementSceneSeeder
         EditorUtility.SetDirty(document);
         EditorUtility.SetDirty(controller);
         EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene, ScenePath);
+        if (!EditorSceneManager.SaveScene(scene, ScenePath))
+            throw new InvalidOperationException($"Could not save content management scene '{ScenePath}'.");
     }
 
     private static void ConfigureMainMenu()
@@ -131,17 +132,22 @@ public static class ContentManagementSceneSeeder
         if (label != null)
             EditorUtility.SetDirty(label);
         EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
+        if (!EditorSceneManager.SaveScene(scene))
+            throw new InvalidOperationException($"Could not save main menu scene '{MainMenuScenePath}'.");
     }
 
     private static void ConfigureBuildScenes()
     {
         EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
-        if (scenes.Any(scene => string.Equals(scene.path, ScenePath, StringComparison.Ordinal)))
+        int index = Array.FindIndex(scenes, scene => string.Equals(scene.path, ScenePath, StringComparison.Ordinal));
+        if (index >= 0 && scenes[index].enabled)
             return;
-        EditorBuildSettings.scenes = scenes
-            .Concat(new[] { new EditorBuildSettingsScene(ScenePath, true) })
-            .ToArray();
+        var enabledScene = new EditorBuildSettingsScene(ScenePath, true);
+        if (index < 0)
+            scenes = scenes.Concat(new[] { enabledScene }).ToArray();
+        else
+            scenes[index] = enabledScene;
+        EditorBuildSettings.scenes = scenes;
     }
 
     private static GameObject Find(Scene scene, string name)

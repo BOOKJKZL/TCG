@@ -1286,6 +1286,7 @@ namespace Gacha.Pokemon.Presentation
                 {
                     missingArtworkCatalogs.Add(generationId);
                     Debug.LogWarning($"Pokédex artwork package is unavailable for {generationId}: {exception.Message}");
+                    return null;
                 }
             }
             return catalog?.Find(form.Id);

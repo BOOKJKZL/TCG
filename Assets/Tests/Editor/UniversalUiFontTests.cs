@@ -12,6 +12,50 @@ using UnityEngine.Localization.Tables;
 public class UniversalUiFontTests
 {
     [Test]
+    public void Rebuild_ClonedFallbackRetainsAssetAndSubassetReferences()
+    {
+        string directoryName = "FontFixture-" + System.Guid.NewGuid().ToString("N");
+        string directory = "Assets/Tests/Editor/" + directoryName;
+        string target = directory + "/fallback.asset";
+        AssetDatabase.CreateFolder("Assets/Tests/Editor", directoryName);
+        try
+        {
+            Assert.That(AssetDatabase.CopyAsset(UniversalUiFontBuilder.FontAssetPath, target), Is.True);
+            string[] expected = AssetIds(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(target));
+            for (int iteration = 0; iteration < 2; iteration++)
+            {
+                UniversalUiFontBuilder.Build(UniversalUiFontBuilder.SourceFontPath, target);
+                AssetDatabase.ImportAsset(target, ImportAssetOptions.ForceSynchronousImport);
+                var rebuilt = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(target);
+                Assert.That(AssetIds(rebuilt), Is.EqualTo(expected));
+                Assert.That(rebuilt.material.mainTexture, Is.EqualTo(rebuilt.atlasTextures[0]));
+            }
+            byte[] before = File.ReadAllBytes(target);
+            Assert.Throws<System.InvalidOperationException>(() => UniversalUiFontBuilder.Build(target, target));
+            Assert.That(File.ReadAllBytes(target), Is.EqualTo(before));
+            var fallback = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(target);
+            Assert.That(AssetIds(fallback), Is.EqualTo(expected));
+            var collection = LocalizationEditorSettings.GetStringTableCollection("Card_UI");
+            uint[] sample = new[] { "zh", "ja" }.Select(locale => (uint)((StringTable)collection.GetTable(locale))
+                .Values.SelectMany(entry => entry.Value ?? string.Empty).First(c => c >= 0x2e80)).ToArray();
+            Assert.That(fallback.TryAddCharacters(sample, out uint[] _, false), Is.True);
+        }
+        finally
+        {
+            AssetDatabase.DeleteAsset(directory);
+        }
+    }
+
+    private static string[] AssetIds(TMP_FontAsset font)
+    {
+        return new UnityEngine.Object[] { font, font.atlasTextures[0], font.material }.Select(asset =>
+        {
+            Assert.That(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out string guid, out long fileId), Is.True);
+            return guid + "/" + fileId;
+        }).ToArray();
+    }
+
+    [Test]
     public void CjkFallback_CoversEveryLocalizedUiCharacterWithinSizeBudget()
     {
         TMP_FontAsset fallback = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
