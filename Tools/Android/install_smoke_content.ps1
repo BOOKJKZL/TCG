@@ -15,6 +15,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "../Validation/remote_content_configuration.ps1")
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 
 function Assert-PackageId {
@@ -48,6 +49,7 @@ function Get-UnityGraphicsArgument {
 function Start-SmokeApp {
     param(
         [string]$Adb,
+        [string]$Serial,
         [string]$PackageId,
         [AllowNull()]
         [string]$GraphicsArgument
@@ -55,10 +57,10 @@ function Start-SmokeApp {
 
     if ($null -ne $GraphicsArgument) {
         $activity = "$PackageId/com.unity3d.player.UnityPlayerGameActivity"
-        & $Adb shell am start -n $activity --es unity $GraphicsArgument
+        & $Adb -s $Serial shell am start -n $activity --es unity $GraphicsArgument
     }
     else {
-        & $Adb shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
+        & $Adb -s $Serial shell monkey -p $PackageId -c android.intent.category.LAUNCHER 1
     }
     Assert-LastExitCode -Message "The smoke app could not be launched."
 }
@@ -66,81 +68,20 @@ function Start-SmokeApp {
 function Wait-ForDeviceDirectory {
     param(
         [string]$Adb,
+        [string]$Serial,
         [string]$Path,
         [int]$TimeoutSeconds = 45
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
-        & $Adb shell test -d $Path 2>$null
+        & $Adb -s $Serial shell test -d $Path 2>$null
         if ($LASTEXITCODE -eq 0) {
             return $true
         }
         Start-Sleep -Milliseconds 500
     } while ((Get-Date) -lt $deadline)
     return $false
-}
-
-function Read-RemoteContentConfiguration {
-    param(
-        [string]$Json,
-        [string]$SourceName
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Json)) {
-        throw "Remote content configuration '$SourceName' is empty."
-    }
-
-    try {
-        $config = $Json | ConvertFrom-Json -ErrorAction Stop
-    }
-    catch {
-        throw "Remote content configuration '$SourceName' is not valid JSON: $($_.Exception.Message)"
-    }
-
-    if ($null -eq $config -or $config -is [Array] -or $config -is [string] -or $config -is [ValueType]) {
-        throw "Remote content configuration '$SourceName' must contain one JSON object."
-    }
-
-    $allowed = @("catalogUrl", "timeoutSeconds", "maxCatalogBytes")
-    $properties = @($config.PSObject.Properties.Name)
-    $unknown = @($properties | Where-Object { $allowed -notcontains $_ })
-    if ($unknown.Count -gt 0) {
-        throw "Remote content configuration contains unsupported fields: $($unknown -join ', '). Do not put credentials or secrets in the phone configuration."
-    }
-    if ($properties -notcontains "catalogUrl" -or [string]::IsNullOrWhiteSpace([string]$config.catalogUrl)) {
-        throw "Remote content configuration requires catalogUrl."
-    }
-
-    $catalogUri = $null
-    if (-not [Uri]::TryCreate(([string]$config.catalogUrl).Trim(), [UriKind]::Absolute, [ref]$catalogUri)) {
-        throw "catalogUrl must be an absolute URI."
-    }
-    if ($catalogUri.Scheme -ne [Uri]::UriSchemeHttps) {
-        throw "Android remote catalogUrl must use HTTPS."
-    }
-    if (-not [string]::IsNullOrEmpty($catalogUri.UserInfo)) {
-        throw "catalogUrl cannot contain embedded credentials."
-    }
-    if (-not [string]::IsNullOrEmpty($catalogUri.Fragment)) {
-        throw "catalogUrl cannot contain a fragment."
-    }
-
-    if ($properties -contains "timeoutSeconds") {
-        $timeout = 0
-        if (-not [int]::TryParse([string]$config.timeoutSeconds, [ref]$timeout) -or $timeout -lt 1 -or $timeout -gt 120) {
-            throw "timeoutSeconds must be an integer from 1 through 120."
-        }
-    }
-    if ($properties -contains "maxCatalogBytes") {
-        $maximumBytes = 0
-        if (-not [int]::TryParse([string]$config.maxCatalogBytes, [ref]$maximumBytes) -or
-            $maximumBytes -lt 1024 -or $maximumBytes -gt (4 * 1024 * 1024)) {
-            throw "maxCatalogBytes must be an integer from 1024 through 4194304."
-        }
-    }
-
-    return $config
 }
 
 function Resolve-AdbPath {
@@ -300,55 +241,57 @@ if ($connected.Count -ne 1) {
     throw "Connect exactly one authorized Android device before running this smoke installer. Found $($connected.Count)."
 }
 
+$serial = ($connected[0].Trim() -split "\s+", 2)[0]
+
 if ($SkipInstall) {
-    $installedPackage = & $adb shell pm path $PackageId
+    $installedPackage = & $adb -s $serial shell pm path $PackageId
     Assert-LastExitCode -Message "Could not query the installed Android package."
     if (@($installedPackage | Where-Object { $_ -match '^package:' }).Count -eq 0) {
         throw "SkipInstall requires $PackageId to be installed on the selected Android target."
     }
 }
 else {
-    & $adb install -r $resolvedApk
+    & $adb -s $serial install -r $resolvedApk
     Assert-LastExitCode -Message "APK installation failed."
 }
 
-$isEmulator = ((& $adb shell getprop ro.kernel.qemu).Trim() -eq "1")
+$isEmulator = ((& $adb -s $serial shell getprop ro.kernel.qemu).Trim() -eq "1")
 Assert-LastExitCode -Message "Could not identify whether the Android target is an emulator."
 $graphicsArgument = Get-UnityGraphicsArgument -Mode $GraphicsApi -IsEmulator $isEmulator
 $deviceRoot = "/sdcard/Android/data/$PackageId/files"
-& $adb shell test -d $deviceRoot 2>$null
+& $adb -s $serial shell test -d $deviceRoot 2>$null
 if ($LASTEXITCODE -ne 0) {
     # Android 11+ prevents adb shell from creating another app's external files root.
     # Launch once so Unity calls getExternalFilesDir() in the app identity, then stop
     # before installing the selected local/remote content configuration.
-    Start-SmokeApp -Adb $adb -PackageId $PackageId -GraphicsArgument $graphicsArgument
-    if (-not (Wait-ForDeviceDirectory -Adb $adb -Path $deviceRoot)) {
+    Start-SmokeApp -Adb $adb -Serial $serial -PackageId $PackageId -GraphicsArgument $graphicsArgument
+    if (-not (Wait-ForDeviceDirectory -Adb $adb -Serial $serial -Path $deviceRoot)) {
         throw "The app did not create its persistent data directory after first launch: $deviceRoot"
     }
-    & $adb shell am force-stop $PackageId
+    & $adb -s $serial shell am force-stop $PackageId
     Assert-LastExitCode -Message "Could not stop the app after initializing its persistent data directory."
 }
 
 if ($ResetDownloadedContent) {
-    & $adb shell rm -rf "$deviceRoot/Content" "$deviceRoot/ContentDownloads"
+    & $adb -s $serial shell rm -rf "$deviceRoot/Content" "$deviceRoot/ContentDownloads"
     Assert-LastExitCode -Message "Could not reset the app's downloaded content directories."
 }
 
 if ($ContentMode -eq "Local") {
     $deviceContent = "$deviceRoot/Content"
-    & $adb shell mkdir -p $deviceContent
+    & $adb -s $serial shell mkdir -p $deviceContent
     Assert-LastExitCode -Message "Could not create the app content directory."
-    & $adb push (Join-Path $contentSource ".") $deviceContent
+    & $adb -s $serial push (Join-Path $contentSource ".") $deviceContent
     Assert-LastExitCode -Message "Private content transfer failed."
 }
 else {
-    & $adb push $remoteConfiguration "$deviceRoot/remote-content.json"
+    & $adb -s $serial push $remoteConfiguration "$deviceRoot/remote-content.json"
     Assert-LastExitCode -Message "Remote content configuration transfer failed."
 }
 
-& $adb shell am force-stop $PackageId
+& $adb -s $serial shell am force-stop $PackageId
 Assert-LastExitCode -Message "Could not stop the app before its configured launch."
-Start-SmokeApp -Adb $adb -PackageId $PackageId -GraphicsArgument $graphicsArgument
+Start-SmokeApp -Adb $adb -Serial $serial -PackageId $PackageId -GraphicsArgument $graphicsArgument
 
 $modeSummary = if ($ContentMode -eq "Local") {
     "copied private local content"

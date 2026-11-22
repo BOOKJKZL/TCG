@@ -95,7 +95,7 @@ function Resolve-AdbPath {
     }
     $candidates += (Join-Path $env:LOCALAPPDATA "Android/Sdk/platform-tools/adb.exe")
     if (-not [string]::IsNullOrWhiteSpace($RequestedUnityPath)) {
-        $editorRoot = Split-Path (Split-Path $RequestedUnityPath -Parent) -Parent
+        $editorRoot = Split-Path $RequestedUnityPath -Parent
         $candidates += (Join-Path $editorRoot "Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb.exe")
     }
 
@@ -123,7 +123,7 @@ function Resolve-AaptPath {
     }
     $roots += (Join-Path $env:LOCALAPPDATA "Android/Sdk")
     if (-not [string]::IsNullOrWhiteSpace($RequestedUnityPath)) {
-        $editorRoot = Split-Path (Split-Path $RequestedUnityPath -Parent) -Parent
+        $editorRoot = Split-Path $RequestedUnityPath -Parent
         $roots += (Join-Path $editorRoot "Data/PlaybackEngines/AndroidPlayer/SDK")
     }
 

@@ -71,7 +71,12 @@ $innerWorktrees = @($innerWorktreeResult.output | Where-Object { $_ })
 $innerStatus = @($innerStatusResult.output | Where-Object { $_ })
 $outerCommit = if ($outerRoot) { Get-GitValue @("rev-parse", "HEAD") $outerRoot } else { $null }
 $outerGitlink = if ($outerRoot) {
-    Get-GitValue @("ls-files", "--stage", "Games/universal-gacha-simulator") $outerRoot
+    Push-Location $outerRoot
+    try {
+        $submodulePath = (Resolve-Path -LiteralPath $repoRoot -Relative).Replace('\', '/')
+    }
+    finally { Pop-Location }
+    Get-GitValue @("ls-files", "--stage", "--", $submodulePath) $outerRoot
 }
 else {
     $null
@@ -96,6 +101,7 @@ $report = [ordered]@{
         }
     }
     repository = [ordered]@{
+        checkoutKind = if ($outerRoot) { "submodule" } else { "standalone" }
         innerCommit = $innerCommit
         innerBranch = $innerBranch
         innerWorktreeCount = $innerWorktrees.Count
@@ -192,6 +198,7 @@ $sitePassed = $SkipSite -or (
     $report.site.productionAudit.exitCode -eq 0)
 $report.passed = (
     $report.environment.unityExists -and
+    (-not $outerRoot -or $outerGitlink -match "^160000 $innerCommit 0\t") -and
     $report.repository.innerBranch -eq "master" -and
     $report.repository.innerWorktreeCount -eq 1 -and
     $sitePassed)

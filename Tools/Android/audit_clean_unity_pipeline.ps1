@@ -18,6 +18,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "../Validation/unity_test_result.ps1")
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $workId = "WI-20260830-016"
 
@@ -86,33 +87,6 @@ function Invoke-WaitingProcess {
         -Wait `
         -PassThru
     return [int]$process.ExitCode
-}
-
-function Read-UnityTestResult {
-    param([string]$Path, [string]$Label)
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "$Label did not produce a test result XML: $Path"
-    }
-    [xml]$document = Get-Content -LiteralPath $Path -Raw
-    $run = $document.'test-run'
-    if ($null -eq $run) {
-        throw "$Label result has no test-run root."
-    }
-    $result = [string]$run.result
-    $total = [int]$run.total
-    $passed = [int]$run.passed
-    $failed = [int]$run.failed
-    $skipped = [int]$run.skipped
-    return [ordered]@{
-        valid = $result -eq "Passed" -and $failed -eq 0 -and $total -ge 1 -and $passed -eq $total
-        result = $result
-        total = $total
-        passed = $passed
-        failed = $failed
-        skipped = $skipped
-        startTime = [string]$run.'start-time'
-        endTime = [string]$run.'end-time'
-    }
 }
 
 function Get-PrivateInputMetadata {

@@ -43,25 +43,25 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
         Action<RecoveryDocumentPickerResult> completed)
     {
         string requestId = Begin(completed);
-        if (Application.platform == RuntimePlatform.Android)
-        {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            using (var bridge = new AndroidJavaClass(JavaClass))
-            {
-                bridge.CallStatic(
-                    "createDocument",
-                    gameObject.name,
-                    nameof(OnDocumentPickerResult),
-                    requestId,
-                    suggestedFileName,
-                    stagedSourcePath);
-            }
-            return;
-#endif
-        }
-
         try
         {
+            if (Application.platform == RuntimePlatform.Android)
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                using (var bridge = new AndroidJavaClass(JavaClass))
+                {
+                    bridge.CallStatic(
+                        "createDocument",
+                        gameObject.name,
+                        nameof(OnDocumentPickerResult),
+                        requestId,
+                        suggestedFileName,
+                        stagedSourcePath);
+                }
+                return;
+#endif
+            }
+
             string directory = Path.Combine(Application.persistentDataPath, "Recovery", "Exports");
             Directory.CreateDirectory(directory);
             string destination = Path.Combine(directory, suggestedFileName);
@@ -79,24 +79,24 @@ public sealed class RecoveryDocumentPicker : MonoBehaviour
         Action<RecoveryDocumentPickerResult> completed)
     {
         string requestId = Begin(completed);
-        if (Application.platform == RuntimePlatform.Android)
-        {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            using (var bridge = new AndroidJavaClass(JavaClass))
-            {
-                bridge.CallStatic(
-                    "openDocument",
-                    gameObject.name,
-                    nameof(OnDocumentPickerResult),
-                    requestId,
-                    stagedDestinationPath);
-            }
-            return;
-#endif
-        }
-
         try
         {
+            if (Application.platform == RuntimePlatform.Android)
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                using (var bridge = new AndroidJavaClass(JavaClass))
+                {
+                    bridge.CallStatic(
+                        "openDocument",
+                        gameObject.name,
+                        nameof(OnDocumentPickerResult),
+                        requestId,
+                        stagedDestinationPath);
+                }
+                return;
+#endif
+            }
+
             string directory = Path.Combine(Application.persistentDataPath, "Recovery", "Exports");
             string source = Directory.Exists(directory)
                 ? LatestExport(directory)

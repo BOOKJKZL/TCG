@@ -14,6 +14,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "remote_content_configuration.ps1")
+. (Join-Path $PSScriptRoot "unity_test_result.ps1")
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $requiredDeviceChecks = @(
     "installAndLaunch",
@@ -59,20 +61,10 @@ function New-AuditResult {
 
 function Test-UnityResultFile {
     param([string]$Path, [string]$Label)
-    if (-not (Test-Path -LiteralPath $Path)) {
-        return New-AuditResult $Label "Local" $false "Missing test result: $Path"
-    }
     try {
-        [xml]$document = Get-Content -LiteralPath $Path -Raw -Encoding utf8
-        $run = $document.'test-run'
-        $passed = $null -ne $run -and $run.result -eq "Passed" -and [int]$run.failed -eq 0
-        $detail = if ($null -eq $run) {
-            "Missing test-run root."
-        }
-        else {
-            "$($run.passed)/$($run.total) passed; failed=$($run.failed)."
-        }
-        return New-AuditResult $Label "Local" $passed $detail
+        $run = Read-UnityTestResult $Path $Label
+        $detail = "$($run.passed)/$($run.total) passed; failed=$($run.failed); skipped=$($run.skipped)."
+        return New-AuditResult $Label "Local" $run.valid $detail
     }
     catch {
         return New-AuditResult $Label "Local" $false ("Invalid test XML: " + $_.Exception.Message)
@@ -229,61 +221,13 @@ function Test-AndroidStaticPackage {
 function Test-RemoteConfigurationJson {
     param([string]$Json)
     try {
-        $config = $Json | ConvertFrom-Json -ErrorAction Stop
-        if ($null -eq $config -or $config -is [Array] -or $config -is [ValueType] -or $config -is [string]) {
-            throw "Configuration must contain one JSON object."
-        }
-        $allowed = @("catalogUrl", "timeoutSeconds", "maxCatalogBytes", "trustedCatalogKeys")
-        $unknown = @($config.PSObject.Properties.Name | Where-Object { $allowed -notcontains $_ })
-        if ($unknown.Count -gt 0) {
-            throw "Unsupported or secret-bearing fields: $($unknown -join ', ')."
-        }
-        $uri = $null
-        if (-not [Uri]::TryCreate([string]$config.catalogUrl, [UriKind]::Absolute, [ref]$uri) -or
-            $uri.Scheme -ne [Uri]::UriSchemeHttps -or
-            -not [string]::IsNullOrEmpty($uri.UserInfo) -or
-            -not [string]::IsNullOrEmpty($uri.Fragment)) {
-            throw "catalogUrl must be public HTTPS without credentials or a fragment."
-        }
-        $trustedKeyCount = 0
-        if ($null -ne $config.PSObject.Properties["trustedCatalogKeys"]) {
-            if ($config.trustedCatalogKeys -isnot [Array]) {
-                throw "trustedCatalogKeys must be an array."
-            }
-            $keyIds = @{}
-            foreach ($key in @($config.trustedCatalogKeys)) {
-                if ($null -eq $key -or $key -is [Array] -or $key -is [ValueType] -or $key -is [string]) {
-                    throw "trustedCatalogKeys entries must be objects."
-                }
-                $keyFields = @($key.PSObject.Properties.Name)
-                $unexpectedKeyFields = @($keyFields | Where-Object {
-                    $_ -notin @("keyId", "subjectPublicKeyInfoBase64")
-                })
-                if ($unexpectedKeyFields.Count -gt 0 -or
-                    $keyFields -notcontains "keyId" -or
-                    $keyFields -notcontains "subjectPublicKeyInfoBase64") {
-                    throw "trustedCatalogKeys entries must contain only keyId and subjectPublicKeyInfoBase64."
-                }
-                $keyId = [string]$key.keyId
-                if ($keyId -notmatch '^[A-Za-z0-9._-]{1,64}$' -or $keyIds.ContainsKey($keyId)) {
-                    throw "trustedCatalogKeys contains an invalid or duplicate keyId."
-                }
-                $keyIds[$keyId] = $true
-                try {
-                    $keyBytes = [Convert]::FromBase64String([string]$key.subjectPublicKeyInfoBase64)
-                }
-                catch {
-                    throw "trustedCatalogKeys public keys must be Base64 SubjectPublicKeyInfo."
-                }
-                if ($keyBytes.Length -lt 256 -or $keyBytes.Length -gt 1024) {
-                    throw "trustedCatalogKeys public key length is outside the accepted range."
-                }
-                $trustedKeyCount++
-            }
-        }
+        $config = Read-RemoteContentConfiguration $Json "release audit"
+        $trustedKeyCount = if ($null -ne $config.PSObject.Properties["trustedCatalogKeys"]) {
+            @($config.trustedCatalogKeys).Count
+        } else { 0 }
         return [pscustomobject]@{
             Passed = $true
-            Detail = "Public catalog: $($uri.AbsoluteUri); trusted catalog keys=$trustedKeyCount."
+            Detail = "Public catalog: $($config.catalogUrl); trusted catalog keys=$trustedKeyCount."
         }
     }
     catch {
@@ -381,8 +325,8 @@ function Test-ReleaseCatalogFiles {
     }
     try {
         $catalog = Get-Content -LiteralPath $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
-        if ([int]$catalog.schemaVersion -ne 2 -or [int]$catalog.revision -lt 6) {
-            throw "Release catalog must be schemaVersion 2 at revision 6 or newer."
+        if ([int]$catalog.schemaVersion -notin @(2, 3) -or [int]$catalog.revision -lt 6) {
+            throw "Release catalog must be schemaVersion 2 or 3 at revision 6 or newer."
         }
         $packages = @($catalog.packages)
         if ($packages.Count -ne $ExpectedPackageCount) {

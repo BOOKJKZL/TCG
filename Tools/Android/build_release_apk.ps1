@@ -78,10 +78,11 @@ $keystoreFullPath = Resolve-RepoPath $KeystorePath
 if (-not (Test-Path -LiteralPath $keystoreFullPath -PathType Leaf)) {
     throw "Release keystore was not found: $keystoreFullPath"
 }
-$assetsRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot "Assets")).TrimEnd([IO.Path]::DirectorySeparatorChar) +
-    [IO.Path]::DirectorySeparatorChar
-if ($keystoreFullPath.StartsWith($assetsRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Release keystore must never be stored under Assets."
+$repoPrefix = $repoRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+$privatePrefix = (Join-Path $repoRoot "LocalContent") + [IO.Path]::DirectorySeparatorChar
+if ($keystoreFullPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase) -and
+    -not $keystoreFullPath.StartsWith($privatePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "A repository-local release keystore must be under the Git-ignored LocalContent directory."
 }
 
 if ([string]::IsNullOrWhiteSpace($UnityPath)) {
@@ -122,30 +123,16 @@ $outputPath = Join-Path $repoRoot "Builds\Android\Release\UniversalGachaSimulato
 $logPath = Join-Path $repoRoot "Builds\Android\Release\build-$fileVersion+$VersionCode.log"
 $reportPath = [IO.Path]::ChangeExtension($outputPath, ".release-audit.json")
 [IO.Directory]::CreateDirectory((Split-Path -Parent $outputPath)) | Out-Null
-$buildStartedUtc = [DateTime]::UtcNow
-$projectSettingsPath = Join-Path $repoRoot "ProjectSettings\ProjectSettings.asset"
-$projectSettingsSnapshot = [IO.File]::ReadAllBytes($projectSettingsPath)
-$transientRelativePaths = @(
-    "Assets\AddressableAssetsData\Windows.meta",
-    "Assets\AddressableAssetsData\link.xml",
-    "Assets\AddressableAssetsData\link.xml.meta",
-    "Assets\Resources\PerformanceTestRunInfo.json",
-    "Assets\Resources\PerformanceTestRunInfo.json.meta",
-    "Assets\Resources\PerformanceTestRunSettings.json",
-    "Assets\Resources\PerformanceTestRunSettings.json.meta"
-)
-$transientSnapshots = @{}
-foreach ($relativePath in $transientRelativePaths) {
-    $fullPath = Join-Path $repoRoot $relativePath
-    $transientSnapshots[$fullPath] = if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
-        [IO.File]::ReadAllBytes($fullPath)
-    }
-    else {
-        $null
-    }
-}
-
+# Unity rewrites PlayerSettings and generates files under Assets during import and build.
+# Run against the current source snapshot without restoring over a concurrent checkout edit.
+$tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+$projectName = "gacha-release-" + [Guid]::NewGuid().ToString("N")
+$buildProject = Join-Path $tempRoot $projectName
+New-Item -ItemType Directory -Path $buildProject -ErrorAction Stop | Out-Null
 try {
+    foreach ($directory in @("Assets", "Packages", "ProjectSettings")) {
+        Copy-Item -LiteralPath (Join-Path $repoRoot $directory) -Destination $buildProject -Recurse -Force
+    }
     foreach ($entry in $environment.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
     }
@@ -153,7 +140,8 @@ try {
         "-batchmode",
         "-nographics",
         "-quit",
-        "-projectPath", ('"{0}"' -f $repoRoot),
+        "-projectPath", ('"{0}"' -f $buildProject),
+        "-buildTarget", "Android",
         "-executeMethod", "Gacha.EditorTools.AndroidReleaseBuilder.BuildBatch",
         "-logFile", ('"{0}"' -f $logPath)
     )
@@ -166,37 +154,24 @@ try {
     if ($unityProcess.ExitCode -ne 0) {
         throw "Unity release build failed with exit code $($unityProcess.ExitCode). See $logPath"
     }
+    $builtApk = Join-Path $buildProject ("Builds/Android/Release/" + [IO.Path]::GetFileName($outputPath))
+    if (-not (Test-Path -LiteralPath $builtApk -PathType Leaf)) {
+        throw "Unity reported success without producing the release APK."
+    }
+    Copy-Item -LiteralPath $builtApk -Destination $outputPath -Force
 }
 finally {
-    try {
-        foreach ($entry in $originalEnvironment.GetEnumerator()) {
-            [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
-        }
+    foreach ($entry in $originalEnvironment.GetEnumerator()) {
+        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
     }
-    finally {
-        $keystorePassword = $null
-        $keyPassword = $null
-        [IO.File]::WriteAllBytes($projectSettingsPath, $projectSettingsSnapshot)
-        foreach ($snapshot in $transientSnapshots.GetEnumerator()) {
-            if ($null -eq $snapshot.Value) {
-                if (Test-Path -LiteralPath $snapshot.Key -PathType Leaf) {
-                    Remove-Item -LiteralPath $snapshot.Key -Force
-                }
-                continue
-            }
-
-            [IO.Directory]::CreateDirectory((Split-Path -Parent $snapshot.Key)) | Out-Null
-            [IO.File]::WriteAllBytes($snapshot.Key, [byte[]]$snapshot.Value)
-        }
+    $keystorePassword = $null
+    $keyPassword = $null
+    $resolvedProject = (Resolve-Path -LiteralPath $buildProject).Path
+    if ([IO.Path]::GetDirectoryName($resolvedProject) -ne $tempRoot -or
+        [IO.Path]::GetFileName($resolvedProject) -ne $projectName) {
+        throw "Unexpected release scratch directory: $resolvedProject"
     }
-}
-
-if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
-    throw "Unity reported success but the expected release APK is missing: $outputPath"
-}
-$output = Get-Item -LiteralPath $outputPath
-if ($output.LastWriteTimeUtc -lt $buildStartedUtc.AddSeconds(-2)) {
-    throw "Unity did not refresh the expected release APK; refusing to audit a stale artifact: $outputPath"
+    Remove-Item -LiteralPath $resolvedProject -Recurse -Force
 }
 
 & (Join-Path $PSScriptRoot "audit_release_apk.ps1") `
