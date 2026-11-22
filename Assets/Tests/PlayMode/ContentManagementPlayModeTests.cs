@@ -24,12 +24,12 @@ namespace Gacha.Tests.PlayMode
 
         private sealed class CatalogProvider : IContentPackageCatalogProvider
         {
-            private readonly ContentPackageCatalog catalog;
+            public ContentPackageCatalog Catalog { get; set; }
             private readonly bool cached;
 
             public CatalogProvider(ContentPackageCatalog catalog, bool cached = false)
             {
-                this.catalog = catalog;
+                Catalog = catalog;
                 this.cached = cached;
             }
 
@@ -39,7 +39,7 @@ namespace Gacha.Tests.PlayMode
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     return ContentPackageCatalogLoadResult.Success(
-                        catalog,
+                        Catalog,
                         cached ? "fixture network offline" : null,
                         cached);
                 }, cancellationToken);
@@ -51,6 +51,7 @@ namespace Gacha.Tests.PlayMode
             private readonly Dictionary<string, InstalledContentPackage> installed =
                 new Dictionary<string, InstalledContentPackage>(StringComparer.Ordinal);
             public int RemoveCalls { get; private set; }
+            public TaskCompletionSource<bool> RemovalGate { get; set; }
 
             public InstalledContentPackage Find(string packageId)
             {
@@ -65,16 +66,18 @@ namespace Gacha.Tests.PlayMode
                 installed[package.PackageId] = package;
             }
 
-            public Task<ContentPackageRemovalResult> RemoveAsync(
+            public async Task<ContentPackageRemovalResult> RemoveAsync(
                 string packageId,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 RemoveCalls++;
+                if (RemovalGate != null && !await RemovalGate.Task)
+                    return ContentPackageRemovalResult.Failure(ContentPackageRemovalStatus.Failed, "fixture removal failure");
                 if (!installed.TryGetValue(packageId, out InstalledContentPackage package))
-                    return Task.FromResult(ContentPackageRemovalResult.NotInstalled());
+                    return ContentPackageRemovalResult.NotInstalled();
                 installed.Remove(packageId);
-                return Task.FromResult(ContentPackageRemovalResult.Removed(package));
+                return ContentPackageRemovalResult.Removed(package);
             }
         }
 
@@ -236,6 +239,7 @@ namespace Gacha.Tests.PlayMode
         {
             int originalScreenWidth = Screen.width;
             int originalScreenHeight = Screen.height;
+            FullScreenMode originalMode = Screen.fullScreenMode;
             int mainThreadId = Environment.CurrentManagedThreadId;
             var lifecycle = new Lifecycle();
             var factory = new OperationFactory(lifecycle);
@@ -656,7 +660,7 @@ namespace Gacha.Tests.PlayMode
             finally
             {
                 visualCapture?.Dispose();
-                Screen.SetResolution(originalScreenWidth, originalScreenHeight, false);
+                Screen.SetResolution(originalScreenWidth, originalScreenHeight, originalMode);
                 if (originalLanguage != null && ApplicationServices.Languages != null)
                     ApplicationServices.Languages.SelectUiLanguage(originalLanguage);
                 if (originalExperience != null && ApplicationServices.ExperienceSettings != null)
@@ -936,6 +940,142 @@ namespace Gacha.Tests.PlayMode
                 ContentManagementController.DownloadPolicyOverride = null;
                 ContentManagementController.QueueStateStoreOverride = null;
             }
+        }
+
+        [UnityTest]
+        public IEnumerator ContentScene_RecycledRowIgnoresOtherPackageRemovalSuccess() =>
+            RecycleDuringRemoval(true);
+
+        [UnityTest]
+        public IEnumerator ContentScene_RecycledRowIgnoresOtherPackageRemovalFailure() =>
+            RecycleDuringRemoval(false);
+
+        private static IEnumerator RecycleDuringRemoval(bool succeed)
+        {
+            const string removingId = "en.large-000";
+            var catalog = CreateLargeCatalog(100);
+            ContentPackageDescriptor package = catalog.Find(removingId).Package;
+            var gate = new TaskCompletionSource<bool>();
+            var lifecycle = new Lifecycle { RemovalGate = gate };
+            lifecycle.Install(new InstalledContentPackage(package.PackageId, package.InstallRelativePath,
+                package.Revision, package.Version, package.InstalledBytes, package.Sha256));
+            ConfigureContentFixture(new CatalogProvider(catalog), lifecycle);
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                var page = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                yield return WaitFor(() => page.IsReady && page.VisibleRowCount > 0, "initial package rows");
+                VisualElement root = page.GetComponent<UIDocument>().rootVisualElement;
+                var list = root.Q<ListView>("package-list");
+                VisualElement row = root.Q("package-" + removingId);
+                Assert.That(row, Is.Not.Null);
+                Assert.That(page.RequestRemovePackage(removingId), Is.True);
+                yield return null;
+                VisualElement confirm = root.Q("confirmation-danger-confirm");
+                SendPointerDown(confirm);
+                SendPointerUp(confirm);
+                yield return WaitFor(() => lifecycle.RemoveCalls == 1, "first removal request");
+                list.ScrollToItem(85);
+                yield return WaitFor(() => row.panel != null && row.name.StartsWith("package-en.large-") &&
+                    row.name != "package-" + removingId, "reuse of the original visual row");
+                string replacementName = row.name;
+                var status = row.Q<Label>(className: "content-package-row__status");
+                string priorStatus = status.text;
+                bool navigated = false;
+                typeof(ContentManagementController).GetField("sceneLoaderOverrideForTests",
+                    BindingFlags.NonPublic | BindingFlags.Instance).SetValue(page, (Action<string>)(_ => navigated = true));
+                page.TryHandleBack();
+                yield return null;
+                gate.SetResult(succeed);
+                yield return null;
+                yield return null;
+                Assert.That(row.name, Is.EqualTo(replacementName));
+                Assert.That(status.text, Is.EqualTo(priorStatus), "An unrelated row received the removal result.");
+                Assert.That(page.IsPackageInstalled(removingId), Is.EqualTo(!succeed));
+                Assert.That(lifecycle.RemoveCalls, Is.EqualTo(1));
+                Assert.That(navigated, Is.False, "Navigation must remain blocked by the offscreen removal.");
+            }
+            finally
+            {
+                gate.TrySetResult(false);
+                ClearContentFixture();
+            }
+        }
+
+        private sealed class DeferredDispatcher : IUiThreadDispatcher
+        {
+            private readonly IUiThreadDispatcher inner =
+                new SynchronizationContextUiThreadDispatcher(SynchronizationContext.Current);
+            private readonly List<Action> held = new List<Action>();
+            public bool Holding { get; set; }
+            public int HeldCount => held.Count;
+            public bool IsDispatchThread => inner.IsDispatchThread;
+            public void Post(Action action)
+            {
+                if (Holding) held.Add(action);
+                else inner.Post(action);
+            }
+            public void DeliverHeld()
+            {
+                foreach (Action action in held) inner.Post(action);
+                held.Clear();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ContentScene_QueuedNotificationFromOldCatalogCannotChangeNewQueue()
+        {
+            var provider = new CatalogProvider(CreateCatalog());
+            var dispatcher = new DeferredDispatcher();
+            ConfigureContentFixture(provider, new Lifecycle());
+            ContentManagementController.DispatcherOverride = dispatcher;
+            try
+            {
+                yield return SceneManager.LoadSceneAsync("006_ContentScene", LoadSceneMode.Single);
+                var page = UnityEngine.Object.FindFirstObjectByType<ContentManagementController>();
+                yield return WaitFor(() => page.IsReady, "first catalog");
+                var queue = GetPrivateField<ContentPackageInstallQueue>(page, "installQueue");
+                dispatcher.Holding = true;
+                queue.EnqueueSelection(new[] { SuccessId });
+                dispatcher.Holding = false;
+                Assert.That(dispatcher.HeldCount, Is.Positive);
+                provider.Catalog = CreateLargeCatalog(3);
+                Assert.That(page.RetryCatalog(), Is.True);
+                yield return WaitFor(() => page.IsReady && page.PackageCount == 3, "replacement catalog");
+                Assert.That(page.QueueSnapshot.Items, Is.Empty);
+                dispatcher.DeliverHeld();
+                Assert.That(page.QueueSnapshot.Items, Is.Empty, "A delayed old-package notification reached the new queue.");
+            }
+            finally
+            {
+                ClearContentFixture();
+            }
+        }
+
+        private static IEnumerator WaitFor(Func<bool> ready, string operation)
+        {
+            float deadline = Time.realtimeSinceStartup + 8f;
+            while (!ready() && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(ready(), Is.True, operation);
+        }
+
+        private static void ConfigureContentFixture(CatalogProvider catalog, Lifecycle lifecycle)
+        {
+            ContentManagementController.CatalogProviderOverride = catalog;
+            ContentManagementController.LifecycleOverride = lifecycle;
+            ContentManagementController.OperationFactoryOverride = new OperationFactory(lifecycle);
+            ContentManagementController.DownloadPolicyOverride = Policy();
+            ContentManagementController.QueueStateStoreOverride = new QueueStateStore();
+        }
+
+        private static void ClearContentFixture()
+        {
+            ContentManagementController.CatalogProviderOverride = null;
+            ContentManagementController.LifecycleOverride = null;
+            ContentManagementController.OperationFactoryOverride = null;
+            ContentManagementController.DownloadPolicyOverride = null;
+            ContentManagementController.QueueStateStoreOverride = null;
+            ContentManagementController.DispatcherOverride = null;
         }
 
         private static void AssertPersistentActionBar(

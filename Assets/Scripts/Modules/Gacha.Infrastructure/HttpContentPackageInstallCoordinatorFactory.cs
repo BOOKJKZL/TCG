@@ -58,12 +58,12 @@ namespace Gacha.Infrastructure.Content
                     throw new ObjectDisposedException(nameof(HttpContentPackageInstallCoordinatorFactory));
                 if (operations.TryGetValue(entry.Package.PackageId, out CachedOperation cached))
                 {
-                    if (Matches(cached.Package, entry.Package))
+                    if (Matches(cached.Entry.Package, entry.Package) && cached.Entry.ArchiveUri == entry.ArchiveUri)
                         return cached.Coordinator;
                     if (!CanReplace(cached.Coordinator.Current.State))
                     {
                         throw new InvalidOperationException(
-                            $"Package '{entry.Package.PackageId}' revision {cached.Package.Revision} must be cancelled before catalog revision {entry.Package.Revision} can start.");
+                            $"Package '{entry.Package.PackageId}' revision {cached.Entry.Package.Revision} must be cancelled before the updated catalog entry can start.");
                     }
                     operations.Remove(entry.Package.PackageId);
                 }
@@ -78,7 +78,7 @@ namespace Gacha.Infrastructure.Content
                     installationGate);
                 operations.Add(
                     entry.Package.PackageId,
-                    new CachedOperation(entry.Package, coordinator));
+                    new CachedOperation(entry, coordinator));
                 return coordinator;
             }
         }
@@ -110,7 +110,8 @@ namespace Gacha.Infrastructure.Content
 
         private static bool CanReplace(ContentPackageOperationState state)
         {
-            return state == ContentPackageOperationState.Succeeded ||
+            return state == ContentPackageOperationState.Idle ||
+                   state == ContentPackageOperationState.Succeeded ||
                    state == ContentPackageOperationState.AlreadyCurrent ||
                    state == ContentPackageOperationState.Cancelled;
         }
@@ -118,14 +119,14 @@ namespace Gacha.Infrastructure.Content
         private sealed class CachedOperation
         {
             public CachedOperation(
-                ContentPackageDescriptor package,
+                ContentPackageCatalogEntry entry,
                 ContentPackageInstallCoordinator coordinator)
             {
-                Package = package;
+                Entry = entry;
                 Coordinator = coordinator;
             }
 
-            public ContentPackageDescriptor Package { get; }
+            public ContentPackageCatalogEntry Entry { get; }
             public ContentPackageInstallCoordinator Coordinator { get; }
         }
     }

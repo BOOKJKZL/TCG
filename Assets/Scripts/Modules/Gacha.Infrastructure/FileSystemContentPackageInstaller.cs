@@ -166,6 +166,7 @@ namespace Gacha.Infrastructure.Content
             bool oldContentMoved = false;
             bool newContentMoved = false;
             bool oldReceiptMoved = false;
+            bool newReceiptMoved = false;
 
             try
             {
@@ -193,6 +194,7 @@ namespace Gacha.Infrastructure.Content
                 }
 
                 File.Move(receiptTemporaryPath, receiptPath);
+                newReceiptMoved = true;
                 DeleteDirectoryBestEffort(rollbackPath);
                 DeleteFileBestEffort(receiptBackupPath);
                 return ContentPackageInstallResult.Success(installed);
@@ -201,7 +203,7 @@ namespace Gacha.Infrastructure.Content
             {
                 try
                 {
-                    if (File.Exists(receiptPath))
+                    if (newReceiptMoved && File.Exists(receiptPath))
                         File.Delete(receiptPath);
                     if (oldReceiptMoved && File.Exists(receiptBackupPath))
                         File.Move(receiptBackupPath, receiptPath);

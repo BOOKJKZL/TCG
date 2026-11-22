@@ -41,14 +41,20 @@ namespace Gacha.Application
         internal ContentPackageQueueSnapshot(
             IReadOnlyList<ContentPackageQueueItemSnapshot> items,
             bool paused,
-            int maximumConcurrentDownloads)
+            int maximumConcurrentDownloads,
+            long sequence,
+            string[] selectedPackageIds)
         {
             Items = items;
             Paused = paused;
             MaximumConcurrentDownloads = maximumConcurrentDownloads;
+            Sequence = sequence;
+            SelectedPackageIds = selectedPackageIds;
         }
 
         public IReadOnlyList<ContentPackageQueueItemSnapshot> Items { get; }
+        internal long Sequence { get; }
+        internal IReadOnlyList<string> SelectedPackageIds { get; }
         public bool Paused { get; }
         public int MaximumConcurrentDownloads { get; }
         public int QueuedCount => Items.Count(value => value.State == ContentPackageQueueItemState.Queued);
@@ -94,6 +100,8 @@ namespace Gacha.Application
         private readonly IContentPackageQueueStateStore stateStore;
         private readonly Func<string, ContentPackageInstallCoordinator> operationResolver;
         private readonly object persistenceGate = new object();
+        private long snapshotSequence;
+        private long lastPersistenceSequence;
         private bool paused;
         private Task<ContentPackageQueueSnapshot> activeRun;
 
@@ -404,7 +412,9 @@ namespace Gacha.Application
             return new ContentPackageQueueSnapshot(
                 new ReadOnlyCollection<ContentPackageQueueItemSnapshot>(copy),
                 paused,
-                maximumConcurrentDownloads);
+                maximumConcurrentDownloads,
+                ++snapshotSequence,
+                stateStore == null ? Array.Empty<string>() : selectedPackageIds.ToArray());
         }
 
         private static ContentPackageQueueItemState QueueState(ContentPackageOperationState state)
@@ -500,6 +510,9 @@ namespace Gacha.Application
             {
                 lock (persistenceGate)
                 {
+                    if (snapshot.Sequence <= lastPersistenceSequence)
+                        return;
+                    lastPersistenceSequence = snapshot.Sequence;
                     bool finishedWithoutFailures = snapshot.Items.Count == 0 ||
                         snapshot.Items.All(value =>
                             value.State == ContentPackageQueueItemState.Succeeded ||
@@ -513,7 +526,7 @@ namespace Gacha.Application
                         stateStore.Save(new ContentPackageQueueResumeState(
                             ContentPackageQueueResumeState.SupportedSchemaVersion,
                             catalog.Revision,
-                            selectedPackageIds));
+                            snapshot.SelectedPackageIds));
                     }
                     PersistenceWarning = null;
                 }

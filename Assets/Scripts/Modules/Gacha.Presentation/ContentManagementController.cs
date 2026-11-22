@@ -188,7 +188,6 @@ namespace Gacha.Presentation
             public MobileActionControl Cancel { get; }
             public InstalledContentPackage Installed { get; set; }
             public string LifecycleError { get; set; }
-            public bool Removing { get; set; }
             public ContentPackageOperationState? LastState { get; set; }
             public IVisualElementScheduledItem Animation { get; set; }
             public bool DownloadAllowed { get => Download.Allowed; set => Download.Allowed = value; }
@@ -214,7 +213,6 @@ namespace Gacha.Presentation
                 ProgressLabel.text = string.Empty;
                 Installed = null;
                 LifecycleError = null;
-                Removing = false;
                 LastState = null;
                 Animation = null;
                 Root.style.opacity = 1f;
@@ -227,7 +225,6 @@ namespace Gacha.Presentation
                 Entry = null;
                 Installed = null;
                 LifecycleError = null;
-                Removing = false;
                 LastState = null;
                 Animation = null;
             }
@@ -255,6 +252,10 @@ namespace Gacha.Presentation
         private readonly Dictionary<string, string> localized =
             new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly HashSet<string> notifiedFailures = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> removingPackageIds = new HashSet<string>(StringComparer.Ordinal);
+        // A completed removal has a null error. Keep its result with the package across row rebinding.
+        private readonly Dictionary<string, PlayerUiError> removalResults =
+            new Dictionary<string, PlayerUiError>(StringComparer.Ordinal);
 
         private IContentPackageCatalogProvider catalogProvider;
         private IContentPackageInstallCoordinatorFactory operationFactory;
@@ -306,6 +307,7 @@ namespace Gacha.Presentation
         private ContentDownloadPreflightResult downloadPreflight;
         private IContentPackageQueueStateStore queueStateStore;
         private ContentPackageInstallQueue installQueue;
+        private Action<ContentPackageQueueSnapshot> queueChanged;
         private ContentPackageQueueSnapshot queueSnapshot;
         private bool queueCompletionNotified;
         private bool bindingWifiOnly;
@@ -435,15 +437,8 @@ namespace Gacha.Presentation
                 return false;
             if (queueSnapshot?.IsComplete == true)
             {
-                installQueue.Changed -= OnQueueChanged;
-                installQueue = new ContentPackageInstallQueue(
-                    catalog,
-                    operationFactory,
-                    ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
-                    queueStateStore,
-                    EnsureOperation);
-                installQueue.Changed += OnQueueChanged;
-                queueSnapshot = installQueue.Current;
+                installQueue.Changed -= queueChanged;
+                CreateInstallQueue();
             }
             queueCompletionNotified = false;
             mobileAuthorizedForBatch =
@@ -632,7 +627,7 @@ namespace Gacha.Presentation
             downloadPolicy = null;
             if (installQueue != null)
             {
-                installQueue.Changed -= OnQueueChanged;
+                installQueue.Changed -= queueChanged;
             }
             installQueue = null;
             queueStateStore = null;
@@ -887,17 +882,11 @@ namespace Gacha.Presentation
                 Debug.LogWarning("Content package catalog warning: " + result.WarningMessage);
             if (installQueue != null)
             {
-                installQueue.Changed -= OnQueueChanged;
+                installQueue.Changed -= queueChanged;
                 _ = installQueue.SuspendAsync();
             }
-            installQueue = new ContentPackageInstallQueue(
-                catalog,
-                operationFactory,
-                ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
-                queueStateStore,
-                EnsureOperation);
-            installQueue.Changed += OnQueueChanged;
-            queueSnapshot = installQueue.Current;
+            CreateInstallQueue();
+            removalResults.Clear();
             queueCompletionNotified = false;
             cellularConfirmationArmed = false;
             mobileAuthorizedForBatch = false;
@@ -1077,7 +1066,7 @@ namespace Gacha.Presentation
 
         private void ReleaseIdleOperation(string packageId)
         {
-            if (rows.ContainsKey(packageId) ||
+            if (rows.ContainsKey(packageId) || removingPackageIds.Contains(packageId) ||
                 !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
             ContentPackageOperationState state = operation.Current.State;
@@ -1226,9 +1215,9 @@ namespace Gacha.Presentation
 
             ConfigureGlobalAction(selectFilteredAction, displayedItems.Count > 0);
             ConfigureGlobalAction(clearSelectionAction, selectedPackageIds.Count > 0);
-            bool canAttemptDownload = downloadPreflight?.CanStart == true ||
-                                      downloadPreflight?.Status ==
-                                      ContentDownloadPreflightStatus.CellularConfirmationRequired;
+            bool canAttemptDownload = (downloadPreflight?.CanStart == true ||
+                                       downloadPreflight?.Status == ContentDownloadPreflightStatus.CellularConfirmationRequired) &&
+                                      selectionSummary != null && !removingPackageIds.Overlaps(selectionSummary.PackageIds);
             downloadSelectedAction.SetLabel(L(cellularConfirmationArmed
                 ? "content.action.confirm_cellular"
                 : "content.action.download_selected"));
@@ -1254,7 +1243,7 @@ namespace Gacha.Presentation
 
         private bool PrepareBatchDownload()
         {
-            if (downloadPolicy == null || selectionSummary == null)
+            if (downloadPolicy == null || selectionSummary == null || removingPackageIds.Overlaps(selectionSummary.PackageIds))
                 return false;
             ContentDownloadPreflightResult result = downloadPolicy.Evaluate(
                 selectionSummary,
@@ -1326,6 +1315,7 @@ namespace Gacha.Presentation
                 catalog,
                 new[] { packageId },
                 LookupInstalled);
+            if (removingPackageIds.Overlaps(summary.PackageIds)) return;
             ContentDownloadPreflightResult result = downloadPolicy.Evaluate(summary, true);
             if (!result.CanStart)
             {
@@ -1365,6 +1355,7 @@ namespace Gacha.Presentation
                 catalog,
                 new[] { packageId },
                 LookupInstalled);
+            if (removingPackageIds.Overlaps(summary.PackageIds)) return false;
             bool confirmed = mobileAuthorizedPackages.Contains(packageId) ||
                              string.Equals(
                                  pendingCellularPackageId,
@@ -1535,13 +1526,19 @@ namespace Gacha.Presentation
             KeepRenderNodeStable(action);
         }
 
-        private void OnQueueChanged(ContentPackageQueueSnapshot snapshot)
+        private void CreateInstallQueue()
         {
-            dispatcher.Post(() =>
+            var queue = new ContentPackageInstallQueue(
+                catalog, operationFactory, ContentPackageInstallQueue.DefaultMaximumConcurrentDownloads,
+                queueStateStore, EnsureOperation);
+            installQueue = queue;
+            queueChanged = snapshot => dispatcher.Post(() =>
             {
-                if (!destroyed)
+                if (!destroyed && ReferenceEquals(installQueue, queue))
                     ApplyQueueSnapshot(snapshot);
             });
+            queue.Changed += queueChanged;
+            queueSnapshot = queue.Current;
         }
 
         private void ApplyQueueSnapshot(ContentPackageQueueSnapshot snapshot)
@@ -1584,7 +1581,7 @@ namespace Gacha.Presentation
             catalogQueryAllowed = false;
             if (installQueue != null)
             {
-                installQueue.Changed -= OnQueueChanged;
+                installQueue.Changed -= queueChanged;
                 _ = installQueue.SuspendAsync();
             }
             installQueue = null;
@@ -1674,9 +1671,7 @@ namespace Gacha.Presentation
                 (queueItem.State == ContentPackageQueueItemState.Queued ||
                  queueItem.State == ContentPackageQueueItemState.Running ||
                  queueItem.State == ContentPackageQueueItemState.Paused);
-            if (row.Removing)
-                status = L("content.status.removing");
-            else if (queueItem?.State == ContentPackageQueueItemState.Queued)
+            if (queueItem?.State == ContentPackageQueueItemState.Queued)
                 status = L("content.status.queued");
             else if (!string.IsNullOrWhiteSpace(row.LifecycleError))
                 status = PlayerUiErrorText.Body(PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected));
@@ -1686,12 +1681,21 @@ namespace Gacha.Presentation
                 status = PlayerUiErrorText.Body(ErrorFor(snapshot));
             else if (!string.IsNullOrWhiteSpace(item.WarningMessage))
                 status = L("content.status.installed");
+            bool removing = removingPackageIds.Contains(packageId);
+            if (item.UiState.IsBusy || queueOwnsOperation)
+                removalResults.Remove(packageId);
+            bool removalCompleted = removalResults.TryGetValue(packageId, out PlayerUiError removalError);
+            if (removing)
+                status = L("content.status.removing");
+            else if (removalCompleted)
+                status = removalError == null ? L("content.status.removed") : PlayerUiErrorText.Body(removalError);
             row.Status.text = status;
-            row.Status.EnableInClassList("is-error", item.UiState.IsError || !string.IsNullOrWhiteSpace(row.LifecycleError));
-            row.Status.EnableInClassList("is-success",
+            row.Status.EnableInClassList("is-error", !removing && (removalCompleted ? removalError != null :
+                item.UiState.IsError || !string.IsNullOrWhiteSpace(row.LifecycleError)));
+            row.Status.EnableInClassList("is-success", !removing && (removalCompleted ? removalError == null :
                 snapshot.State == ContentPackageOperationState.Succeeded ||
                 snapshot.State == ContentPackageOperationState.AlreadyCurrent ||
-                snapshot.State == ContentPackageOperationState.Idle && installedCurrent);
+                snapshot.State == ContentPackageOperationState.Idle && installedCurrent));
 
             row.Progress.value = item.Progress01 * 100f;
             long downloaded = snapshot.Download?.DownloadedBytes ?? 0;
@@ -1711,19 +1715,12 @@ namespace Gacha.Presentation
                 hasPrimary = false;
             bool canCancel = CanShowCancel(snapshot.State);
             bool canRemove = row.Installed != null && !item.UiState.IsBusy && !canCancel && !queueOwnsOperation;
-            if (row.Removing)
-            {
-                hasPrimary = false;
-                canCancel = false;
-                canRemove = false;
-            }
-
             ConfigurePersistentActions(
                 row,
-                hasPrimary && !item.UiState.IsBusy && !row.Removing,
-                item.CanPause && !row.Removing,
-                canRemove && !row.Removing,
-                canCancel && !row.Removing);
+                hasPrimary && !item.UiState.IsBusy && !removing,
+                item.CanPause && !removing,
+                canRemove && !removing,
+                canCancel && !removing);
 
             if (previous.HasValue && previous.Value != snapshot.State)
                 AnimateRow(row, snapshot.State == ContentPackageOperationState.Failed);
@@ -1750,6 +1747,7 @@ namespace Gacha.Presentation
                 catalog,
                 new[] { packageId },
                 LookupInstalled);
+            if (removingPackageIds.Overlaps(summary.PackageIds)) return;
             ContentDownloadPreflightResult result = downloadPolicy.Evaluate(summary, mobileConsent);
             if (!result.CanStart)
             {
@@ -1818,7 +1816,7 @@ namespace Gacha.Presentation
         {
             if (lifecycleService == null ||
                 !rows.TryGetValue(packageId, out PackageRow row) ||
-                row.Installed == null || row.Removing ||
+                row.Installed == null || removingPackageIds.Contains(packageId) || navigationRequested ||
                 confirmationPresenter == null || confirmationPresenter.IsVisible ||
                 !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
                 return;
@@ -1843,60 +1841,65 @@ namespace Gacha.Presentation
         {
             if (destroyed || lifecycleService == null ||
                 !rows.TryGetValue(packageId, out PackageRow row) ||
-                row.Installed == null || row.Removing ||
-                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation))
+                row.Installed == null || navigationRequested ||
+                !operations.TryGetValue(packageId, out ContentPackageInstallCoordinator operation) ||
+                !removingPackageIds.Add(packageId))
                 return;
-            row.Removing = true;
-            ApplyOperation(packageId, operation.Current);
-            AnimateRow(row, false);
-            UIFeedbackService.Play(FeedbackCue.Back);
             try
             {
+                removalResults.Remove(packageId);
+                ApplyOperation(packageId, operation.Current);
+                RefreshSelectionUi();
+                AnimateRow(row, false);
+                UIFeedbackService.Play(FeedbackCue.Back);
                 ContentPackageRemovalResult result = await lifecycleService.RemoveAsync(packageId);
                 if (destroyed)
                     return;
                 if (result == null || !result.Succeeded)
                 {
-                    row.Removing = false;
                     string error = result?.ErrorMessage ?? "No removal result was returned.";
                     Debug.LogWarning($"Content package removal failed for '{packageId}': {error}");
-                    ApplyOperation(packageId, operation.Current);
-                    PlayerUiError safeError = result == null
+                    removalResults[packageId] = result == null
                         ? PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected)
                         : PlayerUiErrorMapper.FromRemoval(result.Status) ??
                           PlayerUiErrorMapper.Create(PlayerUiErrorCode.Unexpected);
-                    row.Status.text = PlayerUiErrorText.Body(safeError);
-                    row.Status.EnableInClassList("is-error", true);
                     UIFeedbackService.Play(FeedbackCue.Error);
-                    AnimateRow(row, true);
                     return;
                 }
 
                 ContentPackageOperationSnapshot reset = await operation.ResetAfterRemovalAsync();
                 if (destroyed)
                     return;
-                row.Removing = false;
-                RefreshInstalledState(row);
-                ApplyOperation(packageId, operation.Current);
                 string warning = CombineWarnings(result.WarningMessage, reset.WarningMessage);
                 if (!string.IsNullOrWhiteSpace(warning))
                     Debug.LogWarning($"Content package removal cleanup warning for '{packageId}': {warning}");
-                row.Status.text = string.IsNullOrWhiteSpace(warning)
-                    ? L("content.status.removed")
-                    : L("content.status.removed");
-                row.Status.EnableInClassList("is-error", false);
-                row.Status.EnableInClassList("is-success", true);
+                removalResults[packageId] = null;
                 ReloadLocalCatalog();
                 UIFeedbackService.Play(FeedbackCue.Confirm, true);
-                AnimateRow(row, false);
             }
             catch (Exception exception)
             {
                 if (destroyed)
                     return;
-                row.Removing = false;
-                ApplyOperation(packageId, operation.Current);
-                ShowUnexpectedError(packageId, exception);
+                removalResults[packageId] = PlayerUiErrorMapper.FromException(exception);
+                Debug.LogWarning($"Content package removal failed for '{packageId}': {exception.Message}");
+                UIFeedbackService.Play(FeedbackCue.Error);
+            }
+            finally
+            {
+                removingPackageIds.Remove(packageId);
+                if (!destroyed && catalogQueryAllowed)
+                {
+                    if (rows.TryGetValue(packageId, out PackageRow boundRow) &&
+                        operations.TryGetValue(packageId, out ContentPackageInstallCoordinator boundOperation))
+                    {
+                        RefreshInstalledState(boundRow);
+                        ApplyOperation(packageId, boundOperation.Current);
+                        AnimateRow(boundRow, removalResults.TryGetValue(packageId, out PlayerUiError error) && error != null);
+                    }
+                    ReleaseIdleOperation(packageId);
+                    RefreshSelectionUi();
+                }
             }
         }
 
@@ -1938,7 +1941,7 @@ namespace Gacha.Presentation
         {
             if (destroyed)
                 return false;
-            if (confirmationPresenter?.TryCancel() == true || navigationRequested || rows.Values.Any(row => row.Removing))
+            if (confirmationPresenter?.TryCancel() == true || navigationRequested || removingPackageIds.Count > 0)
                 return true;
             string sceneName = ContentReturnNavigation.PeekOrDefault("002_MainMenuScene");
             NavigateAfterSuspend(
@@ -1997,7 +2000,7 @@ namespace Gacha.Presentation
             MobileDestination destination,
             bool clearReturn)
         {
-            if (destroyed || navigationRequested || rows.Values.Any(row => row.Removing) || string.IsNullOrWhiteSpace(sceneName))
+            if (destroyed || navigationRequested || removingPackageIds.Count > 0 || string.IsNullOrWhiteSpace(sceneName))
                 return;
             navigationRequested = true;
             primaryNavigation?.SetPending(destination);

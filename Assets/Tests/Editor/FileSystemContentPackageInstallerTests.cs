@@ -230,6 +230,33 @@ public class FileSystemContentPackageInstallerTests
     }
 
     [Test]
+    public async Task Install_FailedPreflightPreservesExistingReceiptAndCanRetry()
+    {
+        var installer = new FileSystemContentPackageInstaller(contentRoot);
+        var registry = new FileSystemInstalledContentPackageRegistry(contentRoot);
+        var old = CreateArchive(new Dictionary<string, byte[]> { ["old.txt"] = Encoding.UTF8.GetBytes("old") });
+        Assert.That((await installer.InstallAsync(Plan(Package(old)), old.Path)).Succeeded, Is.True);
+        string receipt = Path.Combine(contentRoot, FileSystemInstalledContentPackageRegistry.ReceiptDirectoryName, "en.base1.json");
+        byte[] previous = File.ReadAllBytes(receipt);
+        var next = CreateArchive(new Dictionary<string, byte[]> { ["new.txt"] = Encoding.UTF8.GetBytes("new") });
+        var plan = Plan(Package(next, revision: 2), registry.Find("en.base1"));
+        string destination = Path.Combine(contentRoot, "en", "base1");
+        string original = Path.Combine(temporaryRoot, "original-content");
+        Directory.Move(destination, original);
+        File.WriteAllText(destination, "temporarily unavailable");
+        var failed = await installer.InstallAsync(plan, next.Path);
+        Assert.That(failed.Succeeded, Is.False);
+        Assert.That(File.ReadAllBytes(receipt), Is.EqualTo(previous));
+        Assert.That(File.ReadAllText(Path.Combine(original, "old.txt")), Is.EqualTo("old"));
+        File.Delete(destination);
+        Directory.Move(original, destination);
+        Assert.That(registry.Find("en.base1").Revision, Is.EqualTo(1));
+        Assert.That((await installer.InstallAsync(plan, next.Path)).Succeeded, Is.True);
+        Assert.That(registry.Find("en.base1").Revision, Is.EqualTo(2));
+        Assert.That(File.ReadAllText(Path.Combine(destination, "new.txt")), Is.EqualTo("new"));
+    }
+
+    [Test]
     public async Task Install_NewPackageCannotReplaceUnregisteredDirectory()
     {
         string destination = CreateOldContent();
