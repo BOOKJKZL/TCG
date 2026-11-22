@@ -120,7 +120,27 @@ export async function publishCatalog(
     }
   }
 
-  await bucket.put(catalogObjectKey, encoded, {
+  const current = await bucket.get(catalogObjectKey);
+  if (current) {
+    if (!current.etag || current.size > MAX_CATALOG_BYTES) {
+      throw new ApiError(503, "已发布目录无法校验，请先恢复存储。");
+    }
+    let previous: ContentCatalog;
+    try {
+      previous = parseContentCatalog(JSON.parse(new TextDecoder().decode(await current.arrayBuffer())));
+    } catch {
+      throw new ApiError(503, "已发布目录无法解析，请先恢复存储。");
+    }
+    if (catalog.revision < previous.revision) throw new ApiError(409, "目录修订号低于已发布版本。");
+    if (catalog.revision === previous.revision) {
+      if (JSON.stringify(previous) !== JSON.stringify(catalog)) {
+        throw new ApiError(409, "相同修订号已发布不同内容。");
+      }
+      return { catalog, bytes: current.size };
+    }
+  }
+  const written = await bucket.put(catalogObjectKey, encoded, {
+    onlyIf: current ? { etagMatches: current.etag } : { etagDoesNotMatch: "*" },
     httpMetadata: { contentType: "application/json; charset=utf-8" },
     customMetadata: {
       schemaVersion: String(catalog.schemaVersion),
@@ -129,6 +149,7 @@ export async function publishCatalog(
       sha256: await sha256Hex(encoded.buffer as ArrayBuffer),
     },
   });
+  if (written === null) throw new ApiError(409, "目录在发布期间已更新，请读取最新版后重试。");
   return { catalog, bytes: encoded.byteLength };
 }
 

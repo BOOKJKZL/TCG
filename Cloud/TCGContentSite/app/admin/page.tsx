@@ -16,9 +16,9 @@ export default async function AdminPage() {
     return <AccessDenied message={access.message} />;
   }
 
-  let status: { published: boolean; revision?: number; packageCount?: number };
-  let credential: { configured: boolean; fingerprint?: string; boundAt?: string };
-  let androidRelease: { schemaVersion: number; versionName: string; versionCode: number } | null;
+  let status: Awaited<ReturnType<typeof readPublishedStatus>> | undefined;
+  let credential: Awaited<ReturnType<typeof getPublisherCredentialStatus>> | undefined;
+  let androidRelease: Awaited<ReturnType<typeof readLatestAndroidRelease>> | undefined;
   try {
     const bucket = getContentBucket();
     const [statusResult, credentialResult, androidReleaseResult] = await Promise.allSettled([
@@ -26,17 +26,11 @@ export default async function AdminPage() {
       getPublisherCredentialStatus(bucket),
       readLatestAndroidRelease(bucket),
     ]);
-    status = statusResult.status === "fulfilled" ? statusResult.value : { published: false };
-    credential = credentialResult.status === "fulfilled"
-      ? credentialResult.value
-      : { configured: false };
-    androidRelease = androidReleaseResult.status === "fulfilled"
-      ? androidReleaseResult.value
-      : null;
+    if (statusResult.status === "fulfilled") status = statusResult.value;
+    if (credentialResult.status === "fulfilled") credential = credentialResult.value;
+    if (androidReleaseResult.status === "fulfilled") androidRelease = androidReleaseResult.value;
   } catch {
-    status = { published: false };
-    credential = { configured: false };
-    androidRelease = null;
+    // An unavailable bucket leaves each status unknown until the next page load.
   }
 
   return (

@@ -19,9 +19,9 @@ export default function ReleasePublisher({
   initialCredential,
   initialAndroidRelease,
 }: {
-  initialStatus: PublishedStatus;
-  initialCredential: PublisherCredentialStatus;
-  initialAndroidRelease: { schemaVersion: number; versionName: string; versionCode: number } | null;
+  initialStatus?: PublishedStatus;
+  initialCredential?: PublisherCredentialStatus;
+  initialAndroidRelease?: { schemaVersion: number; versionName: string; versionCode: number } | null;
 }) {
   const [credential, setCredential] = useState(initialCredential);
   const [tokenSha256, setTokenSha256] = useState("");
@@ -29,7 +29,7 @@ export default function ReleasePublisher({
   const [feedback, setFeedback] = useState<{ state: "success" | "error"; message: string } | null>(null);
 
   async function bindCredential() {
-    if (!/^[a-f0-9]{64}$/.test(tokenSha256) || pendingAction) return;
+    if (!credential || !/^[a-f0-9]{64}$/.test(tokenSha256) || pendingAction) return;
     setPendingAction("bind");
     setFeedback(null);
     try {
@@ -53,7 +53,7 @@ export default function ReleasePublisher({
   }
 
   async function revokeCredential() {
-    if (!credential.configured || pendingAction) return;
+    if (!credential?.configured || pendingAction) return;
     setPendingAction("revoke");
     setFeedback(null);
     try {
@@ -75,16 +75,19 @@ export default function ReleasePublisher({
     <>
       <section className="status-strip" aria-label="当前发布状态">
         <div><span>存储</span><strong>Sites R2</strong></div>
-        <div><span>公开版本</span><strong>{initialStatus.published ? `r${initialStatus.revision}` : "未发布"}</strong></div>
-        <div><span>内容包</span><strong>{initialStatus.packageCount ?? 0}</strong></div>
+        <div><span>公开版本</span><strong>{initialStatus ? (initialStatus.published ? `r${initialStatus.revision}` : "未发布") : "读取失败"}</strong></div>
+        <div><span>内容包</span><strong>{initialStatus ? initialStatus.packageCount ?? 0 : "读取失败"}</strong></div>
         <div>
           <span>Android APK</span>
           <strong>{initialAndroidRelease
             ? `${initialAndroidRelease.schemaVersion === 2 ? "正式版" : "旧开发验证包"} ${initialAndroidRelease.versionName}+${initialAndroidRelease.versionCode}`
-            : "未发布"}</strong>
+            : initialAndroidRelease === null ? "未发布" : "读取失败"}</strong>
         </div>
-        <div><span>电脑发布器</span><strong>{credential.configured ? "已绑定" : "未绑定"}</strong></div>
+        <div><span>电脑发布器</span><strong>{credential ? (credential.configured ? "已绑定" : "未绑定") : "读取失败"}</strong></div>
       </section>
+      {(!initialStatus || !credential || initialAndroidRelease === undefined) && (
+        <p role="status">部分发布状态读取失败。<button type="button" onClick={() => window.location.reload()}>重新读取</button></p>
+      )}
 
       <section className="publisher-panel">
         <div className="publisher-heading">
@@ -92,15 +95,15 @@ export default function ReleasePublisher({
             <p className="panel-kicker">ONE-TIME PAIRING</p>
             <h2>绑定电脑端私人发布器</h2>
           </div>
-          <span className="credential-state" data-state={credential.configured ? "ready" : "idle"}>
+          {credential && <span className="credential-state" data-state={credential.configured ? "ready" : "idle"}>
             {credential.configured ? "DIRECT API READY" : "PAIRING REQUIRED"}
-          </span>
+          </span>}
         </div>
         <p>
           Unity 在本机生成随机令牌，只把 SHA-256 粘贴到这里。服务器不保存明文；卡包与 APK 都由电脑直接上传，网页不读取文件。
         </p>
 
-        {credential.configured && (
+        {credential?.configured && (
           <div className="credential-summary">
             <span>当前指纹</span>
             <strong>{credential.fingerprint}</strong>
@@ -118,7 +121,7 @@ export default function ReleasePublisher({
             maxLength={64}
             value={tokenSha256}
             placeholder="64 位小写十六进制字符串"
-            disabled={pendingAction !== null}
+            disabled={!credential || pendingAction !== null}
             onChange={(event) => setTokenSha256(event.target.value.trim().toLowerCase())}
           />
         </label>
@@ -133,15 +136,15 @@ export default function ReleasePublisher({
           <button
             className="publish-button"
             type="button"
-            disabled={!/^[a-f0-9]{64}$/.test(tokenSha256) || pendingAction !== null}
+            disabled={!credential || !/^[a-f0-9]{64}$/.test(tokenSha256) || pendingAction !== null}
             onClick={bindCredential}
           >
-            {pendingAction === "bind" ? "正在绑定…" : credential.configured ? "轮换为这台发布器" : "绑定电脑发布器"}
+            {pendingAction === "bind" ? "正在绑定…" : credential?.configured ? "轮换为这台发布器" : "绑定电脑发布器"}
           </button>
           <button
             className="revoke-button"
             type="button"
-            disabled={!credential.configured || pendingAction !== null}
+            disabled={!credential?.configured || pendingAction !== null}
             onClick={revokeCredential}
           >
             {pendingAction === "revoke" ? "正在撤销…" : "撤销现有发布器"}

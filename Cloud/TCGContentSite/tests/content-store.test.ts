@@ -17,11 +17,14 @@ import {
 
 type Stored = {
   bytes: Uint8Array;
+  etag: string;
   customMetadata?: Record<string, string>;
 };
 
 class FakeBucket implements ContentBucket {
   readonly objects = new Map<string, Stored>();
+  sequence = 0;
+  beforeCatalogPut?: () => Promise<void>;
 
   async head(key: string): Promise<StoredObjectHead | null> {
     const object = this.objects.get(key);
@@ -39,6 +42,7 @@ class FakeBucket implements ContentBucket {
       : object.bytes.slice();
     return {
       size: object.bytes.byteLength,
+      etag: object.etag,
       customMetadata: object.customMetadata,
       body: new Response(bytes).body as ReadableStream<Uint8Array>,
       async arrayBuffer() {
@@ -50,14 +54,24 @@ class FakeBucket implements ContentBucket {
   async put(
     key: string,
     value: ArrayBuffer | Uint8Array | string,
-    options?: { customMetadata?: Record<string, string> },
-  ): Promise<void> {
+    options?: NonNullable<Parameters<ContentBucket["put"]>[2]>,
+  ): Promise<unknown> {
+    if (key === catalogObjectKey && this.beforeCatalogPut) {
+      const beforePut = this.beforeCatalogPut;
+      this.beforeCatalogPut = undefined;
+      await beforePut();
+    }
+    const current = this.objects.get(key);
+    if (options?.onlyIf?.etagDoesNotMatch === "*" && current) return null;
+    if (options?.onlyIf?.etagMatches && options.onlyIf.etagMatches !== current?.etag) return null;
     const bytes = typeof value === "string"
       ? new TextEncoder().encode(value)
       : value instanceof Uint8Array
         ? value.slice()
         : new Uint8Array(value.slice(0));
-    this.objects.set(key, { bytes, customMetadata: options?.customMetadata });
+    const etag = String(++this.sequence);
+    this.objects.set(key, { bytes, etag, customMetadata: options?.customMetadata });
+    return { etag };
   }
 
   async delete(key: string): Promise<void> {
@@ -143,6 +157,34 @@ test("publishes the catalog only after every verified archive exists", async () 
   assert.equal(published.catalog.revision, 1);
   assert.equal(bucket.objects.has(catalogObjectKey), true);
   assert.match(bucket.objects.get(catalogObjectKey)?.customMetadata?.sha256 ?? "", /^[a-f0-9]{64}$/);
+});
+
+test("catalog revisions only advance and identical retries reuse the stored object", async () => {
+  const bucket = new FakeBucket();
+  const data = await fixture();
+  await publishArchive(bucket, { ...data, packageId: "en.base1", downloadBytes: data.bytes.byteLength });
+  const catalog = { ...data.catalog, revision: 3 };
+  await publishCatalog(bucket, catalog);
+  const original = bucket.objects.get(catalogObjectKey);
+  await assert.rejects(publishCatalog(bucket, { ...catalog, revision: 2 }), { status: 409 });
+  await publishCatalog(bucket, catalog);
+  const relabeled = { ...catalog.packages[0], version: "1.0.1" };
+  await assert.rejects(publishCatalog(bucket, { ...catalog, packages: [relabeled] }), { status: 409 });
+  assert.equal(bucket.objects.get(catalogObjectKey), original);
+});
+
+test("a concurrent catalog write preserves the winner for both first publish and update", async () => {
+  const bucket = new FakeBucket();
+  const data = await fixture();
+  await publishArchive(bucket, { ...data, packageId: "en.base1", downloadBytes: data.bytes.byteLength });
+  for (const revision of [1, 3]) {
+    bucket.beforeCatalogPut = async () => {
+      await publishCatalog(bucket, { ...data.catalog, revision: revision + 1 });
+    };
+    await assert.rejects(publishCatalog(bucket, { ...data.catalog, revision }), { status: 409 });
+    const publicCatalog = await (await serveCatalog(bucket, "GET")).json() as ContentCatalog;
+    assert.equal(publicCatalog.revision, revision + 1);
+  }
 });
 
 test("serves exact 200, 206, HEAD, and 416 download semantics", async () => {

@@ -351,6 +351,35 @@ test("reports cleanup as pending without rolling back an already-published relea
   assert.equal(result.cleanupPending, true);
   assert.equal(result.previousReleaseDeleted, false);
   assert.equal((await readLatestAndroidRelease(bucket))?.sha256, nextSha);
+  const retry = () => publishAndroidRelease(bucket, releaseInput(next, nextSha, "3.1.0", 31, 30));
+  assert.equal((await retry()).cleanupPending, true);
+  bucket.failDeleteKey = null;
+  const cleaned = await retry();
+  assert.equal(cleaned.cleanupPending, false);
+  assert.equal(cleaned.previousReleaseDeleted, true);
+  assert.equal(await bucket.head(androidApkObjectKey(firstSha)), null);
+  assert.equal((await retry()).previousReleaseDeleted, false);
+  assert.equal((await readLatestAndroidRelease(bucket))?.sha256, nextSha);
+});
+
+test("retains an older pending cleanup across attempts to publish the next version", async () => {
+  const bucket = new FakeBucket();
+  async function candidate(version: number) {
+    const apk = apkFixture("release-" + version);
+    const digest = await sha256Hex(new Uint8Array(apk.bytes));
+    return releaseInput(apk, digest, "1." + version, version, version - 1);
+  }
+  const [a, b, c] = await Promise.all([1, 2, 3].map(candidate));
+  await publishAndroidRelease(bucket, a);
+  bucket.failDeleteKey = androidApkObjectKey(a.declaredSha256);
+  assert.equal((await publishAndroidRelease(bucket, b)).cleanupPending, true);
+  await assert.rejects(publishAndroidRelease(bucket, c), { status: 503 });
+  assert.equal((await readLatestAndroidRelease(bucket))?.sha256, b.declaredSha256);
+  bucket.failDeleteKey = null;
+  assert.equal((await publishAndroidRelease(bucket, c)).cleanupPending, false);
+  assert.equal(await bucket.head(androidApkObjectKey(a.declaredSha256)), null);
+  assert.equal(await bucket.head(androidApkObjectKey(b.declaredSha256)), null);
+  assert.equal((await readLatestAndroidRelease(bucket))?.sha256, c.declaredSha256);
 });
 
 test("rejects non-increasing version codes and stale audit baselines", async () => {

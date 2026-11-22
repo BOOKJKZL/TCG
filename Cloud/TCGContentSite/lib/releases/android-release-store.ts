@@ -128,9 +128,15 @@ export async function publishAndroidRelease(
     return {
       release: current,
       reused: true,
-      previousReleaseDeleted: false,
-      cleanupPending: false,
+      ...await cleanPreviousRelease(bucket, currentState?.previousSha256, current),
     };
+  }
+
+  if (currentState?.previousSha256) {
+    const outstanding = await cleanPreviousRelease(bucket, currentState.previousSha256, currentState.release);
+    if (outstanding.cleanupPending) {
+      throw new ApiError(503, "旧安装包仍待清理，请在存储恢复后重试发布。");
+    }
   }
 
   const key = androidApkObjectKey(actualSha256);
@@ -219,6 +225,7 @@ export async function publishAndroidRelease(
       schemaVersion: "2",
       releaseChannel: "stable",
       sha256: actualSha256,
+      ...(current && current.sha256 !== actualSha256 ? { previousSha256: current.sha256 } : {}),
       versionName,
       versionCode: String(versionCode),
       downloadBytes: String(input.bytes.byteLength),
@@ -231,18 +238,27 @@ export async function publishAndroidRelease(
     throw new ApiError(409, "另一项 Android 发布已抢先更新最新版，请重新审计后重试。");
   }
 
-  let previousReleaseDeleted = false;
-  let cleanupPending = false;
-  if (current && current.sha256 !== actualSha256) {
-    try {
-      await bucket.delete(androidApkObjectKey(current.sha256));
-      previousReleaseDeleted = true;
-    } catch {
-      cleanupPending = true;
-    }
-  }
+  return { release, reused, ...await cleanPreviousRelease(bucket, current?.sha256, release) };
+}
 
-  return { release, reused, previousReleaseDeleted, cleanupPending };
+async function cleanPreviousRelease(bucket: ContentBucket, previousSha256: string | undefined, release: AndroidRelease) {
+  if (!previousSha256 || previousSha256 === release.sha256) {
+    return { previousReleaseDeleted: false, cleanupPending: false };
+  }
+  try {
+    const key = androidApkObjectKey(previousSha256);
+    const old = await bucket.head(key);
+    if (!old) return { previousReleaseDeleted: false, cleanupPending: false };
+    const versionCode = Number(old.customMetadata?.versionCode);
+    if (old.customMetadata?.sha256 !== previousSha256 || !Number.isSafeInteger(versionCode) || versionCode < 1) {
+      return { previousReleaseDeleted: false, cleanupPending: true };
+    }
+    if (versionCode >= release.versionCode) return { previousReleaseDeleted: false, cleanupPending: false };
+    await bucket.delete(key);
+    return { previousReleaseDeleted: true, cleanupPending: false };
+  } catch {
+    return { previousReleaseDeleted: false, cleanupPending: true };
+  }
 }
 
 export async function readLatestAndroidRelease(
@@ -253,7 +269,7 @@ export async function readLatestAndroidRelease(
 
 async function readLatestAndroidReleaseState(
   bucket: ContentBucket,
-): Promise<{ release: AndroidRelease; etag: string } | null> {
+): Promise<{ release: AndroidRelease; etag: string; previousSha256?: string } | null> {
   const object = await bucket.get(latestAndroidReleaseObjectKey);
   if (!object) return null;
   if (!object.etag) throw new ApiError(503, "最新版 APK 清单缺少并发控制标识。");
@@ -276,7 +292,7 @@ async function readLatestAndroidReleaseState(
   } catch {
     throw new ApiError(503, "最新版 APK 文件验证元数据损坏，已停止公开下载。");
   }
-  return { release, etag: object.etag };
+  return { release, etag: object.etag, previousSha256: object.customMetadata?.previousSha256 };
 }
 
 export async function serveLatestAndroidRelease(

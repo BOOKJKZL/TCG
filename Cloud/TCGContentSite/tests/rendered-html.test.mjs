@@ -63,11 +63,11 @@ async function render(pathname = "/") {
 }
 
 async function waitForServer() {
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     if (server.exitCode !== null) throw new Error(`vinext dev exited early.\n${serverOutput}`);
     try {
-      const response = await fetch(origin);
+      const response = await fetch(origin, { signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
       if (response.ok) return;
     } catch {
       // Development server is still starting.
