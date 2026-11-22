@@ -107,9 +107,9 @@ public sealed class SimplifiedChineseImportService : IDisposable
         if (!string.IsNullOrWhiteSpace(outputRoot))
         {
             Directory.CreateDirectory(outputRoot);
-            WriteTextAtomic(Path.Combine(outputRoot, "simplified-chinese-inventory.json"),
+            ContentImportFile.WriteText(Path.Combine(outputRoot, "simplified-chinese-inventory.json"),
                 JsonConvert.SerializeObject(inventory, Formatting.Indented));
-            WriteTextAtomic(Path.Combine(outputRoot, "simplified-chinese-inventory.md"),
+            ContentImportFile.WriteText(Path.Combine(outputRoot, "simplified-chinese-inventory.md"),
                 InventoryMarkdown(inventory));
         }
         return inventory;
@@ -142,6 +142,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
             products = products.Where(product => requestedSet.Contains(product.SetId)).ToList();
         }
 
+        using var importLock = ContentImportFile.AcquireWriteLock(Path.Combine(options.OutputRoot, Language));
         var checkpoint = new ContentImportCheckpointStore(
             options.OutputRoot, Language, "source-v2", options.DownloadImages ? "png" : "metadata");
         checkpoint.Begin(products.Select(value => value.SetId));
@@ -153,7 +154,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
         foreach (SimplifiedChineseProductRecord product in products)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!options.RefreshExistingFiles && checkpoint.IsSetComplete(product.SetId))
+            if (!options.RefreshExistingFiles && checkpoint.IsSetComplete(product.SetId, options.MaximumCardsPerSet))
             {
                 summary.SkippedSetCount++;
                 continue;
@@ -243,10 +244,11 @@ public sealed class SimplifiedChineseImportService : IDisposable
                 cancellationToken).ConfigureAwait(false);
             detail = envelope["data"] as JObject ?? throw new InvalidDataException(
                 "Simplified Chinese product-detail response has no data object: " + product.SetId);
-            WriteTextAtomic(rawSetPath, detail.ToString(Formatting.Indented));
+            ContentImportFile.WriteText(rawSetPath, detail.ToString(Formatting.Indented));
         }
 
         JArray cards = detail["cards"] as JArray ?? new JArray();
+        int sourceCardCount = cards.Count;
         if (options.MaximumCardsPerSet > 0)
             cards = new JArray(cards.Take(options.MaximumCardsPerSet));
         checkpoint.StartSet(product.SetId, cards.Count);
@@ -312,9 +314,9 @@ public sealed class SimplifiedChineseImportService : IDisposable
             }
             finally
             {
+                semaphore.Release();
                 if (attemptFinished)
                     checkpoint.RecordCard(product.SetId, cardId, failure);
-                semaphore.Release();
                 int current = Interlocked.Increment(ref completed);
                 progress?.Report(new ContentImportProgress
                 {
@@ -329,9 +331,10 @@ public sealed class SimplifiedChineseImportService : IDisposable
         manifest.Cards.AddRange(records.Where(value => value != null)
             .OrderBy(value => value.LocalId, NaturalIdComparer.Instance));
         manifest.Errors.AddRange(errors.Where(value => value != null));
-        WriteTextAtomic(Path.Combine(setDirectory, "manifest.json"),
+        ContentImportFile.WriteText(Path.Combine(setDirectory, "manifest.json"),
             JsonConvert.SerializeObject(manifest, Formatting.Indented));
-        RemoveUnreferencedFiles(setDirectory, rawCardsDirectory, imagesDirectory, manifest);
+        if (cards.Count == sourceCardCount && manifest.Errors.Count == 0)
+            RemoveUnreferencedFiles(setDirectory, rawCardsDirectory, imagesDirectory, manifest);
         checkpoint.CompleteSet(product.SetId);
         return new ImportSetOutcome(
             manifest, reusedMetadata + reusedCards, reusedImages);
@@ -351,7 +354,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
         string rawPath = Path.Combine(rawCardsDirectory, SafeFileName(cardId) + ".json");
         bool reusedMetadata = !options.RefreshExistingFiles && File.Exists(rawPath);
         if (!reusedMetadata)
-            WriteTextAtomic(rawPath, card.ToString(Formatting.Indented));
+            ContentImportFile.WriteText(rawPath, card.ToString(Formatting.Indented));
         string sourceSetCode = Value(card, "setCode") ?? product.SetId;
         string imageUrl = assetRoot + "/" + Uri.EscapeDataString(sourceSetCode) + "/" +
                           Uri.EscapeDataString(localId) + ".png";
@@ -373,7 +376,7 @@ public sealed class SimplifiedChineseImportService : IDisposable
                 bytes = await GetOptionalImageBytesAsync(imageUrl, options, cancellationToken)
                     .ConfigureAwait(false);
                 if (bytes != null)
-                    WriteBytesAtomic(imagePath, bytes);
+                    ContentImportFile.WriteBytes(imagePath, bytes);
             }
             if (bytes != null)
             {
@@ -649,19 +652,6 @@ public sealed class SimplifiedChineseImportService : IDisposable
     {
         using SHA256 sha = SHA256.Create();
         return string.Concat(sha.ComputeHash(bytes).Select(value => value.ToString("x2")));
-    }
-
-    private static void WriteTextAtomic(string path, string content) =>
-        WriteBytesAtomic(path, new UTF8Encoding(false).GetBytes(content));
-
-    private static void WriteBytesAtomic(string path, byte[] bytes)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporary = path + ".download";
-        File.WriteAllBytes(temporary, bytes);
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporary, path);
     }
 
     private static void RemoveUnreferencedFiles(

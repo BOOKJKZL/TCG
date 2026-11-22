@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Gacha.Pokemon.Domain;
@@ -23,6 +22,7 @@ public sealed class PokemonArtworkImportCheckpoint
     public int CompletedImages;
     public int MissingSourceImages;
     public List<string> Failures = new List<string>();
+    public List<PokemonArtworkEntryDto> PendingImages;
 }
 
 public sealed class PokemonArtworkImportOptions
@@ -63,8 +63,6 @@ public sealed class PokemonArtworkImportService : IDisposable
     private readonly bool ownsClient;
     private readonly SemaphoreSlim requestGate = new SemaphoreSlim(1, 1);
     private DateTime nextRequestUtc;
-    private int downloaded;
-    private int reused;
 
     public PokemonArtworkImportService() : this(CreateClient(), true) { }
 
@@ -82,11 +80,11 @@ public sealed class PokemonArtworkImportService : IDisposable
         CancellationToken cancellationToken = default)
     {
         ValidateOptions(options);
-        downloaded = 0;
-        reused = 0;
+        int downloaded = 0;
+        int reused = 0;
         string root = Path.GetFullPath(options.OutputRoot);
         string checkpointPath = Path.Combine(root, "artwork-import-checkpoint.json");
-        Directory.CreateDirectory(root);
+        using var writeLock = ContentImportFile.AcquireWriteLock(root);
         PokemonTaxonomySnapshotLoadResult taxonomy =
             new PokemonTaxonomySnapshotReader().LoadFile(options.TaxonomySnapshotPath);
         PokemonFormDefinition[] forms = taxonomy.Catalog.Forms.Values
@@ -99,6 +97,19 @@ public sealed class PokemonArtworkImportService : IDisposable
         var records = new ConcurrentBag<ArtworkRecord>();
         var missing = new ConcurrentBag<PokemonFormDefinition>();
         int completed = 0;
+        var reader = new PokemonArtworkManifestReader();
+        var pending = LoadPendingImages(checkpointPath);
+        var published = new Dictionary<string, PokemonArtworkCatalog>(StringComparer.Ordinal);
+        foreach (var generation in taxonomy.Catalog.Generations.Values)
+        {
+            string directory = Path.Combine(root, generation.Id);
+            string path = Path.Combine(directory, "manifest.json");
+            if (!File.Exists(path))
+                continue;
+            var catalog = reader.LoadFile(path);
+            RecoverPublishedImages(directory, catalog);
+            published.Add(generation.Id, catalog);
+        }
 
         try
         {
@@ -119,24 +130,41 @@ public sealed class PokemonArtworkImportService : IDisposable
                     string imagePath = Path.Combine(
                         generationRoot,
                         relativePath.Replace('/', Path.DirectorySeparatorChar));
-                    byte[] bytes;
-                    if (!options.RefreshExistingFiles && TryReadValidPng(imagePath, out bytes))
-                        Interlocked.Increment(ref reused);
-                    else
+                    string staged = ImportCachePath(generationRoot, relativePath, ".pending");
+                    published.TryGetValue(form.IntroducedGenerationId, out var catalog);
+                    var active = catalog?.Find(form.Id);
+                    pending.TryGetValue(form.Id, out var prior);
+                    byte[] bytes = null;
+                    bool stagedImage = false;
+                    if (!options.RefreshExistingFiles)
+                    {
+                        if (prior != null && prior.RelativePath == relativePath && prior.SourceUrl == source.AbsoluteUri)
+                        {
+                            stagedImage = TryReadMatchingImage(staged, prior.Bytes, prior.Sha256, out bytes);
+                            if (!stagedImage)
+                                TryReadMatchingImage(imagePath, prior.Bytes, prior.Sha256, out bytes);
+                        }
+                        if (bytes == null && active != null && active.RelativePath == relativePath &&
+                            active.SourceUri?.AbsoluteUri == source.AbsoluteUri)
+                            TryReadMatchingImage(imagePath, active.Bytes, active.Sha256, out bytes);
+                    }
+                    if (bytes == null)
                     {
                         bytes = await DownloadWithRetryAsync(source, options, cancellationToken)
                             .ConfigureAwait(false);
                         if (!IsPng(bytes))
                             throw new InvalidDataException("Artwork response is not a PNG image.");
-                        WriteBytesAtomic(imagePath, bytes);
+                        // Keep the published PNG intact until all requested downloads succeed.
+                        stagedImage = active != null;
+                        ContentImportFile.WriteBytes(stagedImage ? staged : imagePath, bytes);
                         Interlocked.Increment(ref downloaded);
                     }
-                    records.Add(new ArtworkRecord(
-                        form,
-                        relativePath,
-                        Sha256(bytes),
-                        bytes.LongLength,
-                        source.AbsoluteUri));
+                    else
+                    {
+                        Interlocked.Increment(ref reused);
+                    }
+                    records.Add(new ArtworkRecord(form, relativePath, Sha256(bytes), bytes.LongLength,
+                        source.AbsoluteUri, stagedImage));
                 }
                 catch (OperationCanceledException)
                 {
@@ -179,23 +207,15 @@ public sealed class PokemonArtworkImportService : IDisposable
                     Entries = records.Where(value => value.Form.IntroducedGenerationId == generation.Id)
                         .OrderBy(value => value.Form.PokemonId)
                         .ThenBy(value => value.Form.Id, StringComparer.Ordinal)
-                        .Select(value => new PokemonArtworkEntryDto
-                        {
-                            FormId = value.Form.Id,
-                            RelativePath = value.RelativePath,
-                            Sha256 = value.Sha256,
-                            Bytes = value.Bytes,
-                            SourceUrl = value.SourceUrl
-                        }).ToList(),
+                        .Select(value => value.Entry).ToList(),
                     MissingFormIds = missing.Where(value => value.IntroducedGenerationId == generation.Id)
                         .Select(value => value.Id)
                         .OrderBy(value => value, StringComparer.Ordinal)
                         .ToList()
                 };
-                string manifestPath = Path.Combine(generationRoot, "manifest.json");
-                WriteTextAtomic(manifestPath, JsonConvert.SerializeObject(manifest, Formatting.Indented));
-                PokemonArtworkCatalog loaded = new PokemonArtworkManifestReader().LoadFile(manifestPath);
-                VerifyGenerationFiles(generationRoot, loaded);
+                published.TryGetValue(generation.Id, out var previous);
+                PublishGeneration(generationRoot, manifest, previous, records.Where(record =>
+                    record.Staged && record.Form.IntroducedGenerationId == generation.Id));
             }
 
             checkpoint.Complete = true;
@@ -207,7 +227,7 @@ public sealed class PokemonArtworkImportService : IDisposable
                 MissingSourceCount = missing.Count,
                 DownloadedCount = downloaded,
                 ReusedCount = reused,
-                ImageBytes = records.Sum(value => value.Bytes),
+                ImageBytes = records.Sum(value => value.Entry.Bytes),
                 OutputRoot = root,
                 CheckpointPath = checkpointPath
             };
@@ -218,6 +238,8 @@ public sealed class PokemonArtworkImportService : IDisposable
             checkpoint.CompletedImages = records.Count;
             checkpoint.MissingSourceImages = missing.Count;
             checkpoint.Complete = false;
+            checkpoint.PendingImages = records.OrderBy(record => record.Form.Id, StringComparer.Ordinal)
+                .Select(record => record.Entry).ToList();
             SaveCheckpoint(checkpointPath, checkpoint);
             throw;
         }
@@ -334,30 +356,100 @@ public sealed class PokemonArtworkImportService : IDisposable
         return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty).ToLowerInvariant();
     }
 
-    private static void WriteBytesAtomic(string path, byte[] bytes)
+    private static Dictionary<string, PokemonArtworkEntryDto> LoadPendingImages(string path)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporary = path + ".download";
-        File.WriteAllBytes(temporary, bytes);
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporary, path);
+        var result = new Dictionary<string, PokemonArtworkEntryDto>(StringComparer.Ordinal);
+        if (!File.Exists(path))
+            return result;
+        try
+        {
+            var state = JsonConvert.DeserializeObject<PokemonArtworkImportCheckpoint>(File.ReadAllText(path));
+            if (state?.SchemaVersion == 1 && !state.Complete && state.PendingImages != null)
+                foreach (var image in state.PendingImages)
+                    if (!string.IsNullOrEmpty(image?.FormId))
+                        result[image.FormId] = image;
+        }
+        catch (JsonException)
+        {
+            // A checkpoint is only a cache hint. The published manifest can still establish provenance.
+        }
+        return result;
     }
 
-    private static void WriteTextAtomic(string path, string text)
+    private static bool TryReadMatchingImage(string path, long expectedSize, string expectedHash, out byte[] bytes)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporary = path + ".download";
-        File.WriteAllText(temporary, text, new UTF8Encoding(false));
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporary, path);
+        if (TryReadValidPng(path, out bytes) && bytes.LongLength == expectedSize &&
+            string.Equals(Sha256(bytes), expectedHash, StringComparison.OrdinalIgnoreCase))
+            return true;
+        bytes = null;
+        return false;
     }
+
+    private static void RecoverPublishedImages(string directory, PokemonArtworkCatalog catalog)
+    {
+        foreach (var entry in catalog.Entries.Values)
+        {
+            string path = Path.Combine(directory, entry.RelativePath);
+            string previous = ImportCachePath(directory, entry.RelativePath, ".previous");
+            if (!File.Exists(previous))
+                continue;
+            if (!TryReadMatchingImage(path, entry.Bytes, entry.Sha256, out _) &&
+                TryReadMatchingImage(previous, entry.Bytes, entry.Sha256, out _))
+            {
+                if (File.Exists(path))
+                    File.Replace(previous, path, ImportCachePath(directory, entry.RelativePath, ".pending"));
+                else
+                    File.Move(previous, path);
+            }
+            else
+                File.Delete(previous);
+        }
+    }
+
+    private static void PublishGeneration(string directory, PokemonArtworkManifestDto manifest,
+        PokemonArtworkCatalog previous, IEnumerable<ArtworkRecord> staged)
+    {
+        Directory.CreateDirectory(directory);
+        string manifestPath = Path.Combine(directory, "manifest.json");
+        try
+        {
+            foreach (var record in staged)
+            {
+                string path = Path.Combine(directory, record.Entry.RelativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                string pending = ImportCachePath(directory, record.Entry.RelativePath, ".pending");
+                if (File.Exists(path))
+                    File.Replace(pending, path, ImportCachePath(directory, record.Entry.RelativePath, ".previous"));
+                else
+                    File.Move(pending, path);
+            }
+            // Verify the candidate before the atomic manifest replacement.
+            string candidate = ImportCachePath(directory, "manifest.json", ".pending");
+            ContentImportFile.WriteText(candidate, JsonConvert.SerializeObject(manifest, Formatting.Indented));
+            VerifyGenerationFiles(directory, new PokemonArtworkManifestReader().LoadFile(candidate));
+            if (File.Exists(manifestPath))
+                File.Replace(candidate, manifestPath, null);
+            else
+                File.Move(candidate, manifestPath);
+        }
+        catch
+        {
+            if (previous != null)
+                RecoverPublishedImages(directory, previous);
+            throw;
+        }
+        foreach (var record in staged)
+            File.Delete(ImportCachePath(directory, record.Entry.RelativePath, ".previous"));
+    }
+
+    private static string ImportCachePath(string generationRoot, string relativePath, string suffix) =>
+        Path.Combine(Path.GetDirectoryName(generationRoot), ".artwork-import", Path.GetFileName(generationRoot),
+            relativePath + suffix);
 
     private static void SaveCheckpoint(string path, PokemonArtworkImportCheckpoint checkpoint)
     {
         checkpoint.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-        WriteTextAtomic(path, JsonConvert.SerializeObject(checkpoint, Formatting.Indented));
+        ContentImportFile.WriteText(path, JsonConvert.SerializeObject(checkpoint, Formatting.Indented));
     }
 
     private static void ValidateOptions(PokemonArtworkImportOptions options)
@@ -393,24 +485,19 @@ public sealed class PokemonArtworkImportService : IDisposable
 
     private sealed class ArtworkRecord
     {
-        public ArtworkRecord(
-            PokemonFormDefinition form,
-            string relativePath,
-            string sha256,
-            long bytes,
-            string sourceUrl)
+        public ArtworkRecord(PokemonFormDefinition form, string relativePath, string sha256,
+            long bytes, string sourceUrl, bool staged)
         {
             Form = form;
-            RelativePath = relativePath;
-            Sha256 = sha256;
-            Bytes = bytes;
-            SourceUrl = sourceUrl;
+            Staged = staged;
+            Entry = new PokemonArtworkEntryDto
+            {
+                FormId = form.Id, RelativePath = relativePath, Sha256 = sha256, Bytes = bytes, SourceUrl = sourceUrl
+            };
         }
 
         public PokemonFormDefinition Form { get; }
-        public string RelativePath { get; }
-        public string Sha256 { get; }
-        public long Bytes { get; }
-        public string SourceUrl { get; }
+        public PokemonArtworkEntryDto Entry { get; }
+        public bool Staged { get; }
     }
 }

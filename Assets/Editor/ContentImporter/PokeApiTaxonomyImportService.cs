@@ -113,6 +113,7 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
         string rawRoot = Path.Combine(outputRoot, "raw");
         string checkpointPath = Path.Combine(outputRoot, "import-checkpoint.json");
         string snapshotPath = Path.Combine(outputRoot, "snapshot", "pokemon-taxonomy.json");
+        using var importLock = ContentImportFile.AcquireWriteLock(outputRoot);
         Directory.CreateDirectory(rawRoot);
 
         PokeApiTaxonomyImportCheckpoint checkpoint = LoadCheckpoint(
@@ -164,7 +165,7 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
             PokeApiTaxonomyCompileResult result = PokeApiTaxonomyCompiler.Compile(
                 raw, classification, capturedAt);
-            WriteTextAtomic(snapshotPath,
+            ContentImportFile.WriteText(snapshotPath,
                 JsonConvert.SerializeObject(result.Snapshot, Formatting.Indented));
             new PokemonTaxonomySnapshotReader().LoadFile(snapshotPath);
 
@@ -229,7 +230,7 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
             .Distinct().OrderBy(value => value).ToArray();
         if (ids.Length != results.Count || ids.Length == 0)
             throw new InvalidDataException($"PokeAPI {resource} discovery contains duplicate or empty ids.");
-        WriteTextAtomic(path, list.ToString(Formatting.Indented));
+        ContentImportFile.WriteText(path, list.ToString(Formatting.Indented));
         Interlocked.Increment(ref downloadedFileCount);
         return ids;
     }
@@ -268,7 +269,7 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
                     JObject value = JObject.Parse(json);
                     if (value["id"]?.Value<int>() != id)
                         throw new InvalidDataException($"PokeAPI {resource} {id} returned a different id.");
-                    WriteTextAtomic(path, value.ToString(Formatting.Indented));
+                    ContentImportFile.WriteText(path, value.ToString(Formatting.Indented));
                     Interlocked.Increment(ref downloadedFileCount);
                 }
             }
@@ -405,13 +406,16 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
 
     private PokeApiTaxonomyImportCheckpoint LoadCheckpoint(string path, bool refresh)
     {
-        if (!refresh && File.Exists(path))
+        string savedPath = File.Exists(path) ? path : path + ".download";
+        if (!refresh && File.Exists(savedPath))
         {
             PokeApiTaxonomyImportCheckpoint existing =
-                JsonConvert.DeserializeObject<PokeApiTaxonomyImportCheckpoint>(File.ReadAllText(path));
+                JsonConvert.DeserializeObject<PokeApiTaxonomyImportCheckpoint>(File.ReadAllText(savedPath));
             if (existing != null && existing.SchemaVersion == 1 &&
                 string.Equals(existing.ApiRoot, apiRoot, StringComparison.Ordinal))
             {
+                if (savedPath != path)
+                    File.Move(savedPath, path);
                 existing.Failures = existing.Failures ?? new List<string>();
                 return existing;
             }
@@ -427,7 +431,7 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
     private static void SaveCheckpoint(string path, PokeApiTaxonomyImportCheckpoint checkpoint)
     {
         checkpoint.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-        WriteTextAtomic(path, JsonConvert.SerializeObject(checkpoint, Formatting.Indented));
+        ContentImportFile.WriteText(path, JsonConvert.SerializeObject(checkpoint, Formatting.Indented));
     }
 
     private static bool IsValidCachedResource(string path, int id)
@@ -472,16 +476,6 @@ public sealed class PokeApiTaxonomyImportService : IDisposable
         if (!int.TryParse(segment, out int id) || id < 1)
             throw new InvalidDataException($"PokeAPI {context} contains an invalid resource id.");
         return id;
-    }
-
-    private static void WriteTextAtomic(string path, string content)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporaryPath = path + ".download";
-        File.WriteAllText(temporaryPath, content, new UTF8Encoding(false));
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporaryPath, path);
     }
 
     private static HttpClient CreateClient()

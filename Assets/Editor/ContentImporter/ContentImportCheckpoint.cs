@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 [Serializable]
 public sealed class ContentImportCheckpoint
@@ -81,6 +82,31 @@ public sealed class ContentImportCheckpointStore
                 string.Equals(item.SetId, setId, StringComparison.Ordinal));
             return set != null && string.Equals(set.State, "completed", StringComparison.Ordinal) &&
                    set.FailedCards == 0 && set.ProcessedCards == set.ExpectedCards;
+        }
+    }
+
+    public bool IsSetComplete(string setId, int maximumCardsPerSet)
+    {
+        if (!IsSetComplete(setId))
+            return false;
+        string directory = Path.Combine(Path.GetDirectoryName(checkpointPath), setId);
+        string rawPath = Path.Combine(directory, "raw", "set.json");
+        string manifestPath = Path.Combine(directory, "manifest.json");
+        if (!File.Exists(rawPath) || !File.Exists(manifestPath))
+            return false;
+        // v1 checkpoints recorded the preview count. The saved source contains the full set.
+        try
+        {
+            var source = JObject.Parse(File.ReadAllText(rawPath))["cards"] as JArray;
+            var imported = JObject.Parse(File.ReadAllText(manifestPath))["Cards"] as JArray;
+            if (source == null || imported == null)
+                return false;
+            int requested = maximumCardsPerSet > 0 ? Math.Min(maximumCardsPerSet, source.Count) : source.Count;
+            return imported.Count >= requested;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 
@@ -222,14 +248,15 @@ public sealed class ContentImportCheckpointStore
     private static ContentImportCheckpoint LoadOrCreate(
         string path, string language, string configuration)
     {
-        if (!File.Exists(path))
+        string savedPath = File.Exists(path) ? path : path + ".download";
+        if (!File.Exists(savedPath))
             return new ContentImportCheckpoint
             {
                 Language = language,
                 Configuration = configuration
             };
         ContentImportCheckpoint result = JsonConvert.DeserializeObject<ContentImportCheckpoint>(
-            File.ReadAllText(path));
+            File.ReadAllText(savedPath));
         if (result == null || result.SchemaVersion != SupportedSchemaVersion)
             throw new InvalidDataException($"Unsupported bulk import checkpoint: {path}");
         if (!string.Equals(result.Language, language, StringComparison.Ordinal) ||
@@ -237,6 +264,8 @@ public sealed class ContentImportCheckpointStore
             throw new InvalidDataException($"Bulk import checkpoint configuration mismatch: {path}");
         result.Sets = result.Sets ?? new List<ContentImportSetCheckpoint>();
         result.Failures = result.Failures ?? new List<ContentImportFailureRecord>();
+        if (savedPath != path)
+            File.Move(savedPath, path);
         return result;
     }
 
@@ -262,28 +291,53 @@ public sealed class ContentImportCheckpointStore
         return normalizedQuality + "-" + normalizedExtension;
     }
 
-    private static void WriteAtomic(string path, string text)
+    private static void WriteAtomic(string path, string text) => ContentImportFile.WriteText(path, text);
+}
+
+internal static class ContentImportFile
+{
+    internal static FileStream AcquireWriteLock(string directory)
     {
-        string temporaryPath = path + ".download";
-        File.WriteAllText(temporaryPath, text, new UTF8Encoding(false));
-        Exception lastException = null;
-        for (int attempt = 1; attempt <= 8; attempt++)
+        Directory.CreateDirectory(directory);
+        return new FileStream(Path.Combine(directory, ".bulk-import.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+    }
+
+    internal static void WriteText(string path, string content) =>
+        WriteBytes(path, new UTF8Encoding(false).GetBytes(content));
+
+    internal static void WriteBytes(string path, byte[] bytes)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+        string temporary = path + "." + Guid.NewGuid().ToString("N") + ".download";
+        try
         {
-            try
+            using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                if (File.Exists(path))
-                    File.Delete(path);
-                File.Move(temporaryPath, path);
-                return;
+                file.Write(bytes, 0, bytes.Length);
+                file.Flush(true);
             }
-            catch (Exception exception) when (
-                exception is IOException || exception is UnauthorizedAccessException)
+            for (int attempt = 1; ; attempt++)
             {
-                lastException = exception;
-                if (attempt < 8)
+                try
+                {
+                    if (File.Exists(path))
+                        File.Replace(temporary, path, null);
+                    else
+                        File.Move(temporary, path);
+                    return;
+                }
+                catch (Exception exception) when (attempt < 8 &&
+                    (exception is IOException || exception is UnauthorizedAccessException))
+                {
                     Thread.Sleep(attempt * 25);
+                }
             }
         }
-        throw new IOException($"Failed to atomically replace checkpoint '{path}'.", lastException);
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
     }
 }

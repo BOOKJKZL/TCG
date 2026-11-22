@@ -52,6 +52,7 @@ public sealed class TcgdexImportService : IDisposable
             .Select(id => id.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        using var importLock = ContentImportFile.AcquireWriteLock(Path.Combine(options.OutputRoot, options.Language));
         var checkpoint = new ContentImportCheckpointStore(
             options.OutputRoot, options.Language, options.ImageQuality, options.ImageExtension);
         checkpoint.Begin(normalizedSetIds);
@@ -64,7 +65,7 @@ public sealed class TcgdexImportService : IDisposable
         foreach (string setId in normalizedSetIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!options.RefreshExistingFiles && checkpoint.IsSetComplete(setId))
+            if (!options.RefreshExistingFiles && checkpoint.IsSetComplete(setId, options.MaximumCardsPerSet))
             {
                 summary.SkippedSetCount++;
                 continue;
@@ -125,7 +126,7 @@ public sealed class TcgdexImportService : IDisposable
         Directory.CreateDirectory(rawCardsDirectory);
         Directory.CreateDirectory(imagesDirectory);
 
-        WriteTextAtomic(Path.Combine(rawDirectory, "set.json"),
+        ContentImportFile.WriteText(Path.Combine(rawDirectory, "set.json"),
             setObject.ToString(Formatting.Indented));
 
         JArray cardBriefs = setObject["cards"] as JArray ?? new JArray();
@@ -189,9 +190,9 @@ public sealed class TcgdexImportService : IDisposable
             }
             finally
             {
+                semaphore.Release();
                 if (attemptFinished)
                     checkpoint.RecordCard(actualSetId, cardId, errors[index]?.Message);
-                semaphore.Release();
                 int current = Interlocked.Increment(ref completed);
                 progress?.Report(new ContentImportProgress
                 {
@@ -210,7 +211,7 @@ public sealed class TcgdexImportService : IDisposable
             .OrderBy(card => card.LocalId, StringComparer.Ordinal));
         manifest.Errors.AddRange(errors.Where(error => error != null));
 
-        WriteTextAtomic(Path.Combine(setDirectory, "manifest.json"),
+        ContentImportFile.WriteText(Path.Combine(setDirectory, "manifest.json"),
             JsonConvert.SerializeObject(manifest, Formatting.Indented));
         checkpoint.CompleteSet(actualSetId);
         return new ImportSetOutcome(manifest, reusedMetadata, reusedImages);
@@ -238,7 +239,7 @@ public sealed class TcgdexImportService : IDisposable
         {
             cardJson = await GetStringWithRetryAsync(cardUrl, options, cancellationToken)
                 .ConfigureAwait(false);
-            WriteTextAtomic(rawPath, JObject.Parse(cardJson).ToString(Formatting.Indented));
+            ContentImportFile.WriteText(rawPath, JObject.Parse(cardJson).ToString(Formatting.Indented));
             reusedMetadata = false;
         }
 
@@ -265,7 +266,7 @@ public sealed class TcgdexImportService : IDisposable
             {
                 bytes = await GetBytesWithRetryAsync(imageUrl, options, cancellationToken)
                     .ConfigureAwait(false);
-                WriteBytesAtomic(imagePath, bytes);
+                ContentImportFile.WriteBytes(imagePath, bytes);
             }
 
             imageRelativePath = RelativePath(setDirectory, imagePath);
@@ -428,21 +429,6 @@ public sealed class TcgdexImportService : IDisposable
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "UniversalGachaSimulator-PrivateImporter/2.0");
         return client;
-    }
-
-    private static void WriteTextAtomic(string path, string content)
-    {
-        WriteBytesAtomic(path, new UTF8Encoding(false).GetBytes(content));
-    }
-
-    private static void WriteBytesAtomic(string path, byte[] bytes)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporaryPath = path + ".download";
-        File.WriteAllBytes(temporaryPath, bytes);
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporaryPath, path);
     }
 
     private static string ComputeSha256(byte[] bytes)

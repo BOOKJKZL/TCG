@@ -88,6 +88,7 @@ public static class SimplifiedChineseImageOptimizer
         if (!Directory.Exists(languageRoot))
             throw new DirectoryNotFoundException("Language import directory was not found: " + languageRoot);
 
+        using var importLock = ContentImportFile.AcquireWriteLock(languageRoot);
         var report = new SimplifiedChineseImageOptimizationReport
         {
             GeneratedAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
@@ -110,7 +111,7 @@ public static class SimplifiedChineseImageOptimizer
         string destination = string.IsNullOrWhiteSpace(outputPath)
             ? Path.Combine(languageRoot, "image-optimization-audit.json")
             : Path.GetFullPath(outputPath);
-        WriteTextAtomic(destination, JsonConvert.SerializeObject(report, Formatting.Indented));
+        ContentImportFile.WriteText(destination, JsonConvert.SerializeObject(report, Formatting.Indented));
         return report;
     }
 
@@ -151,36 +152,32 @@ public static class SimplifiedChineseImageOptimizer
             }
 
             string extension = Path.GetExtension(sourcePath);
-            if (string.Equals(extension, ".webp", StringComparison.OrdinalIgnoreCase))
-            {
-                byte[] existing = File.ReadAllBytes(sourcePath);
-                report.ExistingWebpImageCount++;
-                report.BeforeBytes += existing.LongLength;
-                report.AfterBytes += existing.LongLength;
-                continue;
-            }
-            if (!string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
-            {
-                Failure(report, manifest.Set.Id, card.Id,
-                    "Only PNG inputs can be optimized; found " + extension + ".");
-                continue;
-            }
-
             try
             {
+                if (string.Equals(extension, ".webp", StringComparison.OrdinalIgnoreCase))
+                {
+                    byte[] existing = File.ReadAllBytes(sourcePath);
+                    if (card.ImageBytes != 0 && card.ImageBytes != existing.LongLength)
+                        throw new InvalidDataException("Existing WebP size does not match the manifest.");
+                    if (!string.IsNullOrEmpty(card.ImageSha256) &&
+                        !string.Equals(card.ImageSha256, Sha256(existing), StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("Existing WebP SHA-256 does not match the manifest.");
+                    ValidateWebp(existing);
+                    report.ExistingWebpImageCount++;
+                    report.BeforeBytes += existing.LongLength;
+                    report.AfterBytes += existing.LongLength;
+                    continue;
+                }
+                if (!string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Only PNG inputs can be optimized; found " + extension + ".");
+
                 byte[] png = File.ReadAllBytes(sourcePath);
                 report.BeforeBytes += png.LongLength;
                 string webpPath = Path.ChangeExtension(sourcePath, ".webp");
                 byte[] webp;
-                if (File.Exists(webpPath))
+                if (IsWebp(png))
                 {
-                    webp = File.ReadAllBytes(webpPath);
-                }
-                else if (IsWebp(png))
-                {
-                    webp = png;
-                    WriteBytesAtomic(webpPath, webp);
-                    report.ConvertedImageCount++;
+                    webp = ValidateWebp(png);
                     report.RelabeledWebpImageCount++;
                 }
                 else
@@ -194,14 +191,22 @@ public static class SimplifiedChineseImageOptimizer
                         byte[] repaired = DownloadReplacement(
                             card.ImageSourceUrl,
                             replacementDownloader);
-                        webp = IsWebp(repaired) ? repaired : EncodePng(repaired, quality);
+                        webp = IsWebp(repaired) ? ValidateWebp(repaired) : EncodePng(repaired, quality);
                         report.RepairedSourceImageCount++;
                     }
-                    WriteBytesAtomic(webpPath, webp);
-                    report.ConvertedImageCount++;
                 }
+                string digest = Sha256(webp);
+                if (File.Exists(webpPath) && !string.Equals(Sha256(File.ReadAllBytes(webpPath)), digest, StringComparison.Ordinal) &&
+                    manifest.Cards.Any(other => other != card &&
+                        string.Equals(ResolveWithin(setDirectory, other.ImageRelativePath), webpPath, PathComparison())))
+                {
+                    webpPath = Path.Combine(Path.GetDirectoryName(webpPath),
+                        Path.GetFileNameWithoutExtension(webpPath) + "-" + digest + ".webp");
+                }
+                ContentImportFile.WriteBytes(webpPath, webp);
+                report.ConvertedImageCount++;
                 card.ImageRelativePath = RelativePath(setDirectory, webpPath);
-                card.ImageSha256 = Sha256(webp);
+                card.ImageSha256 = digest;
                 card.ImageBytes = webp.LongLength;
                 report.AfterBytes += webp.LongLength;
                 originalsToDelete.Add(sourcePath);
@@ -215,10 +220,22 @@ public static class SimplifiedChineseImageOptimizer
 
         if (!changed)
             return;
-        WriteTextAtomic(manifestPath, JsonConvert.SerializeObject(manifest, Formatting.Indented));
+        ContentImportFile.WriteText(manifestPath, JsonConvert.SerializeObject(manifest, Formatting.Indented));
+        var referenced = new HashSet<string>(manifest.Cards
+            .Select(card => ResolveWithin(setDirectory, card.ImageRelativePath)), PathComparer());
         foreach (string original in originalsToDelete.Distinct(PathComparer()))
-            if (File.Exists(original))
+        {
+            if (referenced.Contains(original) || !File.Exists(original))
+                continue;
+            try
+            {
                 File.Delete(original);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                Failure(report, manifest.Set.Id, null, $"Manifest saved, but PNG cleanup failed: {original}: {exception.Message}");
+            }
+        }
     }
 
     private static byte[] EncodePng(byte[] png, float quality)
@@ -237,6 +254,15 @@ public static class SimplifiedChineseImageOptimizer
         {
             UnityEngine.Object.DestroyImmediate(texture);
         }
+    }
+
+    private static byte[] ValidateWebp(byte[] bytes)
+    {
+        Texture2DExt.GetWebPDimensions(bytes, out int width, out int height);
+        byte[] decoded = Texture2DExt.LoadRGBAFromWebP(bytes, ref width, ref height, false, out Error error);
+        if (error != Error.Success || decoded == null || decoded.Length == 0)
+            throw new InvalidDataException("Source WebP could not be decoded: " + error);
+        return bytes;
     }
 
     private static bool IsWebp(byte[] bytes) =>
@@ -314,19 +340,6 @@ public static class SimplifiedChineseImageOptimizer
             CardId = cardId,
             Message = message
         });
-    }
-
-    private static void WriteTextAtomic(string path, string value) =>
-        WriteBytesAtomic(path, new UTF8Encoding(false).GetBytes(value));
-
-    private static void WriteBytesAtomic(string path, byte[] bytes)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
-        string temporary = path + ".download";
-        File.WriteAllBytes(temporary, bytes);
-        if (File.Exists(path))
-            File.Delete(path);
-        File.Move(temporary, path);
     }
 
     private static StringComparer PathComparer() =>

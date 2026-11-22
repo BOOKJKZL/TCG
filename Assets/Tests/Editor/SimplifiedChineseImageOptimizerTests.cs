@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using WebP;
@@ -99,6 +100,51 @@ public class SimplifiedChineseImageOptimizerTests
         Assert.That(File.Exists(Path.Combine(imageDirectory, "card-1.png")), Is.False);
         Assert.That(File.ReadAllBytes(Path.Combine(imageDirectory, "card-1.webp")), Is.EqualTo(sourceWebp));
         Assert.That(File.Exists(Path.Combine(imageDirectory, "card-2.webp")), Is.True);
+    }
+
+    [TestCase("valid")]
+    [TestCase("legacy")]
+    [TestCase("size")]
+    [TestCase("hash")]
+    [TestCase("invalid")]
+    [TestCase("truncated")]
+    public void Optimize_ChecksExistingWebpWithoutChangingSource(string fixture)
+    {
+        string setDirectory = Path.Combine(temporaryDirectory, "zh-cn", "sample");
+        Directory.CreateDirectory(setDirectory);
+        string imagePath = Path.Combine(setDirectory, "image.webp");
+        // A 1x1 red pixel generated with WebPEncodeLosslessRGBA.
+        byte[] bytes = Convert.FromBase64String("UklGRhwAAABXRUJQVlA4TA8AAAAvAAAAAAcQ/Y/+ByKi/wEA");
+        if (fixture == "invalid")
+            bytes = new byte[6];
+        if (fixture == "truncated")
+            bytes = bytes.Take(24).ToArray();
+        File.WriteAllBytes(imagePath, bytes);
+
+        var card = new JObject { ["Id"] = "sample-1", ["ImageRelativePath"] = "image.webp" };
+        if (fixture != "legacy")
+        {
+            card["ImageBytes"] = fixture == "size" ? 250L : bytes.LongLength;
+            card["ImageSha256"] = fixture == "hash" ? new string('0', 64) : Hash(bytes);
+        }
+        string manifestPath = Path.Combine(setDirectory, "manifest.json");
+        string original = new JObject
+        {
+            ["Set"] = new JObject { ["Id"] = "sample" },
+            ["Cards"] = new JArray(card)
+        }.ToString();
+        File.WriteAllText(manifestPath, original);
+
+        SimplifiedChineseImageOptimizationReport report = SimplifiedChineseImageOptimizer.Optimize(temporaryDirectory);
+        bool valid = fixture == "valid" || fixture == "legacy";
+        Assert.That(report.IsValid, Is.EqualTo(valid));
+        Assert.That(report.ExistingWebpImageCount, Is.EqualTo(valid ? 1 : 0));
+        Assert.That(report.ConvertedImageCount, Is.Zero);
+        Assert.That(report.Failures.Count, Is.EqualTo(valid ? 0 : 1));
+        if (!valid)
+            Assert.That(report.Failures.Single().CardId, Is.EqualTo("sample-1"));
+        Assert.That(File.ReadAllText(manifestPath), Is.EqualTo(original));
+        Assert.That(File.ReadAllBytes(imagePath), Is.EqualTo(bytes));
     }
 
     private string WriteFixture()

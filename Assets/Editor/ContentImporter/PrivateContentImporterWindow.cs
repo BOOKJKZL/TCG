@@ -280,6 +280,8 @@ public sealed class PrivateContentImporterWindow : EditorWindow
         {
             ContentImportSummary summary = RunHistoricalImportAsync().GetAwaiter().GetResult();
             Debug.Log(FormatSummary(summary));
+            if (Application.isBatchMode && (summary.ErrorCount > 0 || summary.FailedSetCount > 0))
+                EditorApplication.Exit(2);
         }
         catch (Exception exception)
         {
