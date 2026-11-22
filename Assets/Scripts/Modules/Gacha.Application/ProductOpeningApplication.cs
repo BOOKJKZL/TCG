@@ -91,16 +91,19 @@ namespace Gacha.Application
         internal ProductOddsSummary(
             int totalDrawCount,
             IReadOnlyList<RarityOdds> rarities,
-            bool hasConditionalGuarantees)
+            bool hasConditionalGuarantees,
+            bool usesBasePoolWeights)
         {
             TotalDrawCount = totalDrawCount;
             Rarities = rarities;
             HasConditionalGuarantees = hasConditionalGuarantees;
+            UsesBasePoolWeights = usesBasePoolWeights;
         }
 
         public int TotalDrawCount { get; }
         public IReadOnlyList<RarityOdds> Rarities { get; }
         public bool HasConditionalGuarantees { get; }
+        public bool UsesBasePoolWeights { get; }
     }
 
     public static class ProductOddsAnalyzer
@@ -114,11 +117,22 @@ namespace Gacha.Application
 
             int totalDrawCount = 0;
             var expectedByRarity = new Dictionary<string, double>(StringComparer.Ordinal);
-            foreach (SlotRule slot in rules.Slots)
+            var previousPrintingIds = new HashSet<string>(StringComparer.Ordinal);
+            bool usesBasePoolWeights = false;
+            foreach (SlotRule slot in rules.Slots.OrderBy(slot => slot.RevealOrder))
             {
                 totalDrawCount += slot.DrawCount;
                 WeightedPool pool = rules.Pools[slot.PoolId];
-                double totalWeight = pool.Entries.Sum(entry => entry.Weight);
+                var printingIds = new HashSet<string>(pool.Entries.Select(entry => entry.PrintingId), StringComparer.Ordinal);
+                bool overlapsPriorDraw = previousPrintingIds.Overlaps(printingIds);
+                bool takesEveryPrinting = !slot.AllowDuplicates && !overlapsPriorDraw && slot.DrawCount == printingIds.Count;
+                double scale = pool.Entries.Max(entry => entry.Weight);
+                double totalWeight = pool.Entries.Sum(entry => entry.Weight / scale);
+                bool equalWeights = pool.Entries.Count == printingIds.Count && pool.Entries.All(entry => entry.Weight == scale);
+                if (!slot.AllowDuplicates && !takesEveryPrinting &&
+                    (overlapsPriorDraw || (slot.DrawCount > 1 && !equalWeights)))
+                    usesBasePoolWeights = true;
+                previousPrintingIds.UnionWith(printingIds);
                 foreach (IGrouping<string, WeightedPoolEntry> group in pool.Entries.GroupBy(entry =>
                 {
                     if (!catalog.Printings.TryGetValue(entry.PrintingId, out PrintingDefinition printing))
@@ -128,7 +142,9 @@ namespace Gacha.Application
                     return printing.RarityId;
                 }, StringComparer.Ordinal))
                 {
-                    double expected = slot.DrawCount * group.Sum(entry => entry.Weight) / totalWeight;
+                    double expected = takesEveryPrinting
+                        ? group.Select(entry => entry.PrintingId).Distinct(StringComparer.Ordinal).Count()
+                        : slot.DrawCount * (group.Sum(entry => entry.Weight / scale) / totalWeight);
                     expectedByRarity[group.Key] = expectedByRarity.TryGetValue(group.Key, out double current)
                         ? current + expected
                         : expected;
@@ -151,7 +167,8 @@ namespace Gacha.Application
             return new ProductOddsSummary(
                 totalDrawCount,
                 new ReadOnlyCollection<RarityOdds>(odds),
-                rules.Guarantees.Count > 0);
+                rules.Guarantees.Count > 0,
+                usesBasePoolWeights);
         }
     }
 

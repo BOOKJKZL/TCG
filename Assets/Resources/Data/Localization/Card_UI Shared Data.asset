@@ -563,6 +563,10 @@ MonoBehaviour:
     m_Key: gacha.action.choose_another
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745853999
+    m_Key: gacha.odds.base_heading
+    m_Metadata:
+      m_Items: []
   - m_Id: 166673783745851488
     m_Key: gacha.odds.heading
     m_Metadata:

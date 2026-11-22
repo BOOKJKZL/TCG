@@ -581,6 +581,10 @@ MonoBehaviour:
     m_Localized: "\u5225\u306E\u30D1\u30C3\u30AF\u3092\u9078\u3076"
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745853999
+    m_Localized: "各枠の重みによる確率です。重複なしの抽選や確定枠では確率が変わることがあります。"
+    m_Metadata:
+      m_Items: []
   - m_Id: 166673783745851488
     m_Localized: "\u30AB\u30FC\u30C9\u67A0\u3054\u3068\u306E\u5E73\u5747\u78BA\u7387"
     m_Metadata:

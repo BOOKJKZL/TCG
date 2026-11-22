@@ -145,6 +145,7 @@ namespace Gacha.Presentation
                 ["gacha.action.open_another"] = "Open another",
                 ["gacha.action.choose_another"] = "Choose another",
                 ["gacha.odds.heading"] = "Average chance per card slot",
+                ["gacha.odds.base_heading"] = "Odds use the weights for each slot. Duplicate limits and guarantees can change the final odds.",
                 ["gacha.product.metadata"] = "{0} · {1} printings · {2}",
                 ["gacha.reveal.metadata"] = "#{0} · {1} · {2} · Owned {3}",
                 ["gacha.pack.batch_title"] = "{1} ×{0}",

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Gacha.Application;
 using Gacha.Domain;
@@ -39,6 +40,65 @@ public class ProductOpeningApplicationTests
             Is.EqualTo(1.75d).Within(0.0001d));
         Assert.That(summary.Rarities.Sum(item => item.AverageSlotProbability),
             Is.EqualTo(1d).Within(0.0001d));
+    }
+
+    [Test]
+    public void OddsAnalyzer_DisclosesCrossSlotWeightsAndCalculatesWholeUniquePoolExactly()
+    {
+        Fixture fixture = CreateFixture();
+        var pool = new WeightedPool("pool", new[]
+        {
+            new WeightedPoolEntry(fixture.Common.Id, 1e308),
+            new WeightedPoolEntry(fixture.Rare.Id, 8e307)
+        });
+        ProductOddsSummary Analyze(params SlotRule[] slots) => ProductOddsAnalyzer.Analyze(fixture.Catalog,
+            new ProductDrawRules(fixture.Product.Id, new[] { pool }, slots));
+
+        ProductOddsSummary weighted = Analyze(new SlotRule("regular", pool.Id));
+        Assert.That(weighted.UsesBasePoolWeights, Is.False);
+        Assert.That(weighted.Rarities.Single(r => r.RarityId == fixture.Rare.RarityId).AverageSlotProbability,
+            Is.EqualTo(4d / 9d).Within(1e-12));
+        ProductOddsSummary all = Analyze(new SlotRule("unique", pool.Id, 2, allowDuplicates: false));
+        Assert.That(all.UsesBasePoolWeights, Is.False);
+        Assert.That(all.Rarities.Select(r => r.ExpectedCount), Is.EquivalentTo(new[] { 1d, 1d }));
+        ProductOddsSummary dependent = Analyze(new SlotRule("first", pool.Id),
+            new SlotRule("exclude-first", pool.Id, revealOrder: 1, allowDuplicates: false));
+        Assert.That(dependent.UsesBasePoolWeights, Is.True);
+        Assert.That(dependent.Rarities.Sum(r => r.AverageSlotProbability), Is.EqualTo(1d).Within(1e-12));
+    }
+
+    [Test]
+    [Category("Performance")]
+    public void ContinuousOpening_MeasuresIsolatedDurableCommitsAndReloadsHistory()
+    {
+        const int count = 16;
+        string root = Path.Combine(Path.GetTempPath(), "opening-cost-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "save.json");
+        var host = new GameObject("isolated inventory");
+        host.SetActive(false);
+        try
+        {
+            var store = new PlayerInventoryProgressStore(host.AddComponent<Inventory>(),
+                data => LocalSaveService.SaveToPath(path, data));
+            Fixture fixture = CreateFixture();
+            var service = new ProductOpeningService(fixture.Catalog, new UniformSimulationRuleProvider(3), store);
+            var random = new SystemGachaRandomSource(1024);
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < count; i++) service.Open(fixture.Product.Id, random);
+            elapsed.Stop();
+            var loaded = LocalSaveService.LoadFromPath(path);
+            Assert.That(loaded.Revision, Is.EqualTo(count));
+            Assert.That(loaded.Data.OpeningHistory.Count, Is.EqualTo(count));
+            Assert.That(loaded.Data.Cards.Values.Sum(), Is.EqualTo(count * 3));
+            Assert.That(LocalSaveService.LoadFromPath(path + ".backup").Revision, Is.EqualTo(count - 1));
+            TestContext.WriteLine($"DurableOpening packs={count} elapsedMs={elapsed.Elapsed.TotalMilliseconds:F1} activeBytes={new FileInfo(path).Length}");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(host);
+            Directory.Delete(root, true);
+        }
     }
 
     [Test]

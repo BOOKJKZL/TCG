@@ -574,6 +574,10 @@ MonoBehaviour:
     m_Localized: "\u9009\u62E9\u5176\u4ED6\u5361\u5305"
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745853999
+    m_Localized: "每个卡位按权重计算。去重和保底可能改变抽取概率。"
+    m_Metadata:
+      m_Items: []
   - m_Id: 166673783745851488
     m_Localized: "\u6BCF\u4E2A\u5361\u4F4D\u7684\u5E73\u5747\u6982\u7387"
     m_Metadata:

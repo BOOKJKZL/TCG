@@ -1105,8 +1105,16 @@ public sealed class GachaViewController : MonoBehaviour
         packCarousel?.SetTextures(selectedThemeArtwork, selectedThemeBackArtwork);
     }
 
+    private void RefreshOddsHeading()
+    {
+        bool conditional = selectedOdds != null &&
+            (selectedOdds.UsesBasePoolWeights || selectedOdds.HasConditionalGuarantees);
+        oddsHeading.text = CardUiText.Get(conditional ? "gacha.odds.base_heading" : "gacha.odds.heading");
+    }
+
     private void BuildOddsList()
     {
+        RefreshOddsHeading();
         oddsList.Clear();
         if (selectedOdds == null)
             return;
@@ -1469,7 +1477,7 @@ public sealed class GachaViewController : MonoBehaviour
             : CardUiText.Get("gacha.action.open_ten_again"));
         summaryProductsAction?.SetLabel(CardUiText.Get("gacha.action.choose_another"));
         primaryNavigation?.RefreshText();
-        oddsHeading.text = CardUiText.Get("gacha.odds.heading");
+        RefreshOddsHeading();
         if (selectedProduct != null)
         {
             if (!textOnly) SelectProduct(selectedProduct);

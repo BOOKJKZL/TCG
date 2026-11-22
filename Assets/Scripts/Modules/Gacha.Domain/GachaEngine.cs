@@ -15,7 +15,8 @@ namespace Gacha.Domain
     {
         private readonly Random random;
 
-        public SystemGachaRandomSource() : this(Environment.TickCount) { }
+        private static int nextSeed = Environment.TickCount;
+        public SystemGachaRandomSource() : this(System.Threading.Interlocked.Increment(ref nextSeed)) { }
         public SystemGachaRandomSource(int seed) => random = new Random(seed);
         public double Value => random.NextDouble();
         public int Range(int minInclusive, int maxExclusive) => random.Next(minInclusive, maxExclusive);
@@ -58,6 +59,15 @@ namespace Gacha.Domain
 
     public sealed class GachaEngine
     {
+        private readonly IGachaRandomSource defaultRandom;
+
+        public GachaEngine() : this(new SystemGachaRandomSource()) { }
+
+        public GachaEngine(IGachaRandomSource defaultRandom)
+        {
+            this.defaultRandom = defaultRandom ?? throw new ArgumentNullException(nameof(defaultRandom));
+        }
+
         public ProductDrawResult Draw(
             UniversalCatalog catalog,
             ProductDrawRules rules,
@@ -67,7 +77,7 @@ namespace Gacha.Domain
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
             if (rules == null) throw new ArgumentNullException(nameof(rules));
             if (productsOpenedBeforeDraw < 0) throw new ArgumentOutOfRangeException(nameof(productsOpenedBeforeDraw));
-            random ??= new SystemGachaRandomSource();
+            random ??= defaultRandom;
 
             ValidateAgainstCatalog(catalog, rules);
             List<DrawnPrinting> results = new List<DrawnPrinting>();
@@ -147,12 +157,13 @@ namespace Gacha.Domain
             if (available.Length == 0)
                 throw new GachaRuleException($"Pool '{pool.Id}' has no available entries after duplicate filtering.");
 
-            double totalWeight = available.Sum(entry => entry.Weight);
+            double scale = available.Max(entry => entry.Weight);
+            double totalWeight = available.Sum(entry => entry.Weight / scale);
             double roll = Math.Max(0d, Math.Min(0.999999999999d, random.Value)) * totalWeight;
             double cumulative = 0d;
             foreach (WeightedPoolEntry entry in available)
             {
-                cumulative += entry.Weight;
+                cumulative += entry.Weight / scale;
                 if (roll < cumulative) return entry.PrintingId;
             }
             return available[available.Length - 1].PrintingId;

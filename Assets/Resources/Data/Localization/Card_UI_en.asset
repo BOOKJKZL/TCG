@@ -568,6 +568,10 @@ MonoBehaviour:
     m_Localized: Choose another
     m_Metadata:
       m_Items: []
+  - m_Id: 166673783745853999
+    m_Localized: Odds use the weights for each slot. Duplicate limits and guarantees can change the final odds.
+    m_Metadata:
+      m_Items: []
   - m_Id: 166673783745851488
     m_Localized: Average chance per card slot
     m_Metadata:

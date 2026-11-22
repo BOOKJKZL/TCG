@@ -145,6 +145,30 @@ public class GachaEngineTests
         public int Range(int minInclusive, int maxExclusive) => minInclusive;
     }
 
+    private sealed class ScriptedRandom : IGachaRandomSource
+    {
+        private readonly Queue<double> values;
+        public ScriptedRandom(params double[] values) => this.values = new Queue<double>(values);
+        public double Value => values.Dequeue();
+        public int Range(int minInclusive, int maxExclusive) => minInclusive;
+    }
+
+    [Test]
+    public void Draw_AdvancesEngineRandomAcrossCallsAndSamplesLargeFiniteWeights()
+    {
+        var fixture = new Fixture();
+        var pool = new WeightedPool("huge-weights", new[]
+        {
+            new WeightedPoolEntry(fixture.CommonA.Id, 1e308),
+            new WeightedPoolEntry(fixture.Rare.Id, 1e308)
+        });
+        var rules = new ProductDrawRules(fixture.Product.Id, new[] { pool }, new[] { new SlotRule("slot", pool.Id) });
+        var engine = new GachaEngine(new ScriptedRandom(0.25, 0.75));
+        Assert.That(engine.Draw(fixture.Catalog, rules, 0).Printings.Single().PrintingId, Is.EqualTo(fixture.CommonA.Id));
+        Assert.That(engine.Draw(fixture.Catalog, rules, 1, new MinimumRandom()).Printings.Single().PrintingId, Is.EqualTo(fixture.CommonA.Id));
+        Assert.That(engine.Draw(fixture.Catalog, rules, 2).Printings.Single().PrintingId, Is.EqualTo(fixture.Rare.Id));
+    }
+
     private static Dictionary<string, string> Name(string value)
     {
         return new Dictionary<string, string> { ["en"] = value };
