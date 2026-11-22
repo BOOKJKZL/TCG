@@ -153,6 +153,63 @@ function Invoke-Adb {
         -Arguments (@("-s", $TargetSerial) + $Arguments) -FailureMessage $FailureMessage
 }
 
+function Install-PreflightApk {
+    param([string]$ResolvedAdbPath, [string]$TargetSerial, [string]$PackageId, [string]$ApkPath)
+
+    $packages = Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell", "pm", "list", "packages", "--user", "0", $PackageId)
+    $installed = ($packages -split "`r?`n") -ccontains "package:$PackageId"
+    $canProbe = $false
+    if ($installed) {
+        $availability = Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell",
+            "if run-as $PackageId id >/dev/null 2>&1; then echo available; else echo unavailable; fi")
+        Assert-Condition ($availability -cin @("available", "unavailable")) "Unexpected run-as probe response."
+        $canProbe = $availability -ceq "available"
+    }
+
+    $ownsDirectory = $false
+    $failure = $null
+    try {
+        if ($canProbe) {
+            $token = [Guid]::NewGuid().ToString("N")
+            $directory = ".gacha-preflight-$token"
+            $marker = "$directory/token"
+            Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell", "run-as", $PackageId, "mkdir", $directory) | Out-Null
+            $ownsDirectory = $true
+            Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell", "run-as $PackageId sh -c 'echo $token > $marker'") | Out-Null
+            $readMarker = @("exec-out", "run-as", $PackageId, "cat", $marker)
+            $before = Invoke-Adb $ResolvedAdbPath $TargetSerial $readMarker "Could not read the pre-upgrade private marker"
+            Assert-Condition ($before -ceq $token) "Could not establish the private data baseline."
+        }
+
+        $install = Invoke-Adb $ResolvedAdbPath $TargetSerial @("install", "-r", $ApkPath) "Could not install emulator APK"
+        Assert-Condition ($install -match 'Success') "ADB install did not report Success."
+        if (-not $canProbe) {
+            $reason = if ($installed) { "existing package is inaccessible to run-as" } else { "package was absent" }
+            Write-Host "Private data preservation unverified ($reason)."
+            return $false
+        }
+        $after = Invoke-Adb $ResolvedAdbPath $TargetSerial $readMarker "Could not read the post-upgrade private marker"
+        Assert-Condition ($after -ceq $token) "Upgrade installation did not preserve the private data marker."
+        return $true
+    }
+    catch {
+        $failure = $_.Exception.Message
+        throw
+    }
+    finally {
+        if ($ownsDirectory) {
+            try {
+                Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell", "run-as", $PackageId, "rm", "-f", $marker) | Out-Null
+                Invoke-Adb $ResolvedAdbPath $TargetSerial @("shell",
+                    "run-as $PackageId sh -c 'if [ -d $directory ]; then rmdir $directory; fi'") | Out-Null
+            }
+            catch {
+                throw "$failure Private probe cleanup failed for $directory. $($_.Exception.Message)"
+            }
+        }
+    }
+}
+
 function Wait-AdbTargetReady {
     param(
         [string]$ResolvedAdbPath,
@@ -489,10 +546,7 @@ try {
         "Recovered ADB target no longer advertises x86_64 ABI."
     $checks.postBuildDeviceReady = $true
 
-    $installOutput = Invoke-Adb $resolvedAdbPath $Serial @("install", "-r", $artifactPath) `
-        "Could not upgrade-install emulator APK"
-    Assert-Condition ($installOutput -match 'Success') "ADB install did not report Success."
-    $checks.upgradeInstallPreservedData = $true
+    $checks.upgradeInstallPreservedData = Install-PreflightApk $resolvedAdbPath $Serial $packageId $artifactPath
 
     $packageDump = Invoke-Adb $resolvedAdbPath $Serial @("shell", "dumpsys", "package", $packageId)
     Assert-Condition ($packageDump -match 'primaryCpuAbi=x86_64') "Installed package ABI is not x86_64."
