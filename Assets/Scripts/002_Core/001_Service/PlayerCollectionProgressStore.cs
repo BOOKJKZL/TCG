@@ -7,7 +7,7 @@ public sealed class PlayerCollectionProgressStore : ICollectionProgressStore
     private readonly Action<InventoryData> saveLocal;
 
     public PlayerCollectionProgressStore()
-        : this(null, LocalSaveService.Save)
+        : this(null, LocalSaveService.Commit)
     {
     }
 

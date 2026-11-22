@@ -17,9 +17,7 @@ public class GameBootloader : MonoBehaviour
         EnsureCoreObjectsExist();
 
         // Local data is available immediately and is always the offline fallback.
-        LocalSaveLoadResult localLoad = LocalSaveService.LoadDetailed();
-        InventoryData local = localLoad.Data;
-        Inventory.Instance.ReplaceData(local);
+        Inventory.Instance.ReplaceData(LocalSaveService.LoadDetailed().Data);
 
         _cloudReady = await CloudSaveServiceWrapper.InitializeAsync();
         if (_cloudReady)
@@ -27,8 +25,9 @@ public class GameBootloader : MonoBehaviour
             CloudInventoryLoadResult cloudLoad = await CloudSaveServiceWrapper.LoadInventoryAsync();
             if (cloudLoad.Succeeded)
             {
+                // A failed local commit may have replaced the inventory while the cloud was loading.
                 InventoryConflictPreparation preparation =
-                    GameCloudConflictSession.Current.Prepare(local, cloudLoad.Data, cloudLoad.Found);
+                    GameCloudConflictSession.Current.Prepare(Inventory.Instance.Data, cloudLoad.Data, cloudLoad.Found);
                 Inventory.Instance.ReplaceData(preparation.Selected);
                 if (preparation.RequiresChoice)
                 {

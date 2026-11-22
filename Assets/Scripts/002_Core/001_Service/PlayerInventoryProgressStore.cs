@@ -11,7 +11,7 @@ public sealed class PlayerInventoryProgressStore : IInventoryProgressStore
     private readonly Action<InventoryData> saveLocal;
 
     public PlayerInventoryProgressStore()
-        : this(null, LocalSaveService.Save)
+        : this(null, LocalSaveService.Commit)
     {
     }
 

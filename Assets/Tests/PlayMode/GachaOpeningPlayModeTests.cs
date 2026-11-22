@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Gacha.Application;
@@ -143,7 +144,7 @@ namespace Gacha.Tests.PlayMode
                 safeArea.style.paddingTop = 60f;
                 safeArea.style.paddingRight = 12f;
                 safeArea.style.paddingBottom = 84f;
-                visualCapture = CoreNeutralSceneCapture.BeginIfRequested(document, viewport,
+                visualCapture = CoreNeutralSceneCapture.BeginForFixedViewport(document, viewport,
                     "GachaScene_OpensAndRevealsASimulatedPack; installed local catalog/art; MemoryProgressStore inventory");
                 yield return null;
                 yield return null;
@@ -161,6 +162,8 @@ namespace Gacha.Tests.PlayMode
                 ScrollView selectedScroll = pageRoot.Q<ScrollView>("selected-product-scroll");
                 Assert.That(selectedScroll.worldBound.yMin,
                     Is.GreaterThanOrEqualTo(productList.worldBound.yMax - 1f));
+                originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
+                originalContentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("ja");
                 yield return null;
                 yield return null;
@@ -227,8 +230,6 @@ namespace Gacha.Tests.PlayMode
                 Assert.That((bool)GetProperty(controller, "HasSelectedThemeArtwork"), Is.True);
                 Assert.That(document.rootVisualElement.Q<VisualElement>("gacha-opening")
                     .ClassListContains("gacha-theme--vintage"), Is.True);
-                originalUiLanguage = ApplicationServices.Languages.UiLanguageId;
-                originalContentLanguage = ApplicationServices.Languages.RequestedContentLanguageId;
                 ApplicationServices.Languages.SelectUiLanguage("zh");
                 yield return WaitForLocalizedUi(() => document.rootVisualElement.Q<Label>("gacha-title").text == "开启卡包", "Chinese gacha title");
                 Assert.That(document.rootVisualElement.Q<Label>("gacha-title").text, Is.EqualTo("开启卡包"));
@@ -756,6 +757,82 @@ namespace Gacha.Tests.PlayMode
                     originalSound);
             }
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator DefaultStore_RecoveryLockKeepsPackPreparedUntilRetry() =>
+            VerifyFailedOpening(true);
+
+        [UnityTest]
+        public IEnumerator DefaultStore_TemporaryWriteFailureKeepsPackPreparedUntilRetry() =>
+            VerifyFailedOpening(false);
+
+        private static IEnumerator VerifyFailedOpening(bool lockForRecovery)
+        {
+            Type controllerType = Type.GetType("GachaViewController, Gacha.Runtime.Controllers", true);
+            PropertyInfo catalogOverride = controllerType.GetProperty("CatalogProviderOverride");
+            object previousCatalog = catalogOverride.GetValue(null);
+            using (var save = new IsolatedPlayerSave())
+            {
+                save.Initialize();
+                try
+                {
+                    catalogOverride.SetValue(null, new OpeningCatalog());
+                    yield return SceneManager.LoadSceneAsync("003_GachaScene", LoadSceneMode.Single);
+                    var controller = (Component)UnityEngine.Object.FindFirstObjectByType(controllerType);
+                    yield return WaitForLocalizedUi(() => (bool)GetProperty(controller, "IsReady"),
+                        "Opening fixture failed to initialize.");
+                    int openedEvents = 0;
+                    controllerType.GetEvent("PackOpened").AddEventHandler(controller,
+                        (Action<ProductDrawResult>)(_ => openedEvents++));
+                    Assert.That(InvokeBool(controller, "PrepareSelectedProduct"), Is.True);
+                    string before = save.InventorySnapshot;
+                    byte[] oldSave = File.ReadAllBytes(save.SavePath);
+                    if (lockForRecovery) save.LockAfterFailedLoad();
+                    else Directory.CreateDirectory(save.SavePath + ".tmp");
+
+                    Assert.That(InvokeBool(controller, "TearPack"), Is.False);
+                    Assert.That(GetProperty(controller, "CurrentStage"), Is.EqualTo("Prepared"));
+                    Assert.That(GetProperty(controller, "LastOpenedCardCount"), Is.EqualTo(0));
+                    Assert.That(openedEvents, Is.Zero);
+                    Assert.That(save.InventorySnapshot, Is.EqualTo(before));
+                    Assert.That(File.ReadAllBytes(save.SavePath), Is.EqualTo(oldSave));
+                    if (!lockForRecovery) Directory.Delete(save.SavePath + ".tmp");
+                    save.VerifyReload(0);
+
+                    Assert.That(InvokeBool(controller, "TearPack"), Is.True);
+                    Assert.That(InvokeBool(controller, "TearPack"), Is.False);
+                    Assert.That(openedEvents, Is.EqualTo(1));
+                    int cardCount = (int)GetProperty(controller, "LastOpenedCardCount");
+                    Assert.That(cardCount, Is.GreaterThan(0));
+                    var opening = (ProductOpeningService)GetPrivateField(controller, "openingService");
+                    var stats = opening.GetOpeningStatistics();
+                    Assert.That(stats.ProductsByLanguage["en"], Is.EqualTo(1));
+                    Assert.That(stats.ProductsBySet["home-set"], Is.EqualTo(1));
+                    Assert.That(stats.CardsByRarity["home-rare"], Is.EqualTo(cardCount));
+                    Assert.That(opening.GetOpeningHistory(10).Single().CardCount, Is.EqualTo(cardCount));
+                    Assert.That(save.InventoryField<Dictionary<string, int>>("PacksOpened").Values.Single(), Is.EqualTo(1));
+                    var cards = save.InventoryField<Dictionary<string, int>>("Cards");
+                    Assert.That(cards.Values.Sum(), Is.EqualTo(2 + cardCount));
+                    Assert.That(save.InventoryField<HashSet<string>>("UnseenPrintings"), Is.EquivalentTo(cards.Keys));
+                    save.VerifyReload(1);
+                }
+                finally
+                {
+                    catalogOverride.SetValue(null, previousCatalog);
+                }
+            }
+        }
+
+        private sealed class OpeningCatalog : ICatalogProvider
+        {
+            public CatalogLoadResult Load()
+            {
+                UniversalCatalog catalog = HomePlayModeTests.FixtureCatalog();
+                return CatalogLoadResult.Success(catalog, catalog.Sets.Count, catalog.Items.Count, catalog.Printings.Count);
+            }
+        }
+#endif
 
         [UnityTest]
         public IEnumerator GachaScene_MobileTwoPointerTearCommitsExactlyOnce()

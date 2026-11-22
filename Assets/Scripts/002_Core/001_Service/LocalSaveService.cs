@@ -75,41 +75,48 @@ public static class LocalSaveService
     private const string CorruptSuffix = ".corrupt";
     private static bool automaticSaveEnabled = true;
 
+#if UNITY_EDITOR
+    internal static string DefaultPathOverride;
+#endif
+
     public static bool IsAutomaticSaveEnabled => automaticSaveEnabled;
 
     public static void Save(InventoryData data)
     {
-        if (data == null || !automaticSaveEnabled)
-        {
-            if (!automaticSaveEnabled)
-            {
-                LocalDiagnosticLogStore.TryAppendDefault(
-                    "save",
-                    "SAVE_WRITE_BLOCKED",
-                    "Automatic local save remains disabled until an explicit recovery succeeds.");
-            }
+        if (data == null && automaticSaveEnabled)
             return;
+        try
+        {
+            Commit(data);
+        }
+        catch (Exception)
+        {
+            // Lifecycle saves are best effort. Commit has already recorded the failure.
+        }
+    }
+
+    public static void Commit(InventoryData data)
+    {
+        if (!automaticSaveEnabled)
+        {
+            const string message = "Automatic local save remains disabled until an explicit recovery succeeds.";
+            LocalDiagnosticLogStore.TryAppendDefault("save", "SAVE_WRITE_BLOCKED", message);
+            throw new LocalSaveException("SAVE_WRITE_BLOCKED", message);
         }
 
         try
         {
             SaveToPath(DefaultPath(), data);
         }
-        catch (LocalSaveException exception)
+        catch (Exception exception)
         {
-            LocalDiagnosticLogStore.TryAppendDefault(
-                "save",
-                exception.DiagnosticCode,
-                "The local save could not be written safely.");
-            Debug.LogWarning($"Local save was not written. Diagnostic code: {exception.DiagnosticCode}.");
-        }
-        catch (Exception)
-        {
-            LocalDiagnosticLogStore.TryAppendDefault(
-                "save",
-                "SAVE_WRITE_IO_FAILED",
-                "The local save could not be written safely.");
-            Debug.LogWarning("Local save was not written. Diagnostic code: SAVE_WRITE_IO_FAILED.");
+            const string message = "The local save could not be written safely.";
+            string code = (exception as LocalSaveException)?.DiagnosticCode ?? "SAVE_WRITE_IO_FAILED";
+            LocalDiagnosticLogStore.TryAppendDefault("save", code, message);
+            Debug.LogWarning($"Local save was not written. Diagnostic code: {code}.");
+            if (exception is IOException || exception is UnauthorizedAccessException)
+                throw new LocalSaveException(code, message, exception);
+            throw;
         }
     }
 
@@ -494,6 +501,10 @@ public static class LocalSaveService
 
     private static string DefaultPath()
     {
+#if UNITY_EDITOR
+        if (!string.IsNullOrEmpty(DefaultPathOverride))
+            return DefaultPathOverride;
+#endif
         return Path.Combine(Application.persistentDataPath, FileName);
     }
 

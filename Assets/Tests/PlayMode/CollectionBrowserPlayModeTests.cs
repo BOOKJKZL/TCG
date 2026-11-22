@@ -377,6 +377,52 @@ namespace Gacha.Tests.PlayMode
             }
         }
 
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator DefaultStore_MoveFailureKeepsNewBadgeUntilRetry()
+        {
+            Type controllerType = FindControllerType();
+            PropertyInfo catalogOverride = StaticProperty(controllerType, "CatalogOverride");
+            object previousCatalog = catalogOverride.GetValue(null);
+            using (var save = new IsolatedPlayerSave())
+            {
+                save.Initialize();
+                try
+                {
+                    catalogOverride.SetValue(null, BuildCardLanguageCatalog());
+                    yield return SceneManager.LoadSceneAsync("004_CollectionScene", LoadSceneMode.Single);
+                    Component controller = FindController(controllerType);
+                    yield return WaitUntilReady(controller);
+                    var root = controller.GetComponent<UIDocument>().rootVisualElement;
+                    Label badge = root.Q<Label>("detail-new-badge");
+                    string before = save.InventorySnapshot;
+                    byte[] oldSave = File.ReadAllBytes(save.SavePath);
+                    Directory.CreateDirectory(save.SavePath + ".backup");
+                    Invoke(controller, "ShowPrintingDetails", "card-025-en");
+                    Assert.That(root.Q<Label>("browser-status").ClassListContains("is-error"), Is.True);
+                    yield return null;
+                    Assert.That(badge.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                    Assert.That(save.InventorySnapshot, Is.EqualTo(before));
+                    Assert.That(File.ReadAllBytes(save.SavePath), Is.EqualTo(oldSave));
+                    Directory.Delete(save.SavePath + ".backup");
+                    save.VerifyReload(0);
+
+                    Invoke(controller, "ShowPrintingDetails", "card-025-en");
+                    yield return null;
+                    Assert.That(badge.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+                    Invoke(controller, "ShowPrintingDetails", "card-025-en");
+                    Assert.That(save.InventoryField<HashSet<string>>("UnseenPrintings"), Is.Empty);
+                    Assert.That(save.InventoryField<Dictionary<string, int>>("Cards")["card-025-en"], Is.EqualTo(2));
+                    save.VerifyReload(1);
+                }
+                finally
+                {
+                    catalogOverride.SetValue(null, previousCatalog);
+                }
+            }
+        }
+#endif
+
         [UnityTest]
         public IEnumerator DetailLanguageActions_SwitchOnlyInstalledPrintingWithoutChangingGlobalLanguages()
         {
@@ -722,4 +768,90 @@ namespace Gacha.Tests.PlayMode
             }
         }
     }
+
+#if UNITY_EDITOR
+    // The PlayMode assembly accesses the runtime singleton just as its scene tests access controllers.
+    internal sealed class IsolatedPlayerSave : IDisposable
+    {
+        private static readonly Type SaveService = Type.GetType("LocalSaveService, Gacha.Runtime.Core", true);
+        private static readonly Type InventoryType = Type.GetType("Inventory, Gacha.Runtime.Core", true);
+        private static readonly FieldInfo PathOverride = SaveService.GetField("DefaultPathOverride",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly FieldInfo AutomaticSaveEnabled = SaveService.GetField("automaticSaveEnabled",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        private readonly string root = Path.Combine(Path.GetTempPath(), "gacha-commit-" + Guid.NewGuid().ToString("N"));
+        private readonly object previousPath = PathOverride.GetValue(null);
+        private readonly object previousEnabled = AutomaticSaveEnabled.GetValue(null);
+        private GameObject ownedInventory;
+        private object previousData;
+        private Component inventory;
+
+        public string SavePath => Path.Combine(root, "save.json");
+        public string InventorySnapshot => Snapshot(InventoryType.GetProperty("Data").GetValue(inventory));
+
+        public T InventoryField<T>(string name)
+        {
+            object data = InventoryType.GetProperty("Data").GetValue(inventory);
+            return (T)data.GetType().GetField(name).GetValue(data);
+        }
+
+        public void Initialize()
+        {
+            Directory.CreateDirectory(root);
+            PathOverride.SetValue(null, SavePath);
+            File.WriteAllText(SavePath,
+                "{\"Version\":4,\"Gold\":7,\"Cards\":[{\"Id\":\"card-025-en\",\"Amount\":2}]," +
+                "\"UnseenPrintings\":[\"card-025-en\"]}");
+            inventory = (Component)InventoryType.GetProperty("Instance").GetValue(null);
+            if (inventory == null)
+            {
+                ownedInventory = new GameObject("Isolated player inventory");
+                inventory = ownedInventory.AddComponent(InventoryType);
+            }
+            previousData = InventoryType.GetProperty("Data").GetValue(inventory);
+            object result = Load();
+            Assert.That(Property(result, "CanSave"), Is.True);
+            InventoryType.GetMethod("ReplaceData").Invoke(inventory, new[] { Property(result, "Data") });
+        }
+
+        public void LockAfterFailedLoad()
+        {
+            byte[] baseline = File.ReadAllBytes(SavePath);
+            File.WriteAllText(SavePath, "{broken");
+            Assert.That(Property(Load(), "CanSave"), Is.False);
+            // Restoring the bytes alone must not authorize a gameplay commit during recovery.
+            File.WriteAllBytes(SavePath, baseline);
+        }
+
+        public void VerifyReload(long revision)
+        {
+            object result = Load();
+            Assert.That(Property(result, "CanSave"), Is.True);
+            Assert.That(Property(result, "Revision"), Is.EqualTo(revision));
+            Assert.That(Snapshot(Property(result, "Data")), Is.EqualTo(InventorySnapshot));
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (ownedInventory != null) UnityEngine.Object.DestroyImmediate(ownedInventory);
+                else if (inventory != null && previousData != null)
+                    InventoryType.GetMethod("ReplaceData").Invoke(inventory, new[] { previousData });
+            }
+            finally
+            {
+                PathOverride.SetValue(null, previousPath);
+                AutomaticSaveEnabled.SetValue(null, previousEnabled);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static object Load() => SaveService.GetMethod("LoadDetailed").Invoke(null, null);
+        private static object Property(object instance, string name) =>
+            instance.GetType().GetProperty(name).GetValue(instance);
+        private static string Snapshot(object data) =>
+            JsonUtility.ToJson(data.GetType().GetMethod("ToSnapshot").Invoke(data, null));
+    }
+#endif
 }
