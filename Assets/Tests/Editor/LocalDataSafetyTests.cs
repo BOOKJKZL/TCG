@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -152,6 +153,34 @@ public sealed class LocalSaveServiceTests
         Assert.That(restored.Data.Cards, Does.ContainKey("old-card"));
         Assert.That(restored.Data.Cards, Does.Not.ContainKey("new-card"));
         Assert.That(File.Exists(path + ".tmp"), Is.False);
+    }
+
+    [TestCase(LocalSaveWriteStage.TemporaryDurable, 1, "old")]
+    [TestCase(LocalSaveWriteStage.BackupCreated, 1, "old")]
+    [TestCase(LocalSaveWriteStage.ActiveReplaced, 2, "next")]
+    public void ColdLoad_RecoversLastPublishedRevision(LocalSaveWriteStage stage, long expectedRevision, string card)
+    {
+        string source = Path.Combine(root, "fixture.json");
+        LocalSaveService.SaveToPath(source, Data("old", 1));
+        LocalSaveService.SaveToPath(source, Data("next", 2));
+        byte[] old = File.ReadAllBytes(source + ".backup");
+        byte[] next = File.ReadAllBytes(source);
+        string path = Path.Combine(root, "cold.json");
+        if (stage != LocalSaveWriteStage.BackupCreated)
+            File.WriteAllBytes(path, stage == LocalSaveWriteStage.ActiveReplaced ? next : old);
+        if (stage != LocalSaveWriteStage.TemporaryDurable)
+            File.WriteAllBytes(path + ".backup", old);
+        if (stage != LocalSaveWriteStage.ActiveReplaced)
+            File.WriteAllBytes(path + ".tmp", next);
+
+        LocalSaveLoadResult result = LocalSaveService.LoadFromPath(path);
+        Assert.That(result.CanSave, Is.True);
+        Assert.That(result.Revision, Is.EqualTo(expectedRevision));
+        Assert.That(result.Data.Cards.Keys, Is.EquivalentTo(new[] { card }));
+        Assert.That(File.Exists(path + ".tmp"), Is.False);
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(expectedRevision == 2 ? next : old));
+        Assert.That(LocalSaveService.SaveToPath(path, Data("retry", 3)), Is.EqualTo(expectedRevision + 1));
+        Assert.That(LocalSaveService.LoadFromPath(path).Data.Cards["retry"], Is.EqualTo(3));
     }
 
     [Test]
@@ -310,6 +339,25 @@ public sealed class LocalDiagnosticLogStoreTests
 
         Assert.That(total, Is.LessThanOrEqualTo(700));
         Assert.That(Directory.GetFiles(root, "diagnostic-*.jsonl"), Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task Append_MultipleStoresSharingADirectoryPreserveEveryEntry()
+    {
+        const int writers = 4;
+        const int entries = 12;
+        Task[] tasks = Enumerable.Range(0, writers).Select(writer => Task.Run(() =>
+        {
+            var store = Store();
+            for (int i = 0; i < entries; i++)
+                store.Append("save", $"WRITER_{writer}_{i}", "fixture");
+        })).ToArray();
+        await Task.WhenAll(tasks);
+        string[] lines = Directory.GetFiles(root, "diagnostic-*.jsonl").SelectMany(File.ReadAllLines).ToArray();
+        Assert.That(lines.Length, Is.EqualTo(writers * entries));
+        for (int writer = 0; writer < writers; writer++)
+            for (int i = 0; i < entries; i++)
+                Assert.That(lines.Count(line => line.Contains($"\"WRITER_{writer}_{i}\"")), Is.EqualTo(1));
     }
 
     [Test]

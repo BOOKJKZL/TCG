@@ -206,11 +206,25 @@ public static class LocalSaveService
         InventoryData data,
         Action<LocalSaveWriteStage> afterStage)
     {
+        return SaveToPath(path, data, afterStage, false);
+    }
+
+    public static void CommitRecovery(InventoryData data)
+    {
+        SaveToPath(DefaultPath(), data, null, true);
+        automaticSaveEnabled = true;
+    }
+
+    private static long SaveToPath(
+        string path, InventoryData data, Action<LocalSaveWriteStage> afterStage, bool explicitRecovery)
+    {
         if (data == null) throw new ArgumentNullException(nameof(data));
         ValidatePath(path);
         string fullPath = Path.GetFullPath(path);
         LocalSaveLoadResult existing = LoadFromPath(fullPath);
-        if (!existing.CanSave)
+        if (!existing.CanSave && (!explicitRecovery ||
+            existing.DiagnosticCode == "SAVE_READ_IO_FAILED" ||
+            existing.DiagnosticCode == "SAVE_INTERRUPTED_RECOVERY_FAILED"))
         {
             throw new LocalSaveException(
                 "SAVE_OVERWRITE_BLOCKED",
@@ -256,8 +270,27 @@ public static class LocalSaveService
                 "The local save exceeds the safe size limit.");
         }
 
-        WriteAtomic(fullPath, envelopeJson, afterStage);
+        if (!existing.CanSave)
+        {
+            // Keep the unreadable inputs before an explicit recovery replaces either file.
+            WriteAtomic(fullPath, envelopeJson, stage =>
+            {
+                if (stage != LocalSaveWriteStage.TemporaryDurable) return;
+                ArchiveCorruptFile(fullPath);
+                ArchiveCorruptFile(fullPath + BackupSuffix);
+            });
+        }
+        else
+            WriteAtomic(fullPath, envelopeJson, afterStage);
         return revision;
+    }
+
+    private static void ArchiveCorruptFile(string path)
+    {
+        if (!File.Exists(path)) return;
+        string archive = path + CorruptSuffix;
+        if (File.Exists(archive)) archive += "." + Guid.NewGuid().ToString("N");
+        File.Copy(path, archive, false);
     }
 
     public static void ResumeAutomaticSaveAfterRecovery()

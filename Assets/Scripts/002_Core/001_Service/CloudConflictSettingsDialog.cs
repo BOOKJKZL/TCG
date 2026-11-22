@@ -245,7 +245,7 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
 
         var target = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
-            LocalSaveService.Save,
+            LocalSaveService.Commit,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
             null);
@@ -495,8 +495,9 @@ public sealed class CloudConflictSettingsDialog : MonoBehaviour
         {
             if (Inventory.Instance == null)
                 throw new InvalidOperationException("The player inventory is unavailable.");
-            Inventory.Instance.ReplaceData(CloudInventoryConflictCoordinator.Clone(inventory));
-            LocalSaveService.Save(Inventory.Instance.Data);
+            InventoryData selected = CloudInventoryConflictCoordinator.Clone(inventory);
+            LocalSaveService.Commit(selected);
+            Inventory.Instance.ReplaceData(selected);
         }
 
         public Task<bool> SaveCloudAsync(InventoryData inventory) =>

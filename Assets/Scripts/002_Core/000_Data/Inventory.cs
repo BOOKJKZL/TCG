@@ -20,7 +20,10 @@ public class InventoryData
                                (Cards != null && Cards.Count != 0) ||
                                (PacksOpened != null && PacksOpened.Count != 0) ||
                                (UnseenPrintings != null && UnseenPrintings.Count != 0) ||
-                               (OpeningHistory != null && OpeningHistory.Count != 0);
+                               (OpeningHistory != null && OpeningHistory.Count != 0) ||
+                               (ProductsOpenedByLanguage != null && ProductsOpenedByLanguage.Count != 0) ||
+                               (ProductsOpenedBySet != null && ProductsOpenedBySet.Count != 0) ||
+                               (CardsDrawnByRarity != null && CardsDrawnByRarity.Count != 0);
 
     public void Touch()
     {

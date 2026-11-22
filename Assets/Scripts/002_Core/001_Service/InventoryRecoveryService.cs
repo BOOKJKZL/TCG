@@ -13,6 +13,8 @@ public sealed class InventoryRecoveryException : Exception
 {
     public InventoryRecoveryException(string message) : base(message) { }
     public InventoryRecoveryException(string message, Exception innerException) : base(message, innerException) { }
+
+    internal bool TargetHandledRollback { get; set; }
 }
 
 public sealed class PlayerRecoveryState
@@ -156,6 +158,10 @@ public sealed class InventoryRecoveryService
             incoming.Preview.State.Inventory.Touch();
             target.Apply(incoming.Preview.State);
             return new InventoryRecoveryImportResult(incoming.Preview, Path.GetFullPath(backupPath));
+        }
+        catch (InventoryRecoveryException exception) when (exception.TargetHandledRollback)
+        {
+            throw;
         }
         catch (Exception applyException)
         {
@@ -464,11 +470,40 @@ public sealed class UnityPlayerRecoveryTarget : IPlayerRecoveryTarget
     {
         if (state == null) throw new ArgumentNullException(nameof(state));
         InventoryData nextInventory = InventoryData.FromSnapshot(state.Inventory.ToSnapshot());
+        var originalLanguages = new LanguagePreferences(languages.UiLanguageId, languages.RequestedContentLanguageId);
+        ExperienceSettings originalExperience = experience.Current;
+        bool experienceAttempted = false;
+        try
+        {
+            languages.ApplyPreferences(state.Languages, catalog);
+            experienceAttempted = true;
+            ApplyExperience(state.Experience);
+            // The explicit inventory commit can release the corruption lock. Commit it last.
+            saveInventory(nextInventory);
+        }
+        catch (Exception applyError)
+        {
+            var errors = new List<Exception> { applyError };
+            if (experienceAttempted)
+            {
+                try { ApplyExperience(originalExperience); }
+                catch (Exception rollbackError) { errors.Add(rollbackError); }
+            }
+            try { languages.ApplyPreferences(originalLanguages, catalog); }
+            catch (Exception rollbackError) { errors.Add(rollbackError); }
+
+            throw new InventoryRecoveryException(
+                errors.Count == 1 ? "Import failed. The previous preferences were restored."
+                    : "Import failed and preferences could not be fully restored. The pre-import backup remains available.",
+                errors.Count == 1 ? applyError : new AggregateException(errors))
+                { TargetHandledRollback = true };
+        }
         inventory.ReplaceData(nextInventory);
-        LocalSaveService.ResumeAutomaticSaveAfterRecovery();
-        saveInventory(nextInventory);
-        languages.ApplyPreferences(state.Languages, catalog);
-        ExperienceSettingsUpdateResult result = experience.Apply(state.Experience);
+    }
+
+    private void ApplyExperience(ExperienceSettings settings)
+    {
+        ExperienceSettingsUpdateResult result = experience.Apply(settings);
         if (!result.Succeeded)
             throw new InvalidOperationException(result.ErrorMessage);
     }

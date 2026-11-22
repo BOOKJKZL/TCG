@@ -145,42 +145,43 @@ public sealed class CloudInventoryConflictCoordinator
             return InventoryConflictResolutionResult.Failure("A cloud conflict choice is already being saved.");
 
         resolving = true;
-        Changed?.Invoke();
-        InventoryData original = Clone(target.CaptureLocal());
-        pendingLocal = Clone(original);
-        InventoryData resolved = Resolve(choice, pendingLocal, pendingCloud);
-        resolved.Touch();
-
+        InventoryData original = null;
         try
         {
+            Changed?.Invoke();
+            pendingLocal = Clone(target.CaptureLocal());
+            InventoryData resolved = Resolve(choice, pendingLocal, pendingCloud);
+            resolved.Touch();
+            original = pendingLocal;
             target.ApplyLocal(Clone(resolved));
             bool cloudSaved = await target.SaveCloudAsync(Clone(resolved));
             if (!cloudSaved)
                 throw new InvalidOperationException("The cloud save did not confirm the selected progress.");
 
             ClearPending(false);
-            resolving = false;
-            Changed?.Invoke();
             return InventoryConflictResolutionResult.Success(Clone(resolved));
         }
         catch (Exception exception)
         {
+            if (original == null)
+                return InventoryConflictResolutionResult.Failure(exception.Message);
             try
             {
                 target.ApplyLocal(original);
             }
             catch (Exception rollbackException)
             {
-                resolving = false;
-                Changed?.Invoke();
                 return InventoryConflictResolutionResult.Failure(
                     "Cloud resolution failed and local rollback also failed: " + rollbackException.Message);
             }
 
             pendingLocal = Clone(original);
+            return InventoryConflictResolutionResult.Failure(exception.Message);
+        }
+        finally
+        {
             resolving = false;
             Changed?.Invoke();
-            return InventoryConflictResolutionResult.Failure(exception.Message);
         }
     }
 
@@ -268,6 +269,7 @@ public static class SafeInventoryConflictMerger
             .OrderByDescending(entry => entry.OpenedAtUtcTicks)
             .ThenBy(entry => entry.TransactionId, StringComparer.Ordinal)
             .Take(MaximumHistoryEntries)
+            .Reverse()
             .Select(CloneHistory)
             .ToList();
         return merged;

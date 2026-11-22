@@ -921,7 +921,7 @@ public sealed class MainMenuBackController : MonoBehaviour
         }
         target = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
-            LocalSaveService.Save,
+            LocalSaveService.CommitRecovery,
             languages,
             experience,
             null);
@@ -1224,8 +1224,9 @@ public sealed class MainMenuBackController : MonoBehaviour
         {
             if (Inventory.Instance == null)
                 throw new InvalidOperationException("The player inventory is unavailable.");
-            Inventory.Instance.ReplaceData(CloudInventoryConflictCoordinator.Clone(inventory));
-            LocalSaveService.Save(Inventory.Instance.Data);
+            InventoryData selected = CloudInventoryConflictCoordinator.Clone(inventory);
+            LocalSaveService.Commit(selected);
+            Inventory.Instance.ReplaceData(selected);
         }
 
         public Task<bool> SaveCloudAsync(InventoryData inventory) =>

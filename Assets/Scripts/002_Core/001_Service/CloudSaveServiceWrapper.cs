@@ -126,19 +126,12 @@ public static class CloudSaveServiceWrapper
             var legacy = new InventoryData();
             if (results.TryGetValue(LegacyInventoryKey, out var inventoryItem))
             {
-                try
-                {
-                    legacy.Cards = inventoryItem.Value.GetAs<Dictionary<string, int>>() ??
-                                   new Dictionary<string, int>();
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogWarning($"Legacy cloud card data could not be migrated. {exception.Message}");
-                }
+                legacy.Cards = inventoryItem.Value.GetAs<Dictionary<string, int>>() ??
+                    throw new InvalidOperationException("The legacy cloud inventory is missing its card counts.");
             }
             if (results.TryGetValue(LegacyGoldKey, out var goldItem))
                 legacy.Gold = goldItem.Value.GetAs<int>();
-            return CloudInventoryLoadResult.Success(legacy);
+            return CloudInventoryLoadResult.Success(InventoryData.FromSnapshot(legacy.ToSnapshot()));
         }
         catch (Exception exception)
         {

@@ -7,6 +7,7 @@ public class GameBootloader : MonoBehaviour
     [SerializeField] private Inventory inventoryPrefab;
 
     private bool _cloudReady;
+    private bool _cloudReadSucceeded;
 
     public static bool IsReady { get; private set; }
     public static event Action Ready;
@@ -19,8 +20,7 @@ public class GameBootloader : MonoBehaviour
         // Local data is available immediately and is always the offline fallback.
         Inventory.Instance.ReplaceData(LocalSaveService.LoadDetailed().Data);
 
-        _cloudReady = await CloudSaveServiceWrapper.InitializeAsync();
-        if (_cloudReady)
+        if (await CloudSaveServiceWrapper.InitializeAsync())
         {
             CloudInventoryLoadResult cloudLoad = await CloudSaveServiceWrapper.LoadInventoryAsync();
             if (cloudLoad.Succeeded)
@@ -29,6 +29,7 @@ public class GameBootloader : MonoBehaviour
                 InventoryConflictPreparation preparation =
                     GameCloudConflictSession.Current.Prepare(Inventory.Instance.Data, cloudLoad.Data, cloudLoad.Found);
                 Inventory.Instance.ReplaceData(preparation.Selected);
+                _cloudReadSucceeded = true;
                 if (preparation.RequiresChoice)
                 {
                     // Keep the verified local save available for play, but do not
@@ -39,6 +40,7 @@ public class GameBootloader : MonoBehaviour
                 else
                 {
                     // Persist migrations and automatic no-conflict decisions.
+                    _cloudReady = true;
                     await SaveAsync();
                 }
             }
@@ -76,8 +78,8 @@ public class GameBootloader : MonoBehaviour
 
     private void OnCloudConflictChanged()
     {
-        if (!GameCloudConflictSession.Current.HasPending)
-            _cloudReady = CloudSaveServiceWrapper.IsReady;
+        _cloudReady = _cloudReadSucceeded && !GameCloudConflictSession.Current.HasPending &&
+                      CloudSaveServiceWrapper.IsReady;
     }
 
     private void OnApplicationQuit()

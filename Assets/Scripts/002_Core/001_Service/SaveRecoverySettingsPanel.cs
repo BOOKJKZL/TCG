@@ -262,7 +262,7 @@ public sealed class SaveRecoverySettingsPanel : MonoBehaviour
         }
         target = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
-            LocalSaveService.Save,
+            LocalSaveService.CommitRecovery,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
             null);

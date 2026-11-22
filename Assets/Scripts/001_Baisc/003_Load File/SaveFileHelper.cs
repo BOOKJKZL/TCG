@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -8,68 +6,61 @@ public static class SaveFileHelper
 {
     public static void WriteFile<T>(T data) where T : ScriptableObject
     {
-        string directoryPath = Path.Combine(Application.persistentDataPath, "SaveFile");
+        TryWriteFile(data);
+    }
 
+    public static bool TryWriteFile<T>(T data) where T : ScriptableObject
+    {
         try
         {
-            // Ensure directory exists
-            if (!Directory.Exists(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
-
-            string filePath = Path.Combine(directoryPath, typeof(T).Name + ".json");
-            string json = JsonUtility.ToJson(data);
-            File.WriteAllText(filePath, json);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Debug.LogError("UnauthorizedAccessException: " + ex.Message);
-            Debug.LogError("Permission denied. Make sure you have appropriate permissions.");
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            LocalSaveService.WriteAtomic(FilePath<T>(), JsonUtility.ToJson(data), null);
+            return true;
         }
         catch (Exception ex)
         {
-            Debug.LogError("Failed to write file: " + ex.Message);
+            Debug.LogError($"Could not save {typeof(T).Name}: {ex.Message}");
+            return false;
         }
     }
 
     public static T ReadFile<T>() where T : ScriptableObject
     {
-        string directoryPath = Path.Combine(Application.persistentDataPath, "SaveFile");
-        string filePath = Path.Combine(directoryPath, typeof(T).Name + ".json");
+        string path = FilePath<T>();
+        return ReadFromPath<T>(path) ?? ReadFromPath<T>(path + ".backup");
+    }
 
-        if (File.Exists(filePath))
+    private static T ReadFromPath<T>(string path) where T : ScriptableObject
+    {
+        if (!File.Exists(path)) return null;
+        T data = ScriptableObject.CreateInstance<T>();
+        try
         {
-            // Read the JSON data from file
-            string json = File.ReadAllText(filePath);
-
-            // Create an instance of T (ScriptableObject)
-            T loadedData = ScriptableObject.CreateInstance<T>();
-
-            // Deserialize JSON into the existing instance of T
-            JsonUtility.FromJsonOverwrite(json, loadedData);
-
-            return loadedData;
+            string json = File.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(json)) throw new InvalidDataException("The file is empty.");
+            JsonUtility.FromJsonOverwrite(json, data);
+            return data;
         }
-        else
+        catch (Exception ex)
         {
-            Debug.LogWarning("File not found: " + filePath);
-            return null; // Return default settings if no file exists
+            if (Application.isPlaying) UnityEngine.Object.Destroy(data);
+            else UnityEngine.Object.DestroyImmediate(data);
+            Debug.LogWarning($"Could not read {path}: {ex.Message}");
+            return null;
         }
     }
+
+    private static string FilePath<T>() =>
+        Path.Combine(Application.persistentDataPath, "SaveFile", typeof(T).Name + ".json");
 
     public static T ReadFileFirstTime<T>(T orignal) where T : ScriptableObject
     {
         T data = ReadFile<T>();
 
-        if (data != null)
-        {
-            return data;
-        }
-        else
-        {
-            WriteFile<T>(orignal);
-            return orignal;
-        }
+        if (data != null) return data;
+        string path = FilePath<T>();
+        if (!File.Exists(path) && !File.Exists(path + ".backup"))
+            WriteFile(orignal);
+        return orignal;
     }
 }

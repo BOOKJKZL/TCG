@@ -248,11 +248,13 @@ public class SettingManager : MonoBehaviour
 
     public void OnResetClick()
     {
-        settingData = Instantiate(resetSettingData);
-        SaveFileHelper.WriteFile(settingData);
-        //GameManager.Instance.levelData = Instantiate(resetLevelData);
-        //SaveFileHelper.WriteFile(GameManager.Instance.levelData);
-        // Quit the application
+        SettingData reset = Instantiate(resetSettingData);
+        if (!SaveFileHelper.TryWriteFile(reset))
+        {
+            Destroy(reset);
+            return;
+        }
+        settingData = reset;
         Application.Quit();
 
         // For testing in Unity Editor
@@ -271,7 +273,7 @@ public class SettingManager : MonoBehaviour
     public void CloseSetting()
     {
         GameManager.Instance.audioManager.PlayEffect("pause_click", 1);
-        SaveFileHelper.WriteFile(settingData);
+        if (!SaveFileHelper.TryWriteFile(settingData)) return;
         SettingPanelControl.Instance.DisableSettingPage();
         fade.StartFadeOut(() => {
             settingPage.SetActive(false);

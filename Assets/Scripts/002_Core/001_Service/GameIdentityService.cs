@@ -388,7 +388,7 @@ public sealed class UnityGameIdentityPlayerTarget : IGameIdentityPlayerTarget
 
         recoveryTarget = new UnityPlayerRecoveryTarget(
             Inventory.Instance,
-            LocalSaveService.Save,
+            LocalSaveService.Commit,
             ApplicationServices.Languages,
             ApplicationServices.ExperienceSettings,
             null);
