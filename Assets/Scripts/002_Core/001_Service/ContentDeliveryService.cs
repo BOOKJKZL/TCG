@@ -18,72 +18,65 @@ public interface IContentDeliveryService
 
 public sealed class AddressablesContentDeliveryService : IContentDeliveryService
 {
-    private bool _initialized;
+    private Task initialization;
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
-        if (_initialized)
-            return;
-
-        AsyncOperationHandle handle = Addressables.InitializeAsync();
-        await WaitForCompletionAsync(handle);
-        EnsureSucceeded(handle, "Addressables initialization");
-        Addressables.Release(handle);
-        _initialized = true;
+        if (initialization == null || initialization.IsFaulted || initialization.IsCanceled)
+            initialization = ReadAndReleaseAsync(Addressables.InitializeAsync(false), "Addressables initialization");
+        return initialization;
     }
 
     public async Task<long> GetDownloadSizeAsync(string label)
     {
         await InitializeAsync();
-        AsyncOperationHandle<long> handle = Addressables.GetDownloadSizeAsync(label);
-        await WaitForCompletionAsync(handle);
-        EnsureSucceeded(handle, $"Download size lookup for '{label}'");
-        long size = handle.Result;
-        Addressables.Release(handle);
-        return size;
+        return await ReadAndReleaseAsync(Addressables.GetDownloadSizeAsync(label), $"Download size lookup for '{label}'");
     }
 
     public async Task DownloadAsync(string label, IProgress<float> progress = null)
     {
         await InitializeAsync();
         AsyncOperationHandle handle = Addressables.DownloadDependenciesAsync(label, false);
-        while (!handle.IsDone)
+        try
         {
-            progress?.Report(handle.GetDownloadStatus().Percent);
-            await Task.Yield();
+            while (!handle.IsDone)
+            {
+                progress?.Report(handle.GetDownloadStatus().Percent);
+                await Task.Yield();
+            }
+            EnsureSucceeded(handle, $"Content download for '{label}'");
+            progress?.Report(1f);
         }
-
-        EnsureSucceeded(handle, $"Content download for '{label}'");
-        progress?.Report(1f);
-        Addressables.Release(handle);
+        finally
+        {
+            Addressables.Release(handle);
+        }
     }
 
     public async Task<bool> UpdateCatalogAsync()
     {
         await InitializeAsync();
-        AsyncOperationHandle<List<string>> checkHandle = Addressables.CheckForCatalogUpdates(false);
-        await WaitForCompletionAsync(checkHandle);
-        EnsureSucceeded(checkHandle, "Remote catalog check");
-
-        List<string> catalogs = checkHandle.Result;
+        List<string> catalogs = await ReadAndReleaseAsync(Addressables.CheckForCatalogUpdates(false), "Remote catalog check");
         if (catalogs == null || catalogs.Count == 0)
-        {
-            Addressables.Release(checkHandle);
             return false;
-        }
 
-        AsyncOperationHandle updateHandle = Addressables.UpdateCatalogs(catalogs, false);
-        await WaitForCompletionAsync(updateHandle);
-        EnsureSucceeded(updateHandle, "Remote catalog update");
-        Addressables.Release(updateHandle);
-        Addressables.Release(checkHandle);
+        await ReadAndReleaseAsync(Addressables.UpdateCatalogs(catalogs, false), "Remote catalog update");
         return true;
     }
 
-    private static async Task WaitForCompletionAsync(AsyncOperationHandle handle)
+    private static async Task<T> ReadAndReleaseAsync<T>(AsyncOperationHandle<T> handle, string operation)
     {
-        while (!handle.IsDone)
-            await Task.Yield();
+        try
+        {
+            while (!handle.IsDone)
+                await Task.Yield();
+            EnsureSucceeded(handle, operation);
+            return handle.Result;
+        }
+        finally
+        {
+            Addressables.Release(handle);
+        }
     }
 
     private static void EnsureSucceeded(AsyncOperationHandle handle, string operation)

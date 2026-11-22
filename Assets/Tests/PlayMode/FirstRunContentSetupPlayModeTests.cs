@@ -368,9 +368,7 @@ namespace Gacha.Tests.PlayMode
                     LocalizationSettings.SelectedLocale = locale;
                     body.style.fontSize = StyleKeyword.Null;
                     remote.Fail = true;
-                    scroll.ScrollTo(retry);
-                    yield return null;
-                    yield return null;
+                    yield return ScrollToPickableAction(scroll, retry, localeId);
                     int previousCalls = remote.LoadCalls;
                     SendTap(retry);
                     yield return null;
@@ -385,6 +383,7 @@ namespace Gacha.Tests.PlayMode
                             "Catalog unavailable; real retry/manage/offline actions; in-memory failed provider; locale=" + localeId, scroll);
 
                     remote.Fail = false;
+                    yield return ScrollToPickableAction(scroll, retry, localeId);
                     previousCalls = remote.LoadCalls;
                     SendTap(retry);
                     yield return null;
@@ -704,6 +703,22 @@ namespace Gacha.Tests.PlayMode
                     catch { return Array.Empty<Type>(); }
                 })
                 .First(type => type.FullName == "Gacha.Presentation.FirstRunContentSetupController");
+
+        private static IEnumerator ScrollToPickableAction(ScrollView scroll, VisualElement action, string locale)
+        {
+            // Localized text and font changes reflow the scroll content on the next panel update.
+            for (int frame = 0; frame < 10; frame++)
+            {
+                yield return null;
+                scroll.ScrollTo(action);
+                yield return null;
+                Vector2 center = action.worldBound.center;
+                VisualElement picked = action.panel.Pick(center);
+                if (scroll.contentViewport.worldBound.Contains(center) && (picked == action || action.Contains(picked)))
+                    yield break;
+            }
+            Assert.Fail("Could not reach " + action.name + " by scrolling in locale " + locale + ".");
+        }
 
         private static void SendTap(VisualElement control)
         {

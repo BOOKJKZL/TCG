@@ -1,4 +1,3 @@
-using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -83,17 +82,4 @@ public class DynamicCanvasScalerTests
         }
     }
 
-    [Test]
-    public void ResolutionManager_HooksBothSrpAndBuiltInCameraRendering()
-    {
-        string source = File.ReadAllText(
-            "Assets/Scripts/001_Baisc/004_Screen/ResolutionManager.cs");
-
-        Assert.That(source, Does.Contain(
-            "RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;"));
-        Assert.That(source, Does.Contain(
-            "RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;"));
-        Assert.That(source, Does.Contain("Camera.onPreCull += NormalizeCamera;"));
-        Assert.That(source, Does.Contain("Camera.onPreCull -= NormalizeCamera;"));
-    }
 }

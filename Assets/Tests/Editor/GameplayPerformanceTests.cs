@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Gacha.Application;
 using Gacha.Domain;
 using Gacha.Infrastructure.Content;
@@ -76,7 +77,7 @@ public class GameplayPerformanceTests
         Assert.That(retainedGrowth, Is.LessThan(32L * 1024L * 1024L),
             $"Retained managed memory grew by {retainedGrowth / 1024f / 1024f:0.00} MiB.");
         Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)),
-            $"Opening 500 packs took {stopwatch.Elapsed.TotalSeconds:0.00}s.");
+            $"Opening {inventory.TotalPacks} packs took {stopwatch.Elapsed.TotalSeconds:0.00}s.");
     }
 
     [Test]
@@ -88,7 +89,7 @@ public class GameplayPerformanceTests
         var inventory = new InventoryData();
         for (int index = 0; index < printingCount; index++)
         {
-            string id = $"printing-{index:D5}";
+            string id = $"印刷-{index:D5}";
             inventory.Cards[id] = index + 1;
             if ((index & 1) == 0)
                 inventory.UnseenPrintings.Add(id);
@@ -100,14 +101,16 @@ public class GameplayPerformanceTests
         InventorySnapshot snapshot = JsonUtility.FromJson<InventorySnapshot>(json);
         InventoryData restored = InventoryData.FromSnapshot(snapshot);
         stopwatch.Stop();
+        int jsonBytes = Encoding.UTF8.GetByteCount(json);
         TestContext.WriteLine(
-            $"InventoryRoundTrip printings={printingCount} jsonBytes={json.Length} " +
+            $"InventoryRoundTrip printings={printingCount} jsonBytes={jsonBytes} " +
             $"elapsed={stopwatch.Elapsed.TotalSeconds:0.000}s");
 
         Assert.That(restored.Cards, Has.Count.EqualTo(printingCount));
         Assert.That(restored.UnseenPrintings, Has.Count.EqualTo(printingCount / 2));
         Assert.That(restored.PacksOpened["product-soak"], Is.EqualTo(25000));
-        Assert.That(json.Length, Is.LessThan(1024 * 1024), "A 10k-card inventory should stay below 1 MiB.");
+        Assert.That(jsonBytes, Is.GreaterThan(json.Length), "The fixture must contain multibyte characters.");
+        Assert.That(jsonBytes, Is.LessThan(1024 * 1024), "A 10k-card inventory should stay below 1 MiB.");
         Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)),
             $"10k snapshot round-trip took {stopwatch.Elapsed.TotalSeconds:0.00}s.");
     }

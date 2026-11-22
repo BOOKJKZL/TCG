@@ -56,6 +56,14 @@ namespace Gacha.Tests.PlayMode
         private static bool CaptureRequested() => Environment.GetCommandLineArgs().Any(argument =>
             string.Equals(argument, "-coreNeutralSceneCapture", StringComparison.OrdinalIgnoreCase));
 
+        internal static string GetOutputDirectory()
+        {
+            string directoryOverride = Environment.GetEnvironmentVariable("GACHA_QA_CAPTURE_DIR");
+            return Path.GetFullPath(string.IsNullOrWhiteSpace(directoryOverride)
+                ? Path.Combine(UnityEngine.Application.dataPath, "../TestResults/UIRefresh")
+                : directoryOverride);
+        }
+
         private static CoreNeutralSceneCapture Begin(
             UIDocument document, VisualElement viewport, string fixture, bool capturePixels)
         {
@@ -151,8 +159,7 @@ namespace Gacha.Tests.PlayMode
                 Assert.That(colors.Count, Is.GreaterThan(32), screen + ": a uniform clear frame is not UI evidence.");
                 string language = LocalizationSettings.SelectedLocale?.Identifier.Code ?? "unknown";
                 string name = "scene-" + screen + "-" + language + "-720x1600-runtime-fixture-simulated-insets";
-                string directory = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath,
-                    "../TestResults/UIRefresh"));
+                string directory = GetOutputDirectory();
                 Directory.CreateDirectory(directory);
                 byte[] png = imageBuffer.EncodeToPNG();
                 Assert.That(png.Length, Is.GreaterThan(4096));

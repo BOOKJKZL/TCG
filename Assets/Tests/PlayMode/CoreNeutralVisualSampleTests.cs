@@ -405,7 +405,7 @@ namespace Gacha.Tests.PlayMode
                     Assert.That(productId == null ? blue : homeAccent, Is.GreaterThan(100),
                         "Expected visible pixels in the actual primary-action color, not only a page background.");
 
-                    string directory = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../TestResults/UIRefresh"));
+                    string directory = CoreNeutralSceneCapture.GetOutputDirectory();
                     Directory.CreateDirectory(directory);
                     string name = screen + "-" + locale + "-" + viewport.Width + "x" + viewport.Height +
                                   "-simulated-insets-" + viewport.Left + "-" + viewport.Top + "-" + viewport.Right + "-" + viewport.Bottom;

@@ -61,7 +61,8 @@ public sealed class LocalDiagnosticLogStore
     private readonly int maximumAgeDays;
     private readonly long maximumBytes;
     private readonly long segmentBytes;
-    private readonly object gate = new object();
+    // Runtime log capture and explicit diagnostics open separate stores for the same files.
+    private static readonly object gate = new object();
 
     public LocalDiagnosticLogStore(
         string rootDirectory,
